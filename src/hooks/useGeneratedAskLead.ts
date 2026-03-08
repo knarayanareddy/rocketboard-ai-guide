@@ -5,6 +5,7 @@ import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { sendAITask } from "@/lib/ai-client";
 import { buildGenerateAskLeadEnvelope } from "@/lib/envelope-builder";
+import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 export interface GeneratedAskLeadQuestion {
   id: string;
