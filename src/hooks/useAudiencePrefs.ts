@@ -6,6 +6,7 @@ import type { Audience, Depth } from "@/data/onboarding-data";
 
 export type GlossaryDensity = "low" | "standard" | "high";
 export type ExperienceLevel = "new" | "mid" | "senior";
+export type OutputLanguage = string;
 
 export interface LearnerProfile {
   learner_role: string | null;
