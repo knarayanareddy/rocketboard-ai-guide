@@ -883,6 +883,44 @@ export type Database = {
           },
         ]
       }
+      pending_invites: {
+        Row: {
+          accepted_at: string | null
+          access_level: string
+          created_at: string
+          email: string
+          id: string
+          invited_by: string
+          pack_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          access_level?: string
+          created_at?: string
+          email: string
+          id?: string
+          invited_by: string
+          pack_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          access_level?: string
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string
+          pack_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_invites_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -991,6 +1029,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_pending_invites: {
+        Args: { _email: string; _user_id: string }
+        Returns: number
+      }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }
         Returns: string
