@@ -4,10 +4,11 @@ import { ModuleCard } from "@/components/ModuleCard";
 import { ProgressChart } from "@/components/ProgressChart";
 import { StatsStrip } from "@/components/StatsStrip";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Rocket, Play } from "lucide-react";
+import { Rocket, Play, Package } from "lucide-react";
 import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
 import { useLearnerState } from "@/hooks/useLearnerState";
+import { usePack } from "@/hooks/usePack";
 
 const container = {
   hidden: { opacity: 0 },
@@ -26,6 +27,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { getModuleProgress, totalSectionsRead, totalSections, completedModules } = useProgress();
   const { lastOpenedModuleId } = useLearnerState();
+  const { currentPack } = usePack();
 
   const avgProgress = Math.round(
     modules.reduce((a, m) => a + getModuleProgress(m.id), 0) / modules.length
@@ -56,6 +58,17 @@ const Index = () => {
               Welcome to <span className="gradient-text">RocketBoard</span>
             </h1>
           </div>
+
+          {/* Current pack indicator */}
+          {currentPack && (
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Pack: <span className="font-medium text-foreground">{currentPack.title}</span>
+              </span>
+            </div>
+          )}
+
           <p className="text-muted-foreground max-w-xl">
             Your onboarding launchpad. Complete modules, take notes, pass quizzes, and get up to speed with the codebase, workflows, and infrastructure.
           </p>

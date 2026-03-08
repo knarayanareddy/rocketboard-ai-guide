@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePack } from "@/hooks/usePack";
 
 type Msg = { role: "user" | "assistant"; content: string };
 

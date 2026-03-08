@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { PackProvider } from "@/hooks/usePack";
 import Index from "./pages/Index";
 import Modules from "./pages/Modules";
 import ModuleView from "./pages/ModuleView";
@@ -12,6 +13,7 @@ import AuthPage from "./pages/AuthPage";
 import GlossaryPage from "./pages/GlossaryPage";
 import PathsPage from "./pages/PathsPage";
 import AskLeadPage from "./pages/AskLeadPage";
+import PacksPage from "./pages/PacksPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,23 +41,26 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/modules" element={<ProtectedRoute><Modules /></ProtectedRoute>} />
-            <Route path="/modules/:moduleId" element={<ProtectedRoute><ModuleView /></ProtectedRoute>} />
-            <Route path="/glossary" element={<ProtectedRoute><GlossaryPage /></ProtectedRoute>} />
-            <Route path="/paths" element={<ProtectedRoute><PathsPage /></ProtectedRoute>} />
-            <Route path="/ask-lead" element={<ProtectedRoute><AskLeadPage /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <PackProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
+              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/modules" element={<ProtectedRoute><Modules /></ProtectedRoute>} />
+              <Route path="/modules/:moduleId" element={<ProtectedRoute><ModuleView /></ProtectedRoute>} />
+              <Route path="/glossary" element={<ProtectedRoute><GlossaryPage /></ProtectedRoute>} />
+              <Route path="/paths" element={<ProtectedRoute><PathsPage /></ProtectedRoute>} />
+              <Route path="/ask-lead" element={<ProtectedRoute><AskLeadPage /></ProtectedRoute>} />
+              <Route path="/packs" element={<ProtectedRoute><PacksPage /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </PackProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
