@@ -381,6 +381,101 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── GENERATE QUIZ HANDLER ───
+async function handleGenerateQuiz(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const limits = envelope.limits || {};
+  const inputs = envelope.inputs || {};
+  const audience = context.audience_profile || {};
+  const spans = retrieval.evidence_spans || [];
+  const moduleKey = context.current_module_key || "unknown";
+  const trackKey = context.current_track_key || null;
+  const existingModule = inputs.existing_module;
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+
+  const moduleContext = existingModule
+    ? `\nModule: "${existingModule.title}" (${existingModule.module_key})\nDescription: ${existingModule.description || ""}\nSections: ${(existingModule.sections || []).map((s: any) => s.heading).join(", ")}\nKey takeaways: ${(existingModule.key_takeaways || []).join("; ")}`
+    : `\nModule key: ${moduleKey}`;
+
+  const systemPrompt = `You are RocketBoard AI Quiz Generator. Generate multiple-choice quiz questions that test comprehension of module content.
+
+TASK: Generate up to ${limits.max_quiz_questions || 5} quiz questions for module "${moduleKey}".
+${moduleContext}
+${packBlock}
+
+RULES:
+- Each question must have exactly 4 choices with unique IDs (e.g., "q1-a", "q1-b", etc.).
+- One choice must be marked as correct via correct_choice_id.
+- Include explanation_markdown grounded in evidence spans. Cite using [S1], [S2], etc.
+- Questions should test understanding, not memorization.
+- Adapt difficulty and language to audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+- Question IDs should be like "q1", "q2", etc.
+${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "generate_quiz",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "quiz": {
+    "module_key": "${moduleKey}",
+    "track_key": ${trackKey ? `"${trackKey}"` : "null"},
+    "audience": "${audience.audience || "technical"}",
+    "depth": "${audience.depth || "standard"}",
+    "questions": [{
+      "id": "q1",
+      "prompt": "question text",
+      "choices": [
+        { "id": "q1-a", "text": "choice text" },
+        { "id": "q1-b", "text": "choice text" },
+        { "id": "q1-c", "text": "choice text" },
+        { "id": "q1-d", "text": "choice text" }
+      ],
+      "correct_choice_id": "q1-a",
+      "explanation_markdown": "explanation with [S1] citations",
+      "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }]
+    }]
+  },
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Generate ${limits.max_quiz_questions || 5} quiz questions for the module "${moduleKey}" using the ${spans.length} evidence spans provided.`;
+
+  try {
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "generate_quiz",
+      request_id: requestId,
+      pack_id: pack.pack_id || null,
+      pack_version: pack.pack_version || 1,
+      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+      quiz: {
+        module_key: moduleKey,
+        track_key: trackKey,
+        audience: audience.audience || "technical",
+        depth: audience.depth || "standard",
+        questions: [],
+      },
+      warnings: ["AI response could not be parsed as JSON"],
+    });
+    parsed.type = "generate_quiz";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
