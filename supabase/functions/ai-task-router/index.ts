@@ -542,7 +542,7 @@ async function handleGenerateGlossary(envelope: any): Promise<Response> {
   }[density] || "Include common terms. Aim for 15-25 terms.";
 
   const systemPrompt = `You are RocketBoard AI Glossary Generator. Generate a pack-specific glossary of technical terms found in the evidence spans.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate a glossary for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
