@@ -358,6 +358,14 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground mb-4">
               Choose the language for AI-generated content and chat responses.
             </p>
+            {currentPack?.language_mode === "english" && (
+              <div className="flex items-start gap-2 bg-muted/50 border border-border rounded-lg p-3 mb-4">
+                <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground">
+                  This pack is configured for English only. Language preference will apply to other packs.
+                </p>
+              </div>
+            )}
             <Select
               value={outputLanguage}
               onValueChange={(val) => {

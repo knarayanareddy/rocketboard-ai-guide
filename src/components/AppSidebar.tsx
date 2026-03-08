@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -6,6 +7,7 @@ import { useRole } from "@/hooks/useRole";
 import { PackSelector } from "@/components/PackSelector";
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 import { usePack } from "@/hooks/usePack";
+import { toast } from "sonner";
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +29,19 @@ const roleBadgeColors: Record<string, string> = {
   read_only: "bg-muted text-muted-foreground border-border",
 };
 
+const LANG_OPTIONS = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "fr", label: "Français" },
+  { code: "de", label: "Deutsch" },
+  { code: "pt", label: "Português" },
+  { code: "ja", label: "日本語" },
+  { code: "zh", label: "中文" },
+  { code: "ko", label: "한국어" },
+  { code: "ar", label: "العربية" },
+  { code: "hi", label: "हिन्दी" },
+];
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -34,8 +49,22 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { packAccessLevel, accessLevelLabel, hasPackPermission } = useRole();
-  const { outputLanguage } = useAudiencePrefs();
-  const { currentPackId } = usePack();
+  const { outputLanguage, audience, depth, glossaryDensity, learnerRole, experienceLevel, mermaidEnabled, updatePrefs } = useAudiencePrefs();
+  const { currentPackId, currentPack } = usePack();
+  const [langOpen, setLangOpen] = useState(false);
+  const langRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!langOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) setLangOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [langOpen]);
+
+  const isEnglishOnly = currentPack?.language_mode === "english";
 
   // Build pack-scoped nav items dynamically
   const packPrefix = `/packs/${currentPackId}`;
@@ -53,6 +82,26 @@ export function AppSidebar() {
     { title: "Templates", url: "/templates", icon: Layout, minLevel: "admin" as const, end: false },
     { title: "Settings", url: "/settings", icon: Settings, minLevel: "read_only" as const, end: false },
   ];
+
+  const handleLanguageChange = (code: string) => {
+    if (isEnglishOnly) {
+      toast.info("This pack is configured for English only.");
+      setLangOpen(false);
+      return;
+    }
+    updatePrefs.mutate({
+      audience,
+      depth,
+      glossary_density: glossaryDensity,
+      learner_role: learnerRole,
+      experience_level: experienceLevel,
+      output_language: code,
+      mermaid_enabled: mermaidEnabled,
+    });
+    setLangOpen(false);
+    const label = LANG_OPTIONS.find(l => l.code === code)?.label || code;
+    toast.success(`Language changed to ${label}. New AI responses will use this language.`);
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -126,10 +175,28 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="flex items-center justify-between text-xs text-sidebar-foreground/30 font-mono">
             <span>v4.0 • RocketBoard</span>
-            <span className="flex items-center gap-1 text-sidebar-foreground/50">
-              <Globe className="w-3 h-3" />
-              {outputLanguage.toUpperCase()}
-            </span>
+            <div className="relative" ref={langRef}>
+              <button
+                onClick={() => setLangOpen(!langOpen)}
+                className="flex items-center gap-1 text-sidebar-foreground/50 hover:text-sidebar-accent-foreground transition-colors cursor-pointer"
+              >
+                <Globe className="w-3 h-3" />
+                {outputLanguage.toUpperCase()}
+              </button>
+              {langOpen && (
+                <div className="absolute bottom-full right-0 mb-1 w-36 bg-popover border border-border rounded-lg shadow-lg py-1 z-50">
+                  {LANG_OPTIONS.map(l => (
+                    <button
+                      key={l.code}
+                      onClick={() => handleLanguageChange(l.code)}
+                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-accent ${outputLanguage === l.code ? "text-primary font-medium" : "text-popover-foreground"}`}
+                    >
+                      {l.label} <span className="text-muted-foreground ml-1">({l.code.toUpperCase()})</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </SidebarFooter>
