@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      ask_lead_progress: {
+        Row: {
+          asked_at: string | null
+          id: string
+          is_asked: boolean
+          pack_id: string
+          question_id: string
+          user_id: string
+        }
+        Insert: {
+          asked_at?: string | null
+          id?: string
+          is_asked?: boolean
+          pack_id: string
+          question_id: string
+          user_id: string
+        }
+        Update: {
+          asked_at?: string | null
+          id?: string
+          is_asked?: boolean
+          pack_id?: string
+          question_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ask_lead_progress_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audience_preferences: {
         Row: {
           audience: string
@@ -86,6 +121,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "chat_messages_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_ask_lead: {
+        Row: {
+          created_at: string
+          id: string
+          pack_id: string
+          questions_data: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pack_id: string
+          questions_data?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pack_id?: string
+          questions_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_ask_lead_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
