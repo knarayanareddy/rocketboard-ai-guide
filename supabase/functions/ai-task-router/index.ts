@@ -629,6 +629,77 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── GENERATE ASK LEAD HANDLER ───
+async function handleGenerateAskLead(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const audience = context.audience_profile || {};
+  const spans = retrieval.evidence_spans || [];
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+
+  const systemPrompt = `You are RocketBoard AI Ask-Your-Lead Generator. Generate high-signal questions a new engineer should ask their team lead during their first 1:1s.
+
+TASK: Generate 10-15 questions for the "${pack.title || "unknown"}" pack.
+${packBlock}
+
+RULES:
+- Questions should be specific to THIS codebase/team, not generic career questions.
+- Each question must include "why_it_matters" explaining what the answer reveals.
+- Ground questions in evidence spans. Cite using [S1], [S2], etc.
+- If pack has tracks, assign track_key to relevant questions.
+- Audience: ${audience.audience || "technical"}.
+- Question IDs should be "al-1", "al-2", etc.
+- Cover categories: team dynamics, technical decisions, process/workflow, culture.
+${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "generate_ask_lead",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "questions": [
+    {
+      "id": "al-1",
+      "question": "string",
+      "why_it_matters": "string",
+      "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }],
+      "track_key": "string|null",
+      "audience": "${audience.audience || "technical"}"
+    }
+  ],
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Generate ask-your-lead questions for the "${pack.title || "unknown"}" pack using the ${spans.length} evidence spans provided.`;
+
+  try {
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "generate_ask_lead",
+      request_id: requestId,
+      pack_id: pack.pack_id || null,
+      pack_version: pack.pack_version || 1,
+      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+      questions: [],
+      warnings: ["AI response could not be parsed as JSON"],
+    });
+    parsed.type = "generate_ask_lead";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
