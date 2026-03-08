@@ -278,6 +278,32 @@ export default function SourcesPage() {
             </Dialog>
           </div>
 
+          {/* First Sync CTA */}
+          {showFirstSyncCTA && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Great! Your sources are indexed.</p>
+                      <p className="text-xs text-muted-foreground">Ready to create a learning plan?</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => navigate(`/packs/${packId || currentPackId}/plan`)}
+                    className="gap-2"
+                    size="sm"
+                  >
+                    Generate Plan <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Ingestion Status */}
           <div className="mb-6">
             <IngestionStatus />
