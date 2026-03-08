@@ -12,30 +12,32 @@ const REDACTION_PATTERNS = [
   // AWS Secret Keys
   /(?:aws_secret_access_key|aws_secret|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
   // Generic API keys/secrets
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret)['"]?\s*[:=]\s*['"][^'"]{20,}['"]/gi,
+  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
   // JWT tokens
   /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
   // Bearer tokens
   /Bearer\s+[A-Za-z0-9_\-.~+\/]{20,}/g,
-  // Connection strings
-  /(?:mongodb|postgres|mysql|redis):\/\/[^\s'"]+/gi,
-  // Private keys
-  /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/g,
-  // .env style secrets
-  /(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DATABASE_URL|DB_PASSWORD|AUTH_SECRET)\s*=\s*[^\s]{8,}/gi,
-  // GitHub PATs
-  /ghp_[A-Za-z0-9]{36}/g,
+  // Connection strings (expanded)
+  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
+  // Private keys (expanded)
+  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
+  // .env style secrets (expanded)
+  /^(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DB_PASS|API_KEY|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL|DB_PASSWORD)\s*=\s*\S+/gmi,
+  // GitHub tokens (expanded)
+  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
   /github_pat_[A-Za-z0-9_]{82}/g,
   // OpenAI-style keys
   /sk-[A-Za-z0-9]{32,}/g,
-  // Slack tokens
-  /xox[bprs]-[A-Za-z0-9\-]+/g,
+  // Slack tokens (expanded)
+  /xox[bpas]-[A-Za-z0-9-]{10,}/g,
   // Generic password patterns
   /(?:password|passwd|pwd)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
   // Stripe keys
   /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
   // SendGrid keys
   /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
+  // Generic long hex/base64 secrets
+  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
 ];
 
 const SUPPORTED_EXTENSIONS = new Set([

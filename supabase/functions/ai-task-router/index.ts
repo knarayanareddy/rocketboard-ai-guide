@@ -1460,7 +1460,11 @@ serve(async (req) => {
       return errorResponse(400, { error: "Missing task.type in envelope" });
     }
 
-    // Preprocess: validate inputs + redact spans
+    // Pack access authorization
+    const accessDenied = await checkPackAccess(userId, envelope);
+    if (accessDenied) return accessDenied;
+
+    // Preprocess: sanitize inputs + redact spans
     const preprocessed = preprocessEnvelope(envelope);
     if (preprocessed instanceof Response) return preprocessed;
     const { envelope: safeEnvelope, warnings: extraWarnings } = preprocessed;
