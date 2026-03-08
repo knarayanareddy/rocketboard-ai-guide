@@ -339,7 +339,7 @@ async function handleGenerateModule(envelope: any): Promise<Response> {
   const moduleRevision = inputs.module_revision || 1;
 
   const systemPrompt = `You are RocketBoard AI Module Generator. Your job is to generate comprehensive onboarding module content grounded in evidence spans.
-${buildLanguageBlock(context, pack)}
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
 TASK: Generate a complete module titled "${moduleTitle}" (key: ${moduleKey}).
 ${moduleDesc ? `Description: ${moduleDesc}` : ""}
 ${trackKey ? `Track: ${trackKey}` : ""}
