@@ -1,3 +1,6 @@
+import { toast } from "sonner";
+import { validateAIOutput } from "./schema-validator";
+
 const AI_TASK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-task-router`;
 
 export class AITaskError extends Error {
@@ -13,6 +16,8 @@ export class AITaskError extends Error {
 }
 
 export async function sendAITask(envelope: object): Promise<any> {
+  const taskType = (envelope as any)?.task?.type || "unknown";
+
   const resp = await fetch(AI_TASK_URL, {
     method: "POST",
     headers: {
@@ -33,6 +38,33 @@ export async function sendAITask(envelope: object): Promise<any> {
   }
 
   const data = await resp.json();
+
+  // Validate the AI output against its schema
+  const validation = validateAIOutput(taskType, data);
+
+  if (validation.warnings.length > 0) {
+    console.warn(`[AI Output] Warnings for "${taskType}":`, validation.warnings);
+  }
+
+  if (!validation.valid) {
+    console.error(`[AI Output] Validation failed for "${taskType}":`, validation.errors);
+
+    if (data.type === "error") {
+      throw new AITaskError(
+        data.message || "AI task error",
+        data.error_code || "task_error",
+        data.request_id || ""
+      );
+    }
+
+    // Malformed non-error response
+    toast.error("AI response was malformed. Please try again.");
+    throw new AITaskError(
+      `AI output validation failed: ${validation.errors.join("; ")}`,
+      "invalid_output",
+      data.request_id || ""
+    );
+  }
 
   if (data.type === "error") {
     throw new AITaskError(
