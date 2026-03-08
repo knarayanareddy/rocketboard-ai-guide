@@ -1,0 +1,306 @@
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useRole, PackAccessLevel } from "@/hooks/useRole";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { ProtectedAction } from "@/components/ProtectedAction";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Users, UserPlus, Shield, Trash2, Crown, ShieldCheck, Pen, BookOpen, Eye } from "lucide-react";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+
+const ACCESS_LEVELS: { value: PackAccessLevel; label: string; icon: typeof Crown }[] = [
+  { value: "owner", label: "Owner", icon: Crown },
+  { value: "admin", label: "Admin", icon: ShieldCheck },
+  { value: "author", label: "Author", icon: Pen },
+  { value: "learner", label: "Learner", icon: BookOpen },
+  { value: "read_only", label: "Read Only", icon: Eye },
+];
+
+export default function PackMembersPage() {
+  const { packId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { hasPackPermission } = useRole();
+  const queryClient = useQueryClient();
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLevel, setInviteLevel] = useState<PackAccessLevel>("learner");
+
+  const { data: members = [], isLoading } = useQuery({
+    queryKey: ["pack_members_list", packId],
+    queryFn: async () => {
+      if (!packId) return [];
+      const { data, error } = await supabase
+        .from("pack_members")
+        .select("*")
+        .eq("pack_id", packId)
+        .order("joined_at", { ascending: true });
+      if (error) throw error;
+
+      // Fetch profiles for display names
+      const userIds = data.map((m) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .in("user_id", userIds);
+
+      return data.map((m) => ({
+        ...m,
+        display_name: profiles?.find((p) => p.user_id === m.user_id)?.display_name ?? "Unknown",
+      }));
+    },
+    enabled: !!packId,
+  });
+
+  const { data: pack } = useQuery({
+    queryKey: ["pack_detail", packId],
+    queryFn: async () => {
+      if (!packId) return null;
+      const { data, error } = await supabase
+        .from("packs")
+        .select("*")
+        .eq("id", packId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!packId,
+  });
+
+  const updateAccessLevel = useMutation({
+    mutationFn: async ({ memberId, accessLevel }: { memberId: string; accessLevel: PackAccessLevel }) => {
+      const { error } = await supabase
+        .from("pack_members")
+        .update({ access_level: accessLevel })
+        .eq("id", memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pack_members_list", packId] });
+      toast.success("Access level updated");
+    },
+    onError: () => toast.error("Failed to update access level"),
+  });
+
+  const removeMember = useMutation({
+    mutationFn: async (memberId: string) => {
+      const { error } = await supabase
+        .from("pack_members")
+        .delete()
+        .eq("id", memberId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pack_members_list", packId] });
+      toast.success("Member removed");
+    },
+    onError: () => toast.error("Failed to remove member"),
+  });
+
+  const inviteMember = useMutation({
+    mutationFn: async () => {
+      if (!packId || !inviteEmail.trim()) return;
+
+      // Look up user by email via profiles (display_name might be email)
+      // We need to find the user_id — check profiles where display_name = email
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, display_name")
+        .ilike("display_name", inviteEmail.trim());
+
+      if (!profiles || profiles.length === 0) {
+        throw new Error("No user found with that email/name. They must sign up first.");
+      }
+
+      const targetUserId = profiles[0].user_id;
+
+      // Check if already a member
+      const { data: existing } = await supabase
+        .from("pack_members")
+        .select("id")
+        .eq("pack_id", packId)
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error("User is already a member of this pack.");
+      }
+
+      const { error } = await supabase.from("pack_members").insert({
+        pack_id: packId,
+        user_id: targetUserId,
+        access_level: inviteLevel,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pack_members_list", packId] });
+      setInviteEmail("");
+      toast.success("Member invited successfully");
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to invite member"),
+  });
+
+  if (!hasPackPermission("admin")) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64 text-muted-foreground">
+          You don't have permission to manage members.
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="max-w-4xl mx-auto">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+          <button
+            onClick={() => navigate("/packs")}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Packs
+          </button>
+
+          <div className="flex items-center gap-3 mb-6">
+            <Shield className="w-6 h-6 text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Manage Members</h1>
+              {pack && (
+                <p className="text-sm text-muted-foreground">{pack.title}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Invite Form */}
+          <ProtectedAction requiredLevel="admin">
+            <div className="bg-card border border-border rounded-xl p-5 mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <UserPlus className="w-4 h-4 text-primary" />
+                <h2 className="font-semibold text-foreground">Invite Member</h2>
+              </div>
+              <div className="flex gap-3">
+                <Input
+                  placeholder="User display name or email..."
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="flex-1"
+                />
+                <Select value={inviteLevel} onValueChange={(v) => setInviteLevel(v as PackAccessLevel)}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCESS_LEVELS.map((l) => (
+                      <SelectItem key={l.value} value={l.value}>
+                        {l.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => inviteMember.mutate()}
+                  disabled={!inviteEmail.trim() || inviteMember.isPending}
+                >
+                  Invite
+                </Button>
+              </div>
+            </div>
+          </ProtectedAction>
+
+          {/* Members List */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
+              <Users className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-foreground">Members ({members.length})</h2>
+            </div>
+
+            {isLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
+              </div>
+            ) : members.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">
+                No members yet.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {members.map((member) => {
+                  const levelInfo = ACCESS_LEVELS.find((l) => l.value === member.access_level) ?? ACCESS_LEVELS[3];
+                  const LevelIcon = levelInfo.icon;
+                  const isCurrentUser = member.user_id === user?.id;
+
+                  return (
+                    <div key={member.id} className="flex items-center justify-between px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <LevelIcon className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {member.display_name}
+                            {isCurrentUser && (
+                              <span className="text-xs text-muted-foreground ml-2">(you)</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground capitalize">{levelInfo.label}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <ProtectedAction requiredLevel="admin">
+                          <Select
+                            value={member.access_level}
+                            onValueChange={(v) =>
+                              updateAccessLevel.mutate({ memberId: member.id, accessLevel: v as PackAccessLevel })
+                            }
+                            disabled={isCurrentUser}
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ACCESS_LEVELS.map((l) => (
+                                <SelectItem key={l.value} value={l.value}>
+                                  {l.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </ProtectedAction>
+
+                        <ProtectedAction requiredLevel="admin">
+                          {!isCurrentUser && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeMember.mutate(member.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </ProtectedAction>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
+    </DashboardLayout>
+  );
+}
