@@ -594,6 +594,10 @@ export default function ModuleView() {
                       generatedQuiz?.quiz_data?.questions?.length || 0,
                       effectiveLimits,
                     )}
+                    validationResult={(() => {
+                      const raw = generatedMod?.module_data;
+                      return raw ? validateAIOutput("generate_module", raw) : null;
+                    })()}
                     className="mt-4"
                   />
                 )}
