@@ -653,6 +653,7 @@ serve(async (req) => {
       case "generate_glossary":
         return await handleGenerateGlossary(envelope);
       case "generate_paths":
+        return await handleGeneratePaths(envelope);
       case "generate_ask_lead":
       case "simplify_section":
       case "refine_module":
