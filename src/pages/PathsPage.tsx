@@ -8,6 +8,7 @@ import { useGeneratedPaths, GeneratedPathStep } from "@/hooks/useGeneratedPaths"
 import { usePathProgress } from "@/hooks/usePathProgress";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
+import { usePackTracks } from "@/hooks/usePackTracks";
 import { AIError } from "@/lib/ai-errors";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, Circle, Clock, Rocket, Calendar, Sparkles, RotateCcw, Loader2, Filter } from "lucide-react";
