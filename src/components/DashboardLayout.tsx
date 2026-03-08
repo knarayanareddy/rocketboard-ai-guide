@@ -1,6 +1,13 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MissionControlChat } from "@/components/MissionControlChat";
+import { usePackFromUrl } from "@/hooks/usePack";
+
+function PackUrlSync() {
+  // Auto-sync pack context from URL params when inside pack-scoped routes
+  usePackFromUrl();
+  return null;
+}
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +23,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             </div>
           </header>
           <main className="flex-1 overflow-auto p-6">
+            <PackUrlSync />
             {children}
           </main>
         </div>
