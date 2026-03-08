@@ -56,7 +56,7 @@ export function PackProvider({ children }: { children: ReactNode }) {
         await supabase.from("pack_members").insert({
           user_id: user.id,
           pack_id: DEFAULT_PACK_ID,
-          role: "learner",
+          access_level: "learner",
         });
       }
 

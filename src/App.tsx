@@ -14,6 +14,7 @@ import GlossaryPage from "./pages/GlossaryPage";
 import PathsPage from "./pages/PathsPage";
 import AskLeadPage from "./pages/AskLeadPage";
 import PacksPage from "./pages/PacksPage";
+import PackMembersPage from "./pages/PackMembersPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,7 @@ const App = () => (
               <Route path="/paths" element={<ProtectedRoute><PathsPage /></ProtectedRoute>} />
               <Route path="/ask-lead" element={<ProtectedRoute><AskLeadPage /></ProtectedRoute>} />
               <Route path="/packs" element={<ProtectedRoute><PacksPage /></ProtectedRoute>} />
+              <Route path="/packs/:packId/members" element={<ProtectedRoute><PackMembersPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

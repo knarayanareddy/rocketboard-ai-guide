@@ -8,7 +8,7 @@ interface SectionViewerProps {
   section: Section;
   index: number;
   isRead: boolean;
-  onMarkRead: () => void;
+  onMarkRead?: () => void;
   savedNote?: string;
   onSaveNote?: (content: string) => void;
   onDeleteNote?: () => void;
@@ -33,17 +33,19 @@ export function SectionViewer({ section, index, isRead, onMarkRead, savedNote = 
           </span>
           <h3 className="font-semibold text-card-foreground">{section.title}</h3>
         </div>
-        <button
-          onClick={onMarkRead}
-          className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
-            isRead
-              ? "bg-primary/15 text-primary"
-              : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
-          }`}
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          {isRead ? "Read" : "Mark as read"}
-        </button>
+        {onMarkRead && (
+          <button
+            onClick={onMarkRead}
+            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
+              isRead
+                ? "bg-primary/15 text-primary"
+                : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {isRead ? "Read" : "Mark as read"}
+          </button>
+        )}
       </div>
 
       {/* Learning objectives */}

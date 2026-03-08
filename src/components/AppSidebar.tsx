@@ -1,8 +1,8 @@
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { usePack } from "@/hooks/usePack";
+import { useRole } from "@/hooks/useRole";
 import { PackSelector } from "@/components/PackSelector";
 import {
   Sidebar,
@@ -18,20 +18,29 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: BarChart3 },
-  { title: "Modules", url: "/modules", icon: BookOpen },
-  { title: "Packs", url: "/packs", icon: Package },
-  { title: "Glossary", url: "/glossary", icon: BookText },
-  { title: "Paths", url: "/paths", icon: Route },
-  { title: "Ask Your Lead", url: "/ask-lead", icon: MessageSquareMore },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Dashboard", url: "/", icon: BarChart3, minLevel: "read_only" as const },
+  { title: "Modules", url: "/modules", icon: BookOpen, minLevel: "read_only" as const },
+  { title: "Packs", url: "/packs", icon: Package, minLevel: "read_only" as const },
+  { title: "Glossary", url: "/glossary", icon: BookText, minLevel: "read_only" as const },
+  { title: "Paths", url: "/paths", icon: Route, minLevel: "read_only" as const },
+  { title: "Ask Your Lead", url: "/ask-lead", icon: MessageSquareMore, minLevel: "read_only" as const },
+  { title: "Settings", url: "/settings", icon: Settings, minLevel: "admin" as const },
 ];
+
+const roleBadgeColors: Record<string, string> = {
+  owner: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  admin: "bg-red-500/15 text-red-400 border-red-500/30",
+  author: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  learner: "bg-green-500/15 text-green-400 border-green-500/30",
+  read_only: "bg-muted text-muted-foreground border-border",
+};
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { packAccessLevel, accessLevelLabel, hasPackPermission } = useRole();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -58,7 +67,9 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {navItems
+                .filter((item) => hasPackPermission(item.minLevel))
+                .map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -83,8 +94,14 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4 space-y-3">
         {!collapsed && user && (
-          <div className="text-xs text-sidebar-foreground/60 truncate">
-            {user.email}
+          <div className="space-y-1">
+            <div className="text-xs text-sidebar-foreground/60 truncate">
+              {user.email}
+            </div>
+            <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${roleBadgeColors[packAccessLevel] ?? roleBadgeColors.read_only}`}>
+              <Shield className="w-2.5 h-2.5" />
+              {accessLevelLabel(packAccessLevel)}
+            </span>
           </div>
         )}
         <button
