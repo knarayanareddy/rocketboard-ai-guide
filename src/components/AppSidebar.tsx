@@ -1,7 +1,9 @@
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { usePack } from "@/hooks/usePack";
+import { PackSelector } from "@/components/PackSelector";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +20,7 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
   { title: "Modules", url: "/modules", icon: BookOpen },
+  { title: "Packs", url: "/packs", icon: Package },
   { title: "Glossary", url: "/glossary", icon: BookText },
   { title: "Paths", url: "/paths", icon: Route },
   { title: "Ask Your Lead", url: "/ask-lead", icon: MessageSquareMore },
@@ -41,6 +44,11 @@ export function AppSidebar() {
             RocketBoard
           </span>
         )}
+      </div>
+
+      {/* Pack Selector */}
+      <div className="px-3 pb-3">
+        <PackSelector collapsed={collapsed} />
       </div>
 
       <SidebarContent>

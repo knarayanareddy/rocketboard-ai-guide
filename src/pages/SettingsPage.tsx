@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
+import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; desc: string }[] = [
@@ -25,6 +26,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { audience, depth, updatePrefs } = useAudiencePrefs();
+  const { currentPackId } = usePack();
 
   const handleResetProgress = async () => {
     if (!user) return;

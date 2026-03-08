@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePack } from "@/hooks/usePack";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -95,17 +96,19 @@ async function streamChat({
   onDone();
 }
 
-async function saveMessage(userId: string, moduleId: string, role: string, content: string) {
+async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string) {
   await supabase.from("chat_messages").insert({
     user_id: userId,
     module_id: moduleId,
     role,
     content,
+    pack_id: packId || null,
   });
 }
 
 export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
   const { user } = useAuth();
+  const { currentPackId } = usePack();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -166,7 +169,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
     setIsLoading(true);
 
     // Save user message
-    if (user) saveMessage(user.id, moduleId, "user", text);
+    if (user) saveMessage(user.id, moduleId, "user", text, currentPackId);
 
     let soFar = "";
     const controller = new AbortController();
@@ -192,7 +195,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
         onDone: () => {
           setIsLoading(false);
           // Save completed assistant message
-          if (user && soFar) saveMessage(user.id, moduleId, "assistant", soFar);
+          if (user && soFar) saveMessage(user.id, moduleId, "assistant", soFar, currentPackId);
         },
         signal: controller.signal,
       });

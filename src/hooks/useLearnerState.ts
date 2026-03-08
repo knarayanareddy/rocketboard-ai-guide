@@ -1,19 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePack } from "@/hooks/usePack";
 
 export function useLearnerState() {
   const { user } = useAuth();
+  const { currentPackId } = usePack();
   const queryClient = useQueryClient();
 
   const { data: learnerState } = useQuery({
-    queryKey: ["learner_state", user?.id],
+    queryKey: ["learner_state", user?.id, currentPackId],
     queryFn: async () => {
       if (!user) return null;
       const { data, error } = await supabase
         .from("learner_state")
         .select("*")
         .eq("user_id", user.id)
+        .or(`pack_id.eq.${currentPackId},pack_id.is.null`)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -29,6 +32,7 @@ export function useLearnerState() {
           user_id: user.id,
           last_opened_module_id: moduleId,
           last_opened_track_key: trackKey ?? null,
+          pack_id: currentPackId,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id" }
@@ -36,7 +40,7 @@ export function useLearnerState() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["learner_state", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["learner_state", user?.id, currentPackId] });
     },
   });
 
