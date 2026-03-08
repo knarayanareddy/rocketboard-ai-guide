@@ -2,13 +2,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { MessageCircle, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
-import { sendAITask } from "@/lib/ai-client";
+import { sendAITask, AIError } from "@/lib/ai-client";
 import { buildChatEnvelope } from "@/lib/envelope-builder";
 import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
 
@@ -73,6 +74,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
+  const [lastError, setLastError] = useState<AIError | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -103,19 +105,21 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
     setMessages([]);
     setHistoryLoaded(false);
     setLastResponse(null);
+    setLastError(null);
   }, [moduleId]);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [messages, lastResponse, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [messages, lastResponse, lastError, scrollToBottom]);
 
   const clearHistory = async () => {
     if (!user) return;
     await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", moduleId);
     setMessages([]);
     setLastResponse(null);
+    setLastError(null);
     toast.success("Chat history cleared");
   };
 
@@ -129,14 +133,13 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
     setMessages(allMessages);
     setIsLoading(true);
     setLastResponse(null);
+    setLastError(null);
 
     if (user) saveMessage(user.id, moduleId, "user", text, currentPackId);
 
     try {
-      // Retrieve evidence spans
       const spans = currentPackId ? await fetchEvidenceSpans(currentPackId, text) : [];
 
-      // Build envelope
       const envelope = buildChatEnvelope({
         auth: {
           user_id: user?.id || null,
@@ -165,7 +168,14 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
 
       if (user) saveMessage(user.id, moduleId, "assistant", responseMarkdown, currentPackId);
     } catch (e: any) {
-      toast.error(e.message || "Failed to get response");
+      if (e instanceof AIError) {
+        setLastError(e);
+      } else {
+        setLastError(new (await import("@/lib/ai-errors")).AIError({
+          code: "network_error",
+          message: e.message || "Failed to get response",
+        }));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -214,7 +224,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
 
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 && historyLoaded && (
+              {messages.length === 0 && historyLoaded && !lastError && (
                 <div className="text-center py-8">
                   <Bot className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">
@@ -280,10 +290,16 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                 </div>
               )}
 
+              {/* AI Error inline */}
+              {lastError && !isLoading && (
+                <div className="ml-8">
+                  <AIErrorDisplay error={lastError} compact onSearchQuery={(q) => setInput(q)} />
+                </div>
+              )}
+
               {/* Structured response extras */}
-              {lastResponse && !isLoading && (
+              {lastResponse && !isLoading && !lastError && (
                 <div className="space-y-2 ml-8">
-                  {/* Citation badges */}
                   {lastResponse.referenced_spans && lastResponse.referenced_spans.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {lastResponse.referenced_spans.map((span) => (
@@ -299,7 +315,6 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                     </div>
                   )}
 
-                  {/* Unverified claims */}
                   {lastResponse.unverified_claims && lastResponse.unverified_claims.length > 0 && (
                     <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-300">
                       <div className="flex items-center gap-1 font-medium mb-1">
@@ -314,7 +329,6 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                     </div>
                   )}
 
-                  {/* Contradictions */}
                   {lastResponse.contradictions && lastResponse.contradictions.length > 0 && (
                     <div className="space-y-2">
                       {lastResponse.contradictions.map((c: any, i: number) => (
