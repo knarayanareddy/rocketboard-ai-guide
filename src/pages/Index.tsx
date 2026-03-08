@@ -435,7 +435,7 @@ const Index = () => {
         {modulesLoading ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground">Loading modules...</div>
         ) : (
-          <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
             {useGenerated
               ? generatedModules.map((mod, i) => (
                   <GeneratedModuleCard

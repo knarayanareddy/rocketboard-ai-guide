@@ -496,7 +496,7 @@ export default function ModuleView() {
               <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>
-              <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card" disabled={!canInteract}>
+              <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card min-h-[44px]" disabled={!canInteract}>
                 <BrainCircuit className="w-4 h-4" /> Quiz
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
               </TabsTrigger>
