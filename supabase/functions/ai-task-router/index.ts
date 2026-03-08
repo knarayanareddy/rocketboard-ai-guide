@@ -36,17 +36,18 @@ setInterval(() => {
 const REDACTION_PATTERNS = [
   /AKIA[0-9A-Z]{16}/g,
   /(?:aws_secret_access_key|aws_secret|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret)['"]?\s*[:=]\s*['"][^'"]{20,}['"]/gi,
+  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
   /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
   /Bearer\s+[A-Za-z0-9_\-.~+\/]{20,}/g,
-  /(?:mongodb|postgres|mysql|redis):\/\/[^\s'"]+/gi,
-  /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/g,
-  /(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DATABASE_URL|DB_PASSWORD|AUTH_SECRET)\s*=\s*[^\s]{8,}/gi,
-  /ghp_[A-Za-z0-9]{36}/g,
+  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
+  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
+  /^(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DB_PASS|API_KEY|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL|DB_PASSWORD)\s*=\s*\S+/gmi,
+  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
   /sk-[A-Za-z0-9]{32,}/g,
-  /xox[bprs]-[A-Za-z0-9\-]+/g,
+  /xox[bpas]-[A-Za-z0-9-]{10,}/g,
   /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
   /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
+  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
 ];
 
 function redactText(text: string): { text: string; wasRedacted: boolean } {
@@ -75,30 +76,56 @@ function redactSpans(spans: any[]): { spans: any[]; warnings: string[] } {
   return { spans: redacted, warnings };
 }
 
-// ─── INPUT VALIDATION ───
-function validateInputLimits(envelope: any): string | null {
+// ─── INPUT SANITIZATION (graceful truncation) ───
+function sanitizeInputs(envelope: any): { warnings: string[] } {
+  const warnings: string[] = [];
+
+  // a. author_instruction ≤ 2000 chars — hard reject
   const authorInstruction = envelope.context?.author_instruction;
   if (authorInstruction && authorInstruction.length > 2000) {
-    return "author_instruction exceeds maximum length of 2000 characters.";
+    // This is a hard limit — reject
+    throw { hard_error: true, code: "invalid_input", message: "author_instruction exceeds maximum length of 2000 characters." };
   }
 
+  // b/c. evidence_spans: truncate to 50, then trim total text to 100k
   const spans = envelope.retrieval?.evidence_spans;
   if (spans) {
     if (spans.length > 50) {
-      return `Too many evidence_spans: ${spans.length} (max 50).`;
+      envelope.retrieval.evidence_spans = spans.slice(0, 50);
+      warnings.push(`Evidence truncated: ${spans.length} spans reduced to 50.`);
     }
-    const totalText = spans.reduce((acc: number, s: any) => acc + (s.text?.length || 0), 0);
-    if (totalText > 50000) {
-      return `Total evidence_spans text exceeds 50000 characters (got ${totalText}).`;
+    let totalText = 0;
+    const kept: any[] = [];
+    for (const s of envelope.retrieval.evidence_spans) {
+      const len = s.text?.length || 0;
+      if (totalText + len > 100000) {
+        warnings.push(`Evidence truncated: total text exceeded 100,000 characters. ${envelope.retrieval.evidence_spans.length - kept.length} span(s) dropped.`);
+        break;
+      }
+      totalText += len;
+      kept.push(s);
     }
+    envelope.retrieval.evidence_spans = kept;
   }
 
+  // d. conversation messages: keep last 50
   const messages = envelope.context?.conversation?.messages;
-  if (messages && messages.length > 100) {
-    return `Too many conversation messages: ${messages.length} (max 100).`;
+  if (messages && messages.length > 50) {
+    const original = messages.length;
+    envelope.context.conversation.messages = messages.slice(-50);
+    warnings.push(`Conversation truncated: ${original} messages reduced to last 50.`);
   }
 
-  return null;
+  // e. Per-message content ≤ 5000 chars
+  if (envelope.context?.conversation?.messages) {
+    for (const msg of envelope.context.conversation.messages) {
+      if (msg.content && msg.content.length > 5000) {
+        msg.content = msg.content.slice(0, 5000) + "...[truncated]";
+      }
+    }
+  }
+
+  return { warnings };
 }
 
 // ─── SECURITY PROMPT BLOCK ───
@@ -273,15 +300,52 @@ async function authenticateRequest(req: Request): Promise<{ userId: string } | R
   return { userId: data.claims.sub as string };
 }
 
-// ─── ENVELOPE PREPROCESSOR (redaction + validation) ───
+// ─── PACK ACCESS AUTHORIZATION ───
+const AUTHOR_TASKS = new Set([
+  "generate_module", "refine_module", "generate_quiz", "generate_glossary",
+  "generate_paths", "generate_ask_lead", "create_template", "refine_template", "module_planner",
+]);
+
+async function checkPackAccess(userId: string, envelope: any): Promise<Response | null> {
+  const packId = envelope.pack?.pack_id;
+  const taskType = envelope.task?.type;
+  const requestId = envelope.task?.request_id || "unknown";
+
+  if (!packId) return null; // Some tasks may not need a pack
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  const minLevel = AUTHOR_TASKS.has(taskType) ? "author" : "learner";
+  const { data, error } = await supabase.rpc("has_pack_access", {
+    _user_id: userId,
+    _pack_id: packId,
+    _min_level: minLevel,
+  });
+
+  if (error || !data) {
+    return structuredError(requestId, "invalid_input", "Not authorized for this pack.");
+  }
+
+  return null;
+}
+
+// ─── ENVELOPE PREPROCESSOR (sanitization + redaction) ───
 function preprocessEnvelope(envelope: any): { envelope: any; warnings: string[] } | Response {
   const warnings: string[] = [];
 
-  // Validate input limits
-  const limitError = validateInputLimits(envelope);
-  if (limitError) {
-    const requestId = envelope.task?.request_id || "unknown";
-    return structuredError(requestId, "invalid_input", limitError);
+  // Sanitize inputs (graceful truncation)
+  try {
+    const sanitizeResult = sanitizeInputs(envelope);
+    warnings.push(...sanitizeResult.warnings);
+  } catch (e: any) {
+    if (e.hard_error) {
+      const requestId = envelope.task?.request_id || "unknown";
+      return structuredError(requestId, e.code || "invalid_input", e.message);
+    }
+    throw e;
   }
 
   // Second-pass redaction on evidence spans
@@ -1397,7 +1461,11 @@ serve(async (req) => {
       return errorResponse(400, { error: "Missing task.type in envelope" });
     }
 
-    // Preprocess: validate inputs + redact spans
+    // Pack access authorization
+    const accessDenied = await checkPackAccess(userId, envelope);
+    if (accessDenied) return accessDenied;
+
+    // Preprocess: sanitize inputs + redact spans
     const preprocessed = preprocessEnvelope(envelope);
     if (preprocessed instanceof Response) return preprocessed;
     const { envelope: safeEnvelope, warnings: extraWarnings } = preprocessed;
