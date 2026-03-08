@@ -688,7 +688,7 @@ async function handleGenerateAskLead(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Ask-Your-Lead Generator. Generate high-signal questions a new engineer should ask their team lead during their first 1:1s.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate 10-15 questions for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
