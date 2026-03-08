@@ -42,6 +42,7 @@ export function useAudiencePrefs() {
       learner_role?: string | null;
       experience_level?: ExperienceLevel | null;
       output_language?: string;
+      mermaid_enabled?: boolean;
     }) => {
       if (!user) return;
       const payload: any = {
@@ -55,6 +56,7 @@ export function useAudiencePrefs() {
       if (opts.learner_role !== undefined) payload.learner_role = opts.learner_role;
       if (opts.experience_level !== undefined) payload.experience_level = opts.experience_level;
       if (opts.output_language !== undefined) payload.output_language = opts.output_language;
+      if (opts.mermaid_enabled !== undefined) payload.mermaid_enabled = opts.mermaid_enabled;
       const { error } = await supabase.from("audience_preferences").upsert(
         payload,
         { onConflict: "user_id" }
@@ -73,6 +75,7 @@ export function useAudiencePrefs() {
     learnerRole: ((prefs as any)?.learner_role as string | null) ?? null,
     experienceLevel: ((prefs as any)?.experience_level as ExperienceLevel | null) ?? null,
     outputLanguage: ((prefs as any)?.output_language as string) ?? "en",
+    mermaidEnabled: ((prefs as any)?.mermaid_enabled as boolean) ?? true,
     updatePrefs,
   };
 }

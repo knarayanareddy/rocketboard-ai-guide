@@ -255,6 +255,25 @@ export default function SettingsPage() {
             </Select>
           </div>
 
+          {/* Mermaid Diagrams */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-4 h-4 text-primary" />
+                <div>
+                  <h2 className="font-semibold text-card-foreground">Diagrams in Content</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Allow AI to include Mermaid diagrams in generated modules and chat responses.
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={mermaidEnabled}
+                onCheckedChange={(checked) => saveAll({ mermaid_enabled: checked })}
+              />
+            </div>
+          </div>
+
           {/* Reset Progress */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="font-semibold text-card-foreground mb-2">Reset Progress</h2>

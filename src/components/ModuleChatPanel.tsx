@@ -254,7 +254,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                   >
                     {msg.role === "assistant" ? (
                       <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <MarkdownRenderer>{msg.content}</MarkdownRenderer>
                       </div>
                     ) : (
                       msg.content
