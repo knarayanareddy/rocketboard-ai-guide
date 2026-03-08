@@ -37,6 +37,18 @@ const EXPERIENCE_OPTIONS: { key: ExperienceLevel; label: string; desc: string }[
   { key: "senior", label: "Senior", desc: "Experienced, focus on architecture & patterns" },
 ];
 
+const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "fr", label: "Français" },
+  { code: "de", label: "Deutsch" },
+  { code: "pt", label: "Português" },
+  { code: "ja", label: "日本語" },
+  { code: "zh", label: "中文 (简体)" },
+  { code: "ko", label: "한국어" },
+  { code: "ar", label: "العربية" },
+  { code: "hi", label: "हिन्दी" },
+];
 export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
