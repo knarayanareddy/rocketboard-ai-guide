@@ -422,6 +422,8 @@ RULES:
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up questions.
+
+CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides. For each contradiction provide topic, side_a (claim + citations), side_b (claim + citations), and how_to_resolve suggestions.
 ${buildLanguageBlock(context, pack)}${packBlock}${audienceBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
