@@ -42,9 +42,10 @@ interface QuizRunnerProps {
   questions?: QuizQuestion[];
   generatedQuestions?: GeneratedQuizQuestion[];
   onComplete: (score: number) => void;
+  hasContradictions?: boolean;
 }
 
-export function QuizRunner({ questions, generatedQuestions, onComplete }: QuizRunnerProps) {
+export function QuizRunner({ questions, generatedQuestions, onComplete, hasContradictions }: QuizRunnerProps) {
   const unified: UnifiedQuestion[] = generatedQuestions
     ? generatedQuestions.map(normalizeGenerated)
     : (questions || []).map(normalizeStatic);
