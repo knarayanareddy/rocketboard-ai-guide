@@ -1299,6 +1299,8 @@ serve(async (req) => {
     switch (taskType) {
       case "chat":
         return await handleChat(safeEnvelope, extraWarnings);
+      case "global_chat":
+        return await handleGlobalChat(safeEnvelope, extraWarnings);
       case "module_planner":
         return await handleModulePlanner(safeEnvelope, extraWarnings);
       case "generate_module":

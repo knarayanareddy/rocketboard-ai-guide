@@ -145,6 +145,19 @@ export function buildChatEnvelope(opts: CommonOpts & {
   return env;
 }
 
+export function buildGlobalChatEnvelope(opts: CommonOpts & {
+  messages: ConversationMessage[];
+  query?: string;
+}) {
+  const env = baseEnvelope("global_chat", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
+  env.context.conversation.messages = opts.messages;
+  env.context.current_module_key = null;
+  env.context.current_track_key = null;
+  env.retrieval.query = opts.query || null;
+  return env;
+}
+
 export function buildModulePlannerEnvelope(opts: CommonOpts) {
   const env = baseEnvelope("module_planner", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
   applyCommon(env, opts);
