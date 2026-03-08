@@ -26,6 +26,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { audience, depth, updatePrefs } = useAudiencePrefs();
+  const { currentPackId } = usePack();
 
   const handleResetProgress = async () => {
     if (!user) return;
