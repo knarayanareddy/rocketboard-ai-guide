@@ -35,6 +35,7 @@ const SUGGESTED_QUESTIONS = [
 
 export function MissionControlChat() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
