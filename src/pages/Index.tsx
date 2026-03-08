@@ -375,7 +375,7 @@ const Index = () => {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
               onClick={() => navigate(`/packs/${effectivePackId}/modules/${resumeTarget.id}`)}
-              className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
+              className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity w-full sm:w-auto justify-center sm:justify-start"
             >
               <Play className="w-4 h-4" />
               Continue: {resumeTarget.title} ({resumeTarget.progress}%)
