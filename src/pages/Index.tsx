@@ -83,12 +83,41 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
   );
 }
 
+function AuthorStepper({ sourceCount, planCount, draftCount, publishedCount, packId }: {
+  sourceCount: number; planCount: number; draftCount: number; publishedCount: number; packId: string;
+}) {
+  const navigate = useNavigate();
+  const steps = [
+    { label: "Sources", done: sourceCount > 0, link: `/packs/${packId}/sources` },
+    { label: "Plan", done: planCount > 0, link: `/packs/${packId}/plan` },
+    { label: "Generate", done: draftCount > 0 || publishedCount > 0, link: `/packs/${packId}/plan` },
+    { label: "Publish", done: publishedCount > 0, link: `/packs/${packId}/review` },
+  ];
+  return (
+    <div className="flex items-center gap-1 mb-6">
+      {steps.map((s, i) => (
+        <div key={s.label} className="flex items-center gap-1">
+          <button
+            onClick={() => navigate(s.link)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              s.done ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {s.done ? <CheckCircle2 className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border border-muted-foreground/40 inline-block" />}
+            {s.label}
+          </button>
+          {i < steps.length - 1 && <ChevronRight className="w-3 h-3 text-muted-foreground/40" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SetupEmptyState({ packId }: { packId: string }) {
   const navigate = useNavigate();
   const { hasPackPermission } = useRole();
   const isAuthor = hasPackPermission("author");
   
-  // Check what exists
   const { data: sourceCount = 0 } = useQuery({
     queryKey: ["source_count", packId],
     queryFn: async () => {
@@ -116,6 +145,15 @@ function SetupEmptyState({ packId }: { packId: string }) {
     enabled: !!packId,
   });
 
+  const { data: publishedModuleCount = 0 } = useQuery({
+    queryKey: ["published_module_count", packId],
+    queryFn: async () => {
+      const { count } = await supabase.from("generated_modules").select("id", { count: "exact", head: true }).eq("pack_id", packId).eq("status", "published");
+      return count || 0;
+    },
+    enabled: !!packId,
+  });
+
   if (!isAuthor) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-border rounded-xl p-8 text-center">
@@ -126,79 +164,72 @@ function SetupEmptyState({ packId }: { packId: string }) {
     );
   }
 
-  // Determine the current phase
-  if (sourceCount === 0) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Database className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">No sources connected yet</h3>
-            <p className="text-sm text-muted-foreground">Connect your GitHub repos and documents to get started.</p>
-          </div>
-        </div>
-        <Button onClick={() => navigate(`/packs/${packId}/sources`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
-          Add Sources <ArrowRight className="w-4 h-4" />
-        </Button>
-      </motion.div>
-    );
-  }
-
-  if (planCount === 0) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Map className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Sources synced! Generate a learning plan</h3>
-            <p className="text-sm text-muted-foreground">Let AI analyze your codebase and propose onboarding modules.</p>
-          </div>
-        </div>
-        <Button onClick={() => navigate(`/packs/${packId}/plan`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
-          Generate Plan <ArrowRight className="w-4 h-4" />
-        </Button>
-      </motion.div>
-    );
-  }
-
-  if (draftModuleCount > 0) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Content generated! Review and publish</h3>
-            <p className="text-sm text-muted-foreground">{draftModuleCount} draft module(s) ready for review.</p>
-          </div>
-        </div>
-        <Button onClick={() => navigate(`/packs/${packId}/modules`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
-          Review & Publish <ArrowRight className="w-4 h-4" />
-        </Button>
-      </motion.div>
-    );
-  }
-
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <BookOpen className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-foreground">Plan approved! Generate module content</h3>
-          <p className="text-sm text-muted-foreground">Generate onboarding content from your approved plan.</p>
-        </div>
-      </div>
-      <Button onClick={() => navigate(`/packs/${packId}/plan`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
-        Generate Modules <ArrowRight className="w-4 h-4" />
-      </Button>
-    </motion.div>
+    <div>
+      <AuthorStepper sourceCount={sourceCount} planCount={planCount} draftCount={draftModuleCount} publishedCount={publishedModuleCount} packId={packId} />
+
+      {sourceCount === 0 ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Database className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">No sources connected yet</h3>
+              <p className="text-sm text-muted-foreground">Connect your GitHub repos and documents to get started.</p>
+            </div>
+          </div>
+          <Button onClick={() => navigate(`/packs/${packId}/sources`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+            Add Sources <ArrowRight className="w-4 h-4" />
+          </Button>
+        </motion.div>
+      ) : planCount === 0 ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Map className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Sources synced! Generate a learning plan</h3>
+              <p className="text-sm text-muted-foreground">Let AI analyze your codebase and propose onboarding modules.</p>
+            </div>
+          </div>
+          <Button onClick={() => navigate(`/packs/${packId}/plan`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+            Generate Plan <ArrowRight className="w-4 h-4" />
+          </Button>
+        </motion.div>
+      ) : draftModuleCount > 0 ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Content generated! Review and publish</h3>
+              <p className="text-sm text-muted-foreground">{draftModuleCount} draft module(s) ready for review.</p>
+            </div>
+          </div>
+          <Button onClick={() => navigate(`/packs/${packId}/review`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+            Review & Publish <ArrowRight className="w-4 h-4" />
+          </Button>
+        </motion.div>
+      ) : publishedModuleCount === 0 ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Plan approved! Generate content</h3>
+              <p className="text-sm text-muted-foreground">Generate onboarding content from your approved plan.</p>
+            </div>
+          </div>
+          <Button onClick={() => navigate(`/packs/${packId}/plan`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+            Generate Content <ArrowRight className="w-4 h-4" />
+          </Button>
+        </motion.div>
+      ) : null}
+    </div>
   );
 }
 
