@@ -152,6 +152,38 @@ export type Database = {
           },
         ]
       }
+      generated_quizzes: {
+        Row: {
+          created_at: string
+          id: string
+          module_key: string
+          pack_id: string
+          quiz_data: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module_key: string
+          pack_id: string
+          quiz_data?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module_key?: string
+          pack_id?: string
+          quiz_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_quizzes_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingestion_jobs: {
         Row: {
           completed_at: string | null
