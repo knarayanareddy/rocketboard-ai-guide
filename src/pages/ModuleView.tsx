@@ -1,17 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { modules, Track, TRACKS } from "@/data/onboarding-data";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SectionViewer } from "@/components/SectionViewer";
 import { QuizRunner } from "@/components/QuizRunner";
 import { TrackBadge } from "@/components/TrackBadge";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star } from "lucide-react";
+import { ProtectedAction } from "@/components/ProtectedAction";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useProgress } from "@/hooks/useProgress";
 import { useNotes } from "@/hooks/useNotes";
 import { useLearnerState } from "@/hooks/useLearnerState";
-import { useEffect, useMemo as useMemo2 } from "react";
+import { useRole } from "@/hooks/useRole";
 import { ModuleChatPanel } from "@/components/ModuleChatPanel";
 
 export default function ModuleView() {
@@ -21,10 +22,10 @@ export default function ModuleView() {
   const { getReadSectionsForModule, toggleSection, saveQuizScore, getModuleProgress } = useProgress();
   const { getNoteForSection, saveNote, deleteNote } = useNotes(moduleId || "");
   const { updateLastOpened } = useLearnerState();
+  const { hasPackPermission } = useRole();
 
   const [activeTrack, setActiveTrack] = useState<Track | "all">("all");
 
-  // Track last opened module
   useEffect(() => {
     if (moduleId) {
       updateLastOpened.mutate({ moduleId });
@@ -50,10 +51,12 @@ export default function ModuleView() {
   }
 
   const handleToggleRead = (sectionId: string) => {
+    if (!hasPackPermission("learner")) return;
     toggleSection.mutate({ moduleId: mod.id, sectionId });
   };
 
   const handleQuizComplete = (score: number) => {
+    if (!hasPackPermission("learner")) return;
     saveQuizScore.mutate({ moduleId: mod.id, score, total: mod.quiz.length });
   };
 
@@ -64,6 +67,8 @@ export default function ModuleView() {
     intermediate: "text-yellow-500 bg-yellow-500/10",
     advanced: "text-red-500 bg-red-500/10",
   };
+
+  const canInteract = hasPackPermission("learner");
 
   return (
     <DashboardLayout>
@@ -85,12 +90,17 @@ export default function ModuleView() {
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${difficultyColor[mod.difficulty]}`}>
                   {mod.difficulty}
                 </span>
+                {!canInteract && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    Read Only
+                  </span>
+                )}
               </div>
               <p className="text-muted-foreground mt-1">{mod.description}</p>
             </div>
           </div>
 
-          {/* Key Takeaways */}
           {mod.key_takeaways.length > 0 && (
             <div className="mt-4 bg-primary/5 border border-primary/15 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -130,9 +140,10 @@ export default function ModuleView() {
               <BookOpen className="w-4 h-4" />
               Content
             </TabsTrigger>
-            <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card">
+            <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card" disabled={!canInteract}>
               <BrainCircuit className="w-4 h-4" />
               Quiz ({mod.quiz.length})
+              {!canInteract && <Lock className="w-3 h-3 ml-1" />}
             </TabsTrigger>
           </TabsList>
 
@@ -167,10 +178,10 @@ export default function ModuleView() {
                   section={section}
                   index={i}
                   isRead={readSections.has(section.id)}
-                  onMarkRead={() => handleToggleRead(section.id)}
+                  onMarkRead={canInteract ? () => handleToggleRead(section.id) : undefined}
                   savedNote={getNoteForSection(section.id)}
-                  onSaveNote={(content) => saveNote.mutate({ sectionId: section.id, content })}
-                  onDeleteNote={() => deleteNote.mutate({ sectionId: section.id })}
+                  onSaveNote={canInteract ? (content) => saveNote.mutate({ sectionId: section.id, content }) : undefined}
+                  onDeleteNote={canInteract ? () => deleteNote.mutate({ sectionId: section.id }) : undefined}
                 />
               ))}
               {filteredSections.length === 0 && (
@@ -180,7 +191,6 @@ export default function ModuleView() {
               )}
             </div>
 
-            {/* Endcap - Reflection & Quiz Prep */}
             {readSections.size === mod.sections.length && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
@@ -223,21 +233,33 @@ export default function ModuleView() {
           </TabsContent>
 
           <TabsContent value="quiz">
-            <div className="bg-card border border-border rounded-xl p-8">
-              <QuizRunner questions={mod.quiz} onComplete={handleQuizComplete} />
-            </div>
+            <ProtectedAction
+              requiredLevel="learner"
+              fallback={
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <Lock className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">You need learner access or higher to take quizzes.</p>
+                </div>
+              }
+            >
+              <div className="bg-card border border-border rounded-xl p-8">
+                <QuizRunner questions={mod.quiz} onComplete={handleQuizComplete} />
+              </div>
+            </ProtectedAction>
           </TabsContent>
         </Tabs>
 
-        <ModuleChatPanel
-          moduleId={mod.id}
-          moduleContext={{
-            title: mod.title,
-            description: mod.description,
-            keyTakeaways: mod.key_takeaways,
-            sections: mod.sections.map((s) => ({ title: s.title, content: s.content })),
-          }}
-        />
+        <ProtectedAction requiredLevel="learner">
+          <ModuleChatPanel
+            moduleId={mod.id}
+            moduleContext={{
+              title: mod.title,
+              description: mod.description,
+              keyTakeaways: mod.key_takeaways,
+              sections: mod.sections.map((s) => ({ title: s.title, content: s.content })),
+            }}
+          />
+        </ProtectedAction>
       </div>
     </DashboardLayout>
   );
