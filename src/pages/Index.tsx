@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { usePack } from "@/hooks/usePack";
+import { IngestionStatus } from "@/components/IngestionStatus";
 
 const container = {
   hidden: { opacity: 0 },
