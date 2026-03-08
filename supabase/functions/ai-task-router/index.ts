@@ -60,31 +60,37 @@ function buildMermaidBlock(envelope: any): string {
 
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+  if (!LOVABLE_API_KEY) throw { status: 500, error_code: "network_error", message: "AI service not configured" };
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      stream: false,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        stream: false,
+      }),
+    });
+  } catch (e) {
+    console.error("AI gateway network error:", e);
+    throw { status: 503, error_code: "network_error", message: "Could not reach AI service. Please try again." };
+  }
 
   if (!response.ok) {
     const status = response.status;
     const t = await response.text();
-    if (status === 429) throw { status: 429, message: "Rate limit exceeded. Please try again in a moment." };
-    if (status === 402) throw { status: 402, message: "AI credits exhausted. Please add credits to continue." };
     console.error("AI gateway error:", status, t);
-    throw { status: 500, message: "AI service unavailable" };
+    if (status === 429) throw { status: 429, error_code: "rate_limited", message: "Too many requests. Please wait a moment and try again." };
+    if (status === 402) throw { status: 402, error_code: "credit_exhausted", message: "AI credits exhausted. Contact your admin to add more credits." };
+    throw { status: 500, error_code: "network_error", message: "AI service unavailable" };
   }
 
   const aiResult = await response.json();
