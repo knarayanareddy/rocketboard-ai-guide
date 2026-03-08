@@ -45,10 +45,11 @@ const LANG_OPTIONS = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { signOut, user } = useAuth();
   const { packAccessLevel, accessLevelLabel, hasPackPermission } = useRole();
   const { outputLanguage, audience, depth, glossaryDensity, learnerRole, experienceLevel, mermaidEnabled, updatePrefs } = useAudiencePrefs();
