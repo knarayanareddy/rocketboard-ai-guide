@@ -72,6 +72,7 @@ export function useAudiencePrefs() {
     glossaryDensity: ((prefs as any)?.glossary_density as GlossaryDensity) ?? "standard",
     learnerRole: ((prefs as any)?.learner_role as string | null) ?? null,
     experienceLevel: ((prefs as any)?.experience_level as ExperienceLevel | null) ?? null,
+    outputLanguage: ((prefs as any)?.output_language as string) ?? "en",
     updatePrefs,
   };
 }
