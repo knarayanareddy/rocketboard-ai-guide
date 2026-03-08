@@ -391,6 +391,103 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
   return jsonResponse(parsed);
 }
 
+// ─── GLOBAL CHAT HANDLER (Mission Control) ───
+async function handleGlobalChat(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const limits = envelope.limits || {};
+  const audience = context.audience_profile || {};
+  const conversation = context.conversation || {};
+
+  const spansBlock = buildSpansBlock(retrieval.evidence_spans || []);
+  const packBlock = buildPackBlock(pack);
+  const audienceBlock = audience.audience ? `\nAudience: ${audience.audience}, depth: ${audience.depth || "standard"}` : "";
+
+  const systemPrompt = `You are Mission Control, a helpful AI assistant for the RocketBoard onboarding platform. You help users understand:
+- The overall platform features and capabilities
+- How onboarding packs, modules, tracks, and paths work
+- How to use AI generation features (module plans, quizzes, glossaries, paths)
+- How to configure settings, manage sources, and customize content
+- General questions about the codebase and onboarding workflow
+
+${SECURITY_RULES_BLOCK}
+RULES:
+- Be friendly, concise, and helpful.
+- If evidence spans are provided, ground your answers in them and cite using [S1], [S2] etc.
+- If you cannot find evidence for a claim, say so honestly.
+- Keep responses under ${limits.max_chat_words || 350} words.
+- Use markdown formatting.
+- Suggest relevant follow-up questions.
+${buildLanguageBlock(context, pack)}${packBlock}${audienceBlock}${spansBlock}
+
+You MUST respond with VALID JSON matching this schema:
+{
+  "type": "global_chat",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "<now>", "request_id": "${requestId}" },
+  "response_markdown": "<your markdown response>",
+  "referenced_spans": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }],
+  "unverified_claims": [{ "claim": "...", "reason": "..." }],
+  "contradictions": [],
+  "suggested_search_queries": ["query1", "query2"],
+  "warnings": []
+}
+
+Return ONLY the JSON object, no markdown fences, no extra text.`;
+
+  const messages = (conversation.messages || []).map((m: any) => ({ role: m.role, content: m.content }));
+
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
+      stream: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const t = await response.text();
+    console.error("AI gateway error:", response.status, t);
+    if (response.status === 429) return structuredError(requestId, "rate_limited", "Too many requests. Please wait a moment.");
+    if (response.status === 402) return structuredError(requestId, "credit_exhausted", "AI credits exhausted. Contact your admin.");
+    return structuredError(requestId, "network_error", "AI service unavailable");
+  }
+
+  const aiResult = await response.json();
+  const rawContent = aiResult.choices?.[0]?.message?.content || "";
+
+  const parsed = parseAIJson(rawContent, {
+    type: "global_chat",
+    request_id: requestId,
+    pack_id: pack.pack_id || null,
+    pack_version: pack.pack_version || 1,
+    generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+    response_markdown: rawContent,
+    referenced_spans: [],
+    unverified_claims: [],
+    contradictions: [],
+    suggested_search_queries: [],
+  });
+  parsed.type = "global_chat";
+  parsed.request_id = requestId;
+  if (extraWarnings.length) {
+    parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
+  }
+  return jsonResponse(parsed);
+}
+
 // ─── MODULE PLANNER HANDLER ───
 async function handleModulePlanner(envelope: any, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
