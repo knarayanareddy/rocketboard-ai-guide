@@ -381,8 +381,11 @@ const Index = () => {
               Continue: {resumeTarget.title} ({resumeTarget.progress}%)
             </motion.button>
           )}
+          <SuggestedNextAction />
         </motion.div>
 
+        {/* Sources updated banner */}
+        <SourcesUpdatedBanner />
         {/* Ingestion Status */}
         <div className="mb-6">
           <IngestionStatus />
