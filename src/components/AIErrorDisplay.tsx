@@ -1,13 +1,18 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, AlertCircle, WifiOff, CreditCard, Clock, HelpCircle, ChevronDown, Search } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, AlertCircle, WifiOff, CreditCard, Clock, HelpCircle, ChevronDown, Search, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 import type { AIError, AIErrorCode } from "@/lib/ai-errors";
 
 interface AIErrorDisplayProps {
   error: AIError;
   compact?: boolean;
+  onRetry?: () => void;
   onSearchQuery?: (query: string) => void;
 }
+
+const RETRYABLE: Set<AIErrorCode> = new Set(["invalid_output", "rate_limited", "network_error"]);
+const RATE_LIMIT_COUNTDOWN = 30;
 
 const ERROR_CONFIG: Record<AIErrorCode, {
   icon: typeof AlertTriangle;
@@ -83,10 +88,36 @@ const ERROR_CONFIG: Record<AIErrorCode, {
   },
 };
 
-export function AIErrorDisplay({ error, compact = false, onSearchQuery }: AIErrorDisplayProps) {
+export function AIErrorDisplay({ error, compact = false, onRetry, onSearchQuery }: AIErrorDisplayProps) {
   const [warningsOpen, setWarningsOpen] = useState(false);
+  const [countdown, setCountdown] = useState(error.code === "rate_limited" ? RATE_LIMIT_COUNTDOWN : 0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const config = ERROR_CONFIG[error.code] || ERROR_CONFIG.invalid_output;
   const Icon = config.icon;
+  const isRetryable = RETRYABLE.has(error.code) && !!onRetry;
+  const retryDisabled = error.code === "rate_limited" && countdown > 0;
+
+  // Countdown for rate-limited
+  useEffect(() => {
+    if (error.code !== "rate_limited") return;
+    setCountdown(RATE_LIMIT_COUNTDOWN);
+    timerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [error.code]);
+
+  const handleRetry = useCallback(() => {
+    if (retryDisabled || !onRetry) return;
+    onRetry();
+  }, [retryDisabled, onRetry]);
 
   return (
     <AnimatePresence>
@@ -120,6 +151,22 @@ export function AIErrorDisplay({ error, compact = false, onSearchQuery }: AIErro
                     {q}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Retry button */}
+            {isRetryable && (
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRetry}
+                  disabled={retryDisabled}
+                  className="gap-1.5 text-xs h-7"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  {retryDisabled ? `Retry in ${countdown}s` : "Retry"}
+                </Button>
               </div>
             )}
 
