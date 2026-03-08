@@ -6,6 +6,7 @@ import { useRole } from "@/hooks/useRole";
 import { sendAITask } from "@/lib/ai-client";
 import { buildGenerateModuleEnvelope, buildRefineModuleEnvelope } from "@/lib/envelope-builder";
 import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
+import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 export interface GeneratedSection {
   section_id: string;
