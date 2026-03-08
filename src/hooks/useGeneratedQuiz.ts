@@ -5,6 +5,7 @@ import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { sendAITask } from "@/lib/ai-client";
 import { buildGenerateQuizEnvelope } from "@/lib/envelope-builder";
+import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 import type { GeneratedModuleData } from "@/hooks/useGeneratedModules";
 
 export interface QuizChoice {
