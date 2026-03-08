@@ -159,6 +159,10 @@ function buildMermaidBlock(envelope: any): string {
   return `\n## MERMAID DIAGRAMS\nDo NOT include any Mermaid diagrams in your output.\n`;
 }
 
+function buildLimitsConstraintBlock(limits: any): string {
+  return `\nBINDING CONSTRAINT: Your total module output must not exceed ${limits.max_module_words || 1400} words. Distribute across sections proportionally. Each section should aim for ~${limits.max_section_words_hint || 200} words. Chat responses must not exceed ${limits.max_chat_words || 350} words. Include at most ${limits.max_key_takeaways || 7} key takeaways and ${limits.max_quiz_questions || 5} quiz questions. These are hard limits — do not exceed them.\n`;
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw { status: 500, error_code: "network_error", message: "AI service not configured" };
