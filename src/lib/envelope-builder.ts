@@ -119,8 +119,15 @@ export function buildChatEnvelope(opts: {
 }
 
 // Stub builders for future task types
-export function buildModulePlannerEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("module_planner", opts.auth, opts.pack);
+export function buildModulePlannerEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  evidenceSpans?: EvidenceSpan[];
+}) {
+  const env = baseEnvelope("module_planner", opts.auth, opts.pack);
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = "architecture setup configuration deployment infrastructure code structure";
+  return env;
 }
 export function buildGenerateModuleEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("generate_module", opts.auth, opts.pack);

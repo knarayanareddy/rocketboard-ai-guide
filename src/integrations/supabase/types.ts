@@ -283,6 +283,44 @@ export type Database = {
           },
         ]
       }
+      module_plans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          pack_id: string
+          pack_version: number
+          plan_data: Json
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pack_id: string
+          pack_version: number
+          plan_data?: Json
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pack_id?: string
+          pack_version?: number
+          plan_data?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_plans_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_members: {
         Row: {
           created_at: string
