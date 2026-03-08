@@ -400,6 +400,14 @@ export default function ModuleView() {
             </TabsList>
 
             <TabsContent value="content">
+              {/* Contradictions callout */}
+              {generatedMod?.contradictions && generatedMod.contradictions.length > 0 && (
+                <div className="space-y-3 mb-6">
+                  {generatedMod.contradictions.map((c: any, i: number) => (
+                    <ContradictionCallout key={i} contradiction={c} index={i} />
+                  ))}
+                </div>
+              )}
               <div className="space-y-4">
                 {moduleData.sections.map((section, i) => (
                   <GeneratedSectionViewer
