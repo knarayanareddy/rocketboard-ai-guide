@@ -202,7 +202,7 @@ export default function ModuleView() {
   const { updateLastOpened } = useLearnerState();
   const { hasPackPermission } = useRole();
 
-  const [activeTrack, setActiveTrack] = useState<Track | "all">("all");
+  const [activeTrack, setActiveTrack] = useState<string>("all");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [refineOpen, setRefineOpen] = useState(false);
   const [refineInstruction, setRefineInstruction] = useState("");
