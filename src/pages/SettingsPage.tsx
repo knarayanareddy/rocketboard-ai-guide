@@ -492,6 +492,30 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Re-run Learner Onboarding */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <GraduationCap className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Learner Onboarding</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Re-run the onboarding wizard to update your audience, depth, and track preferences.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                if (!user || !currentPackId) return;
+                await supabase.from("audience_preferences").delete().eq("user_id", user.id).or(`pack_id.eq.${currentPackId},pack_id.is.null`);
+                queryClient.invalidateQueries({ queryKey: ["audience_preferences"] });
+                queryClient.invalidateQueries({ queryKey: ["learner_onboarding_check"] });
+                toast.success("Preferences cleared. Visit the dashboard to re-run the onboarding wizard.");
+              }}
+            >
+              Reset & Re-run Setup
+            </Button>
+          </div>
+
           {/* Reset Progress */}
           <div className="bg-card border border-destructive/20 rounded-xl p-6">
             <div className="flex items-center gap-2 mb-3">
