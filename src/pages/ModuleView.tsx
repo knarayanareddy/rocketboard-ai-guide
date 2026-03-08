@@ -8,7 +8,7 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { ContradictionCallout } from "@/components/ContradictionCallout";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -400,6 +401,14 @@ export default function ModuleView() {
             </TabsList>
 
             <TabsContent value="content">
+              {/* Contradictions callout */}
+              {generatedMod?.contradictions && generatedMod.contradictions.length > 0 && (
+                <div className="space-y-3 mb-6">
+                  {generatedMod.contradictions.map((c: any, i: number) => (
+                    <ContradictionCallout key={i} contradiction={c} index={i} />
+                  ))}
+                </div>
+              )}
               <div className="space-y-4">
                 {moduleData.sections.map((section, i) => (
                   <GeneratedSectionViewer
@@ -522,6 +531,7 @@ export default function ModuleView() {
                     <QuizRunner
                       generatedQuestions={generatedQuiz.quiz_data.questions}
                       onComplete={handleQuizComplete}
+                      hasContradictions={!!generatedMod?.contradictions?.length}
                     />
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">

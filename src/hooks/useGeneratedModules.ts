@@ -51,6 +51,7 @@ export interface GeneratedModuleRow {
   audience: string | null;
   depth: string | null;
   module_data: GeneratedModuleData;
+  contradictions: any[] | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -230,6 +231,7 @@ export function useGeneratedModules() {
           audience: moduleData.audience || null,
           depth: moduleData.depth || null,
           module_data: moduleData as any,
+          contradictions: (result.contradictions || []) as any,
           status: "published",
         }, { onConflict: "pack_id,module_key,module_revision" })
         .select()
@@ -301,6 +303,7 @@ export function useGeneratedModules() {
           audience: moduleData.audience || null,
           depth: moduleData.depth || null,
           module_data: moduleData as any,
+          contradictions: (result.contradictions || []) as any,
           status: "published",
         })
         .select()
