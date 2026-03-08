@@ -5,17 +5,37 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Secret redaction patterns
+// Comprehensive secret redaction patterns
 const REDACTION_PATTERNS = [
-  /AKIA[0-9A-Z]{16}/g, // AWS Access Key
-  /(?:aws_secret_access_key|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
-  /(?:Bearer\s+)[A-Za-z0-9\-._~+/]+=*/g,
-  /eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/g, // JWT
-  /(?:password|passwd|pwd|secret|token|api_key|apikey|api-key)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:mongodb|postgres|mysql|redis):\/\/[^\s'"]+/gi, // Connection strings
-  /ghp_[A-Za-z0-9]{36}/g, // GitHub PAT
-  /sk-[A-Za-z0-9]{32,}/g, // OpenAI-style keys
-  /xox[bprs]-[A-Za-z0-9\-]+/g, // Slack tokens
+  // AWS Access Keys
+  /AKIA[0-9A-Z]{16}/g,
+  // AWS Secret Keys
+  /(?:aws_secret_access_key|aws_secret|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
+  // Generic API keys/secrets
+  /['"]?(?:api[_-]?key|apikey|api[_-]?secret)['"]?\s*[:=]\s*['"][^'"]{20,}['"]/gi,
+  // JWT tokens
+  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
+  // Bearer tokens
+  /Bearer\s+[A-Za-z0-9_\-.~+\/]{20,}/g,
+  // Connection strings
+  /(?:mongodb|postgres|mysql|redis):\/\/[^\s'"]+/gi,
+  // Private keys
+  /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/g,
+  // .env style secrets
+  /(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DATABASE_URL|DB_PASSWORD|AUTH_SECRET)\s*=\s*[^\s]{8,}/gi,
+  // GitHub PATs
+  /ghp_[A-Za-z0-9]{36}/g,
+  /github_pat_[A-Za-z0-9_]{82}/g,
+  // OpenAI-style keys
+  /sk-[A-Za-z0-9]{32,}/g,
+  // Slack tokens
+  /xox[bprs]-[A-Za-z0-9\-]+/g,
+  // Generic password patterns
+  /(?:password|passwd|pwd)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
+  // Stripe keys
+  /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
+  // SendGrid keys
+  /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
 ];
 
 const SUPPORTED_EXTENSIONS = new Set([
@@ -36,15 +56,21 @@ function isSupported(filepath: string): boolean {
   return SUPPORTED_EXTENSIONS.has(ext);
 }
 
-function redactSecrets(text: string): { content: string; isRedacted: boolean } {
+function redactSecrets(text: string): { content: string; isRedacted: boolean; redactionCount: number } {
   let redacted = text;
   let wasRedacted = false;
+  let count = 0;
   for (const pattern of REDACTION_PATTERNS) {
-    const newText = redacted.replace(pattern, "***REDACTED***");
+    // Reset lastIndex for global patterns
+    pattern.lastIndex = 0;
+    const newText = redacted.replace(pattern, (match) => {
+      count++;
+      return "***REDACTED***";
+    });
     if (newText !== redacted) wasRedacted = true;
     redacted = newText;
   }
-  return { content: redacted, isRedacted: wasRedacted };
+  return { content: redacted, isRedacted: wasRedacted, redactionCount: count };
 }
 
 function chunkLines(lines: string[], chunkSize = 120, overlap = 10): { start: number; end: number; text: string }[] {
@@ -138,9 +164,9 @@ Deno.serve(async (req) => {
 
     const jobId = job.id;
     let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean }[] = [];
+    let totalRedactions = 0;
 
     if (source_type === "github_repo") {
-      // Parse GitHub URL
       const match = source_uri.match(/github\.com\/([^/]+)\/([^/]+)/);
       if (!match) throw new Error("Invalid GitHub repo URL");
       const [, owner, repo] = match;
@@ -160,7 +186,11 @@ Deno.serve(async (req) => {
 
         for (const chunk of fileChunks) {
           chunkIdx++;
-          const { content, isRedacted } = redactSecrets(chunk.text);
+          const { content, isRedacted, redactionCount } = redactSecrets(chunk.text);
+          if (isRedacted) {
+            totalRedactions += redactionCount;
+            console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${redactionCount} secret(s) redacted`);
+          }
           const hash = await sha256(content);
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
@@ -173,7 +203,6 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Update progress periodically
         if (allChunks.length % 50 === 0) {
           await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
         }
@@ -186,7 +215,11 @@ Deno.serve(async (req) => {
       let chunkIdx = 0;
       for (const chunk of chunks) {
         chunkIdx++;
-        const { content, isRedacted } = redactSecrets(chunk.text);
+        const { content, isRedacted, redactionCount } = redactSecrets(chunk.text);
+        if (isRedacted) {
+          totalRedactions += redactionCount;
+          console.log(`[REDACTION] doc:${docLabel} chunk ${chunkIdx}: ${redactionCount} secret(s) redacted`);
+        }
         const hash = await sha256(content);
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
@@ -200,6 +233,10 @@ Deno.serve(async (req) => {
       }
     } else {
       throw new Error(`Unsupported source_type: ${source_type}`);
+    }
+
+    if (totalRedactions > 0) {
+      console.log(`[REDACTION SUMMARY] Total redactions for source ${source_id}: ${totalRedactions}`);
     }
 
     // Update total
@@ -237,18 +274,16 @@ Deno.serve(async (req) => {
       completed_at: new Date().toISOString(),
     }).eq("id", jobId);
 
-    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length }), {
+    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, redactions: totalRedactions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("Ingestion error:", err);
 
-    // Try to mark job as failed
     try {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, serviceKey);
-      // Can't update job without jobId in this catch, but log the error
     } catch { /* ignore */ }
 
     return new Response(JSON.stringify({ error: (err as Error).message }), {
