@@ -40,6 +40,12 @@ function buildPackBlock(pack: any): string {
   return pack.title ? `\n## Pack Context\nPack: ${pack.title}\n${pack.description || ""}\nTracks:\n${tracks}` : "";
 }
 
+function buildLanguageBlock(context: any, pack: any): string {
+  const lang = context?.audience_profile?.output_language || context?.output_language || "en";
+  if (lang === "en" || pack?.language_mode === "english") return "";
+  return `\n## OUTPUT LANGUAGE INSTRUCTION\nWrite ALL user-facing prose (headings, content, explanations, definitions, reflection prompts, quiz questions, option text) in language code "${lang}". NEVER translate: code identifiers, file paths, variable names, IDs, citation fields (span_id, path, chunk_id), or JSON keys. JSON keys must remain in English.\n`;
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
