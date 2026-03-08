@@ -17,6 +17,8 @@ import PacksPage from "./pages/PacksPage";
 import PackMembersPage from "./pages/PackMembersPage";
 import SourcesPage from "./pages/SourcesPage";
 import PlanPage from "./pages/PlanPage";
+import TemplatesPage from "./pages/TemplatesPage";
+import TemplateDetailPage from "./pages/TemplateDetailPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
