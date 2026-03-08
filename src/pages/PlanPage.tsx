@@ -109,6 +109,7 @@ export default function PlanPage() {
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0 });
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
+  const [planError, setPlanError] = useState<AIError | null>(null);
 
   if (!hasPackPermission("author")) {
     return (
