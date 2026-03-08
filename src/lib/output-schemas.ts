@@ -141,6 +141,9 @@ export const TASK_OUTPUT_SCHEMAS: Record<string, TaskSchema> = {
     requiredFields: {
       type: { type: "string" },
       request_id: { type: "string" },
+      org_id: { type: "string", optional: true },
+      generation_meta: { type: "object" },
+      template: { type: "object" },
       warnings: { type: "array", optional: true },
     },
   },
@@ -149,6 +152,10 @@ export const TASK_OUTPUT_SCHEMAS: Record<string, TaskSchema> = {
     requiredFields: {
       type: { type: "string" },
       request_id: { type: "string" },
+      org_id: { type: "string", optional: true },
+      generation_meta: { type: "object" },
+      template: { type: "object" },
+      change_log: { type: "array" },
       warnings: { type: "array", optional: true },
     },
   },

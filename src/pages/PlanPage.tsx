@@ -3,13 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useModulePlan, ModulePlanData, DetectedSignal, ModulePlanEntry, PlanTrack } from "@/hooks/useModulePlan";
 import { useGeneratedModules } from "@/hooks/useGeneratedModules";
+import { useTemplates, TemplateRow } from "@/hooks/useTemplates";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap, ArrowRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap, ArrowRight, Layout } from "lucide-react";
 import { toast } from "sonner";
 
 const confidenceColors: Record<string, string> = {
@@ -100,9 +102,11 @@ export default function PlanPage() {
   const { hasPackPermission } = useRole();
   const { plan, planLoading, generatePlan, savePlan, approvePlan } = useModulePlan();
   const { modules: generatedModules, generateModule } = useGeneratedModules();
+  const { templates } = useTemplates();
   const [livePlan, setLivePlan] = useState<ModulePlanData | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0 });
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
 
   if (!hasPackPermission("author")) {
     return (
@@ -209,10 +213,26 @@ export default function PlanPage() {
               </Button>
             )}
             {isApproved && !generating && (
-              <Button onClick={handleGenerateAll} variant="outline" size="sm">
-                <ArrowRight className="w-4 h-4 mr-1" />
-                Generate All Modules
-              </Button>
+              <div className="flex items-center gap-2">
+                {templates.length > 0 && (
+                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                    <SelectTrigger className="w-[180px] h-8 text-xs">
+                      <Layout className="w-3 h-3 mr-1" />
+                      <SelectValue placeholder="No template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No template</SelectItem>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button onClick={handleGenerateAll} variant="outline" size="sm">
+                  <ArrowRight className="w-4 h-4 mr-1" />
+                  Generate All Modules
+                </Button>
+              </div>
             )}
             <Button onClick={handleGenerate} disabled={generatePlan.isPending || generating} size="sm">
               {generatePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}

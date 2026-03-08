@@ -258,9 +258,14 @@ export function buildRefineModuleEnvelope(opts: {
   env.inputs.module_revision = opts.moduleRevision;
   return env;
 }
-export function buildCreateTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("create_template", opts.auth, opts.pack);
+export function buildCreateTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo; authorInstruction: string }) {
+  const env = baseEnvelope("create_template", opts.auth, opts.pack);
+  env.context.author_instruction = opts.authorInstruction;
+  return env;
 }
-export function buildRefineTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("refine_template", opts.auth, opts.pack);
+export function buildRefineTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo; existingTemplate: any; authorInstruction: string }) {
+  const env = baseEnvelope("refine_template", opts.auth, opts.pack);
+  env.context.author_instruction = opts.authorInstruction;
+  env.inputs.existing_template = opts.existingTemplate;
+  return env;
 }

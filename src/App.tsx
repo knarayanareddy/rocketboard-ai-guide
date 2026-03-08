@@ -17,6 +17,8 @@ import PacksPage from "./pages/PacksPage";
 import PackMembersPage from "./pages/PackMembersPage";
 import SourcesPage from "./pages/SourcesPage";
 import PlanPage from "./pages/PlanPage";
+import TemplatesPage from "./pages/TemplatesPage";
+import TemplateDetailPage from "./pages/TemplateDetailPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +66,8 @@ const App = () => (
               <Route path="/packs/:packId/plan" element={<ProtectedRoute><PlanPage /></ProtectedRoute>} />
               <Route path="/plan" element={<ProtectedRoute><PlanPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
+              <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateDetailPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
