@@ -169,7 +169,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
     setIsLoading(true);
 
     // Save user message
-    if (user) saveMessage(user.id, moduleId, "user", text);
+    if (user) saveMessage(user.id, moduleId, "user", text, currentPackId);
 
     let soFar = "";
     const controller = new AbortController();
