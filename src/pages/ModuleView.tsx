@@ -110,6 +110,9 @@ export default function ModuleView() {
   const isGenerated = !!generatedMod;
   const moduleData = generatedMod?.module_data;
 
+  // Generated quiz
+  const { quiz: generatedQuiz, quizLoading, generateQuiz } = useGeneratedQuiz(moduleId || "");
+
   const { getReadSectionsForModule, toggleSection, saveQuizScore, getModuleProgress } = useProgress();
   const { getNoteForSection, saveNote, deleteNote } = useNotes(moduleId || "");
   const { updateLastOpened } = useLearnerState();
