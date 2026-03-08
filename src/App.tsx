@@ -9,6 +9,9 @@ import Modules from "./pages/Modules";
 import ModuleView from "./pages/ModuleView";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
+import GlossaryPage from "./pages/GlossaryPage";
+import PathsPage from "./pages/PathsPage";
+import AskLeadPage from "./pages/AskLeadPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +48,9 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/modules" element={<ProtectedRoute><Modules /></ProtectedRoute>} />
             <Route path="/modules/:moduleId" element={<ProtectedRoute><ModuleView /></ProtectedRoute>} />
+            <Route path="/glossary" element={<ProtectedRoute><GlossaryPage /></ProtectedRoute>} />
+            <Route path="/paths" element={<ProtectedRoute><PathsPage /></ProtectedRoute>} />
+            <Route path="/ask-lead" element={<ProtectedRoute><AskLeadPage /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

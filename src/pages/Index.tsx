@@ -4,9 +4,10 @@ import { ModuleCard } from "@/components/ModuleCard";
 import { ProgressChart } from "@/components/ProgressChart";
 import { StatsStrip } from "@/components/StatsStrip";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Rocket } from "lucide-react";
+import { Rocket, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
+import { useLearnerState } from "@/hooks/useLearnerState";
 
 const container = {
   hidden: { opacity: 0 },
@@ -24,10 +25,15 @@ const item = {
 const Index = () => {
   const navigate = useNavigate();
   const { getModuleProgress, totalSectionsRead, totalSections, completedModules } = useProgress();
+  const { lastOpenedModuleId } = useLearnerState();
 
   const avgProgress = Math.round(
     modules.reduce((a, m) => a + getModuleProgress(m.id), 0) / modules.length
   );
+
+  const lastModule = lastOpenedModuleId ? modules.find((m) => m.id === lastOpenedModuleId) : null;
+  const nextIncomplete = modules.find((m) => getModuleProgress(m.id) < 100);
+  const resumeModule = lastModule && getModuleProgress(lastModule.id) < 100 ? lastModule : nextIncomplete;
 
   return (
     <DashboardLayout>
@@ -51,8 +57,22 @@ const Index = () => {
             </h1>
           </div>
           <p className="text-muted-foreground max-w-xl">
-            Your onboarding launchpad. Complete modules, pass quizzes, and get up to speed with the codebase, workflows, and infrastructure.
+            Your onboarding launchpad. Complete modules, take notes, pass quizzes, and get up to speed with the codebase, workflows, and infrastructure.
           </p>
+
+          {/* Continue / Resume button */}
+          {resumeModule && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+              onClick={() => navigate(`/modules/${resumeModule.id}`)}
+              className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
+            >
+              <Play className="w-4 h-4" />
+              Continue: {resumeModule.title} ({getModuleProgress(resumeModule.id)}%)
+            </motion.button>
+          )}
         </motion.div>
 
         {/* Stats strip */}
