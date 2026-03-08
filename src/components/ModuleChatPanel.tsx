@@ -275,7 +275,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
               {/* AI Error inline */}
               {lastError && !isLoading && (
                 <div className="ml-8">
-                  <AIErrorDisplay error={lastError} compact onSearchQuery={(q) => setInput(q)} />
+                  <AIErrorDisplay error={lastError} compact onRetry={send} onSearchQuery={(q) => setInput(q)} />
                 </div>
               )}
 

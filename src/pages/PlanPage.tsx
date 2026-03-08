@@ -762,7 +762,7 @@ export default function PlanPage() {
         )}
 
         {/* Plan error */}
-        {planError && !generatePlan.isPending && <AIErrorDisplay error={planError} />}
+        {planError && !generatePlan.isPending && <AIErrorDisplay error={planError} onRetry={handleGenerate} />}
 
         {/* Empty state */}
         {!displayPlan && !generatePlan.isPending && !planLoading && (
