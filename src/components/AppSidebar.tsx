@@ -45,6 +45,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { packAccessLevel, accessLevelLabel, hasPackPermission } = useRole();
+  const { outputLanguage } = useAudiencePrefs();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
