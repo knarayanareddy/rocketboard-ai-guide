@@ -457,6 +457,8 @@ export default function ModuleView() {
             </TabsList>
 
             <TabsContent value="content">
+              {/* Audience mismatch banner */}
+              <AudienceMismatchBanner moduleAudience={moduleData?.audience} moduleDepth={moduleData?.depth} />
               {/* Contradictions callout */}
               {generatedMod?.contradictions && generatedMod.contradictions.length > 0 && (
                 <div className="space-y-3 mb-6">
