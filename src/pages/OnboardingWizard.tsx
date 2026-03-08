@@ -100,26 +100,26 @@ export default function OnboardingWizard() {
     if (!user || !orgId || !packTitle.trim()) return;
     setLoading(true);
     try {
-      const { data: pack, error: packErr } = await supabase
+      const newPackId = crypto.randomUUID();
+      const { error: packErr } = await supabase
         .from("packs")
         .insert({
+          id: newPackId,
           title: packTitle.trim(),
           description: packDesc.trim() || null,
           org_id: orgId,
           language_mode: langMode,
           created_by: user.id,
-        })
-        .select()
-        .single();
+        });
       if (packErr) throw packErr;
 
       const { error: memErr } = await supabase
         .from("pack_members")
-        .insert({ pack_id: pack.id, user_id: user.id, access_level: "owner" });
+        .insert({ pack_id: newPackId, user_id: user.id, access_level: "owner" });
       if (memErr) throw memErr;
 
-      setPackId(pack.id);
-      localStorage.setItem(STORAGE_PACK_KEY, pack.id);
+      setPackId(newPackId);
+      localStorage.setItem(STORAGE_PACK_KEY, newPackId);
       next();
     } catch (err: any) {
       toast.error(err.message || "Failed to create pack");
