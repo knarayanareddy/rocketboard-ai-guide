@@ -73,7 +73,7 @@ function baseEnvelope(
       current_track_key: null as string | null,
       output_language: null as string | null,
       audience_profile: { audience: "technical", depth: "standard", glossary_density: "standard" } as AudienceProfile,
-      learner_profile: { role: null, experience_level: null },
+      learner_profile: { role: null as string | null, experience_level: null as string | null },
       learner_state: { completed_module_keys: [], last_opened_module_key: null, last_opened_track_key: null },
       author_instruction: null as string | null,
       conversation: { conversation_id: null, messages: [] as ConversationMessage[] },
