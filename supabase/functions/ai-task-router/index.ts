@@ -574,6 +574,7 @@ serve(async (req) => {
       case "generate_quiz":
         return await handleGenerateQuiz(envelope);
       case "generate_glossary":
+        return await handleGenerateGlossary(envelope);
       case "generate_paths":
       case "generate_ask_lead":
       case "simplify_section":

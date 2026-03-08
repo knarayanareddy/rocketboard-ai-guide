@@ -175,8 +175,22 @@ export function buildGenerateQuizEnvelope(opts: {
   }
   return env;
 }
-export function buildGenerateGlossaryEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("generate_glossary", opts.auth, opts.pack);
+export function buildGenerateGlossaryEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  evidenceSpans?: EvidenceSpan[];
+  glossaryDensity?: string;
+  audienceProfile?: AudienceProfile;
+}) {
+  const env = baseEnvelope("generate_glossary", opts.auth, opts.pack);
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = "glossary terms definitions technical vocabulary";
+  env.context.audience_profile = {
+    ...env.context.audience_profile,
+    glossary_density: opts.glossaryDensity || "standard",
+    ...opts.audienceProfile,
+  };
+  return env;
 }
 export function buildGeneratePathsEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("generate_paths", opts.auth, opts.pack);
