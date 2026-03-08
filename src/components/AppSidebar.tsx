@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle, ThemeToggleCompact } from "@/components/ThemeToggle";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -44,10 +45,11 @@ const LANG_OPTIONS = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { signOut, user } = useAuth();
   const { packAccessLevel, accessLevelLabel, hasPackPermission } = useRole();
   const { outputLanguage, audience, depth, glossaryDensity, learnerRole, experienceLevel, mermaidEnabled, updatePrefs } = useAudiencePrefs();
@@ -137,7 +139,8 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.end}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent"
+                      onClick={() => { if (isMobile) setOpenMobile(false); }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent min-h-[44px]"
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
                     >
                       <item.icon className="w-4 h-4 shrink-0" />

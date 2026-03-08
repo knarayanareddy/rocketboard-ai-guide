@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -34,6 +35,7 @@ const SUGGESTED_QUESTIONS = [
 
 export function MissionControlChat() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
@@ -168,14 +170,14 @@ export function MissionControlChat() {
       {/* FAB — bottom-left to avoid collision with module-level Rocket */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="fixed bottom-6 left-20 z-50">
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className={`fixed z-50 ${isMobile ? "bottom-4 left-4" : "bottom-6 left-20"}`}>
             <Button
               onClick={() => setIsOpen(true)}
               size="lg"
-              className="rounded-full h-14 w-14 shadow-lg bg-accent text-accent-foreground border border-border hover:bg-accent/80"
+              className={`rounded-full shadow-lg bg-accent text-accent-foreground border border-border hover:bg-accent/80 ${isMobile ? "h-12 w-12" : "h-14 w-14"}`}
               title="Mission Control — General Assistant"
             >
-              <Compass className="w-6 h-6" />
+              <Compass className={isMobile ? "w-5 h-5" : "w-6 h-6"} />
             </Button>
           </motion.div>
         )}
@@ -189,7 +191,11 @@ export function MissionControlChat() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 left-20 z-50 w-[380px] h-[560px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className={`fixed z-50 bg-card border border-border shadow-2xl flex flex-col overflow-hidden ${
+              isMobile
+                ? "inset-0 rounded-none"
+                : "bottom-6 left-20 w-[380px] h-[560px] rounded-2xl"
+            }`}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-accent/30">

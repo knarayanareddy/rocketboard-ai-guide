@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { MessageCircle, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink, Rocket } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -51,6 +52,7 @@ async function saveMessage(userId: string, moduleId: string, role: string, conte
 
 export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
@@ -168,9 +170,9 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
       {/* FAB */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="fixed bottom-6 right-6 z-50">
-            <Button onClick={() => setIsOpen(true)} size="lg" className="rounded-full h-14 w-14 shadow-lg gradient-primary border-0" title="Rocket — Module Assistant">
-              <Rocket className="w-6 h-6" />
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className={`fixed z-50 ${isMobile ? "bottom-4 right-4" : "bottom-6 right-6"}`}>
+            <Button onClick={() => setIsOpen(true)} size="lg" className={`rounded-full shadow-lg gradient-primary border-0 ${isMobile ? "h-12 w-12" : "h-14 w-14"}`} title="Rocket — Module Assistant">
+              <Rocket className={isMobile ? "w-5 h-5" : "w-6 h-6"} />
             </Button>
           </motion.div>
         )}
@@ -184,7 +186,11 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 right-6 z-50 w-[380px] h-[560px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className={`fixed z-50 bg-card border border-border shadow-2xl flex flex-col overflow-hidden ${
+              isMobile
+                ? "inset-0 rounded-none"
+                : "bottom-6 right-6 w-[380px] h-[560px] rounded-2xl"
+            }`}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">

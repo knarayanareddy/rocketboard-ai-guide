@@ -20,6 +20,7 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SourcesUpdatedBanner } from "@/components/SourcesUpdatedBanner";
+import { ExportProgressButton } from "@/components/ExportProgressButton";
 import { SuggestedNextAction } from "@/components/SuggestedNextAction";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -346,7 +347,7 @@ const Index = () => {
             <motion.div animate={{ rotate: [0, -10, 10, -5, 0] }} transition={{ duration: 1.5, delay: 0.5, ease: "easeInOut" }}>
               <Rocket className="w-7 h-7 text-primary" />
             </motion.div>
-            <h1 className="text-3xl font-bold text-foreground">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Welcome to <span className="gradient-text">RocketBoard</span>
             </h1>
           </div>
@@ -375,7 +376,7 @@ const Index = () => {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
               onClick={() => navigate(`/packs/${effectivePackId}/modules/${resumeTarget.id}`)}
-              className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
+              className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity w-full sm:w-auto justify-center sm:justify-start"
             >
               <Play className="w-4 h-4" />
               Continue: {resumeTarget.title} ({resumeTarget.progress}%)
@@ -401,6 +402,10 @@ const Index = () => {
         {/* Stats strip */}
         {(useGenerated || staticModules.length > 0) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-muted-foreground">Stats</span>
+              <ExportProgressButton />
+            </div>
             <StatsStrip
               completedModules={effectiveCompleted}
               totalSectionsRead={effectiveTotalRead}
@@ -435,7 +440,7 @@ const Index = () => {
         {modulesLoading ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground">Loading modules...</div>
         ) : (
-          <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
             {useGenerated
               ? generatedModules.map((mod, i) => (
                   <GeneratedModuleCard

@@ -230,7 +230,7 @@ function StaticTrackFilter({ activeTrack, setActiveTrack }: { activeTrack: strin
   const { tracks: packTracks } = usePackTracks();
   if (packTracks.length === 0) return null;
   return (
-    <div className="flex items-center gap-2 mb-6 flex-wrap">
+    <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
       <Filter className="w-4 h-4 text-muted-foreground" />
       <button
         onClick={() => setActiveTrack("all")}
@@ -493,10 +493,10 @@ export default function ModuleView() {
         {isGenerated && moduleData ? (
           <Tabs defaultValue="content" className="w-full">
             <TabsList className="bg-muted border border-border mb-6">
-              <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card">
+              <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>
-              <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card" disabled={!canInteract}>
+              <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card min-h-[44px]" disabled={!canInteract}>
                 <BrainCircuit className="w-4 h-4" /> Quiz
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
               </TabsTrigger>
