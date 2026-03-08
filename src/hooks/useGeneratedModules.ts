@@ -51,6 +51,7 @@ export interface GeneratedModuleRow {
   audience: string | null;
   depth: string | null;
   module_data: GeneratedModuleData;
+  contradictions: any[] | null;
   status: string;
   created_at: string;
   updated_at: string;
