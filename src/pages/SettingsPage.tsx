@@ -203,6 +203,18 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Theme Selector */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Theme</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose a color scheme for the interface.
+            </p>
+            <ThemeSwitcher />
+          </div>
+
           {/* Audience Profile */}
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-center gap-2 mb-4">
