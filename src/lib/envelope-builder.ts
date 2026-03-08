@@ -219,8 +219,27 @@ export function buildGenerateAskLeadEnvelope(opts: {
 export function buildSimplifySectionEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("simplify_section", opts.auth, opts.pack);
 }
-export function buildRefineModuleEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("refine_module", opts.auth, opts.pack);
+export function buildRefineModuleEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  existingModule: any;
+  authorInstruction: string;
+  moduleKey: string;
+  trackKey?: string | null;
+  moduleRevision: number;
+  evidenceSpans?: EvidenceSpan[];
+  audienceProfile?: AudienceProfile;
+}) {
+  const env = baseEnvelope("refine_module", opts.auth, opts.pack);
+  env.context.current_module_key = opts.moduleKey;
+  env.context.current_track_key = opts.trackKey || null;
+  env.context.author_instruction = opts.authorInstruction;
+  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = `${opts.existingModule?.title || opts.moduleKey} ${opts.authorInstruction}`;
+  env.inputs.existing_module = opts.existingModule;
+  env.inputs.module_revision = opts.moduleRevision;
+  return env;
 }
 export function buildCreateTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("create_template", opts.auth, opts.pack);

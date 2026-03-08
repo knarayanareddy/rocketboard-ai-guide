@@ -113,10 +113,17 @@ export const TASK_OUTPUT_SCHEMAS: Record<string, TaskSchema> = {
     },
   },
   refine_module: {
-    description: "Refined module output",
+    description: "Refined module with change log",
     requiredFields: {
       type: { type: "string" },
       request_id: { type: "string" },
+      pack_id: { type: "string" },
+      pack_version: { type: "number" },
+      generation_meta: { type: "object" },
+      module_revision: { type: "number" },
+      module: { type: "object" },
+      change_log: { type: "array" },
+      contradictions: { type: "array", optional: true },
       warnings: { type: "array", optional: true },
     },
   },

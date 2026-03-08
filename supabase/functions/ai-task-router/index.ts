@@ -768,10 +768,11 @@ serve(async (req) => {
       case "generate_ask_lead":
         return await handleGenerateAskLead(envelope);
       case "simplify_section":
-      case "refine_module":
       case "create_template":
       case "refine_template":
         return unsupportedTask(requestId, taskType);
+      case "refine_module":
+        return await handleRefineModule(envelope);
       default:
         return errorResponse(400, {
           type: "error",
