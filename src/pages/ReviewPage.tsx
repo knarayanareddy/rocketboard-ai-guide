@@ -9,6 +9,8 @@ import { useModulePlan } from "@/hooks/useModulePlan";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
+import { AIError } from "@/lib/ai-errors";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -130,6 +132,8 @@ export default function ReviewPage() {
   const [refineInstruction, setRefineInstruction] = useState("");
   const [refining, setRefining] = useState(false);
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
+  const [refineError, setRefineError] = useState<AIError | null>(null);
+  const [regenError, setRegenError] = useState<AIError | null>(null);
 
   if (!hasPackPermission("author")) {
     return (
@@ -182,6 +186,7 @@ export default function ReviewPage() {
   const handleRefine = async () => {
     if (!refineTarget) return;
     setRefining(true);
+    setRefineError(null);
     try {
       const moduleData = refineTarget.module_data as unknown as GeneratedModuleData;
       const result = await refineModule.mutateAsync({
@@ -196,12 +201,17 @@ export default function ReviewPage() {
       setRefineInstruction("");
       toast.success(`Module refined to Rev. ${result.row.module_revision}`);
     } catch (e: any) {
-      toast.error(e.message);
+      if (e instanceof AIError) {
+        setRefineError(e);
+      } else {
+        toast.error(e.message);
+      }
     }
     setRefining(false);
   };
 
   const handleRegenerate = async (mod: GeneratedModuleRow) => {
+    setRegenError(null);
     try {
       await generateModule.mutateAsync({
         moduleKey: mod.module_key,
@@ -213,7 +223,11 @@ export default function ReviewPage() {
       });
       toast.success(`Regenerated: ${mod.title}`);
     } catch (e: any) {
-      toast.error(e.message);
+      if (e instanceof AIError) {
+        setRegenError(e);
+      } else {
+        toast.error(e.message);
+      }
     }
   };
 
@@ -310,10 +324,17 @@ export default function ReviewPage() {
                 mod={mod}
                 quizCount={0} // Will be enriched later
                 onPreview={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?preview=1`)}
-                onRefine={() => { setRefineTarget(mod); setRefineInstruction(""); setChangeLog([]); }}
+                onRefine={() => { setRefineTarget(mod); setRefineInstruction(""); setChangeLog([]); setRefineError(null); }}
                 onRegenerate={() => handleRegenerate(mod)}
               />
             ))}
+
+            {/* Regenerate error */}
+            {regenError && (
+              <AIErrorDisplay error={regenError} onRetry={() => {
+                if (allModulesForReview.length > 0) handleRegenerate(allModulesForReview[0]);
+              }} />
+            )}
           </div>
         </div>
 
@@ -393,6 +414,9 @@ export default function ReviewPage() {
               {refining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
               {refining ? "Refining..." : "Refine Module"}
             </Button>
+            {refineError && (
+              <AIErrorDisplay error={refineError} onRetry={handleRefine} />
+            )}
           </div>
         </SheetContent>
       </Sheet>

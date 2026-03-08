@@ -8,6 +8,7 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -23,6 +24,7 @@ import { useGeneratedModules, GeneratedModuleRow, GeneratedSection, ChangeLogEnt
 import { useGeneratedQuiz } from "@/hooks/useGeneratedQuiz";
 import { useSimplifySection, SimplifiedSection } from "@/hooks/useSimplifySection";
 import { usePack } from "@/hooks/usePack";
+import { AIError } from "@/lib/ai-errors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -50,6 +52,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
   const [simplified, setSimplified] = useState<SimplifiedSection | undefined>(
     moduleKey ? getCachedSimplification(moduleKey, section.section_id) : undefined
   );
+  const [simplifyError, setSimplifyError] = useState<AIError | null>(null);
 
   const handleSimplify = () => {
     if (simplified) {
@@ -57,6 +60,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
       return;
     }
     if (!moduleKey) return;
+    setSimplifyError(null);
     simplifySection.mutate(
       {
         moduleKey,
@@ -69,7 +73,13 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           setSimplified(result);
           setShowSimplified(true);
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => {
+          if (e instanceof AIError) {
+            setSimplifyError(e);
+          } else {
+            toast.error(e.message);
+          }
+        },
       }
     );
   };
@@ -163,6 +173,13 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           <ReactMarkdown>{displayMarkdown}</ReactMarkdown>
         </motion.div>
       </AnimatePresence>
+
+      {/* Simplify error */}
+      {simplifyError && (
+        <div className="mt-3">
+          <AIErrorDisplay error={simplifyError} compact onRetry={handleSimplify} />
+        </div>
+      )}
 
       {displayCitations && displayCitations.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
