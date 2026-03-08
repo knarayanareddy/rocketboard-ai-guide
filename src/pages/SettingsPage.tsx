@@ -1,12 +1,12 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Trash2, User, Eye, Layers } from "lucide-react";
+import { Trash2, User, Layers, BookText } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
+import { useAudiencePrefs, GlossaryDensity } from "@/hooks/useAudiencePrefs";
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 
@@ -22,10 +22,16 @@ const DEPTH_OPTIONS: { key: Depth; label: string; desc: string }[] = [
   { key: "deep", label: "Deep", desc: "In-depth with implementation details" },
 ];
 
+const GLOSSARY_DENSITY_OPTIONS: { key: GlossaryDensity; label: string; desc: string }[] = [
+  { key: "low", label: "Low", desc: "Only essential/critical terms" },
+  { key: "standard", label: "Standard", desc: "Common terms most engineers need" },
+  { key: "high", label: "High", desc: "Comprehensive, includes niche terms" },
+];
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { audience, depth, updatePrefs } = useAudiencePrefs();
+  const { audience, depth, glossaryDensity, updatePrefs } = useAudiencePrefs();
   const { currentPackId } = usePack();
 
   const handleResetProgress = async () => {
@@ -62,7 +68,7 @@ export default function SettingsPage() {
               {AUDIENCE_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
-                  onClick={() => updatePrefs.mutate({ audience: opt.key, depth })}
+                  onClick={() => updatePrefs.mutate({ audience: opt.key, depth, glossary_density: glossaryDensity })}
                   className={`text-left p-3 rounded-lg border transition-all ${
                     audience === opt.key
                       ? "border-primary/40 bg-primary/10"
@@ -89,9 +95,36 @@ export default function SettingsPage() {
               {DEPTH_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
-                  onClick={() => updatePrefs.mutate({ audience, depth: opt.key })}
+                  onClick={() => updatePrefs.mutate({ audience, depth: opt.key, glossary_density: glossaryDensity })}
                   className={`text-left p-3 rounded-lg border transition-all ${
                     depth === opt.key
+                      ? "border-primary/40 bg-primary/10"
+                      : "border-border hover:border-primary/20"
+                  }`}
+                >
+                  <span className="text-sm font-medium text-card-foreground">{opt.label}</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Glossary Density */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <BookText className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Glossary Density</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              How many glossary terms should be generated?
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {GLOSSARY_DENSITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => updatePrefs.mutate({ audience, depth, glossary_density: opt.key })}
+                  className={`text-left p-3 rounded-lg border transition-all ${
+                    glossaryDensity === opt.key
                       ? "border-primary/40 bg-primary/10"
                       : "border-border hover:border-primary/20"
                   }`}
