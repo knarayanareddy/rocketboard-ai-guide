@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { IngestionStatus } from "@/components/IngestionStatus";
+import { ChunkBrowser } from "@/components/ChunkBrowser";
 import { useSources } from "@/hooks/useSources";
 import { useIngestion } from "@/hooks/useIngestion";
 import { useRole } from "@/hooks/useRole";
 import { usePack } from "@/hooks/usePack";
+import { useModulePlan } from "@/hooks/useModulePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +38,8 @@ import {
   Clock,
   CheckCircle2,
   Loader2,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProgress } from "@/hooks/useProgress";
-import { useGeneratedModules, GeneratedModuleRow } from "@/hooks/useGeneratedModules";
+import { useGeneratedModules } from "@/hooks/useGeneratedModules";
 import { useGeneratedAskLead } from "@/hooks/useGeneratedAskLead";
 import { useAskLeadProgress } from "@/hooks/useAskLeadProgress";
 import { useGeneratedPaths } from "@/hooks/useGeneratedPaths";
@@ -27,13 +27,16 @@ export function SuggestedNextAction() {
   const isAuthor = hasPackPermission("author");
   const { progressData, quizScores } = useProgress();
   const { modules: allModules } = useGeneratedModules();
-  const { questions } = useGeneratedAskLead();
+  const { askLead } = useGeneratedAskLead();
   const { askedQuestions } = useAskLeadProgress();
-  const { paths } = useGeneratedPaths();
-  const { checkedSteps } = usePathProgress();
+  const { paths: pathsRow } = useGeneratedPaths();
+  const { checkedSteps: day1Checked } = usePathProgress("day1");
 
   const modules = isAuthor ? allModules : allModules.filter(m => m.status === "published");
   const packId = currentPackId;
+
+  const questions = askLead?.questions_data || [];
+  const pathsData = pathsRow?.paths_data;
 
   const suggestion = useMemo((): Suggestion | null => {
     if (!packId || modules.length === 0) return null;
@@ -42,18 +45,15 @@ export function SuggestedNextAction() {
 
     // 1. Day 1 checklist for new users
     const hasAnyProgress = progressData.length > 0;
-    const day1Path = paths?.day1;
-    if (!hasAnyProgress && day1Path?.steps?.length > 0) {
-      const day1Checked = day1Path.steps.filter((s: any) => checkedSteps.has(s.step_id)).length;
-      if (day1Checked < day1Path.steps.length) {
-        candidates.push({
-          priority: 1,
-          icon: <ListChecks className="w-4 h-4" />,
-          text: "Start with your Day 1 checklist",
-          action: () => navigate(`/packs/${packId}/paths`),
-          label: "View Checklist",
-        });
-      }
+    const day1Steps = pathsData?.day1 || [];
+    if (!hasAnyProgress && day1Steps.length > 0) {
+      candidates.push({
+        priority: 1,
+        icon: <ListChecks className="w-4 h-4" />,
+        text: "Start with your Day 1 checklist",
+        action: () => navigate(`/packs/${packId}/paths`),
+        label: "View Checklist",
+      });
     }
 
     // 2. Quiz ready — all sections read in a module but no quiz score
@@ -71,13 +71,13 @@ export function SuggestedNextAction() {
             action: () => navigate(`/packs/${packId}/modules/${mod.module_key}`),
             label: "Take Quiz",
           });
-          break; // Only suggest one quiz
+          break;
         }
       }
     }
 
     // 3. Unasked lead questions
-    const totalQuestions = questions?.length || 0;
+    const totalQuestions = questions.length;
     const askedCount = askedQuestions.size;
     const unaskedCount = totalQuestions - askedCount;
     if (unaskedCount > 0) {
@@ -109,7 +109,7 @@ export function SuggestedNextAction() {
     if (candidates.length === 0) return null;
     candidates.sort((a, b) => a.priority - b.priority);
     return candidates[0];
-  }, [packId, modules, progressData, quizScores, questions, askedQuestions, paths, checkedSteps, navigate]);
+  }, [packId, modules, progressData, quizScores, questions, askedQuestions, pathsData, day1Checked, navigate]);
 
   if (!suggestion || isAuthor) return null;
 
