@@ -1,8 +1,9 @@
-import { CheckCircle2, XCircle, ChevronDown } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronDown, AlertTriangle, ShieldCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useState } from "react";
 import type { Limits } from "@/lib/limits";
+import { validateAIOutput, type ValidationResult } from "@/lib/schema-validator";
 
 interface StatRow {
   label: string;
@@ -13,6 +14,7 @@ interface StatRow {
 interface GenerationStatsProps {
   stats: StatRow[];
   className?: string;
+  validationResult?: ValidationResult | null;
 }
 
 export function GenerationStats({ stats, className }: GenerationStatsProps) {
