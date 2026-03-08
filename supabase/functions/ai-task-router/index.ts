@@ -46,6 +46,14 @@ function buildLanguageBlock(context: any, pack: any): string {
   return `\n## OUTPUT LANGUAGE INSTRUCTION\nWrite ALL user-facing prose (headings, content, explanations, definitions, reflection prompts, quiz questions, option text) in language code "${lang}". NEVER translate: code identifiers, file paths, variable names, IDs, citation fields (span_id, path, chunk_id), or JSON keys. JSON keys must remain in English.\n`;
 }
 
+function buildMermaidBlock(envelope: any): string {
+  const enabled = envelope?.generation_prefs?.include_mermaid_if_supported;
+  if (enabled) {
+    return `\n## MERMAID DIAGRAMS\nYou may include Mermaid diagrams using \`\`\`mermaid code blocks when they help illustrate architecture, flows, or relationships. Diagrams must be grounded: node labels should reference actual entities from evidence. If evidence is insufficient to create an accurate diagram, omit it and add a warning. Keep diagrams simple and readable.\n`;
+  }
+  return `\n## MERMAID DIAGRAMS\nDo NOT include any Mermaid diagrams in your output.\n`;
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
