@@ -156,6 +156,13 @@ export function QuizRunner({ questions, generatedQuestions, onComplete, hasContr
         >
           <h3 className="text-lg font-semibold text-card-foreground mb-6">{current.prompt}</h3>
 
+          {hasContradictions && (
+            <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-300">
+              <span>⚠️</span>
+              <span>Note: Evidence sources conflict on this topic. See module for details.</span>
+            </div>
+          )}
+
           <div className="space-y-3">
             {current.options.map((option, i) => {
               const isCorrect = option.id === current.correctId;
