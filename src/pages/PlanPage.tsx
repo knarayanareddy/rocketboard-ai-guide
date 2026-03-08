@@ -654,6 +654,28 @@ export default function PlanPage() {
         const saved = await savePlan.mutateAsync(livePlan);
         if (saved?.id) await approvePlan.mutateAsync(saved.id);
       }
+
+      // Save proposed tracks to pack_tracks
+      if (livePlan.tracks?.length && currentPackId) {
+        const existingKeys = new Set(tracks.map(t => t.track_key));
+        const newTracks = livePlan.tracks.filter(t => !existingKeys.has(t.track_key));
+        if (newTracks.length > 0) {
+          const { error } = await supabase
+            .from("pack_tracks")
+            .upsert(
+              newTracks.map(t => ({
+                pack_id: currentPackId,
+                track_key: t.track_key,
+                title: t.title,
+                description: t.description || null,
+              })),
+              { onConflict: "pack_id,track_key" }
+            );
+          if (error) console.error("Failed to save tracks:", error);
+          else queryClient.invalidateQueries({ queryKey: ["pack_tracks", currentPackId] });
+        }
+      }
+
       toast.success("Plan approved!");
     } catch (e: any) {
       toast.error(e.message || "Failed to approve plan");
