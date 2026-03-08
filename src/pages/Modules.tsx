@@ -91,9 +91,11 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
 
 export default function Modules() {
   const navigate = useNavigate();
+  const { packId } = useParams();
   const { getModuleProgress } = useProgress();
   const { modules: generatedModules, modulesLoading } = useGeneratedModules();
-  const { currentPack } = usePack();
+  const { currentPack, currentPackId } = usePack();
+  const effectivePackId = packId || currentPackId;
 
   const hasGenerated = generatedModules.length > 0;
 
