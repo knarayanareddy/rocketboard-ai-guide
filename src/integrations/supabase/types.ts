@@ -166,6 +166,38 @@ export type Database = {
           },
         ]
       }
+      org_members: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
@@ -189,24 +221,24 @@ export type Database = {
       }
       pack_members: {
         Row: {
+          access_level: string
           id: string
           joined_at: string
           pack_id: string
-          role: string
           user_id: string
         }
         Insert: {
+          access_level?: string
           id?: string
           joined_at?: string
           pack_id: string
-          role?: string
           user_id: string
         }
         Update: {
+          access_level?: string
           id?: string
           joined_at?: string
           pack_id?: string
-          role?: string
           user_id?: string
         }
         Relationships: [
@@ -441,6 +473,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_org_role: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: string
+      }
+      get_pack_access_level: {
+        Args: { _pack_id: string; _user_id: string }
+        Returns: string
+      }
+      has_pack_access: {
+        Args: { _min_level: string; _pack_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_pack_member: {
         Args: { _pack_id: string; _user_id: string }
         Returns: boolean
