@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2 } from "lucide-react";
+import { ThemeToggle, ThemeToggleCompact } from "@/components/ThemeToggle";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -164,6 +165,12 @@ export function AppSidebar() {
               {accessLevelLabel(packAccessLevel)}
             </span>
           </div>
+        )}
+        {/* Theme mode toggle */}
+        {collapsed ? (
+          <ThemeToggleCompact />
+        ) : (
+          <ThemeToggle />
         )}
         <button
           onClick={signOut}
