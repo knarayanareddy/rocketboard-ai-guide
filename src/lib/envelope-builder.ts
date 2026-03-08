@@ -129,8 +129,31 @@ export function buildModulePlannerEnvelope(opts: {
   env.retrieval.query = "architecture setup configuration deployment infrastructure code structure";
   return env;
 }
-export function buildGenerateModuleEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("generate_module", opts.auth, opts.pack);
+export function buildGenerateModuleEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  evidenceSpans?: EvidenceSpan[];
+  moduleKey: string;
+  moduleTitle: string;
+  moduleDescription?: string;
+  trackKey?: string | null;
+  moduleRevision?: number;
+  audienceProfile?: AudienceProfile;
+}) {
+  const env = baseEnvelope("generate_module", opts.auth, opts.pack);
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = `${opts.moduleTitle} ${opts.moduleDescription || ""}`;
+  env.context.current_module_key = opts.moduleKey;
+  env.context.current_track_key = opts.trackKey || null;
+  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
+  env.inputs.module_revision = opts.moduleRevision || 1;
+  (env.inputs as any).module = {
+    module_key: opts.moduleKey,
+    title: opts.moduleTitle,
+    description: opts.moduleDescription || "",
+    track_key: opts.trackKey || null,
+  };
+  return env;
 }
 export function buildGenerateQuizEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("generate_quiz", opts.auth, opts.pack);
