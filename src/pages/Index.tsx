@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { usePack } from "@/hooks/usePack";
+import { IngestionStatus } from "@/components/IngestionStatus";
 
 const container = {
   hidden: { opacity: 0 },
@@ -87,6 +88,11 @@ const Index = () => {
             </motion.button>
           )}
         </motion.div>
+
+        {/* Ingestion Status */}
+        <div className="mb-6">
+          <IngestionStatus />
+        </div>
 
         {/* Stats strip */}
         <motion.div
