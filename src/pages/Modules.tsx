@@ -65,6 +65,11 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
             <Sparkles className="w-2.5 h-2.5 mr-0.5" />
             Generated
           </Badge>
+          {mod.module_revision > 1 && (
+            <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground font-mono">
+              Rev. {mod.module_revision}
+            </Badge>
+          )}
           {isComplete ? (
             <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
           ) : (
