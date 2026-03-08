@@ -65,7 +65,6 @@ export function GenerationStats({ stats, className, validationResult }: Generati
               })}
             </TableBody>
           </Table>
-        </div>
           {/* Schema Validation row */}
           {validationResult && (
             <Table>
