@@ -13,6 +13,17 @@ function errorResponse(status: number, body: object) {
   });
 }
 
+function structuredError(requestId: string, errorCode: string, message: string, extra?: { suggested_search_queries?: string[]; warnings?: string[] }) {
+  return jsonResponse({
+    type: "error",
+    request_id: requestId,
+    error_code: errorCode,
+    message,
+    suggested_search_queries: extra?.suggested_search_queries || [],
+    warnings: extra?.warnings || [],
+  });
+}
+
 function jsonResponse(body: object) {
   return new Response(JSON.stringify(body), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -20,14 +31,7 @@ function jsonResponse(body: object) {
 }
 
 function unsupportedTask(requestId: string, taskType: string) {
-  return errorResponse(200, {
-    type: "error",
-    request_id: requestId,
-    error_code: "unsupported_task",
-    message: `Task type '${taskType}' not yet implemented`,
-    suggested_search_queries: [],
-    warnings: [],
-  });
+  return structuredError(requestId, "unsupported_task", `Task type '${taskType}' not yet implemented`);
 }
 
 function buildSpansBlock(spans: any[]): string {
