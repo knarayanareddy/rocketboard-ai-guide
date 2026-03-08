@@ -1,3 +1,5 @@
+import { forwardRef } from "react";
+
 const TRACK_COLORS = [
   { bg: "bg-primary/15", text: "text-primary", border: "border-primary/30" },
   { bg: "bg-accent/15", text: "text-accent", border: "border-accent/30" },
@@ -20,14 +22,21 @@ interface TrackBadgeProps {
   title?: string;
 }
 
-export function TrackBadge({ track, title }: TrackBadgeProps) {
-  const colorIdx = hashTrackKey(track) % TRACK_COLORS.length;
-  const colors = TRACK_COLORS[colorIdx];
-  const label = title || track.replace(/[-_]/g, " ");
+export const TrackBadge = forwardRef<HTMLSpanElement, TrackBadgeProps>(
+  ({ track, title }, ref) => {
+    const colorIdx = hashTrackKey(track) % TRACK_COLORS.length;
+    const colors = TRACK_COLORS[colorIdx];
+    const label = title || track.replace(/[-_]/g, " ");
 
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
-      {label}
-    </span>
-  );
-}
+    return (
+      <span
+        ref={ref}
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${colors.bg} ${colors.text} ${colors.border}`}
+      >
+        {label}
+      </span>
+    );
+  }
+);
+
+TrackBadge.displayName = "TrackBadge";
