@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { glossaryTerms } from "@/data/glossary-data";
-import { TRACKS, Track } from "@/data/onboarding-data";
 import { TrackBadge } from "@/components/TrackBadge";
 import { CitationBadge } from "@/components/CitationBadge";
 import { useGeneratedGlossary, GlossaryTerm } from "@/hooks/useGeneratedGlossary";
 import { useRole } from "@/hooks/useRole";
+import { usePackTracks } from "@/hooks/usePackTracks";
 import { Search, BookText, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -19,18 +19,16 @@ const DENSITY_OPTIONS = [
 
 export default function GlossaryPage() {
   const [search, setSearch] = useState("");
-  const [trackFilter, setTrackFilter] = useState<Track | "all">("all");
+  const [trackFilter, setTrackFilter] = useState<string>("all");
   const [density, setDensity] = useState<string>("standard");
 
   const { glossary: generatedGlossary, glossaryLoading, generateGlossary } = useGeneratedGlossary();
   const { hasPackPermission } = useRole();
+  const { tracks: packTracks } = usePackTracks();
 
   const isGenerated = !!generatedGlossary?.glossary_data?.length;
-
-  // Generated terms
   const generatedTerms: GlossaryTerm[] = generatedGlossary?.glossary_data || [];
 
-  // Filter generated terms
   const filteredGenerated = useMemo(() => {
     if (!isGenerated) return [];
     return generatedTerms
@@ -44,7 +42,6 @@ export default function GlossaryPage() {
       .sort((a, b) => a.term.localeCompare(b.term));
   }, [generatedTerms, search, isGenerated]);
 
-  // Static fallback
   const filteredStatic = useMemo(() => {
     if (isGenerated) return [];
     return glossaryTerms
@@ -53,7 +50,7 @@ export default function GlossaryPage() {
           !search ||
           t.term.toLowerCase().includes(search.toLowerCase()) ||
           t.definition.toLowerCase().includes(search.toLowerCase());
-        const matchesTrack = trackFilter === "all" || t.tracks.includes(trackFilter);
+        const matchesTrack = trackFilter === "all" || t.tracks.includes(trackFilter as any);
         return matchesSearch && matchesTrack;
       })
       .sort((a, b) => a.term.localeCompare(b.term));
@@ -85,7 +82,6 @@ export default function GlossaryPage() {
             </div>
             {hasPackPermission("author") && (
               <div className="flex items-center gap-2">
-                {/* Density selector */}
                 <div className="flex items-center bg-muted rounded-lg border border-border p-0.5">
                   {DENSITY_OPTIONS.map((opt) => (
                     <button
@@ -139,7 +135,7 @@ export default function GlossaryPage() {
               className="w-full pl-9 pr-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
             />
           </div>
-          {!isGenerated && (
+          {!isGenerated && packTracks.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setTrackFilter("all")}
@@ -149,9 +145,9 @@ export default function GlossaryPage() {
               >
                 All
               </button>
-              {TRACKS.map((t) => (
-                <button key={t.key} onClick={() => setTrackFilter(t.key)} className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t.key ? "opacity-40" : ""}`}>
-                  <TrackBadge track={t.key} />
+              {packTracks.map((t) => (
+                <button key={t.track_key} onClick={() => setTrackFilter(t.track_key)} className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t.track_key ? "opacity-40" : ""}`}>
+                  <TrackBadge track={t.track_key} title={t.title} />
                 </button>
               ))}
             </div>

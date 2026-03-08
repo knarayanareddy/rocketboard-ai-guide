@@ -3,11 +3,11 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { askLeadQuestions } from "@/data/ask-lead-data";
 import { TrackBadge } from "@/components/TrackBadge";
 import { CitationBadge } from "@/components/CitationBadge";
-import { TRACKS, Track } from "@/data/onboarding-data";
 import { useGeneratedAskLead, GeneratedAskLeadQuestion } from "@/hooks/useGeneratedAskLead";
 import { useAskLeadProgress } from "@/hooks/useAskLeadProgress";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
+import { usePackTracks } from "@/hooks/usePackTracks";
 import { MessageSquareMore, CheckCircle2, Circle, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -23,17 +23,17 @@ const CATEGORIES = [
 
 export default function AskLeadPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [trackFilter, setTrackFilter] = useState<Track | "all">("all");
+  const [trackFilter, setTrackFilter] = useState<string>("all");
 
   const { askLead, askLeadLoading, generateAskLead } = useGeneratedAskLead();
   const { askedQuestions, toggleQuestion } = useAskLeadProgress();
   const { hasPackPermission } = useRole();
   const { user } = useAuth();
+  const { tracks: packTracks } = usePackTracks();
 
   const isGenerated = !!askLead?.questions_data?.length;
   const generatedQuestions: GeneratedAskLeadQuestion[] = askLead?.questions_data || [];
 
-  // For generated, filter by track only
   const filteredGenerated = useMemo(() => {
     if (!isGenerated) return [];
     return generatedQuestions.filter((q) => {
@@ -42,7 +42,6 @@ export default function AskLeadPage() {
     });
   }, [generatedQuestions, trackFilter, isGenerated]);
 
-  // Static fallback
   const filteredStatic = useMemo(() => {
     if (isGenerated) return [];
     return askLeadQuestions.filter((q) => {
@@ -60,6 +59,11 @@ export default function AskLeadPage() {
       onError: (e) => toast.error(e.message),
     });
   };
+
+  // Derive track list from pack tracks or from data
+  const trackButtons = packTracks.length > 0
+    ? packTracks.map((t) => ({ key: t.track_key, title: t.title }))
+    : [];
 
   return (
     <DashboardLayout>
@@ -117,21 +121,23 @@ export default function AskLeadPage() {
               ))}
             </div>
           )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setTrackFilter("all")}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                trackFilter === "all" ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
-              }`}
-            >
-              All Tracks
-            </button>
-            {TRACKS.map((t) => (
-              <button key={t.key} onClick={() => setTrackFilter(t.key)} className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t.key ? "opacity-40" : ""}`}>
-                <TrackBadge track={t.key} />
+          {trackButtons.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setTrackFilter("all")}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  trackFilter === "all" ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
+                }`}
+              >
+                All Tracks
               </button>
-            ))}
-          </div>
+              {trackButtons.map((t) => (
+                <button key={t.key} onClick={() => setTrackFilter(t.key)} className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t.key ? "opacity-40" : ""}`}>
+                  <TrackBadge track={t.key} title={t.title} />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="text-xs text-muted-foreground mb-4">
@@ -164,7 +170,7 @@ export default function AskLeadPage() {
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">{q.why_it_matters}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {q.track_key && <TrackBadge track={q.track_key as any} />}
+                      {q.track_key && <TrackBadge track={q.track_key} />}
                       {q.citations && q.citations.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {q.citations.map((c) => (
