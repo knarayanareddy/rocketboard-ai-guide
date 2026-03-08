@@ -482,15 +482,54 @@ export default function SettingsPage() {
           )}
 
           {/* Reset Progress */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="font-semibold text-card-foreground mb-2">Reset Progress</h2>
+          <div className="bg-card border border-destructive/20 rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              <h2 className="font-semibold text-card-foreground">Reset All Progress</h2>
+            </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Clear all module progress, quiz scores, and notes. This cannot be undone.
+              Clear all your progress for this pack. This cannot be undone.
             </p>
-            <Button variant="destructive" onClick={handleResetProgress} className="gap-2">
-              <Trash2 className="w-4 h-4" />
-              Reset All Progress
-            </Button>
+
+            {/* Progress counts */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+              {[
+                { label: "Sections read", count: resetCounts.sections },
+                { label: "Quizzes completed", count: resetCounts.quizzes },
+                { label: "Notes saved", count: resetCounts.notes },
+                { label: "Path steps checked", count: resetCounts.paths },
+                { label: "Questions asked", count: resetCounts.askLead },
+                { label: "Chat messages", count: resetCounts.chat },
+              ].map((item) => (
+                <div key={item.label} className="bg-muted/50 rounded-lg p-2.5 text-center">
+                  <div className="text-lg font-bold text-foreground">{item.count}</div>
+                  <div className="text-[10px] text-muted-foreground">{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="gap-2" disabled={totalResetItems === 0}>
+                  <Trash2 className="w-4 h-4" />
+                  Reset All Progress {totalResetItems > 0 && `(${totalResetItems} items)`}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will reset ALL your progress for this pack including reading progress, quiz scores, notes, paths, ask-lead progress, and chat history. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleResetProgress} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Reset Everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </motion.div>
       </div>
