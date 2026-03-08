@@ -41,6 +41,7 @@ export function useAudiencePrefs() {
       glossary_density?: GlossaryDensity;
       learner_role?: string | null;
       experience_level?: ExperienceLevel | null;
+      output_language?: string;
     }) => {
       if (!user) return;
       const payload: any = {
@@ -53,6 +54,7 @@ export function useAudiencePrefs() {
       if (opts.glossary_density) payload.glossary_density = opts.glossary_density;
       if (opts.learner_role !== undefined) payload.learner_role = opts.learner_role;
       if (opts.experience_level !== undefined) payload.experience_level = opts.experience_level;
+      if (opts.output_language !== undefined) payload.output_language = opts.output_language;
       const { error } = await supabase.from("audience_preferences").upsert(
         payload,
         { onConflict: "user_id" }
