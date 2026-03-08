@@ -161,6 +161,12 @@ export default function GlossaryPage() {
           )}
         </div>
 
+        {genError && (
+          <div className="mb-6">
+            <AIErrorDisplay error={genError} />
+          </div>
+        )}
+
         {glossaryLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading glossary...</div>
         ) : isGenerated ? (
