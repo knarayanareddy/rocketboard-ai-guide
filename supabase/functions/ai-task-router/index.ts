@@ -515,6 +515,7 @@ RULES:
 - Include up to ${limits.max_key_takeaways || 7} key takeaways.
 - Include up to ${limits.max_reflection_prompts || 4} reflection prompts in the endcap.
 - Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting with code blocks, lists, and emphasis where appropriate.
 - Section IDs should be like "sec-1", "sec-2", etc.
 ${spansBlock}
