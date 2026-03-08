@@ -876,7 +876,7 @@ async function handleSimplifySection(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Section Simplifier. You rewrite technical content to be more accessible.
-
+${buildLanguageBlock(context, pack)}
 TASK: Simplify the following section content for the target audience.
 ${packBlock}
 
