@@ -165,8 +165,16 @@ export default function ModuleView() {
 
   const handleQuizComplete = (score: number) => {
     if (!canInteract || !moduleId) return;
-    const quizLen = staticMod?.quiz?.length || 0;
+    const quizLen = generatedQuiz?.quiz_data?.questions?.length || staticMod?.quiz?.length || 0;
     if (quizLen > 0) saveQuizScore.mutate({ moduleId, score, total: quizLen });
+  };
+
+  const handleGenerateQuiz = () => {
+    if (!moduleId) return;
+    generateQuiz.mutate(
+      { moduleData: moduleData || undefined, trackKey: moduleData?.track_key },
+      { onSuccess: () => toast.success("Quiz generated!"), onError: (e) => toast.error(e.message) }
+    );
   };
 
   // Get display title/description
