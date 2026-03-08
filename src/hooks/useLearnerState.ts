@@ -25,7 +25,7 @@ export function useLearnerState() {
   });
 
   const updateLastOpened = useMutation({
-    mutationFn: async ({ moduleId, trackKey }: { moduleId: string; trackKey?: string }) => {
+    mutationFn: async ({ moduleId, trackKey }: { moduleId?: string; trackKey?: string }) => {
       if (!user) return;
       const { error } = await supabase.from("learner_state").upsert(
         {
