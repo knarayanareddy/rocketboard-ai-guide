@@ -24,6 +24,7 @@ import PlanPage from "./pages/PlanPage";
 import TemplatesPage from "./pages/TemplatesPage";
 import TemplateDetailPage from "./pages/TemplateDetailPage";
 import OnboardingWizard from "./pages/OnboardingWizard";
+import ReviewPage from "./pages/ReviewPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
