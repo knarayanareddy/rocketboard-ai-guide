@@ -59,6 +59,27 @@ export default function OnboardingWizard() {
   const [invites, setInvites] = useState<InviteEntry[]>([{ email: "", accessLevel: "learner" }]);
   const [loading, setLoading] = useState(false);
 
+  // Check if user already has an org — if so, skip org creation step
+  useEffect(() => {
+    if (!user) return;
+    const checkExistingOrg = async () => {
+      const { data } = await supabase
+        .from("org_members")
+        .select("org_id")
+        .eq("user_id", user.id)
+        .limit(1);
+      if (data && data.length > 0 && !orgId) {
+        setOrgId(data[0].org_id);
+        localStorage.setItem(STORAGE_ORG_KEY, data[0].org_id);
+        // If on step 0 or 1, jump to pack creation
+        if (step <= 1) {
+          setStep(2);
+        }
+      }
+    };
+    checkExistingOrg();
+  }, [user]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, String(step));
   }, [step]);
