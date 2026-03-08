@@ -4,6 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 
+export type GlossaryDensity = "low" | "standard" | "high";
+
 export function useAudiencePrefs() {
   const { user } = useAuth();
   const { currentPackId } = usePack();
@@ -26,10 +28,18 @@ export function useAudiencePrefs() {
   });
 
   const updatePrefs = useMutation({
-    mutationFn: async ({ audience, depth }: { audience: Audience; depth: Depth }) => {
+    mutationFn: async ({ audience, depth, glossary_density }: { audience: Audience; depth: Depth; glossary_density?: GlossaryDensity }) => {
       if (!user) return;
+      const payload: any = {
+        user_id: user.id,
+        audience,
+        depth,
+        pack_id: currentPackId,
+        updated_at: new Date().toISOString(),
+      };
+      if (glossary_density) payload.glossary_density = glossary_density;
       const { error } = await supabase.from("audience_preferences").upsert(
-        { user_id: user.id, audience, depth, pack_id: currentPackId, updated_at: new Date().toISOString() },
+        payload,
         { onConflict: "user_id" }
       );
       if (error) throw error;
@@ -42,6 +52,7 @@ export function useAudiencePrefs() {
   return {
     audience: (prefs?.audience as Audience) ?? "technical",
     depth: (prefs?.depth as Depth) ?? "standard",
+    glossaryDensity: ((prefs as any)?.glossary_density as GlossaryDensity) ?? "standard",
     updatePrefs,
   };
 }
