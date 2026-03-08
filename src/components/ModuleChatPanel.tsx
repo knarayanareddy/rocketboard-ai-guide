@@ -12,6 +12,7 @@ import { useRole } from "@/hooks/useRole";
 import { sendAITask, AIError } from "@/lib/ai-client";
 import { buildChatEnvelope } from "@/lib/envelope-builder";
 import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
+import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 type Msg = { role: "user" | "assistant"; content: string };
 

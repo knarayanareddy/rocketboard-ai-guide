@@ -5,6 +5,7 @@ import { useRole } from "@/hooks/useRole";
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 import { sendAITask } from "@/lib/ai-client";
 import { buildSimplifySectionEnvelope } from "@/lib/envelope-builder";
+import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 export interface SimplifiedSection {
   simplified_markdown: string;
