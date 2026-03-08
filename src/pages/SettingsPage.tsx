@@ -2,11 +2,11 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAudiencePrefs, GlossaryDensity, ExperienceLevel } from "@/hooks/useAudiencePrefs";
 import { useGenerationPrefs, TargetReadingLevel } from "@/hooks/useGenerationPrefs";
@@ -16,6 +16,17 @@ import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; desc: string }[] = [
   { key: "technical", label: "Technical", desc: "Detailed, code-oriented content" },
@@ -94,18 +105,52 @@ export default function SettingsPage() {
     return { filled, missing, total: 6, count: filled.length };
   }, [audience, depth, learnerRole, experienceLevel, outputLanguage, glossaryDensity]);
 
+  // Reset counts query
+  const resetCountsQuery = useQuery({
+    queryKey: ["reset_counts", currentPackId, user?.id],
+    queryFn: async () => {
+      if (!user || !currentPackId) return { sections: 0, quizzes: 0, notes: 0, paths: 0, askLead: 0, chat: 0 };
+      const [r1, r2, r3, r4, r5, r6] = await Promise.all([
+        supabase.from("user_progress").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+        supabase.from("quiz_scores").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+        supabase.from("learner_notes").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+        supabase.from("path_progress").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId).eq("is_checked", true),
+        supabase.from("ask_lead_progress").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId).eq("is_asked", true),
+        supabase.from("chat_messages").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+      ]);
+      return {
+        sections: r1.count || 0,
+        quizzes: r2.count || 0,
+        notes: r3.count || 0,
+        paths: r4.count || 0,
+        askLead: r5.count || 0,
+        chat: r6.count || 0,
+      };
+    },
+    enabled: !!user && !!currentPackId,
+  });
+
+  const resetCounts = resetCountsQuery.data || { sections: 0, quizzes: 0, notes: 0, paths: 0, askLead: 0, chat: 0 };
+  const totalResetItems = resetCounts.sections + resetCounts.quizzes + resetCounts.notes + resetCounts.paths + resetCounts.askLead + resetCounts.chat;
+
   const handleResetProgress = async () => {
-    if (!user) return;
-    const { error: e1 } = await supabase.from("user_progress").delete().eq("user_id", user.id);
-    const { error: e2 } = await supabase.from("quiz_scores").delete().eq("user_id", user.id);
-    const { error: e3 } = await supabase.from("learner_notes").delete().eq("user_id", user.id);
-    if (e1 || e2 || e3) {
-      toast.error("Failed to reset progress");
+    if (!user || !currentPackId) return;
+    const results = await Promise.all([
+      supabase.from("user_progress").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("quiz_scores").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("learner_notes").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("path_progress").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("ask_lead_progress").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("chat_messages").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("learner_state").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+    ]);
+    const hasError = results.some((r) => r.error);
+    if (hasError) {
+      toast.error("Failed to reset some progress data");
     } else {
-      queryClient.invalidateQueries({ queryKey: ["user_progress"] });
-      queryClient.invalidateQueries({ queryKey: ["quiz_scores"] });
-      queryClient.invalidateQueries({ queryKey: ["learner_notes"] });
-      toast.success("Progress reset successfully");
+      // Invalidate all relevant caches
+      queryClient.invalidateQueries();
+      toast.success("All progress reset successfully");
     }
   };
 
@@ -437,15 +482,54 @@ export default function SettingsPage() {
           )}
 
           {/* Reset Progress */}
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="font-semibold text-card-foreground mb-2">Reset Progress</h2>
+          <div className="bg-card border border-destructive/20 rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-4 h-4 text-destructive" />
+              <h2 className="font-semibold text-card-foreground">Reset All Progress</h2>
+            </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Clear all module progress, quiz scores, and notes. This cannot be undone.
+              Clear all your progress for this pack. This cannot be undone.
             </p>
-            <Button variant="destructive" onClick={handleResetProgress} className="gap-2">
-              <Trash2 className="w-4 h-4" />
-              Reset All Progress
-            </Button>
+
+            {/* Progress counts */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+              {[
+                { label: "Sections read", count: resetCounts.sections },
+                { label: "Quizzes completed", count: resetCounts.quizzes },
+                { label: "Notes saved", count: resetCounts.notes },
+                { label: "Path steps checked", count: resetCounts.paths },
+                { label: "Questions asked", count: resetCounts.askLead },
+                { label: "Chat messages", count: resetCounts.chat },
+              ].map((item) => (
+                <div key={item.label} className="bg-muted/50 rounded-lg p-2.5 text-center">
+                  <div className="text-lg font-bold text-foreground">{item.count}</div>
+                  <div className="text-[10px] text-muted-foreground">{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="gap-2" disabled={totalResetItems === 0}>
+                  <Trash2 className="w-4 h-4" />
+                  Reset All Progress {totalResetItems > 0 && `(${totalResetItems} items)`}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will reset ALL your progress for this pack including reading progress, quiz scores, notes, paths, ask-lead progress, and chat history. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleResetProgress} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Reset Everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </motion.div>
       </div>
