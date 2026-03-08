@@ -563,22 +563,7 @@ export default function ModuleView() {
             </TabsList>
 
             <TabsContent value="content">
-              <div className="flex items-center gap-2 mb-6 flex-wrap">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <button
-                  onClick={() => setActiveTrack("all")}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    activeTrack === "all" ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"
-                  }`}
-                >
-                  All Tracks
-                </button>
-                {TRACKS.map((t) => (
-                  <button key={t.key} onClick={() => setActiveTrack(t.key)} className={`transition-opacity ${activeTrack !== "all" && activeTrack !== t.key ? "opacity-40" : ""}`}>
-                    <TrackBadge track={t.key} />
-                  </button>
-                ))}
-              </div>
+              <StaticTrackFilter activeTrack={activeTrack} setActiveTrack={setActiveTrack} />
 
               <div className="space-y-4">
                 {filteredStaticSections.map((section, i) => (
