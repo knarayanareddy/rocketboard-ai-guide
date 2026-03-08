@@ -21,6 +21,7 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: BarChart3, minLevel: "read_only" as const },
   { title: "Modules", url: "/modules", icon: BookOpen, minLevel: "read_only" as const },
   { title: "Packs", url: "/packs", icon: Package, minLevel: "read_only" as const },
+  { title: "Sources", url: "/sources", icon: Database, minLevel: "author" as const },
   { title: "Glossary", url: "/glossary", icon: BookText, minLevel: "read_only" as const },
   { title: "Paths", url: "/paths", icon: Route, minLevel: "read_only" as const },
   { title: "Ask Your Lead", url: "/ask-lead", icon: MessageSquareMore, minLevel: "read_only" as const },
