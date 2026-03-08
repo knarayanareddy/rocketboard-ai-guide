@@ -1074,6 +1074,8 @@ RULES:
 - Increment module_revision to ${moduleRevision}.
 - Maintain the same module structure (sections, endcap, key_takeaways, evidence_index).
 - Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+
+CONTRADICTION HANDLING: If you encounter evidence spans that contradict each other, you MUST include them in the contradictions array. For each contradiction, provide: topic, side_a (claim + citations), side_b (claim + citations), how_to_resolve. Do NOT silently choose one side. Surface all conflicts.
 ${spansBlock}
 
 You MUST respond with VALID JSON matching this exact schema:
