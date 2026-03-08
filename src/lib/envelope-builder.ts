@@ -1,4 +1,5 @@
 import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
+import { DEFAULT_LIMITS, getEffectiveLimits, type Limits } from "@/lib/limits";
 
 interface PackInfo {
   pack_id: string | null;
@@ -44,18 +45,6 @@ interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
 }
-
-const DEFAULT_LIMITS = {
-  max_spans_to_cite: 10,
-  max_module_words: 1400,
-  max_section_words_hint: 200,
-  max_note_prompts_per_section: 3,
-  max_key_takeaways: 7,
-  max_reflection_prompts: 4,
-  max_quiz_questions: 5,
-  max_chat_words: 350,
-  max_warnings: 8,
-};
 
 function baseEnvelope(
   taskType: string,
