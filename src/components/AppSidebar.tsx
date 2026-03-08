@@ -1,6 +1,7 @@
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +25,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { signOut, user } = useAuth();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -68,9 +70,21 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-3">
+        {!collapsed && user && (
+          <div className="text-xs text-sidebar-foreground/60 truncate">
+            {user.email}
+          </div>
+        )}
+        <button
+          onClick={signOut}
+          className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          {!collapsed && <span>Sign out</span>}
+        </button>
         {!collapsed && (
-          <div className="text-xs text-sidebar-foreground/40 font-mono">
+          <div className="text-xs text-sidebar-foreground/30 font-mono">
             v4.0 • RocketBoard
           </div>
         )}
