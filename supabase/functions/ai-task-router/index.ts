@@ -46,6 +46,14 @@ function buildLanguageBlock(context: any, pack: any): string {
   return `\n## OUTPUT LANGUAGE INSTRUCTION\nWrite ALL user-facing prose (headings, content, explanations, definitions, reflection prompts, quiz questions, option text) in language code "${lang}". NEVER translate: code identifiers, file paths, variable names, IDs, citation fields (span_id, path, chunk_id), or JSON keys. JSON keys must remain in English.\n`;
 }
 
+function buildMermaidBlock(envelope: any): string {
+  const enabled = envelope?.generation_prefs?.include_mermaid_if_supported;
+  if (enabled) {
+    return `\n## MERMAID DIAGRAMS\nYou may include Mermaid diagrams using \`\`\`mermaid code blocks when they help illustrate architecture, flows, or relationships. Diagrams must be grounded: node labels should reference actual entities from evidence. If evidence is insufficient to create an accurate diagram, omit it and add a warning. Keep diagrams simple and readable.\n`;
+  }
+  return `\n## MERMAID DIAGRAMS\nDo NOT include any Mermaid diagrams in your output.\n`;
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -154,7 +162,7 @@ RULES:
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up search queries.
-${buildLanguageBlock(context, pack)}${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
 {
@@ -331,7 +339,7 @@ async function handleGenerateModule(envelope: any): Promise<Response> {
   const moduleRevision = inputs.module_revision || 1;
 
   const systemPrompt = `You are RocketBoard AI Module Generator. Your job is to generate comprehensive onboarding module content grounded in evidence spans.
-${buildLanguageBlock(context, pack)}
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
 TASK: Generate a complete module titled "${moduleTitle}" (key: ${moduleKey}).
 ${moduleDesc ? `Description: ${moduleDesc}` : ""}
 ${trackKey ? `Track: ${trackKey}` : ""}
@@ -774,7 +782,7 @@ async function handleRefineModule(envelope: any): Promise<Response> {
   const existingModuleJson = JSON.stringify(existingModule, null, 2);
 
   const systemPrompt = `You are RocketBoard AI Module Refiner. You iteratively improve generated modules based on author instructions.
-${buildLanguageBlock(context, pack)}
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
 TASK: Refine the existing module "${existingModule.title || moduleKey}" based on the author's instruction.
 
 ${packBlock}
@@ -876,7 +884,7 @@ async function handleSimplifySection(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Section Simplifier. You rewrite technical content to be more accessible.
-${buildLanguageBlock(context, pack)}
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
 TASK: Simplify the following section content for the target audience.
 ${packBlock}
 

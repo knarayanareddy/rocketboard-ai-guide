@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, User, Layers, BookText, GraduationCap, Globe } from "lucide-react";
+import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,7 @@ import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; desc: string }[] = [
   { key: "technical", label: "Technical", desc: "Detailed, code-oriented content" },
@@ -52,7 +53,7 @@ const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
 export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, updatePrefs } = useAudiencePrefs();
+  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { currentPackId } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
 
@@ -71,7 +72,7 @@ export default function SettingsPage() {
     }
   };
 
-  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null; output_language: string }>) => {
+  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null; output_language: string; mermaid_enabled: boolean }>) => {
     updatePrefs.mutate({
       audience: overrides.audience ?? audience,
       depth: overrides.depth ?? depth,
@@ -79,6 +80,7 @@ export default function SettingsPage() {
       learner_role: overrides.learner_role !== undefined ? overrides.learner_role : learnerRole,
       experience_level: overrides.experience_level !== undefined ? overrides.experience_level : experienceLevel,
       output_language: overrides.output_language ?? outputLanguage,
+      mermaid_enabled: overrides.mermaid_enabled !== undefined ? overrides.mermaid_enabled : mermaidEnabled,
     });
   };
 
@@ -251,6 +253,25 @@ export default function SettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Mermaid Diagrams */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-4 h-4 text-primary" />
+                <div>
+                  <h2 className="font-semibold text-card-foreground">Diagrams in Content</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Allow AI to include Mermaid diagrams in generated modules and chat responses.
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={mermaidEnabled}
+                onCheckedChange={(checked) => saveAll({ mermaid_enabled: checked })}
+              />
+            </div>
           </div>
 
           {/* Reset Progress */}

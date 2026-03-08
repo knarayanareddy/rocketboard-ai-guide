@@ -5,7 +5,7 @@ import { CitationBadge } from "@/components/CitationBadge";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Trophy, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ReactMarkdown from "react-markdown";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 // Unified question shape used internally
 interface UnifiedQuestion {
@@ -198,7 +198,7 @@ export function QuizRunner({ questions, generatedQuestions, onComplete, hasContr
           {showResult && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-4 rounded-lg bg-muted/50 border border-border">
               <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-muted-foreground">
-                <ReactMarkdown>{current.explanation}</ReactMarkdown>
+                <MarkdownRenderer>{current.explanation}</MarkdownRenderer>
               </div>
               {current.citations && current.citations.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/50">

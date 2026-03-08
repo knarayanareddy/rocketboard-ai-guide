@@ -90,7 +90,7 @@ function baseEnvelope(
       original_section_markdown: null,
     },
     generation_prefs: {
-      include_mermaid_if_supported: false,
+      include_mermaid_if_supported: true,
       target_reading_level: "plain",
       max_sections_hint: 7,
     },
