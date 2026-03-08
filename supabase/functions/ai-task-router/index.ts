@@ -75,30 +75,56 @@ function redactSpans(spans: any[]): { spans: any[]; warnings: string[] } {
   return { spans: redacted, warnings };
 }
 
-// ─── INPUT VALIDATION ───
-function validateInputLimits(envelope: any): string | null {
+// ─── INPUT SANITIZATION (graceful truncation) ───
+function sanitizeInputs(envelope: any): { warnings: string[] } {
+  const warnings: string[] = [];
+
+  // a. author_instruction ≤ 2000 chars — hard reject
   const authorInstruction = envelope.context?.author_instruction;
   if (authorInstruction && authorInstruction.length > 2000) {
-    return "author_instruction exceeds maximum length of 2000 characters.";
+    // This is a hard limit — reject
+    throw { hard_error: true, code: "invalid_input", message: "author_instruction exceeds maximum length of 2000 characters." };
   }
 
+  // b/c. evidence_spans: truncate to 50, then trim total text to 100k
   const spans = envelope.retrieval?.evidence_spans;
   if (spans) {
     if (spans.length > 50) {
-      return `Too many evidence_spans: ${spans.length} (max 50).`;
+      envelope.retrieval.evidence_spans = spans.slice(0, 50);
+      warnings.push(`Evidence truncated: ${spans.length} spans reduced to 50.`);
     }
-    const totalText = spans.reduce((acc: number, s: any) => acc + (s.text?.length || 0), 0);
-    if (totalText > 50000) {
-      return `Total evidence_spans text exceeds 50000 characters (got ${totalText}).`;
+    let totalText = 0;
+    const kept: any[] = [];
+    for (const s of envelope.retrieval.evidence_spans) {
+      const len = s.text?.length || 0;
+      if (totalText + len > 100000) {
+        warnings.push(`Evidence truncated: total text exceeded 100,000 characters. ${envelope.retrieval.evidence_spans.length - kept.length} span(s) dropped.`);
+        break;
+      }
+      totalText += len;
+      kept.push(s);
     }
+    envelope.retrieval.evidence_spans = kept;
   }
 
+  // d. conversation messages: keep last 50
   const messages = envelope.context?.conversation?.messages;
-  if (messages && messages.length > 100) {
-    return `Too many conversation messages: ${messages.length} (max 100).`;
+  if (messages && messages.length > 50) {
+    const original = messages.length;
+    envelope.context.conversation.messages = messages.slice(-50);
+    warnings.push(`Conversation truncated: ${original} messages reduced to last 50.`);
   }
 
-  return null;
+  // e. Per-message content ≤ 5000 chars
+  if (envelope.context?.conversation?.messages) {
+    for (const msg of envelope.context.conversation.messages) {
+      if (msg.content && msg.content.length > 5000) {
+        msg.content = msg.content.slice(0, 5000) + "...[truncated]";
+      }
+    }
+  }
+
+  return { warnings };
 }
 
 // ─── SECURITY PROMPT BLOCK ───
