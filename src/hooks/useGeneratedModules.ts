@@ -286,7 +286,7 @@ export function useGeneratedModules() {
           depth: moduleData.depth || null,
           module_data: moduleData as any,
           contradictions: (result.contradictions || []) as any,
-          status: "published",
+          status: "draft",
         })
         .select()
         .single();
