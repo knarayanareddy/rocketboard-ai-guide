@@ -19,6 +19,8 @@ import { useRole } from "@/hooks/useRole";
 import { TrackBadge } from "@/components/TrackBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SourcesUpdatedBanner } from "@/components/SourcesUpdatedBanner";
+import { SuggestedNextAction } from "@/components/SuggestedNextAction";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLearnerOnboardingCheck } from "@/hooks/useLearnerOnboardingCheck";
@@ -379,8 +381,11 @@ const Index = () => {
               Continue: {resumeTarget.title} ({resumeTarget.progress}%)
             </motion.button>
           )}
+          <SuggestedNextAction />
         </motion.div>
 
+        {/* Sources updated banner */}
+        <SourcesUpdatedBanner />
         {/* Ingestion Status */}
         <div className="mb-6">
           <IngestionStatus />

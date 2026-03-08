@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { IngestionStatus } from "@/components/IngestionStatus";
+import { ChunkBrowser } from "@/components/ChunkBrowser";
 import { useSources } from "@/hooks/useSources";
 import { useIngestion } from "@/hooks/useIngestion";
 import { useRole } from "@/hooks/useRole";
 import { usePack } from "@/hooks/usePack";
+import { useModulePlan } from "@/hooks/useModulePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +38,8 @@ import {
   Clock,
   CheckCircle2,
   Loader2,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -45,13 +50,58 @@ export default function SourcesPage() {
   const { currentPack, currentPackId } = usePack();
   const { hasPackPermission } = useRole();
   const { sources, isLoading, addSource, deleteSource, chunkCounts } = useSources();
-  const { triggerIngestion, hasActiveJob } = useIngestion();
+  const { triggerIngestion, hasActiveJob, jobs } = useIngestion();
+  const { plan } = useModulePlan();
 
   const [addOpen, setAddOpen] = useState(false);
   const [sourceType, setSourceType] = useState<string>("github_repo");
   const [sourceUri, setSourceUri] = useState("");
   const [label, setLabel] = useState("");
   const [docContent, setDocContent] = useState("");
+
+  // Track previous chunk counts for re-sync diff
+  const prevChunkCountsRef = useRef<Record<string, number>>({});
+  const [showFirstSyncCTA, setShowFirstSyncCTA] = useState(false);
+
+  // Celebration: detect when a job completes
+  useEffect(() => {
+    const completedJobs = jobs.filter(j => j.status === "completed");
+    if (completedJobs.length === 0) return;
+
+    const latestCompleted = completedJobs[0];
+    const shownKey = `celebration_shown_${latestCompleted.id}`;
+    if (sessionStorage.getItem(shownKey)) return;
+    sessionStorage.setItem(shownKey, "true");
+
+    // Count total chunks
+    const totalChunks = Object.values(chunkCounts).reduce((a, b) => a + b, 0);
+
+    // Re-sync diff
+    const prevCounts = prevChunkCountsRef.current;
+    const sourceId = latestCompleted.source_id;
+    if (sourceId && prevCounts[sourceId] !== undefined) {
+      const oldCount = prevCounts[sourceId];
+      const newCount = chunkCounts[sourceId] || 0;
+      const diff = newCount - oldCount;
+      if (diff !== 0) {
+        toast.info(`Re-sync complete: ${newCount} chunks (${diff > 0 ? `+${diff}` : diff} change${Math.abs(diff) > 1 ? "s" : ""})`);
+      }
+    }
+
+    toast.success(`✅ Synced! ${totalChunks} knowledge chunks indexed`);
+
+    // Check if this is the first ever sync for the pack
+    const allSources = sources.filter(s => s.last_synced_at);
+    const isFirst = allSources.length <= 1 && !plan;
+    if (isFirst) setShowFirstSyncCTA(true);
+  }, [jobs, chunkCounts, sources, plan]);
+
+  // Store chunk counts before sync
+  useEffect(() => {
+    if (Object.keys(chunkCounts).length > 0) {
+      prevChunkCountsRef.current = { ...chunkCounts };
+    }
+  }, [chunkCounts]);
 
   if (!hasPackPermission("author")) {
     return (
@@ -228,6 +278,32 @@ export default function SourcesPage() {
             </Dialog>
           </div>
 
+          {/* First Sync CTA */}
+          {showFirstSyncCTA && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Great! Your sources are indexed.</p>
+                      <p className="text-xs text-muted-foreground">Ready to create a learning plan?</p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => navigate(`/packs/${packId || currentPackId}/plan`)}
+                    className="gap-2"
+                    size="sm"
+                  >
+                    Generate Plan <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Ingestion Status */}
           <div className="mb-6">
             <IngestionStatus />
@@ -278,6 +354,13 @@ export default function SourcesPage() {
                               Synced {new Date(source.last_synced_at).toLocaleDateString()}
                             </span>
                           )}
+                          {!source.last_synced_at && (
+                            <span className="text-destructive flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Never synced
+                            </span>
+                          )}
+                          <ChunkBrowser sourceId={source.id} sourceName={source.label || source.source_uri} />
                           {!source.last_synced_at && (
                             <span className="text-destructive flex items-center gap-1">
                               <Clock className="w-3 h-3" />
