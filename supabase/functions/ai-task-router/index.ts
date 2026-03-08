@@ -154,7 +154,7 @@ RULES:
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up search queries.
-${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
+${buildLanguageBlock(context, pack)}${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
 {
