@@ -138,6 +138,7 @@ export function MissionControlChat() {
       const responseMarkdown = result.response_markdown || "No response received.";
 
       setMessages((prev) => [...prev, { role: "assistant", content: responseMarkdown }]);
+      setLastResponse(result as ChatResponse);
 
       if (user) {
         await supabase.from("chat_messages").insert({
