@@ -726,6 +726,7 @@ serve(async (req) => {
       case "generate_paths":
         return await handleGeneratePaths(envelope);
       case "generate_ask_lead":
+        return await handleGenerateAskLead(envelope);
       case "simplify_section":
       case "refine_module":
       case "create_template":

@@ -204,8 +204,17 @@ export function buildGeneratePathsEnvelope(opts: {
   if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
   return env;
 }
-export function buildGenerateAskLeadEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("generate_ask_lead", opts.auth, opts.pack);
+export function buildGenerateAskLeadEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  evidenceSpans?: EvidenceSpan[];
+  audienceProfile?: AudienceProfile;
+}) {
+  const env = baseEnvelope("generate_ask_lead", opts.auth, opts.pack);
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = "team lead questions onboarding process workflow architecture decisions";
+  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
+  return env;
 }
 export function buildSimplifySectionEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("simplify_section", opts.auth, opts.pack);
