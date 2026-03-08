@@ -186,6 +186,7 @@ export default function ReviewPage() {
   const handleRefine = async () => {
     if (!refineTarget) return;
     setRefining(true);
+    setRefineError(null);
     try {
       const moduleData = refineTarget.module_data as unknown as GeneratedModuleData;
       const result = await refineModule.mutateAsync({
@@ -200,12 +201,17 @@ export default function ReviewPage() {
       setRefineInstruction("");
       toast.success(`Module refined to Rev. ${result.row.module_revision}`);
     } catch (e: any) {
-      toast.error(e.message);
+      if (e instanceof AIError) {
+        setRefineError(e);
+      } else {
+        toast.error(e.message);
+      }
     }
     setRefining(false);
   };
 
   const handleRegenerate = async (mod: GeneratedModuleRow) => {
+    setRegenError(null);
     try {
       await generateModule.mutateAsync({
         moduleKey: mod.module_key,
@@ -217,7 +223,11 @@ export default function ReviewPage() {
       });
       toast.success(`Regenerated: ${mod.title}`);
     } catch (e: any) {
-      toast.error(e.message);
+      if (e instanceof AIError) {
+        setRegenError(e);
+      } else {
+        toast.error(e.message);
+      }
     }
   };
 
