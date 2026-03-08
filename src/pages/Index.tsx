@@ -346,7 +346,7 @@ const Index = () => {
             <motion.div animate={{ rotate: [0, -10, 10, -5, 0] }} transition={{ duration: 1.5, delay: 0.5, ease: "easeInOut" }}>
               <Rocket className="w-7 h-7 text-primary" />
             </motion.div>
-            <h1 className="text-3xl font-bold text-foreground">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               Welcome to <span className="gradient-text">RocketBoard</span>
             </h1>
           </div>
