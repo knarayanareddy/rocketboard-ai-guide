@@ -443,40 +443,48 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Content Limits (author+ only) */}
+          {/* Generation Limits (author+ only) */}
           {isAuthorPlus && (
             <div className="bg-card border border-border rounded-xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold text-card-foreground">Content Limits</h2>
+                <h2 className="font-semibold text-card-foreground">Generation Limits</h2>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Author+</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Pack-level limits that apply to all generated content.
+                Pack-level limits that constrain AI output. Binding limits are enforced; advisory limits guide the AI.
               </p>
 
               <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-card-foreground mb-1 block">Max Module Words</label>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" min={200} max={5000} value={moduleWordsInput} onChange={(e) => setModuleWordsInput(Number(e.target.value))} className="w-28" />
-                    <Button size="sm" variant="outline" onClick={() => updatePackLimits.mutate({ max_module_words: moduleWordsInput })} disabled={moduleWordsInput === packLimits.maxModuleWords}>Save</Button>
+                {([
+                  { key: "max_module_words", label: "Max Module Words", value: moduleWordsInput, setter: setModuleWordsInput, min: 200, max: 5000, desc: "Maximum word count for generated modules (binding)", current: packLimits.maxModuleWords },
+                  { key: "max_quiz_questions", label: "Max Quiz Questions", value: quizQuestionsInput, setter: setQuizQuestionsInput, min: 1, max: 20, desc: "Maximum quiz questions per module", current: packLimits.maxQuizQuestions },
+                  { key: "max_key_takeaways", label: "Max Key Takeaways", value: takeawaysInput, setter: setTakeawaysInput, min: 1, max: 15, desc: "Maximum key takeaways per module", current: packLimits.maxKeyTakeaways },
+                ] as const).map((field) => (
+                  <div key={field.key}>
+                    <label className="text-sm font-medium text-card-foreground mb-0.5 block">{field.label}</label>
+                    <p className="text-xs text-muted-foreground mb-1.5">{field.desc}</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={field.min}
+                        max={field.max}
+                        value={field.value}
+                        onChange={(e) => field.setter(Number(e.target.value))}
+                        placeholder={String(field.current)}
+                        className="w-28"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updatePackLimits.mutate({ [field.key]: field.value })}
+                        disabled={field.value === field.current}
+                      >
+                        Save
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-card-foreground mb-1 block">Max Quiz Questions</label>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" min={1} max={20} value={quizQuestionsInput} onChange={(e) => setQuizQuestionsInput(Number(e.target.value))} className="w-28" />
-                    <Button size="sm" variant="outline" onClick={() => updatePackLimits.mutate({ max_quiz_questions: quizQuestionsInput })} disabled={quizQuestionsInput === packLimits.maxQuizQuestions}>Save</Button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-card-foreground mb-1 block">Max Key Takeaways</label>
-                  <div className="flex items-center gap-2">
-                    <Input type="number" min={1} max={15} value={takeawaysInput} onChange={(e) => setTakeawaysInput(Number(e.target.value))} className="w-28" />
-                    <Button size="sm" variant="outline" onClick={() => updatePackLimits.mutate({ max_key_takeaways: takeawaysInput })} disabled={takeawaysInput === packLimits.maxKeyTakeaways}>Save</Button>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           )}
