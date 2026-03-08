@@ -283,6 +283,30 @@ export function MissionControlChat() {
                   <AIErrorDisplay error={lastError} compact onRetry={send} onSearchQuery={(q) => setInput(q)} />
                 </div>
               )}
+
+              {/* Structured response extras */}
+              {lastResponse && !isLoading && !lastError && (
+                <div className="space-y-2 ml-8">
+                  {lastResponse.referenced_spans && lastResponse.referenced_spans.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {lastResponse.referenced_spans.map((span) => (
+                        <span
+                          key={span.span_id}
+                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
+                          title={span.path}
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          {span.span_id}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {lastResponse.contradictions && lastResponse.contradictions.length > 0 && (
+                    <ContradictionInline contradictions={lastResponse.contradictions} />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Input */}
