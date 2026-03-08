@@ -223,7 +223,7 @@ export default function ModuleView() {
   const filteredStaticSections = useMemo(() => {
     if (!staticMod) return [];
     if (activeTrack === "all") return staticMod.sections;
-    return staticMod.sections.filter((s) => s.tracks.includes(activeTrack));
+    return staticMod.sections.filter((s) => s.tracks.includes(activeTrack as any));
   }, [staticMod, activeTrack]);
 
   if (!staticMod && !genLoading && !generatedMod) {
