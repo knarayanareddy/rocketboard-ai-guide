@@ -143,6 +143,7 @@ export default function PathsPage() {
   const { paths: generatedPaths, pathsLoading, generatePaths } = useGeneratedPaths();
   const { hasPackPermission } = useRole();
   const { user } = useAuth();
+  const [genError, setGenError] = useState<AIError | null>(null);
 
   // DB-backed progress for percentage display
   const { checkedSteps: checkedDay1 } = usePathProgress("day1");
