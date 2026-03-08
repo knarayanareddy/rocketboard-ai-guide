@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import ReactMarkdown from "react-markdown";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { toast } from "sonner";
 import { ContradictionCallout } from "@/components/ContradictionCallout";
 import { GenerationStats, buildModuleStats } from "@/components/GenerationStats";
