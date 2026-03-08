@@ -1038,7 +1038,7 @@ async function handleRefineTemplate(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Template Refiner. You improve existing module templates based on author feedback.
-
+${buildLanguageBlock(context, pack)}
 TASK: Refine this template based on the author's instruction.
 ${packBlock}
 
