@@ -210,7 +210,7 @@ export default function PathsPage() {
 
         {genError && (
           <div className="mb-6">
-            <AIErrorDisplay error={genError} />
+            <AIErrorDisplay error={genError} onRetry={handleGenerate} />
           </div>
         )}
 
