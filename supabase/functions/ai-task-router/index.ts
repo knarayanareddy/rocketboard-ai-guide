@@ -476,6 +476,82 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── GENERATE GLOSSARY HANDLER ───
+async function handleGenerateGlossary(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const audience = context.audience_profile || {};
+  const spans = retrieval.evidence_spans || [];
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+  const density = audience.glossary_density || "standard";
+
+  const densityInstruction = {
+    low: "Only include essential/critical terms that are absolutely necessary to understand the codebase. Aim for 8-12 terms.",
+    standard: "Include common terms that most engineers would need. Aim for 15-25 terms.",
+    high: "Be comprehensive — include niche terms, internal jargon, and less obvious concepts. Aim for 25-40 terms.",
+  }[density] || "Include common terms. Aim for 15-25 terms.";
+
+  const systemPrompt = `You are RocketBoard AI Glossary Generator. Generate a pack-specific glossary of technical terms found in the evidence spans.
+
+TASK: Generate a glossary for the "${pack.title || "unknown"}" pack.
+${packBlock}
+
+RULES:
+- ${densityInstruction}
+- Each term must include: term name, definition, context (how it's used in THIS specific pack/codebase), and citations.
+- Do NOT include generic programming terms (like "function", "variable", "class") UNLESS they have a pack-specific meaning.
+- Ground definitions in evidence spans. Cite using [S1], [S2], etc.
+- Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+- Sort terms alphabetically.
+${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "generate_glossary",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "glossary": [
+    {
+      "term": "string",
+      "definition": "string",
+      "context": "How this term is used in this specific pack",
+      "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }],
+      "audience": "${audience.audience || "technical"}"
+    }
+  ],
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Generate a ${density}-density glossary for the "${pack.title || "unknown"}" pack using the ${spans.length} evidence spans provided.`;
+
+  try {
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "generate_glossary",
+      request_id: requestId,
+      pack_id: pack.pack_id || null,
+      pack_version: pack.pack_version || 1,
+      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+      glossary: [],
+      warnings: ["AI response could not be parsed as JSON"],
+    });
+    parsed.type = "generate_glossary";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
