@@ -1,8 +1,9 @@
-import { CheckCircle2, XCircle, ChevronDown } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronDown, AlertTriangle, ShieldCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useState } from "react";
 import type { Limits } from "@/lib/limits";
+import { validateAIOutput, type ValidationResult } from "@/lib/schema-validator";
 
 interface StatRow {
   label: string;
@@ -13,11 +14,14 @@ interface StatRow {
 interface GenerationStatsProps {
   stats: StatRow[];
   className?: string;
+  validationResult?: ValidationResult | null;
 }
 
-export function GenerationStats({ stats, className }: GenerationStatsProps) {
+export function GenerationStats({ stats, className, validationResult }: GenerationStatsProps) {
   const [open, setOpen] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
   const exceeded = stats.filter((s) => s.actual > s.limit).length;
+  const validationIssues = validationResult ? [...validationResult.errors, ...validationResult.warnings] : [];
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className={className}>
@@ -61,6 +65,37 @@ export function GenerationStats({ stats, className }: GenerationStatsProps) {
               })}
             </TableBody>
           </Table>
+          {/* Schema Validation row */}
+          {validationResult && (
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="text-xs py-1.5">Schema Validation</TableCell>
+                  <TableCell className="text-xs text-right py-1.5 font-mono" colSpan={2}>
+                    {validationIssues.length === 0 ? "Passed" : `${validationIssues.length} issue(s)`}
+                  </TableCell>
+                  <TableCell className="py-1.5">
+                    {validationIssues.length === 0 ? (
+                      <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+                    ) : (
+                      <button onClick={() => setValidationOpen(!validationOpen)}>
+                        <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />
+                      </button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          )}
+          {validationOpen && validationIssues.length > 0 && (
+            <div className="p-3 bg-yellow-500/5 border-t border-yellow-500/20">
+              <ul className="space-y-1">
+                {validationIssues.map((issue, i) => (
+                  <li key={i} className="text-[11px] text-yellow-600 dark:text-yellow-400 font-mono">• {issue}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { QuizQuestion } from "@/data/onboarding-data";
 import { GeneratedQuizQuestion } from "@/hooks/useGeneratedQuiz";
 import { CitationBadge } from "@/components/CitationBadge";
+import { validateCitations } from "@/lib/citation-validator";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Trophy, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -202,9 +203,23 @@ export function QuizRunner({ questions, generatedQuestions, onComplete, hasContr
               </div>
               {current.citations && current.citations.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/50">
-                  {current.citations.map((c) => (
-                    <CitationBadge key={c.span_id} spanId={c.span_id} path={c.path} chunkId={c.chunk_id} />
-                  ))}
+              {(() => {
+                const cv = validateCitations(current.citations || [], []);
+                const cMap = new Map(cv.citations.map(c => [c.spanId, c]));
+                return current.citations!.map((c) => {
+                  const v = cMap.get(c.span_id);
+                  return (
+                    <CitationBadge
+                      key={c.span_id}
+                      spanId={c.span_id}
+                      path={c.path}
+                      chunkId={c.chunk_id}
+                      verified={v ? v.valid : undefined}
+                      verificationWarning={v?.warnings?.[0]}
+                    />
+                  );
+                });
+              })()}
                 </div>
               )}
             </motion.div>

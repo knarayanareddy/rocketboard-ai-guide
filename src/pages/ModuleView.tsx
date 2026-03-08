@@ -35,6 +35,8 @@ import { ContradictionCallout } from "@/components/ContradictionCallout";
 import { GenerationStats, buildModuleStats } from "@/components/GenerationStats";
 import { getEffectiveLimits } from "@/lib/limits";
 import { useGenerationPrefs } from "@/hooks/useGenerationPrefs";
+import { validateAIOutput } from "@/lib/schema-validator";
+import { validateCitations } from "@/lib/citation-validator";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -181,13 +183,27 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         </div>
       )}
 
-      {displayCitations && displayCitations.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
-          {displayCitations.map((c) => (
-            <CitationBadge key={c.span_id} spanId={c.span_id} path={c.path} chunkId={c.chunk_id} />
-          ))}
-        </div>
-      )}
+      {displayCitations && displayCitations.length > 0 && (() => {
+        const citationValidation = validateCitations(displayCitations, []);
+        const citationMap = new Map(citationValidation.citations.map(c => [c.spanId, c]));
+        return (
+          <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
+            {displayCitations.map((c) => {
+              const v = citationMap.get(c.span_id);
+              return (
+                <CitationBadge
+                  key={c.span_id}
+                  spanId={c.span_id}
+                  path={c.path}
+                  chunkId={c.chunk_id}
+                  verified={v ? v.valid : undefined}
+                  verificationWarning={v?.warnings?.[0]}
+                />
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {onSaveNote && onDeleteNote && (
         <NotesPanel
@@ -578,6 +594,10 @@ export default function ModuleView() {
                       generatedQuiz?.quiz_data?.questions?.length || 0,
                       effectiveLimits,
                     )}
+                    validationResult={(() => {
+                      const raw = generatedMod?.module_data;
+                      return raw ? validateAIOutput("generate_module", raw) : null;
+                    })()}
                     className="mt-4"
                   />
                 )}
