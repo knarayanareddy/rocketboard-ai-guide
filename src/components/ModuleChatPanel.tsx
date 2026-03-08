@@ -52,6 +52,7 @@ async function saveMessage(userId: string, moduleId: string, role: string, conte
 
 export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
