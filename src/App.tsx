@@ -56,6 +56,7 @@ const App = () => (
               <Route path="/paths" element={<ProtectedRoute><PathsPage /></ProtectedRoute>} />
               <Route path="/ask-lead" element={<ProtectedRoute><AskLeadPage /></ProtectedRoute>} />
               <Route path="/packs" element={<ProtectedRoute><PacksPage /></ProtectedRoute>} />
+              <Route path="/packs/:packId/members" element={<ProtectedRoute><PackMembersPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
