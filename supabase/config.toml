@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.retrieve-spans]
 verify_jwt = false
+
+[functions.ai-task-router]
+verify_jwt = false
