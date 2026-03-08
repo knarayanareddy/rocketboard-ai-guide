@@ -132,6 +132,8 @@ export default function ReviewPage() {
   const [refineInstruction, setRefineInstruction] = useState("");
   const [refining, setRefining] = useState(false);
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
+  const [refineError, setRefineError] = useState<AIError | null>(null);
+  const [regenError, setRegenError] = useState<AIError | null>(null);
 
   if (!hasPackPermission("author")) {
     return (
