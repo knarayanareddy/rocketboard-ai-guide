@@ -782,7 +782,7 @@ async function handleRefineModule(envelope: any): Promise<Response> {
   const existingModuleJson = JSON.stringify(existingModule, null, 2);
 
   const systemPrompt = `You are RocketBoard AI Module Refiner. You iteratively improve generated modules based on author instructions.
-${buildLanguageBlock(context, pack)}
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
 TASK: Refine the existing module "${existingModule.title || moduleKey}" based on the author's instruction.
 
 ${packBlock}
