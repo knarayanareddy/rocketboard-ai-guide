@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useModulePlan, ModulePlanData, DetectedSignal, ModulePlanEntry, PlanTrack } from "@/hooks/useModulePlan";
