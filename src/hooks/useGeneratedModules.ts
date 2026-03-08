@@ -303,6 +303,7 @@ export function useGeneratedModules() {
           audience: moduleData.audience || null,
           depth: moduleData.depth || null,
           module_data: moduleData as any,
+          contradictions: (result.contradictions || []) as any,
           status: "published",
         })
         .select()

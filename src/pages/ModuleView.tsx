@@ -27,6 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { ContradictionCallout } from "@/components/ContradictionCallout";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;

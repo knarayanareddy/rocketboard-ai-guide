@@ -316,16 +316,26 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
 
                   {/* Contradictions */}
                   {lastResponse.contradictions && lastResponse.contradictions.length > 0 && (
-                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
-                      <div className="flex items-center gap-1 font-medium mb-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Contradictions detected
-                      </div>
-                      <ul className="list-disc list-inside space-y-0.5">
-                        {lastResponse.contradictions.map((c: any, i) => (
-                          <li key={i}>{c.description || JSON.stringify(c)}</li>
-                        ))}
-                      </ul>
+                    <div className="space-y-2">
+                      {lastResponse.contradictions.map((c: any, i: number) => (
+                        <div key={i} className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
+                          <div className="flex items-center gap-1 font-medium text-amber-700 dark:text-amber-300 mb-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {c.topic || "Contradiction detected"}
+                          </div>
+                          {c.side_a && c.side_b ? (
+                            <div className="space-y-1 text-muted-foreground">
+                              <p><span className="font-medium">View A:</span> {c.side_a.claim}</p>
+                              <p><span className="font-medium">View B:</span> {c.side_b.claim}</p>
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground">{c.description || JSON.stringify(c)}</p>
+                          )}
+                          {c.how_to_resolve && c.how_to_resolve.length > 0 && (
+                            <p className="text-muted-foreground mt-1 italic">Resolve: {c.how_to_resolve.join("; ")}</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
