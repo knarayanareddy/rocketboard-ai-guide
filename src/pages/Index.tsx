@@ -402,6 +402,10 @@ const Index = () => {
         {/* Stats strip */}
         {(useGenerated || staticModules.length > 0) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-muted-foreground">Stats</span>
+              <ExportProgressButton />
+            </div>
             <StatsStrip
               completedModules={effectiveCompleted}
               totalSectionsRead={effectiveTotalRead}
