@@ -318,6 +318,7 @@ RULES:
 - If you cannot find evidence for a claim, mark it as unverified.
 - If evidence contradicts itself, note the contradiction.
 - Keep responses under ${limits.max_chat_words || 350} words.
+${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting.
 - Suggest relevant follow-up search queries.
 ${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
