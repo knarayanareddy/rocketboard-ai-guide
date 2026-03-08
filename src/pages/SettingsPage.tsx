@@ -444,6 +444,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Generation Limits (author+ only) */}
           {isAuthorPlus && (
