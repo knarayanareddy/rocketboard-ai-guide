@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { usePack } from "@/hooks/usePack";
+import { fetchEvidenceSpans as fetchSpans } from "@/lib/fetch-spans";
 
 export interface EvidenceSpan {
   span_id: string;
@@ -20,29 +21,8 @@ export function useEvidenceSpans() {
       moduleKey?: string;
       trackKey?: string;
     }): Promise<EvidenceSpan[]> => {
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            pack_id: currentPackId,
-            query,
-            max_spans: maxSpans,
-            module_key: moduleKey,
-            track_key: trackKey,
-          }),
-        }
-      );
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: "Failed" }));
-        throw new Error(err.error || "Retrieval failed");
-      }
-      const data = await resp.json();
-      return data.spans || [];
+      if (!currentPackId) throw new Error("No pack selected");
+      return fetchSpans(currentPackId, query, maxSpans, { module_key: moduleKey, track_key: trackKey });
     },
   });
 

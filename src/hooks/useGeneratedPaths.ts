@@ -5,6 +5,7 @@ import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { sendAITask } from "@/lib/ai-client";
 import { buildGeneratePathsEnvelope } from "@/lib/envelope-builder";
+import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 export interface GeneratedPathStep {
   id: string;
@@ -59,25 +60,7 @@ export function useGeneratedPaths() {
 
       let spans: any[] = [];
       try {
-        const resp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              pack_id: currentPackId,
-              query: "setup onboarding getting started environment configuration deployment workflow",
-              max_spans: 20,
-            }),
-          }
-        );
-        if (resp.ok) {
-          const data = await resp.json();
-          spans = data.spans || [];
-        }
+        spans = await fetchEvidenceSpans(currentPackId, "setup onboarding getting started environment configuration deployment workflow", 20);
       } catch {}
 
       const envelope = buildGeneratePathsEnvelope({

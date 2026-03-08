@@ -5,6 +5,7 @@ import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { sendAITask } from "@/lib/ai-client";
 import { buildGenerateAskLeadEnvelope } from "@/lib/envelope-builder";
+import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 export interface GeneratedAskLeadQuestion {
   id: string;
@@ -51,25 +52,7 @@ export function useGeneratedAskLead() {
 
       let spans: any[] = [];
       try {
-        const resp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              pack_id: currentPackId,
-              query: "team process architecture decisions workflow onboarding culture",
-              max_spans: 20,
-            }),
-          }
-        );
-        if (resp.ok) {
-          const data = await resp.json();
-          spans = data.spans || [];
-        }
+        spans = await fetchEvidenceSpans(currentPackId, "team process architecture decisions workflow onboarding culture", 20);
       } catch {}
 
       const envelope = buildGenerateAskLeadEnvelope({
