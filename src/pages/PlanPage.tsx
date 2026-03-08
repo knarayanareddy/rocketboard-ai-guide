@@ -1,34 +1,49 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useModulePlan, ModulePlanData, DetectedSignal, ModulePlanEntry, PlanTrack } from "@/hooks/useModulePlan";
 import { useGeneratedModules } from "@/hooks/useGeneratedModules";
-import { useTemplates } from "@/hooks/useTemplates";
+import { useTemplates, TemplateRow } from "@/hooks/useTemplates";
+import { usePackTracks, PackTrack } from "@/hooks/usePackTracks";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { useCascadeGeneration, CascadeModuleStatus, CascadeSupportStatus } from "@/hooks/useCascadeGeneration";
 import { AIError } from "@/lib/ai-errors";
+import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap, ArrowRight, Layout, XCircle, RotateCcw } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap,
+  ArrowRight, XCircle, RotateCcw, GripVertical, X, Plus, Pencil, Layout, Save,
+} from "lucide-react";
 import { toast } from "sonner";
 
+/* ─── colour maps ─── */
 const confidenceColors: Record<string, string> = {
   high: "bg-green-500/15 text-green-400 border-green-500/30",
   medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
   low: "bg-red-500/15 text-red-400 border-red-500/30",
 };
-
 const difficultyColors: Record<string, string> = {
   beginner: "bg-green-500/15 text-green-400 border-green-500/30",
   intermediate: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
   advanced: "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
+/* ─── small sub-components (unchanged from before) ─── */
 function SignalCard({ signal }: { signal: DetectedSignal }) {
   return (
     <Card className="bg-card/50 border-border/50">
@@ -64,42 +79,6 @@ function TrackCard({ track }: { track: PlanTrack }) {
   );
 }
 
-function PlanModuleCard({ mod, index, generated }: { mod: ModulePlanEntry; index: number; generated: boolean }) {
-  return (
-    <Card className="bg-card/50 border-border/50">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground w-6">{index + 1}.</span>
-            <span className="font-medium text-sm text-foreground">{mod.title}</span>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {generated && (
-              <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-400 border-green-500/30">
-                <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> Generated
-              </Badge>
-            )}
-            <Badge variant="outline" className={`text-[10px] ${difficultyColors[mod.difficulty] || ""}`}>{mod.difficulty}</Badge>
-            <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border">
-              <Clock className="w-2.5 h-2.5 mr-0.5" />{mod.estimated_minutes}m
-            </Badge>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground mb-2">{mod.description}</p>
-        <p className="text-xs text-muted-foreground/70 italic mb-2">{mod.rationale}</p>
-        <div className="flex items-center gap-2 flex-wrap">
-          {mod.track_key && (
-            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">{mod.track_key}</Badge>
-          )}
-          {mod.citations?.map((c) => (
-            <span key={c.span_id} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{c.span_id}</span>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function StatusIcon({ status }: { status: string }) {
   if (status === "completed") return <CheckCircle2 className="w-4 h-4 text-green-400" />;
   if (status === "generating") return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
@@ -117,7 +96,6 @@ function CascadeProgress({ moduleStatuses, supportStatus }: {
 
   return (
     <div className="space-y-4">
-      {/* Module Generation */}
       <Card className="border-primary/20">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -155,8 +133,6 @@ function CascadeProgress({ moduleStatuses, supportStatus }: {
           </div>
         </CardContent>
       </Card>
-
-      {/* Supporting Content */}
       <Card className="border-border/50">
         <CardContent className="p-4 space-y-2">
           <span className="text-sm font-medium text-foreground">Supporting Content</span>
@@ -179,17 +155,375 @@ function CascadeProgress({ moduleStatuses, supportStatus }: {
   );
 }
 
+/* ─── Editable inline field helpers ─── */
+function InlineTitle({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = () => { setEditing(false); if (draft.trim()) onChange(draft.trim()); else setDraft(value); };
+
+  if (disabled || !editing) {
+    return (
+      <button
+        className="font-medium text-sm text-foreground text-left group/title flex items-center gap-1 hover:underline decoration-dashed underline-offset-4 disabled:hover:no-underline"
+        onClick={() => !disabled && setEditing(true)}
+        disabled={disabled}
+      >
+        {value}
+        {!disabled && <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover/title:opacity-100 transition-opacity" />}
+      </button>
+    );
+  }
+  return (
+    <Input
+      ref={ref}
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value); setEditing(false); } }}
+      className="h-7 text-sm font-medium"
+    />
+  );
+}
+
+function InlineDescription({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = () => { setEditing(false); onChange(draft.trim()); };
+
+  if (disabled || !editing) {
+    return (
+      <button
+        className="text-sm text-muted-foreground text-left w-full group/desc flex items-start gap-1 hover:underline decoration-dashed underline-offset-4 disabled:hover:no-underline"
+        onClick={() => !disabled && setEditing(true)}
+        disabled={disabled}
+      >
+        <span className="flex-1">{value || "Add description..."}</span>
+        {!disabled && <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover/desc:opacity-100 transition-opacity mt-0.5 flex-shrink-0" />}
+      </button>
+    );
+  }
+  return (
+    <Textarea
+      ref={ref}
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      className="min-h-[60px] text-sm"
+    />
+  );
+}
+
+function InlineMinutes({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (editing) ref.current?.focus(); }, [editing]);
+  useEffect(() => { setDraft(String(value)); }, [value]);
+
+  const commit = () => { setEditing(false); const n = parseInt(draft); if (!isNaN(n) && n > 0) onChange(n); else setDraft(String(value)); };
+
+  if (disabled || !editing) {
+    return (
+      <button
+        className="flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border hover:border-primary/40 transition-colors disabled:hover:border-border"
+        onClick={() => !disabled && setEditing(true)}
+        disabled={disabled}
+      >
+        <Clock className="w-2.5 h-2.5" />{value}m
+      </button>
+    );
+  }
+  return (
+    <Input
+      ref={ref}
+      type="number"
+      min={1}
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(String(value)); setEditing(false); } }}
+      className="h-6 w-16 text-xs"
+    />
+  );
+}
+
+/* ─── Sortable module card ─── */
+interface EditableCardProps {
+  mod: ModulePlanEntry;
+  index: number;
+  generated: boolean;
+  disabled: boolean;
+  tracks: PackTrack[];
+  templates: TemplateRow[];
+  onUpdate: (key: string, patch: Partial<ModulePlanEntry>) => void;
+  onRemove: (key: string) => void;
+}
+
+function SortableModuleCard(props: EditableCardProps) {
+  const { mod, index, generated, disabled, tracks, templates, onUpdate, onRemove } = props;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.module_key });
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : undefined, opacity: isDragging ? 0.6 : 1 };
+  const templateMatch = templates.find(t => t.id === mod.template_id);
+
+  return (
+    <>
+      <div ref={setNodeRef} style={style} {...attributes}>
+        <Card className={`bg-card/50 border-border/50 transition-shadow ${isDragging ? "shadow-lg ring-2 ring-primary/30" : ""}`}>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-2">
+              {/* Drag handle */}
+              {!disabled && (
+                <button
+                  {...listeners}
+                  className="mt-1 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent cursor-grab active:cursor-grabbing transition-colors"
+                  tabIndex={-1}
+                >
+                  <GripVertical className="w-4 h-4" />
+                </button>
+              )}
+
+              <div className="flex-1 min-w-0 space-y-2">
+                {/* Row 1: index + title + badges + remove */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-xs font-mono text-muted-foreground w-5 flex-shrink-0">{index + 1}.</span>
+                    <InlineTitle value={mod.title} onChange={v => onUpdate(mod.module_key, { title: v })} disabled={disabled} />
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {generated && (
+                      <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-400 border-green-500/30">
+                        <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> Generated
+                      </Badge>
+                    )}
+                    {/* Difficulty select */}
+                    {disabled ? (
+                      <Badge variant="outline" className={`text-[10px] ${difficultyColors[mod.difficulty] || ""}`}>{mod.difficulty}</Badge>
+                    ) : (
+                      <Select value={mod.difficulty} onValueChange={v => onUpdate(mod.module_key, { difficulty: v as ModulePlanEntry["difficulty"] })}>
+                        <SelectTrigger className="h-6 w-[110px] text-[10px] border-dashed">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="beginner">🌱 Beginner</SelectItem>
+                          <SelectItem value="intermediate">🌿 Intermediate</SelectItem>
+                          <SelectItem value="advanced">🌳 Advanced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <InlineMinutes value={mod.estimated_minutes} onChange={v => onUpdate(mod.module_key, { estimated_minutes: v })} disabled={disabled} />
+                    {!disabled && (
+                      <button
+                        onClick={() => setConfirmRemove(true)}
+                        className="p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 2: description */}
+                <InlineDescription value={mod.description} onChange={v => onUpdate(mod.module_key, { description: v })} disabled={disabled} />
+
+                {/* Row 3: rationale */}
+                {mod.rationale && <p className="text-xs text-muted-foreground/70 italic">{mod.rationale}</p>}
+
+                {/* Row 4: track, template, citations */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Track select */}
+                  {disabled ? (
+                    mod.track_key && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">{mod.track_key}</Badge>
+                  ) : (
+                    <Select value={mod.track_key || "__none__"} onValueChange={v => onUpdate(mod.module_key, { track_key: v === "__none__" ? null : v })}>
+                      <SelectTrigger className="h-6 w-[130px] text-[10px] border-dashed">
+                        <SelectValue placeholder="No track" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">No track</SelectItem>
+                        {tracks.map(t => <SelectItem key={t.track_key} value={t.track_key}>{t.title}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {/* Template select */}
+                  {disabled ? (
+                    templateMatch && (
+                      <Badge variant="outline" className="text-[10px] bg-accent text-accent-foreground border-border">
+                        <Layout className="w-2.5 h-2.5 mr-0.5" />{templateMatch.title}
+                      </Badge>
+                    )
+                  ) : (
+                    <Select value={mod.template_id || "__none__"} onValueChange={v => onUpdate(mod.module_key, { template_id: v === "__none__" ? null : v })}>
+                      <SelectTrigger className="h-6 w-[140px] text-[10px] border-dashed">
+                        <Layout className="w-2.5 h-2.5 mr-0.5" />
+                        <SelectValue placeholder="No template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">No template</SelectItem>
+                        {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {mod.citations?.map(c => (
+                    <span key={c.span_id} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{c.span_id}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Remove confirmation */}
+      <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove module?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove &ldquo;{mod.title}&rdquo; from the plan? You can undo this within 5 seconds.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmRemove(false); onRemove(mod.module_key); }}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+/* ─── Add Module form ─── */
+function AddModuleForm({ tracks, onAdd, disabled }: { tracks: PackTrack[]; onAdd: (mod: ModulePlanEntry) => void; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [difficulty, setDifficulty] = useState<ModulePlanEntry["difficulty"]>("beginner");
+  const [minutes, setMinutes] = useState("15");
+  const [trackKey, setTrackKey] = useState("__none__");
+
+  const reset = () => { setTitle(""); setDescription(""); setDifficulty("beginner"); setMinutes("15"); setTrackKey("__none__"); };
+
+  const handleSubmit = () => {
+    if (!title.trim() || !description.trim()) { toast.error("Title and description are required"); return; }
+    onAdd({
+      module_key: `mod-custom-${Date.now()}`,
+      title: title.trim(),
+      description: description.trim(),
+      estimated_minutes: parseInt(minutes) || 15,
+      difficulty,
+      rationale: "Manually added by author",
+      citations: [],
+      track_key: trackKey === "__none__" ? null : trackKey,
+      audience: null,
+      depth: null,
+    });
+    reset();
+    setOpen(false);
+    toast.success("Module added to plan");
+  };
+
+  if (disabled) return null;
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full border-dashed gap-2">
+          <Plus className="w-4 h-4" /> Add Module
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-3">
+        <Card className="border-dashed border-primary/30">
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Title *</label>
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Module title" className="h-8 text-sm" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Description *</label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="What does this module cover?" className="min-h-[60px] text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Difficulty</label>
+                <Select value={difficulty} onValueChange={v => setDifficulty(v as ModulePlanEntry["difficulty"])}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">Beginner</SelectItem>
+                    <SelectItem value="intermediate">Intermediate</SelectItem>
+                    <SelectItem value="advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Est. Minutes</label>
+                <Input type="number" min={1} value={minutes} onChange={e => setMinutes(e.target.value)} className="h-8 text-sm" />
+              </div>
+              {tracks.length > 0 && (
+                <div className="col-span-2">
+                  <label className="text-xs text-muted-foreground mb-1 block">Track</label>
+                  <Select value={trackKey} onValueChange={setTrackKey}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No track</SelectItem>
+                      {tracks.map(t => <SelectItem key={t.track_key} value={t.track_key}>{t.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => { reset(); setOpen(false); }}>Cancel</Button>
+              <Button size="sm" onClick={handleSubmit}><Plus className="w-3 h-3 mr-1" /> Add</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/* ═══════════════════════ MAIN PAGE ═══════════════════════ */
 export default function PlanPage() {
   const navigate = useNavigate();
   const { currentPack, currentPackId } = usePack();
   const { hasPackPermission } = useRole();
-  const { plan, planLoading, generatePlan, savePlan, approvePlan } = useModulePlan();
+  const { plan, planLoading, generatePlan, savePlan, updatePlan, approvePlan } = useModulePlan();
   const { modules: generatedModules } = useGeneratedModules();
   const { templates } = useTemplates();
+  const { tracks } = usePackTracks();
   const cascade = useCascadeGeneration();
+
   const [livePlan, setLivePlan] = useState<ModulePlanData | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
   const [planError, setPlanError] = useState<AIError | null>(null);
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false);
+  const undoRef = useRef<{ mod: ModulePlanEntry; idx: number; timer: ReturnType<typeof setTimeout> } | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Sync DB plan into local state on first load
+  useEffect(() => {
+    if (plan?.plan_data && !livePlan) {
+      setLivePlan(plan.plan_data as unknown as ModulePlanData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan]);
 
   if (!hasPackPermission("author")) {
     return (
@@ -201,10 +535,82 @@ export default function PlanPage() {
     );
   }
 
-  const displayPlan = livePlan || (plan?.plan_data as ModulePlanData | undefined) || null;
-  const isSaved = !!plan && !livePlan;
+  const displayPlan = livePlan;
   const isApproved = plan?.status === "approved" || plan?.status === "generating" || plan?.status === "completed";
+  const editDisabled = isApproved;
   const generatedKeys = new Set(generatedModules.map((m) => m.module_key));
+
+  // Dirty check: compare serialized plan data
+  const savedPlanJson = plan?.plan_data ? JSON.stringify(plan.plan_data) : null;
+  const livePlanJson = livePlan ? JSON.stringify(livePlan) : null;
+  const isDirty = !!livePlan && livePlanJson !== savedPlanJson;
+
+  /* ─── handlers ─── */
+  const updateModule = useCallback((key: string, patch: Partial<ModulePlanEntry>) => {
+    setLivePlan(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        module_plan: prev.module_plan.map(m => m.module_key === key ? { ...m, ...patch } : m),
+      };
+    });
+  }, []);
+
+  const removeModule = useCallback((key: string) => {
+    setLivePlan(prev => {
+      if (!prev) return prev;
+      const idx = prev.module_plan.findIndex(m => m.module_key === key);
+      if (idx === -1) return prev;
+      const removed = prev.module_plan[idx];
+      const next = { ...prev, module_plan: prev.module_plan.filter(m => m.module_key !== key) };
+
+      // Clear previous undo
+      if (undoRef.current) clearTimeout(undoRef.current.timer);
+
+      const timer = setTimeout(() => { undoRef.current = null; }, 5000);
+      undoRef.current = { mod: removed, idx, timer };
+
+      toast("Module removed", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            if (!undoRef.current) return;
+            const { mod: restored, idx: restoredIdx } = undoRef.current;
+            clearTimeout(undoRef.current.timer);
+            undoRef.current = null;
+            setLivePlan(p => {
+              if (!p) return p;
+              const arr = [...p.module_plan];
+              arr.splice(restoredIdx, 0, restored);
+              return { ...p, module_plan: arr };
+            });
+          },
+        },
+        duration: 5000,
+      });
+
+      return next;
+    });
+  }, []);
+
+  const addModule = useCallback((mod: ModulePlanEntry) => {
+    setLivePlan(prev => {
+      if (!prev) return prev;
+      return { ...prev, module_plan: [...prev.module_plan, mod] };
+    });
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setLivePlan(prev => {
+      if (!prev) return prev;
+      const oldIdx = prev.module_plan.findIndex(m => m.module_key === active.id);
+      const newIdx = prev.module_plan.findIndex(m => m.module_key === over.id);
+      if (oldIdx === -1 || newIdx === -1) return prev;
+      return { ...prev, module_plan: arrayMove(prev.module_plan, oldIdx, newIdx) };
+    });
+  }, []);
 
   const handleGenerate = async () => {
     setPlanError(null);
@@ -218,11 +624,19 @@ export default function PlanPage() {
     }
   };
 
+  const handleRegenerate = () => {
+    if (isDirty) { setRegenDialogOpen(true); return; }
+    handleGenerate();
+  };
+
   const handleSave = async () => {
     if (!livePlan) return;
     try {
-      await savePlan.mutateAsync(livePlan);
-      setLivePlan(null);
+      if (plan?.id) {
+        await updatePlan.mutateAsync({ planId: plan.id, planData: livePlan });
+      } else {
+        await savePlan.mutateAsync(livePlan);
+      }
       toast.success("Plan saved as draft");
     } catch (e: any) {
       toast.error(e.message || "Failed to save plan");
@@ -230,9 +644,16 @@ export default function PlanPage() {
   };
 
   const handleApprove = async () => {
-    if (!plan?.id) return;
+    if (!livePlan) return;
     try {
-      await approvePlan.mutateAsync(plan.id);
+      // Save first, then approve
+      if (plan?.id) {
+        await updatePlan.mutateAsync({ planId: plan.id, planData: livePlan });
+        await approvePlan.mutateAsync(plan.id);
+      } else {
+        const saved = await savePlan.mutateAsync(livePlan);
+        if (saved?.id) await approvePlan.mutateAsync(saved.id);
+      }
       toast.success("Plan approved!");
     } catch (e: any) {
       toast.error(e.message || "Failed to approve plan");
@@ -252,52 +673,44 @@ export default function PlanPage() {
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6 pb-12">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Module Plan</h1>
             <p className="text-sm text-muted-foreground mt-1">
               AI-generated onboarding plan for <strong>{currentPack?.title || "this pack"}</strong>
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {displayPlan && livePlan && (
-              <Button onClick={handleSave} disabled={savePlan.isPending} variant="outline" size="sm">
-                {savePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+          <div className="flex items-center gap-2 flex-wrap">
+            {displayPlan && isDirty && (
+              <Button onClick={handleSave} disabled={savePlan.isPending || updatePlan.isPending} variant="outline" size="sm">
+                {(savePlan.isPending || updatePlan.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
                 Save Draft
               </Button>
             )}
-            {isSaved && !isApproved && (
+            {displayPlan && !isApproved && (
               <Button onClick={handleApprove} disabled={approvePlan.isPending} variant="outline" size="sm">
                 {approvePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
                 Approve Plan
               </Button>
             )}
             {isApproved && !cascade.running && (
-              <div className="flex items-center gap-2">
-                {templates.length > 0 && (
-                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                    <SelectTrigger className="w-[180px] h-8 text-xs">
-                      <Layout className="w-3 h-3 mr-1" />
-                      <SelectValue placeholder="No template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No template</SelectItem>
-                      {templates.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Button onClick={handleGenerateAll} variant="outline" size="sm">
-                  <ArrowRight className="w-4 h-4 mr-1" />
-                  Generate All Content
-                </Button>
-              </div>
+              <Button onClick={handleGenerateAll} variant="outline" size="sm">
+                <ArrowRight className="w-4 h-4 mr-1" />
+                Generate All Content
+              </Button>
             )}
-            <Button onClick={handleGenerate} disabled={generatePlan.isPending || cascade.running} size="sm">
-              {generatePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-              {displayPlan ? "Regenerate Plan" : "Generate Plan"}
-            </Button>
+            {displayPlan && (
+              <Button onClick={handleRegenerate} disabled={generatePlan.isPending || cascade.running} size="sm" variant="outline">
+                {generatePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RotateCcw className="w-4 h-4 mr-1" />}
+                Regenerate
+              </Button>
+            )}
+            {!displayPlan && (
+              <Button onClick={handleGenerate} disabled={generatePlan.isPending} size="sm">
+                {generatePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                Generate Plan
+              </Button>
+            )}
           </div>
         </div>
 
@@ -322,7 +735,7 @@ export default function PlanPage() {
         )}
 
         {/* Status */}
-        {plan && !livePlan && (
+        {plan && (
           <div className="flex items-center gap-2">
             <Badge variant="outline" className={
               plan.status === "approved" ? "bg-green-500/15 text-green-400 border-green-500/30" :
@@ -333,6 +746,7 @@ export default function PlanPage() {
               {plan.status}
             </Badge>
             <span className="text-xs text-muted-foreground">Created {new Date(plan.created_at).toLocaleDateString()}</span>
+            {isDirty && <Badge variant="outline" className="text-[10px] bg-yellow-500/10 text-yellow-400 border-yellow-500/20">Unsaved changes</Badge>}
           </div>
         )}
 
@@ -348,9 +762,7 @@ export default function PlanPage() {
         )}
 
         {/* Plan error */}
-        {planError && !generatePlan.isPending && (
-          <AIErrorDisplay error={planError} />
-        )}
+        {planError && !generatePlan.isPending && <AIErrorDisplay error={planError} />}
 
         {/* Empty state */}
         {!displayPlan && !generatePlan.isPending && !planLoading && (
@@ -410,16 +822,62 @@ export default function PlanPage() {
                 <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-primary" /> Module Plan ({displayPlan.module_plan.length} modules)
                 </h2>
-                <div className="space-y-3">
-                  {displayPlan.module_plan.map((mod, i) => (
-                    <PlanModuleCard key={mod.module_key} mod={mod} index={i} generated={generatedKeys.has(mod.module_key)} />
-                  ))}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={displayPlan.module_plan.map(m => m.module_key)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {displayPlan.module_plan.map((mod, i) => (
+                        <SortableModuleCard
+                          key={mod.module_key}
+                          mod={mod}
+                          index={i}
+                          generated={generatedKeys.has(mod.module_key)}
+                          disabled={editDisabled}
+                          tracks={tracks}
+                          templates={templates}
+                          onUpdate={updateModule}
+                          onRemove={removeModule}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                <div className="mt-4">
+                  <AddModuleForm tracks={tracks} onAdd={addModule} disabled={editDisabled} />
                 </div>
               </div>
             )}
           </>
         )}
       </div>
+
+      {/* Regenerate warning dialog */}
+      <AlertDialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved edits to the plan. Regenerating will replace the current plan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setRegenDialogOpen(false);
+                await handleSave();
+                handleGenerate();
+              }}
+            >
+              Save &amp; Regenerate
+            </Button>
+            <AlertDialogAction onClick={() => { setRegenDialogOpen(false); handleGenerate(); }}>
+              Discard &amp; Regenerate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
