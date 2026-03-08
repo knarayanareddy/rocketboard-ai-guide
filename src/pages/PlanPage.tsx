@@ -287,6 +287,11 @@ export default function PlanPage() {
           </Card>
         )}
 
+        {/* Plan error */}
+        {planError && !generatePlan.isPending && (
+          <AIErrorDisplay error={planError} />
+        )}
+
         {/* Empty state */}
         {!displayPlan && !generatePlan.isPending && !planLoading && (
           <Card className="border-dashed">
