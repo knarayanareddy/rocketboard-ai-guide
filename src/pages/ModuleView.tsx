@@ -411,6 +411,8 @@ export default function ModuleView() {
                     savedNote={getNoteForSection(section.section_id)}
                     onSaveNote={canInteract ? (content) => saveNote.mutate({ sectionId: section.section_id, content }) : undefined}
                     onDeleteNote={canInteract ? () => deleteNote.mutate({ sectionId: section.section_id }) : undefined}
+                    moduleKey={moduleId}
+                    trackKey={moduleData.track_key}
                   />
                 ))}
 
