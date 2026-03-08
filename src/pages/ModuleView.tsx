@@ -7,20 +7,18 @@ import { QuizRunner } from "@/components/QuizRunner";
 import { TrackBadge } from "@/components/TrackBadge";
 import { ArrowLeft, Filter, BookOpen, BrainCircuit } from "lucide-react";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useProgress } from "@/hooks/useProgress";
 
 export default function ModuleView() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
   const mod = modules.find((m) => m.id === moduleId);
-
-  const [readSections, setReadSections] = useState<Set<string>>(() => {
-    const stored = localStorage.getItem(`read-${moduleId}`);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  });
+  const { getReadSectionsForModule, toggleSection, saveQuizScore, getModuleProgress } = useProgress();
 
   const [activeTrack, setActiveTrack] = useState<Track | "all">("all");
+
+  const readSections = getReadSectionsForModule(moduleId || "");
 
   const filteredSections = useMemo(() => {
     if (!mod) return [];
@@ -38,29 +36,19 @@ export default function ModuleView() {
     );
   }
 
-  const toggleRead = (sectionId: string) => {
-    setReadSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(sectionId)) next.delete(sectionId);
-      else next.add(sectionId);
-      localStorage.setItem(`read-${moduleId}`, JSON.stringify([...next]));
-      // Update progress
-      const progress = Math.round((next.size / mod.sections.length) * 100);
-      localStorage.setItem(`progress-${moduleId}`, String(progress));
-      return next;
-    });
+  const handleToggleRead = (sectionId: string) => {
+    toggleSection.mutate({ moduleId: mod.id, sectionId });
   };
 
   const handleQuizComplete = (score: number) => {
-    // Could persist quiz scores
+    saveQuizScore.mutate({ moduleId: mod.id, score, total: mod.quiz.length });
   };
 
-  const progress = Math.round((readSections.size / mod.sections.length) * 100);
+  const progress = getModuleProgress(mod.id);
 
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           <button
             onClick={() => navigate("/")}
@@ -78,7 +66,6 @@ export default function ModuleView() {
             </div>
           </div>
 
-          {/* Progress */}
           <div className="mt-4 mb-8">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-mono text-muted-foreground">
@@ -95,7 +82,6 @@ export default function ModuleView() {
           </div>
         </motion.div>
 
-        {/* Tabs */}
         <Tabs defaultValue="content" className="w-full">
           <TabsList className="bg-muted border border-border mb-6">
             <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card">
@@ -109,7 +95,6 @@ export default function ModuleView() {
           </TabsList>
 
           <TabsContent value="content">
-            {/* Track filter */}
             <div className="flex items-center gap-2 mb-6 flex-wrap">
               <Filter className="w-4 h-4 text-muted-foreground" />
               <button
@@ -133,7 +118,6 @@ export default function ModuleView() {
               ))}
             </div>
 
-            {/* Sections */}
             <div className="space-y-4">
               {filteredSections.map((section, i) => (
                 <SectionViewer
@@ -141,7 +125,7 @@ export default function ModuleView() {
                   section={section}
                   index={i}
                   isRead={readSections.has(section.id)}
-                  onMarkRead={() => toggleRead(section.id)}
+                  onMarkRead={() => handleToggleRead(section.id)}
                 />
               ))}
               {filteredSections.length === 0 && (

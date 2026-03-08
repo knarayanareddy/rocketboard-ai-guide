@@ -3,20 +3,12 @@ import { motion } from "framer-motion";
 import { Flame, Award, Zap } from "lucide-react";
 
 interface StatsStripProps {
-  getProgress: (moduleId: string) => number;
+  completedModules: number;
+  totalSectionsRead: number;
+  totalSections: number;
 }
 
-export function StatsStrip({ getProgress }: StatsStripProps) {
-  const completedModules = modules.filter((m) => getProgress(m.id) === 100).length;
-  const totalSectionsRead = modules.reduce((acc, mod) => {
-    const stored = localStorage.getItem(`read-${mod.id}`);
-    const readSet = stored ? JSON.parse(stored) as string[] : [];
-    return acc + readSet.length;
-  }, 0);
-  const totalSections = modules.reduce((a, m) => a + m.sections.length, 0);
-
-  const streak = completedModules; // simplified streak
-
+export function StatsStrip({ completedModules, totalSectionsRead, totalSections }: StatsStripProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <motion.div
@@ -59,7 +51,7 @@ export function StatsStrip({ getProgress }: StatsStripProps) {
           <Flame className="w-5 h-5 text-track-infra" />
         </div>
         <div>
-          <p className="text-lg font-bold text-card-foreground">{streak}</p>
+          <p className="text-lg font-bold text-card-foreground">{completedModules}</p>
           <p className="text-xs text-muted-foreground">Streak 🔥</p>
         </div>
       </motion.div>

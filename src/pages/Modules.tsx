@@ -3,14 +3,11 @@ import { modules } from "@/data/onboarding-data";
 import { ModuleCard } from "@/components/ModuleCard";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { motion } from "framer-motion";
+import { useProgress } from "@/hooks/useProgress";
 
 export default function Modules() {
   const navigate = useNavigate();
-
-  const getProgress = (moduleId: string) => {
-    const stored = localStorage.getItem(`progress-${moduleId}`);
-    return stored ? parseInt(stored, 10) : 0;
-  };
+  const { getModuleProgress } = useProgress();
 
   return (
     <DashboardLayout>
@@ -26,7 +23,7 @@ export default function Modules() {
               key={mod.id}
               module={mod}
               index={i}
-              progress={getProgress(mod.id)}
+              progress={getModuleProgress(mod.id)}
               onClick={() => navigate(`/modules/${mod.id}`)}
             />
           ))}
