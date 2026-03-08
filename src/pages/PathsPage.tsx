@@ -158,9 +158,13 @@ export default function PathsPage() {
   const week1Progress = week1Steps.length > 0 ? Math.round((checkedWeek1.size / week1Steps.length) * 100) : 0;
 
   const handleGenerate = () => {
+    setGenError(null);
     generatePaths.mutate(undefined, {
       onSuccess: () => toast.success("Paths generated!"),
-      onError: (e) => toast.error(e.message),
+      onError: (e) => {
+        if (e instanceof AIError) setGenError(e);
+        else toast.error(e.message);
+      },
     });
   };
 
