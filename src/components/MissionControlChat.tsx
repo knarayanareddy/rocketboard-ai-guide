@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
