@@ -212,11 +212,11 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
   });
 
   if (!response.ok) {
-    if (response.status === 429) return errorResponse(429, { error: "Rate limit exceeded." });
-    if (response.status === 402) return errorResponse(402, { error: "AI credits exhausted." });
     const t = await response.text();
     console.error("AI gateway error:", response.status, t);
-    return errorResponse(500, { error: "AI service unavailable" });
+    if (response.status === 429) return structuredError(requestId, "rate_limited", "Too many requests. Please wait a moment.");
+    if (response.status === 402) return structuredError(requestId, "credit_exhausted", "AI credits exhausted. Contact your admin.");
+    return structuredError(requestId, "network_error", "AI service unavailable");
   }
 
   const aiResult = await response.json();
