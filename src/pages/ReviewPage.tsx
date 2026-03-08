@@ -414,6 +414,9 @@ export default function ReviewPage() {
               {refining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
               {refining ? "Refining..." : "Refine Module"}
             </Button>
+            {refineError && (
+              <AIErrorDisplay error={refineError} onRetry={handleRefine} />
+            )}
           </div>
         </SheetContent>
       </Sheet>
