@@ -23,6 +23,7 @@ export default function GlossaryPage() {
   const [search, setSearch] = useState("");
   const [trackFilter, setTrackFilter] = useState<string>("all");
   const [density, setDensity] = useState<string>("standard");
+  const [genError, setGenError] = useState<AIError | null>(null);
 
   const { glossary: generatedGlossary, glossaryLoading, generateGlossary } = useGeneratedGlossary();
   const { hasPackPermission } = useRole();
