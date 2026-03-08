@@ -117,8 +117,12 @@ export function AppSidebar() {
           {!collapsed && <span>Sign out</span>}
         </button>
         {!collapsed && (
-          <div className="text-xs text-sidebar-foreground/30 font-mono">
-            v4.0 • RocketBoard
+          <div className="flex items-center justify-between text-xs text-sidebar-foreground/30 font-mono">
+            <span>v4.0 • RocketBoard</span>
+            <span className="flex items-center gap-1 text-sidebar-foreground/50">
+              <Globe className="w-3 h-3" />
+              {outputLanguage.toUpperCase()}
+            </span>
           </div>
         )}
       </SidebarFooter>

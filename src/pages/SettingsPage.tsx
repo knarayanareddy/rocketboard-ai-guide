@@ -222,6 +222,37 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Output Language */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Globe className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Output Language</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose the language for AI-generated content and chat responses.
+            </p>
+            <Select
+              value={outputLanguage}
+              onValueChange={(val) => {
+                saveAll({ output_language: val });
+                if (val !== "en") {
+                  toast.info("Language preference saved. Existing generated content will remain in its original language. New content and chat responses will use your selected language.");
+                }
+              }}
+            >
+              <SelectTrigger className="w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGE_OPTIONS.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Reset Progress */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="font-semibold text-card-foreground mb-2">Reset Progress</h2>
