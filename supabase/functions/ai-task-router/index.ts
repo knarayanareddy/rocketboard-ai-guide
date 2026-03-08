@@ -1145,14 +1145,14 @@ serve(async (req) => {
         return errorResponse(400, {
           type: "error",
           request_id: requestId,
-          error_code: "unknown_task",
-          message: `Unknown task type: ${taskType}`,
-          suggested_search_queries: [],
-          warnings: [],
-        });
+        return structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`);
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error("ai-task-router error:", e);
-    return errorResponse(500, { error: e instanceof Error ? e.message : "Unknown error" });
+    const requestId = "unknown";
+    if (e.error_code) {
+      return structuredError(requestId, e.error_code, e.message || "An error occurred");
+    }
+    return structuredError(requestId, "network_error", e instanceof Error ? e.message : "Unknown error");
   }
 });
