@@ -187,6 +187,35 @@ export type Database = {
           },
         ]
       }
+      generated_paths: {
+        Row: {
+          created_at: string
+          id: string
+          pack_id: string
+          paths_data: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pack_id: string
+          paths_data?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pack_id?: string
+          paths_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_paths_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_quizzes: {
         Row: {
           created_at: string
@@ -645,6 +674,44 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      path_progress: {
+        Row: {
+          checked_at: string | null
+          id: string
+          is_checked: boolean
+          pack_id: string
+          path_type: string
+          step_id: string
+          user_id: string
+        }
+        Insert: {
+          checked_at?: string | null
+          id?: string
+          is_checked?: boolean
+          pack_id: string
+          path_type: string
+          step_id: string
+          user_id: string
+        }
+        Update: {
+          checked_at?: string | null
+          id?: string
+          is_checked?: boolean
+          pack_id?: string
+          path_type?: string
+          step_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "path_progress_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
             referencedColumns: ["id"]
           },
         ]
