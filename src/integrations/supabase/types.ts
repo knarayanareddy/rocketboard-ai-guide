@@ -90,6 +90,123 @@ export type Database = {
           },
         ]
       }
+      ingestion_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          pack_id: string
+          processed_chunks: number | null
+          source_id: string | null
+          started_at: string | null
+          status: string
+          total_chunks: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          pack_id: string
+          processed_chunks?: number | null
+          source_id?: string | null
+          started_at?: string | null
+          status?: string
+          total_chunks?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          pack_id?: string
+          processed_chunks?: number | null
+          source_id?: string | null
+          started_at?: string | null
+          status?: string
+          total_chunks?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_jobs_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingestion_jobs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_chunks: {
+        Row: {
+          chunk_id: string
+          content: string
+          content_hash: string
+          created_at: string
+          end_line: number
+          fts: unknown
+          id: string
+          is_redacted: boolean | null
+          metadata: Json | null
+          pack_id: string
+          path: string
+          source_id: string
+          start_line: number
+        }
+        Insert: {
+          chunk_id: string
+          content: string
+          content_hash: string
+          created_at?: string
+          end_line: number
+          fts?: unknown
+          id?: string
+          is_redacted?: boolean | null
+          metadata?: Json | null
+          pack_id: string
+          path: string
+          source_id: string
+          start_line: number
+        }
+        Update: {
+          chunk_id?: string
+          content?: string
+          content_hash?: string
+          created_at?: string
+          end_line?: number
+          fts?: unknown
+          id?: string
+          is_redacted?: boolean | null
+          metadata?: Json | null
+          pack_id?: string
+          path?: string
+          source_id?: string
+          start_line?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learner_notes: {
         Row: {
           content: string
