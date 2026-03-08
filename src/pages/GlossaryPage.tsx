@@ -163,7 +163,7 @@ export default function GlossaryPage() {
 
         {genError && (
           <div className="mb-6">
-            <AIErrorDisplay error={genError} />
+            <AIErrorDisplay error={genError} onRetry={handleGenerate} />
           </div>
         )}
 
