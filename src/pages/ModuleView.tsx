@@ -8,7 +8,7 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2 } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useProgress } from "@/hooks/useProgress";
@@ -16,11 +16,13 @@ import { useNotes } from "@/hooks/useNotes";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useRole } from "@/hooks/useRole";
 import { ModuleChatPanel } from "@/components/ModuleChatPanel";
-import { useGeneratedModules, GeneratedModuleRow, GeneratedSection } from "@/hooks/useGeneratedModules";
+import { useGeneratedModules, GeneratedModuleRow, GeneratedSection, ChangeLogEntry } from "@/hooks/useGeneratedModules";
 import { useGeneratedQuiz } from "@/hooks/useGeneratedQuiz";
 import { usePack } from "@/hooks/usePack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
@@ -100,17 +102,15 @@ export default function ModuleView() {
   const navigate = useNavigate();
   const { currentPackId } = usePack();
 
-  // Static module lookup
   const staticMod = staticModules.find((m) => m.id === moduleId);
 
-  // Generated module lookup
-  const { fetchModule } = useGeneratedModules();
+  const { fetchModule, fetchRevisionHistory, refineModule } = useGeneratedModules();
   const { data: generatedMod, isLoading: genLoading } = fetchModule(moduleId || "");
+  const { data: revisionHistory } = fetchRevisionHistory(moduleId || "");
 
   const isGenerated = !!generatedMod;
   const moduleData = generatedMod?.module_data;
 
-  // Generated quiz
   const { quiz: generatedQuiz, quizLoading, generateQuiz } = useGeneratedQuiz(moduleId || "");
 
   const { getReadSectionsForModule, toggleSection, saveQuizScore, getModuleProgress } = useProgress();
@@ -120,6 +120,11 @@ export default function ModuleView() {
 
   const [activeTrack, setActiveTrack] = useState<Track | "all">("all");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refineInstruction, setRefineInstruction] = useState("");
+  const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
+  const [changeLogOpen, setChangeLogOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
@@ -127,19 +132,16 @@ export default function ModuleView() {
 
   const readSections = getReadSectionsForModule(moduleId || "");
 
-  // Determine sections count for progress
   const totalSections = isGenerated
     ? (moduleData?.sections?.length || 0)
     : (staticMod?.sections?.length || 0);
 
-  // Static module filtered sections
   const filteredStaticSections = useMemo(() => {
     if (!staticMod) return [];
     if (activeTrack === "all") return staticMod.sections;
     return staticMod.sections.filter((s) => s.tracks.includes(activeTrack));
   }, [staticMod, activeTrack]);
 
-  // Module not found
   if (!staticMod && !genLoading && !generatedMod) {
     return (
       <DashboardLayout>
@@ -177,7 +179,29 @@ export default function ModuleView() {
     );
   };
 
-  // Get display title/description
+  const handleRefine = () => {
+    if (!moduleId || !moduleData || !generatedMod) return;
+    refineModule.mutate(
+      {
+        moduleKey: moduleId,
+        authorInstruction: refineInstruction,
+        existingModuleData: moduleData,
+        currentRevision: generatedMod.module_revision,
+        trackKey: moduleData.track_key,
+      },
+      {
+        onSuccess: (result) => {
+          setRefineOpen(false);
+          setRefineInstruction("");
+          setChangeLog(result.changeLog);
+          setChangeLogOpen(true);
+          toast.success(`Module refined to Rev. ${result.row.module_revision}`);
+        },
+        onError: (e) => toast.error(e.message),
+      }
+    );
+  };
+
   const title = isGenerated ? moduleData!.title : staticMod!.title;
   const description = isGenerated ? moduleData!.description : staticMod!.description;
   const difficulty = isGenerated ? moduleData!.difficulty : staticMod!.difficulty;
@@ -221,6 +245,11 @@ export default function ModuleView() {
                     <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Generated
                   </Badge>
                 )}
+                {isGenerated && generatedMod && (
+                  <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground">
+                    Rev. {generatedMod.module_revision}
+                  </Badge>
+                )}
                 {!canInteract && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border flex items-center gap-1">
                     <Lock className="w-3 h-3" /> Read Only
@@ -228,6 +257,20 @@ export default function ModuleView() {
                 )}
               </div>
               <p className="text-muted-foreground mt-1">{description}</p>
+
+              {/* Author actions for generated modules */}
+              {isGenerated && hasPackPermission("author") && (
+                <div className="flex items-center gap-2 mt-3">
+                  <Button size="sm" variant="outline" className="gap-2 text-xs" onClick={() => setRefineOpen(true)}>
+                    <Pencil className="w-3 h-3" /> Refine Module
+                  </Button>
+                  {(revisionHistory?.length || 0) > 1 && (
+                    <Button size="sm" variant="ghost" className="gap-2 text-xs" onClick={() => setHistoryOpen(true)}>
+                      <History className="w-3 h-3" /> {revisionHistory?.length} Revisions
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -365,7 +408,6 @@ export default function ModuleView() {
                 </div>
               }>
                 <div className="bg-card border border-border rounded-xl p-8">
-                  {/* Author controls */}
                   {hasPackPermission("author") && (
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
                       <div className="text-xs text-muted-foreground">
@@ -521,6 +563,124 @@ export default function ModuleView() {
             }}
           />
         </ProtectedAction>
+
+        {/* Refine Module Dialog */}
+        <Dialog open={refineOpen} onOpenChange={setRefineOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="w-4 h-4" /> Refine Module
+              </DialogTitle>
+              <DialogDescription>
+                Describe what you'd like to change. The AI will update the module and document all changes.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">What would you like to change?</label>
+                <Textarea
+                  value={refineInstruction}
+                  onChange={(e) => setRefineInstruction(e.target.value)}
+                  placeholder="e.g., Add more detail to the deployment section, simplify the authentication explanation, add a section about error handling..."
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+              {generatedMod && (
+                <p className="text-xs text-muted-foreground">
+                  Current revision: <span className="font-mono font-medium">Rev. {generatedMod.module_revision}</span> • Next will be Rev. {generatedMod.module_revision + 1}
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setRefineOpen(false)}>Cancel</Button>
+                <Button
+                  size="sm"
+                  onClick={handleRefine}
+                  disabled={!refineInstruction.trim() || refineModule.isPending}
+                  className="gap-2"
+                >
+                  {refineModule.isPending ? (
+                    <><Loader2 className="w-3 h-3 animate-spin" /> Refining...</>
+                  ) : (
+                    <><Sparkles className="w-3 h-3" /> Refine</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Change Log Dialog */}
+        <Dialog open={changeLogOpen} onOpenChange={setChangeLogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="w-4 h-4" /> Refinement Change Log
+              </DialogTitle>
+              <DialogDescription>
+                Summary of changes made during refinement.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {changeLog.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No changes documented.</p>
+              ) : (
+                changeLog.map((entry, i) => (
+                  <div key={i} className="bg-muted/50 rounded-lg p-3 space-y-1">
+                    <p className="text-sm font-medium text-foreground">{entry.change}</p>
+                    <p className="text-xs text-muted-foreground">{entry.reason}</p>
+                    {entry.citations && entry.citations.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {entry.citations.map((c) => (
+                          <CitationBadge key={c.span_id} spanId={c.span_id} path={c.path} chunkId={c.chunk_id} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Revision History Dialog */}
+        <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-4 h-4" /> Revision History
+              </DialogTitle>
+              <DialogDescription>
+                All revisions of this module.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {(revisionHistory || []).map((rev) => (
+                <div
+                  key={rev.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                    rev.module_revision === generatedMod?.module_revision
+                      ? "border-primary/30 bg-primary/5"
+                      : "border-border bg-card hover:bg-muted/50"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] font-mono">Rev. {rev.module_revision}</Badge>
+                      {rev.module_revision === generatedMod?.module_revision && (
+                        <Badge className="text-[10px] bg-primary/15 text-primary border-0">Current</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{rev.title}</p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    {new Date(rev.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
