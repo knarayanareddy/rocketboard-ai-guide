@@ -2,3 +2,9 @@ project_id = "ersqhobqaptsxqclawcc"
 
 [functions.module-chat]
 verify_jwt = false
+
+[functions.ingest-source]
+verify_jwt = false
+
+[functions.retrieve-spans]
+verify_jwt = false
