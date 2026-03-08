@@ -230,7 +230,7 @@ function StaticTrackFilter({ activeTrack, setActiveTrack }: { activeTrack: strin
   const { tracks: packTracks } = usePackTracks();
   if (packTracks.length === 0) return null;
   return (
-    <div className="flex items-center gap-2 mb-6 flex-wrap">
+    <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
       <Filter className="w-4 h-4 text-muted-foreground" />
       <button
         onClick={() => setActiveTrack("all")}
