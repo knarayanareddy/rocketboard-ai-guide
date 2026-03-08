@@ -493,7 +493,7 @@ export default function ModuleView() {
         {isGenerated && moduleData ? (
           <Tabs defaultValue="content" className="w-full">
             <TabsList className="bg-muted border border-border mb-6">
-              <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card">
+              <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>
               <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card" disabled={!canInteract}>
