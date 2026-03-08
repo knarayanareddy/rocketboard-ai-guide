@@ -208,9 +208,9 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 && historyLoaded && !lastError && (
                 <div className="text-center py-8">
-                  <Bot className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <Rocket className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">
-                    Ask anything about <strong className="text-foreground">{moduleContext.title}</strong>
+                    🚀 Ask <strong className="text-foreground">Rocket</strong> anything about <strong className="text-foreground">{moduleContext.title}</strong>
                   </p>
                   <div className="mt-4 space-y-2">
                     {["Summarize the key concepts", "What should I focus on?", "Explain the main takeaways"].map((q) => (
