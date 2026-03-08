@@ -740,6 +740,115 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── REFINE MODULE HANDLER ───
+async function handleRefineModule(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const inputs = envelope.inputs || {};
+  const audience = context.audience_profile || {};
+  const spans = retrieval.evidence_spans || [];
+  const existingModule = inputs.existing_module;
+  const authorInstruction = context.author_instruction || "";
+  const moduleRevision = (inputs.module_revision || 1) + 1;
+  const moduleKey = context.current_module_key || existingModule?.module_key || "unknown";
+  const trackKey = context.current_track_key || existingModule?.track_key || null;
+
+  if (!existingModule) {
+    return errorResponse(400, { type: "error", request_id: requestId, error_code: "missing_input", message: "inputs.existing_module is required for refine_module" });
+  }
+  if (!authorInstruction) {
+    return errorResponse(400, { type: "error", request_id: requestId, error_code: "missing_input", message: "context.author_instruction is required for refine_module" });
+  }
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+
+  const existingModuleJson = JSON.stringify(existingModule, null, 2);
+
+  const systemPrompt = `You are RocketBoard AI Module Refiner. You iteratively improve generated modules based on author instructions.
+
+TASK: Refine the existing module "${existingModule.title || moduleKey}" based on the author's instruction.
+
+${packBlock}
+
+EXISTING MODULE (current revision):
+\`\`\`json
+${existingModuleJson}
+\`\`\`
+
+AUTHOR INSTRUCTION:
+"${authorInstruction}"
+
+RULES:
+- Apply the author's requested changes precisely.
+- Preserve sections and content that the author did NOT ask to change.
+- Ground new or updated content in the evidence spans provided. Cite using [S1], [S2], etc.
+- Document every change in the change_log with what changed and why.
+- Increment module_revision to ${moduleRevision}.
+- Maintain the same module structure (sections, endcap, key_takeaways, evidence_index).
+- Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "refine_module",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "module_revision": ${moduleRevision},
+  "module": {
+    "module_key": "${moduleKey}",
+    "title": "string",
+    "description": "string",
+    "estimated_minutes": 15,
+    "difficulty": "beginner|intermediate|advanced",
+    "track_key": ${trackKey ? `"${trackKey}"` : "null"},
+    "audience": "${audience.audience || "technical"}",
+    "depth": "${audience.depth || "standard"}",
+    "sections": [{ "section_id": "sec-1", "heading": "string", "markdown": "string", "learning_objectives": ["string"], "note_prompts": ["string"], "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }] }],
+    "endcap": { "reflection_prompts": ["string"], "quiz_objectives": ["string"], "ready_for_quiz_markdown": "string", "citations": [{ "span_id": "S1" }] },
+    "key_takeaways": ["string"],
+    "evidence_index": [{ "topic": "string", "citations": [{ "span_id": "S1" }] }]
+  },
+  "change_log": [{
+    "change": "string describing what changed",
+    "reason": "string explaining why",
+    "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }]
+  }],
+  "contradictions": [],
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Refine the module "${existingModule.title || moduleKey}" according to this instruction: "${authorInstruction}". Use the ${spans.length} evidence spans provided to ground any new content.`;
+
+  try {
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "refine_module",
+      request_id: requestId,
+      pack_id: pack.pack_id || null,
+      pack_version: pack.pack_version || 1,
+      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+      module_revision: moduleRevision,
+      module: existingModule,
+      change_log: [],
+      contradictions: [],
+      warnings: ["AI response could not be parsed as JSON"],
+    });
+    parsed.type = "refine_module";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
