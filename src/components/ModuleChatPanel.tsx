@@ -96,12 +96,13 @@ async function streamChat({
   onDone();
 }
 
-async function saveMessage(userId: string, moduleId: string, role: string, content: string) {
+async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string) {
   await supabase.from("chat_messages").insert({
     user_id: userId,
     module_id: moduleId,
     role,
     content,
+    pack_id: packId || null,
   });
 }
 
