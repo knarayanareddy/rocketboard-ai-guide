@@ -71,6 +71,7 @@ export function MissionControlChat() {
   useEffect(() => {
     setMessages([]);
     setHistoryLoaded(false);
+    setLastResponse(null);
     setLastError(null);
   }, [currentPackId]);
 
