@@ -8,7 +8,7 @@ interface SectionViewerProps {
   section: Section;
   index: number;
   isRead: boolean;
-  onMarkRead: () => void;
+  onMarkRead?: () => void;
   savedNote?: string;
   onSaveNote?: (content: string) => void;
   onDeleteNote?: () => void;
