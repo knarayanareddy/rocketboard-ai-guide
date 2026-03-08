@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
+import { ContradictionInline } from "@/components/ContradictionCallout";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +15,15 @@ import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 type Msg = { role: "user" | "assistant"; content: string };
+
+interface ChatResponse {
+  response_markdown: string;
+  referenced_spans?: { span_id: string; path: string; chunk_id: string }[];
+  unverified_claims?: { claim: string; reason: string }[];
+  contradictions?: any[];
+  suggested_search_queries?: string[];
+  warnings?: string[];
+}
 
 const SUGGESTED_QUESTIONS = [
   "What features does this platform have?",
