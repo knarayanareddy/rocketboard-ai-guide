@@ -258,6 +258,8 @@ export default function ModuleView() {
   const { getNoteForSection, saveNote, deleteNote } = useNotes(moduleId || "");
   const { updateLastOpened } = useLearnerState();
   const { hasPackPermission } = useRole();
+  const { packLimits } = useGenerationPrefs();
+  const effectiveLimits = getEffectiveLimits({ max_module_words: packLimits.maxModuleWords, max_quiz_questions: packLimits.maxQuizQuestions, max_key_takeaways: packLimits.maxKeyTakeaways });
 
   const [activeTrack, setActiveTrack] = useState<string>("all");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
