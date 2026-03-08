@@ -128,12 +128,14 @@ export default function PlanPage() {
   const generatedKeys = new Set(generatedModules.map((m) => m.module_key));
 
   const handleGenerate = async () => {
+    setPlanError(null);
     try {
       const result = await generatePlan.mutateAsync();
       setLivePlan(result);
       toast.success("Module plan generated!");
     } catch (e: any) {
-      toast.error(e.message || "Failed to generate plan");
+      if (e instanceof AIError) setPlanError(e);
+      else toast.error(e.message || "Failed to generate plan");
     }
   };
 
