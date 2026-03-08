@@ -1,20 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { usePack } from "@/hooks/usePack";
 import { modules } from "@/data/onboarding-data";
 
 export function useProgress() {
   const { user } = useAuth();
+  const { currentPackId } = usePack();
   const queryClient = useQueryClient();
 
   const { data: progressData = [] } = useQuery({
-    queryKey: ["user_progress", user?.id],
+    queryKey: ["user_progress", user?.id, currentPackId],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
+      const query = supabase
         .from("user_progress")
         .select("*")
         .eq("user_id", user.id);
+      
+      // Support both pack-scoped and legacy null pack_id data
+      const { data, error } = await query.or(`pack_id.eq.${currentPackId},pack_id.is.null`);
       if (error) throw error;
       return data;
     },
@@ -22,13 +27,14 @@ export function useProgress() {
   });
 
   const { data: quizScores = [] } = useQuery({
-    queryKey: ["quiz_scores", user?.id],
+    queryKey: ["quiz_scores", user?.id, currentPackId],
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from("quiz_scores")
         .select("*")
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .or(`pack_id.eq.${currentPackId},pack_id.is.null`);
       if (error) throw error;
       return data;
     },
@@ -54,12 +60,13 @@ export function useProgress() {
           user_id: user.id,
           module_id: moduleId,
           section_id: sectionId,
+          pack_id: currentPackId,
         });
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user_progress", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["user_progress", user?.id, currentPackId] });
     },
   });
 
@@ -67,13 +74,13 @@ export function useProgress() {
     mutationFn: async ({ moduleId, score, total }: { moduleId: string; score: number; total: number }) => {
       if (!user) return;
       const { error } = await supabase.from("quiz_scores").upsert(
-        { user_id: user.id, module_id: moduleId, score, total },
+        { user_id: user.id, module_id: moduleId, score, total, pack_id: currentPackId },
         { onConflict: "user_id,module_id" }
       );
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["quiz_scores", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["quiz_scores", user?.id, currentPackId] });
     },
   });
 
