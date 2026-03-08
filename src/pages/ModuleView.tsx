@@ -30,6 +30,9 @@ import { Textarea } from "@/components/ui/textarea";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { ContradictionCallout } from "@/components/ContradictionCallout";
+import { GenerationStats, buildModuleStats } from "@/components/GenerationStats";
+import { getEffectiveLimits } from "@/lib/limits";
+import { useGenerationPrefs } from "@/hooks/useGenerationPrefs";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -255,6 +258,8 @@ export default function ModuleView() {
   const { getNoteForSection, saveNote, deleteNote } = useNotes(moduleId || "");
   const { updateLastOpened } = useLearnerState();
   const { hasPackPermission } = useRole();
+  const { packLimits } = useGenerationPrefs();
+  const effectiveLimits = getEffectiveLimits({ max_module_words: packLimits.maxModuleWords, max_quiz_questions: packLimits.maxQuizQuestions, max_key_takeaways: packLimits.maxKeyTakeaways });
 
   const [activeTrack, setActiveTrack] = useState<string>("all");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -546,6 +551,18 @@ export default function ModuleView() {
                       </motion.div>
                     )}
                   </div>
+                )}
+
+                {/* Generation Stats (author+ only) */}
+                {isGenerated && hasPackPermission("author") && moduleData && (
+                  <GenerationStats
+                    stats={buildModuleStats(
+                      moduleData,
+                      generatedQuiz?.quiz_data?.questions?.length || 0,
+                      effectiveLimits,
+                    )}
+                    className="mt-4"
+                  />
                 )}
               </div>
             </TabsContent>
