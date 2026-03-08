@@ -95,7 +95,7 @@ export function useModulePlan() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data as ModulePlanRow | null;
+      return data as unknown as ModulePlanRow | null;
     },
     enabled: !!currentPackId,
   });
