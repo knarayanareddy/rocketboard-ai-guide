@@ -58,6 +58,7 @@ export type Database = {
           glossary_density: string
           id: string
           learner_role: string | null
+          output_language: string
           pack_id: string | null
           updated_at: string
           user_id: string
@@ -70,6 +71,7 @@ export type Database = {
           glossary_density?: string
           id?: string
           learner_role?: string | null
+          output_language?: string
           pack_id?: string | null
           updated_at?: string
           user_id: string
@@ -82,6 +84,7 @@ export type Database = {
           glossary_density?: string
           id?: string
           learner_role?: string | null
+          output_language?: string
           pack_id?: string | null
           updated_at?: string
           user_id?: string

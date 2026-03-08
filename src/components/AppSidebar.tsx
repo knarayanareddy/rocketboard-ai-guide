@@ -1,9 +1,10 @@
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { PackSelector } from "@/components/PackSelector";
+import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 import {
   Sidebar,
   SidebarContent,
@@ -44,6 +45,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { packAccessLevel, accessLevelLabel, hasPackPermission } = useRole();
+  const { outputLanguage } = useAudiencePrefs();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -115,8 +117,12 @@ export function AppSidebar() {
           {!collapsed && <span>Sign out</span>}
         </button>
         {!collapsed && (
-          <div className="text-xs text-sidebar-foreground/30 font-mono">
-            v4.0 • RocketBoard
+          <div className="flex items-center justify-between text-xs text-sidebar-foreground/30 font-mono">
+            <span>v4.0 • RocketBoard</span>
+            <span className="flex items-center gap-1 text-sidebar-foreground/50">
+              <Globe className="w-3 h-3" />
+              {outputLanguage.toUpperCase()}
+            </span>
           </div>
         )}
       </SidebarFooter>

@@ -20,6 +20,7 @@ interface AudienceProfile {
   audience?: string;
   depth?: string;
   glossary_density?: string;
+  output_language?: string;
 }
 
 interface ConversationMessage {
@@ -72,7 +73,7 @@ function baseEnvelope(
       current_module_key: null as string | null,
       current_track_key: null as string | null,
       output_language: null as string | null,
-      audience_profile: { audience: "technical", depth: "standard", glossary_density: "standard" } as AudienceProfile,
+      audience_profile: { audience: "technical", depth: "standard", glossary_density: "standard", output_language: "en" } as AudienceProfile,
       learner_profile: { role: null as string | null, experience_level: null as string | null },
       learner_state: { completed_module_keys: [], last_opened_module_key: null, last_opened_track_key: null },
       author_instruction: null as string | null,

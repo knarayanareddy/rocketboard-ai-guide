@@ -40,6 +40,12 @@ function buildPackBlock(pack: any): string {
   return pack.title ? `\n## Pack Context\nPack: ${pack.title}\n${pack.description || ""}\nTracks:\n${tracks}` : "";
 }
 
+function buildLanguageBlock(context: any, pack: any): string {
+  const lang = context?.audience_profile?.output_language || context?.output_language || "en";
+  if (lang === "en" || pack?.language_mode === "english") return "";
+  return `\n## OUTPUT LANGUAGE INSTRUCTION\nWrite ALL user-facing prose (headings, content, explanations, definitions, reflection prompts, quiz questions, option text) in language code "${lang}". NEVER translate: code identifiers, file paths, variable names, IDs, citation fields (span_id, path, chunk_id), or JSON keys. JSON keys must remain in English.\n`;
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -148,7 +154,7 @@ RULES:
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up search queries.
-${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
+${buildLanguageBlock(context, pack)}${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
 {
@@ -232,7 +238,7 @@ async function handleModulePlanner(envelope: any): Promise<Response> {
     : "The pack has no tracks yet. Propose tracks based on what you see in the evidence.";
 
   const systemPrompt = `You are RocketBoard AI Module Planner. Your job is to analyze codebase evidence spans and propose a structured onboarding plan.
-
+${buildLanguageBlock(envelope.context, pack)}
 TASK:
 1. Analyze the evidence spans to understand the codebase/system architecture.
 2. Detect technology signals (e.g., "uses_kubernetes", "has_ci_pipeline", "uses_typescript", "has_monitoring", "has_auth_system", "uses_react", "has_database_migrations", etc.).
@@ -325,7 +331,7 @@ async function handleGenerateModule(envelope: any): Promise<Response> {
   const moduleRevision = inputs.module_revision || 1;
 
   const systemPrompt = `You are RocketBoard AI Module Generator. Your job is to generate comprehensive onboarding module content grounded in evidence spans.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate a complete module titled "${moduleTitle}" (key: ${moduleKey}).
 ${moduleDesc ? `Description: ${moduleDesc}` : ""}
 ${trackKey ? `Track: ${trackKey}` : ""}
@@ -443,7 +449,7 @@ async function handleGenerateQuiz(envelope: any): Promise<Response> {
     : `\nModule key: ${moduleKey}`;
 
   const systemPrompt = `You are RocketBoard AI Quiz Generator. Generate multiple-choice quiz questions that test comprehension of module content.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate up to ${limits.max_quiz_questions || 5} quiz questions for module "${moduleKey}".
 ${moduleContext}
 ${packBlock}
@@ -536,7 +542,7 @@ async function handleGenerateGlossary(envelope: any): Promise<Response> {
   }[density] || "Include common terms. Aim for 15-25 terms.";
 
   const systemPrompt = `You are RocketBoard AI Glossary Generator. Generate a pack-specific glossary of technical terms found in the evidence spans.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate a glossary for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
@@ -605,7 +611,7 @@ async function handleGeneratePaths(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Paths Generator. Generate structured onboarding checklists for Day 1 and Week 1.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate onboarding paths for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
@@ -682,7 +688,7 @@ async function handleGenerateAskLead(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Ask-Your-Lead Generator. Generate high-signal questions a new engineer should ask their team lead during their first 1:1s.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate 10-15 questions for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
@@ -768,7 +774,7 @@ async function handleRefineModule(envelope: any): Promise<Response> {
   const existingModuleJson = JSON.stringify(existingModule, null, 2);
 
   const systemPrompt = `You are RocketBoard AI Module Refiner. You iteratively improve generated modules based on author instructions.
-
+${buildLanguageBlock(context, pack)}
 TASK: Refine the existing module "${existingModule.title || moduleKey}" based on the author's instruction.
 
 ${packBlock}
@@ -870,7 +876,7 @@ async function handleSimplifySection(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Section Simplifier. You rewrite technical content to be more accessible.
-
+${buildLanguageBlock(context, pack)}
 TASK: Simplify the following section content for the target audience.
 ${packBlock}
 
@@ -954,7 +960,7 @@ async function handleCreateTemplate(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Template Creator. You create module generation templates based on author instructions.
-
+${buildLanguageBlock(context, pack)}
 TASK: Create a module template based on the author's description.
 ${packBlock}
 
@@ -1032,7 +1038,7 @@ async function handleRefineTemplate(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Template Refiner. You improve existing module templates based on author feedback.
-
+${buildLanguageBlock(context, pack)}
 TASK: Refine this template based on the author's instruction.
 ${packBlock}
 

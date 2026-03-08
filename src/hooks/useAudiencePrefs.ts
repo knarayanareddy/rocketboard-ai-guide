@@ -6,6 +6,7 @@ import type { Audience, Depth } from "@/data/onboarding-data";
 
 export type GlossaryDensity = "low" | "standard" | "high";
 export type ExperienceLevel = "new" | "mid" | "senior";
+export type OutputLanguage = string;
 
 export interface LearnerProfile {
   learner_role: string | null;
@@ -40,6 +41,7 @@ export function useAudiencePrefs() {
       glossary_density?: GlossaryDensity;
       learner_role?: string | null;
       experience_level?: ExperienceLevel | null;
+      output_language?: string;
     }) => {
       if (!user) return;
       const payload: any = {
@@ -52,6 +54,7 @@ export function useAudiencePrefs() {
       if (opts.glossary_density) payload.glossary_density = opts.glossary_density;
       if (opts.learner_role !== undefined) payload.learner_role = opts.learner_role;
       if (opts.experience_level !== undefined) payload.experience_level = opts.experience_level;
+      if (opts.output_language !== undefined) payload.output_language = opts.output_language;
       const { error } = await supabase.from("audience_preferences").upsert(
         payload,
         { onConflict: "user_id" }
@@ -69,6 +72,7 @@ export function useAudiencePrefs() {
     glossaryDensity: ((prefs as any)?.glossary_density as GlossaryDensity) ?? "standard",
     learnerRole: ((prefs as any)?.learner_role as string | null) ?? null,
     experienceLevel: ((prefs as any)?.experience_level as ExperienceLevel | null) ?? null,
+    outputLanguage: ((prefs as any)?.output_language as string) ?? "en",
     updatePrefs,
   };
 }

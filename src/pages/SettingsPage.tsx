@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, User, Layers, BookText, GraduationCap } from "lucide-react";
+import { Trash2, User, Layers, BookText, GraduationCap, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,7 @@ import { useAudiencePrefs, GlossaryDensity, ExperienceLevel } from "@/hooks/useA
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; desc: string }[] = [
   { key: "technical", label: "Technical", desc: "Detailed, code-oriented content" },
@@ -36,10 +37,22 @@ const EXPERIENCE_OPTIONS: { key: ExperienceLevel; label: string; desc: string }[
   { key: "senior", label: "Senior", desc: "Experienced, focus on architecture & patterns" },
 ];
 
+const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "fr", label: "Français" },
+  { code: "de", label: "Deutsch" },
+  { code: "pt", label: "Português" },
+  { code: "ja", label: "日本語" },
+  { code: "zh", label: "中文 (简体)" },
+  { code: "ko", label: "한국어" },
+  { code: "ar", label: "العربية" },
+  { code: "hi", label: "हिन्दी" },
+];
 export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, updatePrefs } = useAudiencePrefs();
+  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, updatePrefs } = useAudiencePrefs();
   const { currentPackId } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
 
@@ -58,13 +71,14 @@ export default function SettingsPage() {
     }
   };
 
-  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null }>) => {
+  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null; output_language: string }>) => {
     updatePrefs.mutate({
       audience: overrides.audience ?? audience,
       depth: overrides.depth ?? depth,
       glossary_density: overrides.glossary_density ?? glossaryDensity,
       learner_role: overrides.learner_role !== undefined ? overrides.learner_role : learnerRole,
       experience_level: overrides.experience_level !== undefined ? overrides.experience_level : experienceLevel,
+      output_language: overrides.output_language ?? outputLanguage,
     });
   };
 
@@ -206,6 +220,37 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Output Language */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Globe className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Output Language</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose the language for AI-generated content and chat responses.
+            </p>
+            <Select
+              value={outputLanguage}
+              onValueChange={(val) => {
+                saveAll({ output_language: val });
+                if (val !== "en") {
+                  toast.info("Language preference saved. Existing generated content will remain in its original language. New content and chat responses will use your selected language.");
+                }
+              }}
+            >
+              <SelectTrigger className="w-64">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGE_OPTIONS.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Reset Progress */}
