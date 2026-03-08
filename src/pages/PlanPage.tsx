@@ -504,6 +504,7 @@ function AddModuleForm({ tracks, onAdd, disabled }: { tracks: PackTrack[]; onAdd
 /* ═══════════════════════ MAIN PAGE ═══════════════════════ */
 export default function PlanPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { currentPack, currentPackId } = usePack();
   const { hasPackPermission } = useRole();
   const { plan, planLoading, generatePlan, savePlan, updatePlan, approvePlan } = useModulePlan();
