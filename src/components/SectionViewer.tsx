@@ -1,6 +1,7 @@
-import { Section, Track } from "@/data/onboarding-data";
+import { Section } from "@/data/onboarding-data";
 import { TrackBadge } from "./TrackBadge";
-import { StickyNote, CheckCircle2 } from "lucide-react";
+import { NotesPanel } from "./NotesPanel";
+import { StickyNote, CheckCircle2, Target } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface SectionViewerProps {
@@ -8,9 +9,12 @@ interface SectionViewerProps {
   index: number;
   isRead: boolean;
   onMarkRead: () => void;
+  savedNote?: string;
+  onSaveNote?: (content: string) => void;
+  onDeleteNote?: () => void;
 }
 
-export function SectionViewer({ section, index, isRead, onMarkRead }: SectionViewerProps) {
+export function SectionViewer({ section, index, isRead, onMarkRead, savedNote = "", onSaveNote, onDeleteNote }: SectionViewerProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -42,6 +46,18 @@ export function SectionViewer({ section, index, isRead, onMarkRead }: SectionVie
         </button>
       </div>
 
+      {/* Learning objectives */}
+      {section.learning_objectives && section.learning_objectives.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {section.learning_objectives.map((obj, i) => (
+            <span key={i} className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-md">
+              <Target className="w-3 h-3" />
+              {obj}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1.5 mb-4">
         {section.tracks.map((t) => (
           <TrackBadge key={t} track={t} />
@@ -55,6 +71,17 @@ export function SectionViewer({ section, index, isRead, onMarkRead }: SectionVie
           <StickyNote className="w-4 h-4 text-accent shrink-0 mt-0.5" />
           <p className="text-xs text-accent font-medium">{section.notes}</p>
         </div>
+      )}
+
+      {/* Notes panel */}
+      {onSaveNote && onDeleteNote && (
+        <NotesPanel
+          sectionId={section.id}
+          notePrompts={section.note_prompts}
+          savedNote={savedNote}
+          onSave={onSaveNote}
+          onDelete={onDeleteNote}
+        />
       )}
     </motion.div>
   );
