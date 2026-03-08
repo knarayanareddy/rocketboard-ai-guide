@@ -361,12 +361,6 @@ export default function SourcesPage() {
                             </span>
                           )}
                           <ChunkBrowser sourceId={source.id} sourceName={source.label || source.source_uri} />
-                          {!source.last_synced_at && (
-                            <span className="text-destructive flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              Never synced
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
