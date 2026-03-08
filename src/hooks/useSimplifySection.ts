@@ -13,26 +13,7 @@ export interface SimplifiedSection {
   depth: string;
 }
 
-async function fetchEvidenceSpans(packId: string, query: string): Promise<any[]> {
-  try {
-    const resp = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ pack_id: packId, query: query.slice(0, 300), max_spans: 8 }),
-      }
-    );
-    if (!resp.ok) return [];
-    const data = await resp.json();
-    return data.spans || [];
-  } catch {
-    return [];
-  }
-}
+// Evidence spans fetched via shared helper (imported at top)
 
 export function useSimplifySection() {
   const { user } = useAuth();

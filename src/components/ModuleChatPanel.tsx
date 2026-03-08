@@ -46,26 +46,7 @@ async function saveMessage(userId: string, moduleId: string, role: string, conte
   });
 }
 
-async function fetchEvidenceSpans(packId: string, query: string): Promise<EvidenceSpan[]> {
-  try {
-    const resp = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ pack_id: packId, query, max_spans: 10 }),
-      }
-    );
-    if (!resp.ok) return [];
-    const data = await resp.json();
-    return data.spans || [];
-  } catch {
-    return [];
-  }
-}
+// Evidence spans fetched via shared helper (imported at top)
 
 export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
   const { user } = useAuth();
