@@ -2,7 +2,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2, AlertTriangle, Palette } from "lucide-react";
+import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2, AlertTriangle, Palette, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -86,7 +86,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { targetReadingLevel, maxSectionsHint, packLimits, isAuthorPlus, updatePrefs: updateGenPrefs, updatePackLimits } = useGenerationPrefs();
-  const { currentPackId } = usePack();
+  const { currentPackId, currentPack } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
   const [sectionsInput, setSectionsInput] = useState(maxSectionsHint);
   const [moduleWordsInput, setModuleWordsInput] = useState(packLimits.maxModuleWords);
@@ -358,6 +358,14 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground mb-4">
               Choose the language for AI-generated content and chat responses.
             </p>
+            {currentPack?.language_mode === "english" && (
+              <div className="flex items-start gap-2 bg-muted/50 border border-border rounded-lg p-3 mb-4">
+                <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground">
+                  This pack is configured for English only. Language preference will apply to other packs.
+                </p>
+              </div>
+            )}
             <Select
               value={outputLanguage}
               onValueChange={(val) => {

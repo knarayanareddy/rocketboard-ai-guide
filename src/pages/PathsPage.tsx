@@ -8,6 +8,7 @@ import { useGeneratedPaths, GeneratedPathStep } from "@/hooks/useGeneratedPaths"
 import { usePathProgress } from "@/hooks/usePathProgress";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
+import { usePackTracks } from "@/hooks/usePackTracks";
 import { AIError } from "@/lib/ai-errors";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, Circle, Clock, Rocket, Calendar, Sparkles, RotateCcw, Loader2, Filter } from "lucide-react";
@@ -84,12 +85,14 @@ function PathTabContent({ steps, pathType, isGenerated }: {
   const { user } = useAuth();
   const { checkedSteps, toggleStep } = usePathProgress(pathType);
   const [trackFilter, setTrackFilter] = useState<string | "all">("all");
+  const { tracks: packTracks } = usePackTracks();
 
   const tracks = useMemo(() => {
+    if (packTracks.length > 0) return packTracks.map(t => t.track_key);
     const set = new Set<string>();
     steps.forEach((s) => { if (s.track_key) set.add(s.track_key as string); });
     return Array.from(set);
-  }, [steps]);
+  }, [steps, packTracks]);
 
   const filtered = useMemo(() => {
     if (trackFilter === "all") return steps;
@@ -109,15 +112,18 @@ function PathTabContent({ steps, pathType, isGenerated }: {
           >
             All
           </button>
-          {tracks.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTrackFilter(t)}
-              className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t ? "opacity-40" : ""}`}
-            >
-              <TrackBadge track={t as any} />
-            </button>
-          ))}
+          {tracks.map((t) => {
+            const pt = packTracks.find(p => p.track_key === t);
+            return (
+              <button
+                key={t}
+                onClick={() => setTrackFilter(t)}
+                className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t ? "opacity-40" : ""}`}
+              >
+                <TrackBadge track={t as any} title={pt?.title} />
+              </button>
+            );
+          })}
         </div>
       )}
       <div className="space-y-3">

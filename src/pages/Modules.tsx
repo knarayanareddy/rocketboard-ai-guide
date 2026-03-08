@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { ModuleCard } from "@/components/ModuleCard";
@@ -5,9 +6,10 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
 import { useGeneratedModules, GeneratedModuleRow } from "@/hooks/useGeneratedModules";
+import { usePackTracks } from "@/hooks/usePackTracks";
 import { usePack } from "@/hooks/usePack";
 import { Badge } from "@/components/ui/badge";
-import { Clock, ChevronRight, CheckCircle2, Sparkles, BookOpen } from "lucide-react";
+import { Clock, ChevronRight, CheckCircle2, Sparkles, BookOpen, Filter } from "lucide-react";
 import { TrackBadge } from "@/components/TrackBadge";
 
 function GeneratedModuleCard({ mod, index, progress, onClick }: {
@@ -95,9 +97,16 @@ export default function Modules() {
   const { getModuleProgress } = useProgress();
   const { modules: generatedModules, modulesLoading } = useGeneratedModules();
   const { currentPack, currentPackId } = usePack();
+  const { tracks: packTracks } = usePackTracks();
   const effectivePackId = packId || currentPackId;
+  const [trackFilter, setTrackFilter] = useState<string>("all");
 
   const hasGenerated = generatedModules.length > 0;
+
+  const filteredGenerated = useMemo(() => {
+    if (trackFilter === "all") return generatedModules;
+    return generatedModules.filter((m) => m.track_key === trackFilter);
+  }, [generatedModules, trackFilter]);
 
   return (
     <DashboardLayout>
@@ -107,16 +116,36 @@ export default function Modules() {
           <p className="text-muted-foreground text-sm">Browse and complete onboarding modules at your own pace.</p>
         </motion.div>
 
+        {/* Track Filter */}
+        {hasGenerated && packTracks.length > 0 && (
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <button
+              onClick={() => setTrackFilter("all")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                trackFilter === "all" ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
+              }`}
+            >
+              All Tracks
+            </button>
+            {packTracks.map((t) => (
+              <button key={t.track_key} onClick={() => setTrackFilter(t.track_key)} className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t.track_key ? "opacity-40" : ""}`}>
+                <TrackBadge track={t.track_key} title={t.title} />
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Generated modules */}
         {hasGenerated && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-4 h-4 text-primary" />
               <h2 className="text-lg font-semibold text-foreground">Generated Modules</h2>
-              <Badge variant="outline" className="text-[10px]">{generatedModules.length}</Badge>
+              <Badge variant="outline" className="text-[10px]">{filteredGenerated.length}</Badge>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {generatedModules.map((mod, i) => (
+              {filteredGenerated.map((mod, i) => (
                 <GeneratedModuleCard
                   key={mod.id}
                   mod={mod}
