@@ -24,6 +24,7 @@ import PlanPage from "./pages/PlanPage";
 import TemplatesPage from "./pages/TemplatesPage";
 import TemplateDetailPage from "./pages/TemplateDetailPage";
 import OnboardingWizard from "./pages/OnboardingWizard";
+import ReviewPage from "./pages/ReviewPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -102,6 +103,7 @@ const App = () => (
               <Route path="/packs/:packId/sources" element={<ProtectedRoute><InviteAcceptor><SourcesPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/plan" element={<ProtectedRoute><InviteAcceptor><PlanPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/members" element={<ProtectedRoute><InviteAcceptor><PackMembersPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/review" element={<ProtectedRoute><InviteAcceptor><ReviewPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />

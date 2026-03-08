@@ -81,7 +81,7 @@ export function useGeneratedModules() {
         .from("generated_modules")
         .select("*")
         .eq("pack_id", currentPackId)
-        .eq("status", "published")
+        .in("status", ["draft", "published"])
         .order("created_at", { ascending: true });
       if (error) throw error;
       // Deduplicate: keep highest revision per module_key
@@ -214,7 +214,7 @@ export function useGeneratedModules() {
           depth: moduleData.depth || null,
           module_data: moduleData as any,
           contradictions: (result.contradictions || []) as any,
-          status: "published",
+          status: "draft",
         }, { onConflict: "pack_id,module_key,module_revision" })
         .select()
         .single();
@@ -286,7 +286,7 @@ export function useGeneratedModules() {
           depth: moduleData.depth || null,
           module_data: moduleData as any,
           contradictions: (result.contradictions || []) as any,
-          status: "published",
+          status: "draft",
         })
         .select()
         .single();
