@@ -660,6 +660,7 @@ You MUST respond with VALID JSON matching this exact schema:
       "citations": [{ "span_id": "S1" }]
     }]
   },
+  "contradictions": [{ "topic": "string", "side_a": { "claim": "string", "citations": [{"span_id": "S1"}] }, "side_b": { "claim": "string", "citations": [{"span_id": "S2"}] }, "how_to_resolve": ["string"] }],
   "warnings": []
 }
 
