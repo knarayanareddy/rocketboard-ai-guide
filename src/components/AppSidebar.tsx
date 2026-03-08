@@ -28,7 +28,7 @@ const navItems = [
   { title: "Paths", url: "/paths", icon: Route, minLevel: "read_only" as const },
   { title: "Ask Your Lead", url: "/ask-lead", icon: MessageSquareMore, minLevel: "read_only" as const },
   { title: "Templates", url: "/templates", icon: Layout, minLevel: "admin" as const },
-  { title: "Settings", url: "/settings", icon: Settings, minLevel: "admin" as const },
+  { title: "Settings", url: "/settings", icon: Settings, minLevel: "read_only" as const },
 ];
 
 const roleBadgeColors: Record<string, string> = {
