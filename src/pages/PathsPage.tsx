@@ -84,12 +84,14 @@ function PathTabContent({ steps, pathType, isGenerated }: {
   const { user } = useAuth();
   const { checkedSteps, toggleStep } = usePathProgress(pathType);
   const [trackFilter, setTrackFilter] = useState<string | "all">("all");
+  const { tracks: packTracks } = usePackTracks();
 
   const tracks = useMemo(() => {
+    if (packTracks.length > 0) return packTracks.map(t => t.track_key);
     const set = new Set<string>();
     steps.forEach((s) => { if (s.track_key) set.add(s.track_key as string); });
     return Array.from(set);
-  }, [steps]);
+  }, [steps, packTracks]);
 
   const filtered = useMemo(() => {
     if (trackFilter === "all") return steps;
