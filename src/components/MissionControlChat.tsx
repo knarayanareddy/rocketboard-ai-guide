@@ -38,6 +38,7 @@ export function MissionControlChat() {
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [lastError, setLastError] = useState<AIError | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
