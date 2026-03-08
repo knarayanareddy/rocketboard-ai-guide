@@ -85,6 +85,7 @@ export function MissionControlChat() {
     if (!user) return;
     await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", "__mission_control__");
     setMessages([]);
+    setLastResponse(null);
     setLastError(null);
     toast.success("Mission Control history cleared");
   };
