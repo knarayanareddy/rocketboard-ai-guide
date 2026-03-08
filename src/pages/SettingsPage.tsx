@@ -105,18 +105,52 @@ export default function SettingsPage() {
     return { filled, missing, total: 6, count: filled.length };
   }, [audience, depth, learnerRole, experienceLevel, outputLanguage, glossaryDensity]);
 
+  // Reset counts query
+  const resetCountsQuery = useQuery({
+    queryKey: ["reset_counts", currentPackId, user?.id],
+    queryFn: async () => {
+      if (!user || !currentPackId) return { sections: 0, quizzes: 0, notes: 0, paths: 0, askLead: 0, chat: 0 };
+      const [r1, r2, r3, r4, r5, r6] = await Promise.all([
+        supabase.from("user_progress").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+        supabase.from("quiz_scores").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+        supabase.from("learner_notes").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+        supabase.from("path_progress").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId).eq("is_checked", true),
+        supabase.from("ask_lead_progress").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId).eq("is_asked", true),
+        supabase.from("chat_messages").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("pack_id", currentPackId),
+      ]);
+      return {
+        sections: r1.count || 0,
+        quizzes: r2.count || 0,
+        notes: r3.count || 0,
+        paths: r4.count || 0,
+        askLead: r5.count || 0,
+        chat: r6.count || 0,
+      };
+    },
+    enabled: !!user && !!currentPackId,
+  });
+
+  const resetCounts = resetCountsQuery.data || { sections: 0, quizzes: 0, notes: 0, paths: 0, askLead: 0, chat: 0 };
+  const totalResetItems = resetCounts.sections + resetCounts.quizzes + resetCounts.notes + resetCounts.paths + resetCounts.askLead + resetCounts.chat;
+
   const handleResetProgress = async () => {
-    if (!user) return;
-    const { error: e1 } = await supabase.from("user_progress").delete().eq("user_id", user.id);
-    const { error: e2 } = await supabase.from("quiz_scores").delete().eq("user_id", user.id);
-    const { error: e3 } = await supabase.from("learner_notes").delete().eq("user_id", user.id);
-    if (e1 || e2 || e3) {
-      toast.error("Failed to reset progress");
+    if (!user || !currentPackId) return;
+    const results = await Promise.all([
+      supabase.from("user_progress").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("quiz_scores").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("learner_notes").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("path_progress").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("ask_lead_progress").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("chat_messages").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+      supabase.from("learner_state").delete().eq("user_id", user.id).eq("pack_id", currentPackId),
+    ]);
+    const hasError = results.some((r) => r.error);
+    if (hasError) {
+      toast.error("Failed to reset some progress data");
     } else {
-      queryClient.invalidateQueries({ queryKey: ["user_progress"] });
-      queryClient.invalidateQueries({ queryKey: ["quiz_scores"] });
-      queryClient.invalidateQueries({ queryKey: ["learner_notes"] });
-      toast.success("Progress reset successfully");
+      // Invalidate all relevant caches
+      queryClient.invalidateQueries();
+      toast.success("All progress reset successfully");
     }
   };
 
