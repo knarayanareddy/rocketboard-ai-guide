@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageCircle, Send, X, Bot, User, Loader2 } from "lucide-react";
+import { MessageCircle, Send, X, Bot, User, Loader2, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -16,6 +17,7 @@ interface ModuleContext {
 }
 
 interface ModuleChatPanelProps {
+  moduleId: string;
   moduleContext: ModuleContext;
 }
 
@@ -80,7 +82,6 @@ async function streamChat({
     }
   }
 
-  // flush remaining
   for (const raw of buffer.split("\n")) {
     if (!raw.startsWith("data: ")) continue;
     const json = raw.slice(6).trim();
@@ -94,13 +95,47 @@ async function streamChat({
   onDone();
 }
 
-export function ModuleChatPanel({ moduleContext }: ModuleChatPanelProps) {
+async function saveMessage(userId: string, moduleId: string, role: string, content: string) {
+  await supabase.from("chat_messages").insert({
+    user_id: userId,
+    module_id: moduleId,
+    role,
+    content,
+  });
+}
+
+export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Load history when panel opens
+  useEffect(() => {
+    if (!isOpen || !user || historyLoaded) return;
+    (async () => {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("user_id", user.id)
+        .eq("module_id", moduleId)
+        .order("created_at", { ascending: true });
+      if (data && data.length > 0) {
+        setMessages(data.map((d) => ({ role: d.role as "user" | "assistant", content: d.content })));
+      }
+      setHistoryLoaded(true);
+    })();
+  }, [isOpen, user, moduleId, historyLoaded]);
+
+  // Reset when moduleId changes
+  useEffect(() => {
+    setMessages([]);
+    setHistoryLoaded(false);
+  }, [moduleId]);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -110,6 +145,17 @@ export function ModuleChatPanel({ moduleContext }: ModuleChatPanelProps) {
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
+  const clearHistory = async () => {
+    if (!user) return;
+    await supabase
+      .from("chat_messages")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("module_id", moduleId);
+    setMessages([]);
+    toast.success("Chat history cleared");
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || isLoading) return;
@@ -118,6 +164,9 @@ export function ModuleChatPanel({ moduleContext }: ModuleChatPanelProps) {
     const userMsg: Msg = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
+
+    // Save user message
+    if (user) saveMessage(user.id, moduleId, "user", text);
 
     let soFar = "";
     const controller = new AbortController();
@@ -140,7 +189,11 @@ export function ModuleChatPanel({ moduleContext }: ModuleChatPanelProps) {
         messages: [...messages, userMsg],
         moduleContext,
         onDelta: upsert,
-        onDone: () => setIsLoading(false),
+        onDone: () => {
+          setIsLoading(false);
+          // Save completed assistant message
+          if (user && soFar) saveMessage(user.id, moduleId, "assistant", soFar);
+        },
         signal: controller.signal,
       });
     } catch (e: any) {
@@ -189,14 +242,21 @@ export function ModuleChatPanel({ moduleContext }: ModuleChatPanelProps) {
                 <Bot className="w-5 h-5 text-primary" />
                 <span className="font-semibold text-sm text-foreground">Ask about this module</span>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(false)}>
-                <X className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={clearHistory} title="Clear history">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 && (
+              {messages.length === 0 && historyLoaded && (
                 <div className="text-center py-8">
                   <Bot className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">
@@ -206,13 +266,19 @@ export function ModuleChatPanel({ moduleContext }: ModuleChatPanelProps) {
                     {["Summarize the key concepts", "What should I focus on?", "Explain the main takeaways"].map((q) => (
                       <button
                         key={q}
-                        onClick={() => { setInput(q); }}
+                        onClick={() => setInput(q)}
                         className="block w-full text-left text-xs px-3 py-2 rounded-lg bg-muted hover:bg-accent transition-colors text-muted-foreground"
                       >
                         💡 {q}
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {!historyLoaded && isOpen && (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                 </div>
               )}
 

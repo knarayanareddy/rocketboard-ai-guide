@@ -230,6 +230,7 @@ export default function ModuleView() {
         </Tabs>
 
         <ModuleChatPanel
+          moduleId={mod.id}
           moduleContext={{
             title: mod.title,
             description: mod.description,
