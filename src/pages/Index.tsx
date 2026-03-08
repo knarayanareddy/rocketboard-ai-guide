@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { ModuleCard } from "@/components/ModuleCard";
