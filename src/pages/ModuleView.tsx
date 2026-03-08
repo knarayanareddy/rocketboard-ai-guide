@@ -8,7 +8,7 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useProgress } from "@/hooks/useProgress";
@@ -17,9 +17,12 @@ import { useLearnerState } from "@/hooks/useLearnerState";
 import { useRole } from "@/hooks/useRole";
 import { ModuleChatPanel } from "@/components/ModuleChatPanel";
 import { useGeneratedModules, GeneratedModuleRow, GeneratedSection } from "@/hooks/useGeneratedModules";
+import { useGeneratedQuiz } from "@/hooks/useGeneratedQuiz";
 import { usePack } from "@/hooks/usePack";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote }: {
   section: GeneratedSection;
