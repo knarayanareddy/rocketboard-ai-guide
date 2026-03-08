@@ -26,6 +26,7 @@ const CATEGORIES = [
 export default function AskLeadPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [trackFilter, setTrackFilter] = useState<string>("all");
+  const [genError, setGenError] = useState<AIError | null>(null);
 
   const { askLead, askLeadLoading, generateAskLead } = useGeneratedAskLead();
   const { askedQuestions, toggleQuestion } = useAskLeadProgress();
