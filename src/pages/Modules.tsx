@@ -145,7 +145,7 @@ export default function Modules() {
                 module={mod}
                 index={i}
                 progress={getModuleProgress(mod.id)}
-                onClick={() => navigate(`/modules/${mod.id}`)}
+                onClick={() => navigate(`/packs/${effectivePackId}/modules/${mod.id}`)}
               />
             ))}
           </div>
