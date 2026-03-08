@@ -28,6 +28,19 @@ export const TASK_OUTPUT_SCHEMAS: Record<string, TaskSchema> = {
       warnings: { type: "array", optional: true },
     },
   },
+  global_chat: {
+    description: "Global chat response (Mission Control) with markdown and optional extras",
+    requiredFields: {
+      type: { type: "string" },
+      request_id: { type: "string" },
+      response_markdown: { type: "string" },
+      referenced_spans: { type: "array", optional: true },
+      unverified_claims: { type: "array", optional: true },
+      contradictions: { type: "array", optional: true },
+      suggested_search_queries: { type: "array", optional: true },
+      warnings: { type: "array", optional: true },
+    },
+  },
   module_planner: {
     description: "Module plan with tracks and detected signals",
     requiredFields: {
