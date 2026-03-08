@@ -73,13 +73,53 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
   return aiResult.choices?.[0]?.message?.content || "";
 }
 
-function parseAIJson(raw: string, defaults: object): any {
+function tryParseJson(raw: string): any | null {
   try {
     const cleaned = raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").trim();
     return JSON.parse(cleaned);
   } catch {
-    return { ...defaults, warnings: ["AI response was not valid JSON; returning raw text."], _raw: raw };
+    return null;
   }
+}
+
+function parseAIJson(raw: string, defaults: object): any {
+  const parsed = tryParseJson(raw);
+  if (parsed && typeof parsed === "object") return parsed;
+  return { ...defaults, warnings: ["AI response was not valid JSON; returning raw text."], _raw: raw };
+}
+
+function validateStructure(data: any, requiredKeys: string[]): boolean {
+  if (typeof data !== "object" || data === null) return false;
+  return requiredKeys.every((k) => k in data);
+}
+
+async function callAIWithRetry(
+  systemPrompt: string,
+  userPrompt: string,
+  defaults: object,
+  requiredKeys: string[] = ["type"]
+): Promise<any> {
+  const raw1 = await callAI(systemPrompt, userPrompt);
+  const parsed1 = tryParseJson(raw1);
+  if (parsed1 && validateStructure(parsed1, requiredKeys)) return parsed1;
+
+  console.warn("First AI attempt produced invalid JSON, retrying once...");
+  const raw2 = await callAI(systemPrompt, userPrompt);
+  const parsed2 = tryParseJson(raw2);
+  if (parsed2 && validateStructure(parsed2, requiredKeys)) return parsed2;
+
+  // Both attempts failed
+  if (parsed2) return parsed2; // structurally incomplete but valid JSON
+  if (parsed1) return parsed1;
+
+  return {
+    ...defaults,
+    type: "error",
+    error_code: "invalid_output",
+    message: "AI produced invalid JSON output after retry",
+    warnings: ["AI response was not valid JSON after 2 attempts."],
+    _raw: raw2 || raw1,
+  };
 }
 
 // ─── CHAT HANDLER ───
