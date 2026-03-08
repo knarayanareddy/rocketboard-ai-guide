@@ -52,7 +52,7 @@ const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
 export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, updatePrefs } = useAudiencePrefs();
+  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, updatePrefs } = useAudiencePrefs();
   const { currentPackId } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
 
