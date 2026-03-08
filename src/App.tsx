@@ -125,6 +125,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
+        </ThemeProvider>
       </PackProvider>
     </AuthProvider>
   </QueryClientProvider>
