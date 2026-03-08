@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { ModuleCard } from "@/components/ModuleCard";
@@ -18,8 +19,10 @@ import { useMemo } from "react";
 import { TrackBadge } from "@/components/TrackBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useLearnerOnboardingCheck } from "@/hooks/useLearnerOnboardingCheck";
+import { LearnerOnboardingWizard } from "@/components/LearnerOnboardingWizard";
 
 const container = {
   hidden: { opacity: 0 },
