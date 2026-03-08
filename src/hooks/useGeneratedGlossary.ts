@@ -57,25 +57,7 @@ export function useGeneratedGlossary() {
       // Retrieve broad spans
       let spans: any[] = [];
       try {
-        const resp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              pack_id: currentPackId,
-              query: "glossary terms definitions technical vocabulary configuration",
-              max_spans: 20,
-            }),
-          }
-        );
-        if (resp.ok) {
-          const data = await resp.json();
-          spans = data.spans || [];
-        }
+        spans = await fetchEvidenceSpans(currentPackId, "glossary terms definitions technical vocabulary configuration", 20);
       } catch {}
 
       const envelope = buildGenerateGlossaryEnvelope({

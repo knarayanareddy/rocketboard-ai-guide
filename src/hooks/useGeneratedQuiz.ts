@@ -70,25 +70,7 @@ export function useGeneratedQuiz(moduleKey: string) {
       // Retrieve spans for the module
       let spans: any[] = [];
       try {
-        const resp = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              pack_id: currentPackId,
-              query: `${moduleKey} quiz questions assessment`,
-              max_spans: 10,
-            }),
-          }
-        );
-        if (resp.ok) {
-          const data = await resp.json();
-          spans = data.spans || [];
-        }
+        spans = await fetchEvidenceSpans(currentPackId, `${moduleKey} quiz questions assessment`, 10);
       } catch {}
 
       const envelope = buildGenerateQuizEnvelope({
