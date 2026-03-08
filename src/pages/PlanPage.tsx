@@ -102,9 +102,11 @@ export default function PlanPage() {
   const { hasPackPermission } = useRole();
   const { plan, planLoading, generatePlan, savePlan, approvePlan } = useModulePlan();
   const { modules: generatedModules, generateModule } = useGeneratedModules();
+  const { templates } = useTemplates();
   const [livePlan, setLivePlan] = useState<ModulePlanData | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0 });
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
 
   if (!hasPackPermission("author")) {
     return (
