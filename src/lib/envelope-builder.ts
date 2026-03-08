@@ -103,12 +103,13 @@ function baseEnvelope(
       target_reading_level: genPrefs?.target_reading_level ?? "plain",
       max_sections_hint: genPrefs?.max_sections_hint ?? 7,
     },
-    limits: {
-      ...DEFAULT_LIMITS,
-      ...(limitsOverrides?.max_module_words != null ? { max_module_words: limitsOverrides.max_module_words } : {}),
-      ...(limitsOverrides?.max_quiz_questions != null ? { max_quiz_questions: limitsOverrides.max_quiz_questions } : {}),
-      ...(limitsOverrides?.max_key_takeaways != null ? { max_key_takeaways: limitsOverrides.max_key_takeaways } : {}),
-    },
+    limits: getEffectiveLimits(
+      limitsOverrides ? {
+        max_module_words: limitsOverrides.max_module_words,
+        max_quiz_questions: limitsOverrides.max_quiz_questions,
+        max_key_takeaways: limitsOverrides.max_key_takeaways,
+      } : null,
+    ),
     expected_output_schema: {},
   };
 }
