@@ -239,8 +239,12 @@ const Index = () => {
   const { getModuleProgress, totalSectionsRead, totalSections: staticTotalSections, completedModules: staticCompletedModules, progressData } = useProgress();
   const { lastOpenedModuleId } = useLearnerState();
   const { currentPack } = usePackFromUrl();
-  const { modules: generatedModules, modulesLoading } = useGeneratedModules();
+  const { modules: allGenModules, modulesLoading } = useGeneratedModules();
+  const { hasPackPermission } = useRole();
+  const isAuthor = hasPackPermission("author");
 
+  // Learners see only published; authors see all
+  const generatedModules = isAuthor ? allGenModules : allGenModules.filter(m => m.status === "published");
   const useGenerated = generatedModules.length > 0;
   const effectivePackId = packId || currentPack?.id || "";
 
