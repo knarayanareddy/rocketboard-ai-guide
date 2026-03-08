@@ -66,6 +66,8 @@ const App = () => (
               <Route path="/packs/:packId/plan" element={<ProtectedRoute><PlanPage /></ProtectedRoute>} />
               <Route path="/plan" element={<ProtectedRoute><PlanPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
+              <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateDetailPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
