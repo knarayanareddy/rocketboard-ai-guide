@@ -321,6 +321,8 @@ RULES:
 ${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting.
 - Suggest relevant follow-up search queries.
+
+CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides. For each contradiction provide topic, side_a (claim + citations), side_b (claim + citations), and how_to_resolve suggestions.
 ${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
@@ -420,6 +422,8 @@ RULES:
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up questions.
+
+CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides. For each contradiction provide topic, side_a (claim + citations), side_b (claim + citations), and how_to_resolve suggestions.
 ${buildLanguageBlock(context, pack)}${packBlock}${audienceBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
@@ -615,6 +619,8 @@ RULES:
 ${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting with code blocks, lists, and emphasis where appropriate.
 - Section IDs should be like "sec-1", "sec-2", etc.
+
+CONTRADICTION HANDLING: If you encounter evidence spans that contradict each other, you MUST include them in a top-level "contradictions" array in your output. For each contradiction, provide: topic (what the conflict is about), side_a (the first claim with its supporting citations), side_b (the opposing claim with its supporting citations), how_to_resolve (practical suggestions for resolving the ambiguity). Do NOT silently choose one side. Surface all conflicts.
 ${spansBlock}
 
 You MUST respond with VALID JSON matching this exact schema:
@@ -654,6 +660,7 @@ You MUST respond with VALID JSON matching this exact schema:
       "citations": [{ "span_id": "S1" }]
     }]
   },
+  "contradictions": [{ "topic": "string", "side_a": { "claim": "string", "citations": [{"span_id": "S1"}] }, "side_b": { "claim": "string", "citations": [{"span_id": "S2"}] }, "how_to_resolve": ["string"] }],
   "warnings": []
 }
 
@@ -1068,6 +1075,8 @@ RULES:
 - Increment module_revision to ${moduleRevision}.
 - Maintain the same module structure (sections, endcap, key_takeaways, evidence_index).
 - Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+
+CONTRADICTION HANDLING: If you encounter evidence spans that contradict each other, you MUST include them in the contradictions array. For each contradiction, provide: topic, side_a (claim + citations), side_b (claim + citations), how_to_resolve. Do NOT silently choose one side. Surface all conflicts.
 ${spansBlock}
 
 You MUST respond with VALID JSON matching this exact schema:

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
+import { ContradictionInline } from "@/components/ContradictionCallout";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +15,15 @@ import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 type Msg = { role: "user" | "assistant"; content: string };
+
+interface ChatResponse {
+  response_markdown: string;
+  referenced_spans?: { span_id: string; path: string; chunk_id: string }[];
+  unverified_claims?: { claim: string; reason: string }[];
+  contradictions?: any[];
+  suggested_search_queries?: string[];
+  warnings?: string[];
+}
 
 const SUGGESTED_QUESTIONS = [
   "What features does this platform have?",
@@ -28,6 +38,7 @@ export function MissionControlChat() {
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [lastError, setLastError] = useState<AIError | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -60,6 +71,7 @@ export function MissionControlChat() {
   useEffect(() => {
     setMessages([]);
     setHistoryLoaded(false);
+    setLastResponse(null);
     setLastError(null);
   }, [currentPackId]);
 
@@ -73,6 +85,7 @@ export function MissionControlChat() {
     if (!user) return;
     await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", "__mission_control__");
     setMessages([]);
+    setLastResponse(null);
     setLastError(null);
     toast.success("Mission Control history cleared");
   };
@@ -86,6 +99,7 @@ export function MissionControlChat() {
     const allMessages = [...messages, userMsg];
     setMessages(allMessages);
     setIsLoading(true);
+    setLastResponse(null);
     setLastError(null);
 
     if (user) {
@@ -124,6 +138,7 @@ export function MissionControlChat() {
       const responseMarkdown = result.response_markdown || "No response received.";
 
       setMessages((prev) => [...prev, { role: "assistant", content: responseMarkdown }]);
+      setLastResponse(result as ChatResponse);
 
       if (user) {
         await supabase.from("chat_messages").insert({
@@ -266,6 +281,30 @@ export function MissionControlChat() {
               {lastError && !isLoading && (
                 <div className="ml-8">
                   <AIErrorDisplay error={lastError} compact onRetry={send} onSearchQuery={(q) => setInput(q)} />
+                </div>
+              )}
+
+              {/* Structured response extras */}
+              {lastResponse && !isLoading && !lastError && (
+                <div className="space-y-2 ml-8">
+                  {lastResponse.referenced_spans && lastResponse.referenced_spans.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {lastResponse.referenced_spans.map((span) => (
+                        <span
+                          key={span.span_id}
+                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
+                          title={span.path}
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          {span.span_id}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {lastResponse.contradictions && lastResponse.contradictions.length > 0 && (
+                    <ContradictionInline contradictions={lastResponse.contradictions} />
+                  )}
                 </div>
               )}
             </div>
