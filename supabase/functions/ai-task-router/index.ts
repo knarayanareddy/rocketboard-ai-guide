@@ -960,7 +960,7 @@ async function handleCreateTemplate(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Template Creator. You create module generation templates based on author instructions.
-
+${buildLanguageBlock(context, pack)}
 TASK: Create a module template based on the author's description.
 ${packBlock}
 
