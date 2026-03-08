@@ -9,7 +9,7 @@ import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import ReactMarkdown from "react-markdown";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { toast } from "sonner";
 import { ContradictionCallout } from "@/components/ContradictionCallout";
 import { GenerationStats, buildModuleStats } from "@/components/GenerationStats";
@@ -103,6 +103,14 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">§{index + 1}</span>
           <h3 className="font-semibold text-card-foreground">{section.heading}</h3>
+          {section.markdown && /```mermaid/.test(section.markdown) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">Contains diagram</TooltipContent>
+            </Tooltip>
+          )}
           {showSimplified && (
             <Badge variant="outline" className="text-[10px] bg-accent/50 text-accent-foreground border-accent">
               <Wand2 className="w-2.5 h-2.5 mr-0.5" /> Simplified
@@ -172,7 +180,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           transition={{ duration: 0.2 }}
           className="prose prose-sm dark:prose-invert max-w-none text-sm text-muted-foreground leading-relaxed [&>p]:my-2 [&>ul]:my-2 [&>ol]:my-2 [&>pre]:my-2"
         >
-          <ReactMarkdown>{displayMarkdown}</ReactMarkdown>
+          <MarkdownRenderer>{displayMarkdown}</MarkdownRenderer>
         </motion.div>
       </AnimatePresence>
 
@@ -546,7 +554,7 @@ export default function ModuleView() {
 
                     <div className="border-t border-border pt-4">
                       <div className="prose prose-sm dark:prose-invert max-w-none mb-3">
-                        <ReactMarkdown>{moduleData.endcap.ready_for_quiz_markdown || "You're ready for the quiz!"}</ReactMarkdown>
+                        <MarkdownRenderer>{moduleData.endcap.ready_for_quiz_markdown || "You're ready for the quiz!"}</MarkdownRenderer>
                       </div>
                       {moduleData.endcap.quiz_objectives?.length > 0 && (
                         <div className="flex flex-wrap gap-2">
