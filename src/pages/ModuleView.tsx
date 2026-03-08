@@ -183,13 +183,27 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         </div>
       )}
 
-      {displayCitations && displayCitations.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
-          {displayCitations.map((c) => (
-            <CitationBadge key={c.span_id} spanId={c.span_id} path={c.path} chunkId={c.chunk_id} />
-          ))}
-        </div>
-      )}
+      {displayCitations && displayCitations.length > 0 && (() => {
+        const citationValidation = validateCitations(displayCitations, []);
+        const citationMap = new Map(citationValidation.citations.map(c => [c.spanId, c]));
+        return (
+          <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
+            {displayCitations.map((c) => {
+              const v = citationMap.get(c.span_id);
+              return (
+                <CitationBadge
+                  key={c.span_id}
+                  spanId={c.span_id}
+                  path={c.path}
+                  chunkId={c.chunk_id}
+                  verified={v ? v.valid : undefined}
+                  verificationWarning={v?.warnings?.[0]}
+                />
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {onSaveNote && onDeleteNote && (
         <NotesPanel

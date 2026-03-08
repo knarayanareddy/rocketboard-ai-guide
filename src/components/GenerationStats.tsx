@@ -66,6 +66,38 @@ export function GenerationStats({ stats, className, validationResult }: Generati
             </TableBody>
           </Table>
         </div>
+          {/* Schema Validation row */}
+          {validationResult && (
+            <Table>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="text-xs py-1.5">Schema Validation</TableCell>
+                  <TableCell className="text-xs text-right py-1.5 font-mono" colSpan={2}>
+                    {validationIssues.length === 0 ? "Passed" : `${validationIssues.length} issue(s)`}
+                  </TableCell>
+                  <TableCell className="py-1.5">
+                    {validationIssues.length === 0 ? (
+                      <ShieldCheck className="w-3.5 h-3.5 text-green-500" />
+                    ) : (
+                      <button onClick={() => setValidationOpen(!validationOpen)}>
+                        <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />
+                      </button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          )}
+          {validationOpen && validationIssues.length > 0 && (
+            <div className="p-3 bg-yellow-500/5 border-t border-yellow-500/20">
+              <ul className="space-y-1">
+                {validationIssues.map((issue, i) => (
+                  <li key={i} className="text-[11px] text-yellow-600 dark:text-yellow-400 font-mono">• {issue}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );

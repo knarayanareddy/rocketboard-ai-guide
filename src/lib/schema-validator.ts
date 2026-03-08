@@ -70,5 +70,44 @@ export function validateAIOutput(taskType: string, output: unknown): ValidationR
     }
   }
 
+  // 6. Deep validation for specific task types
+  if (taskType === "generate_module" && obj.module) {
+    const mod = obj.module as Record<string, unknown>;
+    if (!Array.isArray(mod.sections)) {
+      errors.push('module.sections must be an array');
+    } else if (mod.sections.length === 0) {
+      errors.push('module.sections must have at least one section');
+    } else {
+      for (let i = 0; i < mod.sections.length; i++) {
+        const sec = (mod.sections as any[])[i];
+        if (!sec.section_id) errors.push(`module.sections[${i}] missing section_id`);
+        if (!sec.heading) errors.push(`module.sections[${i}] missing heading`);
+      }
+    }
+  }
+
+  if (taskType === "generate_quiz" && obj.quiz) {
+    const quiz = obj.quiz as Record<string, unknown>;
+    if (!Array.isArray(quiz.questions)) {
+      errors.push('quiz.questions must be an array');
+    } else if (quiz.questions.length === 0) {
+      errors.push('quiz.questions must have at least one question');
+    } else {
+      for (let i = 0; i < quiz.questions.length; i++) {
+        const q = (quiz.questions as any[])[i];
+        if (!q.id) errors.push(`quiz.questions[${i}] missing id`);
+        if (!q.prompt) errors.push(`quiz.questions[${i}] missing prompt`);
+        if (!Array.isArray(q.choices)) errors.push(`quiz.questions[${i}] missing choices`);
+        if (!q.correct_choice_id) errors.push(`quiz.questions[${i}] missing correct_choice_id`);
+      }
+    }
+  }
+
+  if ((taskType === "chat" || taskType === "global_chat") && typeof obj.response_markdown === "string") {
+    if ((obj.response_markdown as string).trim().length === 0) {
+      errors.push('response_markdown must be a non-empty string');
+    }
+  }
+
   return { valid: errors.length === 0, errors, warnings };
 }

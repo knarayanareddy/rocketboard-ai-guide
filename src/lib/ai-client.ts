@@ -50,12 +50,32 @@ export async function sendAITask(envelope: object): Promise<any> {
 
   if (!validation.valid) {
     console.error(`[AI Output] Validation failed for "${taskType}":`, validation.errors);
-    throw new AIError({
-      code: "invalid_output",
-      message: `AI output validation failed: ${validation.errors.join("; ")}`,
-      requestId: data.request_id || "",
-      warnings: validation.warnings,
-    });
+
+    // Determine if critical fields are missing (can't render at all)
+    const criticalMissing = validation.errors.some(
+      (e) =>
+        (taskType === "generate_module" && e.includes('Missing required field: "module"')) ||
+        (taskType === "generate_quiz" && e.includes('Missing required field: "quiz"')) ||
+        ((taskType === "chat" || taskType === "global_chat") && e.includes('Missing required field: "response_markdown"')) ||
+        (taskType === "generate_glossary" && e.includes('Missing required field: "glossary"')) ||
+        (taskType === "generate_paths" && (e.includes('Missing required field: "day1"') || e.includes('Missing required field: "week1"'))) ||
+        (taskType === "generate_ask_lead" && e.includes('Missing required field: "questions"')) ||
+        (taskType === "refine_module" && e.includes('Missing required field: "module"')) ||
+        (taskType === "simplify_section" && e.includes('Missing required field: "simplified_markdown"'))
+    );
+
+    if (criticalMissing) {
+      throw new AIError({
+        code: "invalid_output",
+        message: `AI output validation failed: ${validation.errors.join("; ")}`,
+        requestId: data.request_id || "",
+        warnings: validation.warnings,
+      });
+    }
+
+    // Non-critical: attach validation info but return the data for graceful degradation
+    data._validationErrors = validation.errors;
+    data._validationWarnings = validation.warnings;
   }
 
   return data;
