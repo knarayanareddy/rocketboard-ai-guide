@@ -9,6 +9,8 @@ import { useModulePlan } from "@/hooks/useModulePlan";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
+import { AIError } from "@/lib/ai-errors";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
