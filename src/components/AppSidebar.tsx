@@ -48,6 +48,7 @@ export function AppSidebar() {
     { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only" as const, end: false },
     { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author" as const, end: false },
     { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author" as const, end: false },
+    { title: "Review", url: `${packPrefix}/review`, icon: CheckCircle2, minLevel: "author" as const, end: false },
     { title: "Members", url: `${packPrefix}/members`, icon: Shield, minLevel: "admin" as const, end: false },
     { title: "Templates", url: "/templates", icon: Layout, minLevel: "admin" as const, end: false },
     { title: "Settings", url: "/settings", icon: Settings, minLevel: "read_only" as const, end: false },
