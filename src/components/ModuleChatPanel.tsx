@@ -108,6 +108,8 @@ async function saveMessage(userId: string, moduleId: string, role: string, conte
 
 export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
   const { user } = useAuth();
+  const { currentPackId } = usePack();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
