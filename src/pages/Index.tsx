@@ -89,6 +89,11 @@ const Index = () => {
           )}
         </motion.div>
 
+        {/* Ingestion Status */}
+        <div className="mb-6">
+          <IngestionStatus />
+        </div>
+
         {/* Stats strip */}
         <motion.div
           initial={{ opacity: 0 }}
