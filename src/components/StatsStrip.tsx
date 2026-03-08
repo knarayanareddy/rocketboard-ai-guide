@@ -1,4 +1,3 @@
-import { modules } from "@/data/onboarding-data";
 import { motion } from "framer-motion";
 import { Flame, Award, Zap } from "lucide-react";
 
@@ -6,9 +5,13 @@ interface StatsStripProps {
   completedModules: number;
   totalSectionsRead: number;
   totalSections: number;
+  /** Total number of modules (generated or static). */
+  totalModules?: number;
 }
 
-export function StatsStrip({ completedModules, totalSectionsRead, totalSections }: StatsStripProps) {
+export function StatsStrip({ completedModules, totalSectionsRead, totalSections, totalModules }: StatsStripProps) {
+  const moduleCount = totalModules ?? 0;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <motion.div
@@ -21,7 +24,7 @@ export function StatsStrip({ completedModules, totalSectionsRead, totalSections 
           <Award className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <p className="text-lg font-bold text-card-foreground">{completedModules}/{modules.length}</p>
+          <p className="text-lg font-bold text-card-foreground">{completedModules}/{moduleCount}</p>
           <p className="text-xs text-muted-foreground">Modules Done</p>
         </div>
       </motion.div>

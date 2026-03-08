@@ -1,16 +1,23 @@
-import { modules } from "@/data/onboarding-data";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from "recharts";
 
-interface ProgressChartProps {
-  getProgress: (moduleId: string) => number;
+interface ChartDatum {
+  module: string;
+  progress: number;
+  fullMark: number;
 }
 
-export function ProgressChart({ getProgress }: ProgressChartProps) {
-  const data = modules.map((mod) => ({
-    module: mod.title.length > 14 ? mod.title.slice(0, 14) + "…" : mod.title,
-    progress: getProgress(mod.id),
-    fullMark: 100,
-  }));
+interface ProgressChartProps {
+  /** Pre-computed chart data. If provided, getProgress is ignored. */
+  chartData?: ChartDatum[];
+  /** Legacy prop — used only when chartData is not provided. */
+  getProgress?: (moduleId: string) => number;
+}
+
+export function ProgressChart({ chartData, getProgress }: ProgressChartProps) {
+  // Legacy fallback for any callers still using the old API
+  const data: ChartDatum[] = chartData ?? [];
+
+  if (data.length === 0) return null;
 
   return (
     <div className="bg-card border border-border rounded-xl p-6">
