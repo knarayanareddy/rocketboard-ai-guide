@@ -36,17 +36,18 @@ setInterval(() => {
 const REDACTION_PATTERNS = [
   /AKIA[0-9A-Z]{16}/g,
   /(?:aws_secret_access_key|aws_secret|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret)['"]?\s*[:=]\s*['"][^'"]{20,}['"]/gi,
+  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
   /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
   /Bearer\s+[A-Za-z0-9_\-.~+\/]{20,}/g,
-  /(?:mongodb|postgres|mysql|redis):\/\/[^\s'"]+/gi,
-  /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/g,
-  /(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DATABASE_URL|DB_PASSWORD|AUTH_SECRET)\s*=\s*[^\s]{8,}/gi,
-  /ghp_[A-Za-z0-9]{36}/g,
+  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
+  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
+  /^(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DB_PASS|API_KEY|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL|DB_PASSWORD)\s*=\s*\S+/gmi,
+  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
   /sk-[A-Za-z0-9]{32,}/g,
-  /xox[bprs]-[A-Za-z0-9\-]+/g,
+  /xox[bpas]-[A-Za-z0-9-]{10,}/g,
   /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
   /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
+  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
 ];
 
 function redactText(text: string): { text: string; wasRedacted: boolean } {
