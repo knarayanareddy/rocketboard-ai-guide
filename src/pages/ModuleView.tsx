@@ -228,6 +228,15 @@ export default function ModuleView() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <ModuleChatPanel
+          moduleContext={{
+            title: mod.title,
+            description: mod.description,
+            keyTakeaways: mod.key_takeaways,
+            sections: mod.sections.map((s) => ({ title: s.title, content: s.content })),
+          }}
+        />
       </div>
     </DashboardLayout>
   );
