@@ -189,8 +189,8 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
               <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-sm text-foreground">Ask about this module</span>
+              <Rocket className="w-5 h-5 text-primary" />
+              <span className="font-semibold text-sm text-foreground">🚀 Rocket — Module Assistant</span>
               </div>
               <div className="flex items-center gap-1">
                 {messages.length > 0 && (
