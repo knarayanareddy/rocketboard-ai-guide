@@ -19,6 +19,7 @@ export interface ModulePlanEntry {
   track_key: string | null;
   audience: string | null;
   depth: string | null;
+  template_id?: string | null;
 }
 
 export interface DetectedSignal {
