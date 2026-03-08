@@ -322,6 +322,15 @@ const Index = () => {
   const showEmptyState = !useGenerated && !modulesLoading;
 
   return (
+    <>
+      {(shouldShowWizard || showLearnerWizard) && (
+        <LearnerOnboardingWizard
+          onComplete={() => {
+            setShowLearnerWizard(false);
+            queryClient.invalidateQueries({ queryKey: ["learner_onboarding_check"] });
+          }}
+        />
+      )}
     <DashboardLayout>
       <div className="max-w-6xl mx-auto">
         {/* Hero */}
