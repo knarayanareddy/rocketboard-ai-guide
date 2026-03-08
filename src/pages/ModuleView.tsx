@@ -103,6 +103,14 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">§{index + 1}</span>
           <h3 className="font-semibold text-card-foreground">{section.heading}</h3>
+          {section.markdown && /```mermaid/.test(section.markdown) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">Contains diagram</TooltipContent>
+            </Tooltip>
+          )}
           {showSimplified && (
             <Badge variant="outline" className="text-[10px] bg-accent/50 text-accent-foreground border-accent">
               <Wand2 className="w-2.5 h-2.5 mr-0.5" /> Simplified
