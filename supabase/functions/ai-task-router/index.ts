@@ -401,6 +401,7 @@ serve(async (req) => {
       case "generate_module":
         return await handleGenerateModule(envelope);
       case "generate_quiz":
+        return await handleGenerateQuiz(envelope);
       case "generate_glossary":
       case "generate_paths":
       case "generate_ask_lead":
