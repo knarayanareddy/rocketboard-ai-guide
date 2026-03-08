@@ -20,6 +20,7 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SourcesUpdatedBanner } from "@/components/SourcesUpdatedBanner";
+import { ExportProgressButton } from "@/components/ExportProgressButton";
 import { SuggestedNextAction } from "@/components/SuggestedNextAction";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
