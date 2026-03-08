@@ -547,6 +547,18 @@ export default function ModuleView() {
                     )}
                   </div>
                 )}
+
+                {/* Generation Stats (author+ only) */}
+                {isGenerated && hasPackPermission("author") && moduleData && (
+                  <GenerationStats
+                    stats={buildModuleStats(
+                      moduleData,
+                      generatedQuiz?.quiz_data?.questions?.length || 0,
+                      effectiveLimits,
+                    )}
+                    className="mt-4"
+                  />
+                )}
               </div>
             </TabsContent>
 
