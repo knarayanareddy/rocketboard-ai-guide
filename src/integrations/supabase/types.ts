@@ -192,6 +192,7 @@ export type Database = {
       generated_modules: {
         Row: {
           audience: string | null
+          contradictions: Json | null
           created_at: string
           depth: string | null
           description: string | null
@@ -209,6 +210,7 @@ export type Database = {
         }
         Insert: {
           audience?: string | null
+          contradictions?: Json | null
           created_at?: string
           depth?: string | null
           description?: string | null
@@ -226,6 +228,7 @@ export type Database = {
         }
         Update: {
           audience?: string | null
+          contradictions?: Json | null
           created_at?: string
           depth?: string | null
           description?: string | null
