@@ -1112,8 +1112,9 @@ serve(async (req) => {
       case "simplify_section":
         return await handleSimplifySection(envelope);
       case "create_template":
+        return await handleCreateTemplate(envelope);
       case "refine_template":
-        return unsupportedTask(requestId, taskType);
+        return await handleRefineTemplate(envelope);
       case "refine_module":
         return await handleRefineModule(envelope);
       default:
