@@ -2,13 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import mermaid from "mermaid";
 import { AlertTriangle, Maximize2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "default",
-  securityLevel: "loose",
-  fontFamily: "inherit",
-});
+import { useTheme } from "@/hooks/useTheme";
 
 let idCounter = 0;
 
@@ -22,8 +16,18 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
   const [error, setError] = useState<string | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const idRef = useRef(`mermaid-${++idCounter}-${Date.now()}`);
+  const { resolvedMode } = useTheme();
 
   const render = useCallback(async () => {
+    // Re-initialize mermaid with correct theme for current mode
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: resolvedMode === "dark" ? "dark" : "default",
+      securityLevel: "loose",
+      fontFamily: "inherit",
+    });
+    // Generate a fresh ID for each render to avoid mermaid caching issues
+    idRef.current = `mermaid-${++idCounter}-${Date.now()}`;
     try {
       const { svg: rendered } = await mermaid.render(idRef.current, code.trim());
       setSvg(rendered);
@@ -31,11 +35,10 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
     } catch (e: any) {
       setError(e?.message || "Failed to render diagram");
       setSvg(null);
-      // Clean up any leftover temp element mermaid may have created
       const temp = document.getElementById(idRef.current);
       temp?.remove();
     }
-  }, [code]);
+  }, [code, resolvedMode]);
 
   useEffect(() => {
     render();
