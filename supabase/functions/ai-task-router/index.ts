@@ -619,6 +619,8 @@ RULES:
 ${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting with code blocks, lists, and emphasis where appropriate.
 - Section IDs should be like "sec-1", "sec-2", etc.
+
+CONTRADICTION HANDLING: If you encounter evidence spans that contradict each other, you MUST include them in a top-level "contradictions" array in your output. For each contradiction, provide: topic (what the conflict is about), side_a (the first claim with its supporting citations), side_b (the opposing claim with its supporting citations), how_to_resolve (practical suggestions for resolving the ambiguity). Do NOT silently choose one side. Surface all conflicts.
 ${spansBlock}
 
 You MUST respond with VALID JSON matching this exact schema:
