@@ -169,8 +169,8 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
       <AnimatePresence>
         {!isOpen && (
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="fixed bottom-6 right-6 z-50">
-            <Button onClick={() => setIsOpen(true)} size="lg" className="rounded-full h-14 w-14 shadow-lg gradient-primary border-0">
-              <MessageCircle className="w-6 h-6" />
+            <Button onClick={() => setIsOpen(true)} size="lg" className="rounded-full h-14 w-14 shadow-lg gradient-primary border-0" title="Rocket — Module Assistant">
+              <Rocket className="w-6 h-6" />
             </Button>
           </motion.div>
         )}
