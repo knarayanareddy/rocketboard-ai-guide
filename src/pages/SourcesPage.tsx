@@ -50,13 +50,58 @@ export default function SourcesPage() {
   const { currentPack, currentPackId } = usePack();
   const { hasPackPermission } = useRole();
   const { sources, isLoading, addSource, deleteSource, chunkCounts } = useSources();
-  const { triggerIngestion, hasActiveJob } = useIngestion();
+  const { triggerIngestion, hasActiveJob, jobs } = useIngestion();
+  const { plan } = useModulePlan();
 
   const [addOpen, setAddOpen] = useState(false);
   const [sourceType, setSourceType] = useState<string>("github_repo");
   const [sourceUri, setSourceUri] = useState("");
   const [label, setLabel] = useState("");
   const [docContent, setDocContent] = useState("");
+
+  // Track previous chunk counts for re-sync diff
+  const prevChunkCountsRef = useRef<Record<string, number>>({});
+  const [showFirstSyncCTA, setShowFirstSyncCTA] = useState(false);
+
+  // Celebration: detect when a job completes
+  useEffect(() => {
+    const completedJobs = jobs.filter(j => j.status === "completed");
+    if (completedJobs.length === 0) return;
+
+    const latestCompleted = completedJobs[0];
+    const shownKey = `celebration_shown_${latestCompleted.id}`;
+    if (sessionStorage.getItem(shownKey)) return;
+    sessionStorage.setItem(shownKey, "true");
+
+    // Count total chunks
+    const totalChunks = Object.values(chunkCounts).reduce((a, b) => a + b, 0);
+
+    // Re-sync diff
+    const prevCounts = prevChunkCountsRef.current;
+    const sourceId = latestCompleted.source_id;
+    if (sourceId && prevCounts[sourceId] !== undefined) {
+      const oldCount = prevCounts[sourceId];
+      const newCount = chunkCounts[sourceId] || 0;
+      const diff = newCount - oldCount;
+      if (diff !== 0) {
+        toast.info(`Re-sync complete: ${newCount} chunks (${diff > 0 ? `+${diff}` : diff} change${Math.abs(diff) > 1 ? "s" : ""})`);
+      }
+    }
+
+    toast.success(`✅ Synced! ${totalChunks} knowledge chunks indexed`);
+
+    // Check if this is the first ever sync for the pack
+    const allSources = sources.filter(s => s.last_synced_at);
+    const isFirst = allSources.length <= 1 && !plan;
+    if (isFirst) setShowFirstSyncCTA(true);
+  }, [jobs, chunkCounts, sources, plan]);
+
+  // Store chunk counts before sync
+  useEffect(() => {
+    if (Object.keys(chunkCounts).length > 0) {
+      prevChunkCountsRef.current = { ...chunkCounts };
+    }
+  }, [chunkCounts]);
 
   if (!hasPackPermission("author")) {
     return (
