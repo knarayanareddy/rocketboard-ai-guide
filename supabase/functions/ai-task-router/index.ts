@@ -611,7 +611,7 @@ async function handleGeneratePaths(envelope: any): Promise<Response> {
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Paths Generator. Generate structured onboarding checklists for Day 1 and Week 1.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate onboarding paths for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
