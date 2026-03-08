@@ -27,8 +27,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; desc: string }[] = [
   { key: "technical", label: "Technical", desc: "Detailed, code-oriented content" },
