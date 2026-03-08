@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { PackProvider } from "@/hooks/usePack";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { useUserOrgs } from "@/hooks/useUserOrgs";
 import { usePacks } from "@/hooks/usePacks";
 import { useAcceptInvites } from "@/hooks/useAcceptInvites";
@@ -78,6 +79,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <PackProvider>
+        <ThemeProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -123,6 +125,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
+        </ThemeProvider>
       </PackProvider>
     </AuthProvider>
   </QueryClientProvider>

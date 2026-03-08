@@ -2,7 +2,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2, AlertTriangle, Palette } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,7 @@ import { useGenerationPrefs, TargetReadingLevel } from "@/hooks/useGenerationPre
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState, useMemo } from "react";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -200,6 +201,18 @@ export default function SettingsPage() {
                 </TooltipContent>
               </Tooltip>
             </div>
+          </div>
+
+          {/* Theme Selector */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Palette className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Theme</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose a color scheme for the interface.
+            </p>
+            <ThemeSwitcher />
           </div>
 
           {/* Audience Profile */}

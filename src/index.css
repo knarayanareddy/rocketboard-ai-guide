@@ -49,7 +49,8 @@
     font-family: 'Space Grotesk', system-ui, sans-serif;
   }
 
-  .dark {
+  /* ===== CYBER CYAN (default dark) ===== */
+  .dark, .theme-cyber {
     --background: 220 25% 6%;
     --foreground: 220 15% 90%;
     --card: 220 22% 9%;
@@ -71,6 +72,8 @@
     --ring: 174 72% 46%;
     --surface: 220 22% 8%;
     --surface-raised: 220 22% 11%;
+    --glow: 174 72% 46%;
+    --glow-purple: 263 70% 58%;
 
     --sidebar-background: 220 28% 4%;
     --sidebar-foreground: 220 15% 65%;
@@ -80,6 +83,150 @@
     --sidebar-accent-foreground: 174 72% 56%;
     --sidebar-border: 220 22% 12%;
     --sidebar-ring: 174 72% 46%;
+  }
+
+  /* ===== EMBER ===== */
+  .theme-ember {
+    --background: 15 20% 6%;
+    --foreground: 30 15% 88%;
+    --card: 15 18% 9%;
+    --card-foreground: 30 15% 88%;
+    --popover: 15 18% 9%;
+    --popover-foreground: 30 15% 88%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 15 25% 6%;
+    --secondary: 15 18% 14%;
+    --secondary-foreground: 30 15% 78%;
+    --muted: 15 18% 14%;
+    --muted-foreground: 20 10% 48%;
+    --accent: 0 72% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 15 18% 16%;
+    --input: 15 18% 16%;
+    --ring: 38 92% 50%;
+    --surface: 15 18% 8%;
+    --surface-raised: 15 18% 11%;
+    --glow: 38 92% 50%;
+    --glow-purple: 0 72% 55%;
+
+    --sidebar-background: 15 22% 4%;
+    --sidebar-foreground: 20 12% 60%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 15 25% 6%;
+    --sidebar-accent: 15 18% 10%;
+    --sidebar-accent-foreground: 38 90% 58%;
+    --sidebar-border: 15 18% 12%;
+    --sidebar-ring: 38 92% 50%;
+  }
+
+  /* ===== AURORA ===== */
+  .theme-aurora {
+    --background: 155 25% 5%;
+    --foreground: 155 12% 88%;
+    --card: 155 20% 8%;
+    --card-foreground: 155 12% 88%;
+    --popover: 155 20% 8%;
+    --popover-foreground: 155 12% 88%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 155 30% 5%;
+    --secondary: 155 18% 13%;
+    --secondary-foreground: 155 12% 78%;
+    --muted: 155 18% 13%;
+    --muted-foreground: 160 10% 46%;
+    --accent: 187 80% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 155 18% 15%;
+    --input: 155 18% 15%;
+    --ring: 160 84% 39%;
+    --surface: 155 20% 7%;
+    --surface-raised: 155 20% 10%;
+    --glow: 160 84% 39%;
+    --glow-purple: 187 80% 42%;
+
+    --sidebar-background: 155 28% 3%;
+    --sidebar-foreground: 155 12% 58%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 155 30% 5%;
+    --sidebar-accent: 155 20% 9%;
+    --sidebar-accent-foreground: 160 80% 48%;
+    --sidebar-border: 155 20% 11%;
+    --sidebar-ring: 160 84% 39%;
+  }
+
+  /* ===== PHANTOM ===== */
+  .theme-phantom {
+    --background: 240 6% 7%;
+    --foreground: 240 5% 85%;
+    --card: 240 5% 10%;
+    --card-foreground: 240 5% 85%;
+    --popover: 240 5% 10%;
+    --popover-foreground: 240 5% 85%;
+    --primary: 240 5% 64%;
+    --primary-foreground: 240 6% 7%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 240 5% 75%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 4% 45%;
+    --accent: 239 84% 67%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 17%;
+    --input: 240 5% 17%;
+    --ring: 240 5% 64%;
+    --surface: 240 5% 8%;
+    --surface-raised: 240 5% 12%;
+    --glow: 240 5% 64%;
+    --glow-purple: 239 84% 67%;
+
+    --sidebar-background: 240 8% 5%;
+    --sidebar-foreground: 240 5% 55%;
+    --sidebar-primary: 240 5% 64%;
+    --sidebar-primary-foreground: 240 6% 7%;
+    --sidebar-accent: 240 5% 11%;
+    --sidebar-accent-foreground: 239 80% 72%;
+    --sidebar-border: 240 5% 13%;
+    --sidebar-ring: 239 84% 67%;
+  }
+
+  /* ===== SAKURA ===== */
+  .theme-sakura {
+    --background: 330 15% 7%;
+    --foreground: 330 10% 88%;
+    --card: 330 12% 10%;
+    --card-foreground: 330 10% 88%;
+    --popover: 330 12% 10%;
+    --popover-foreground: 330 10% 88%;
+    --primary: 330 86% 70%;
+    --primary-foreground: 330 20% 7%;
+    --secondary: 330 12% 15%;
+    --secondary-foreground: 330 10% 78%;
+    --muted: 330 12% 15%;
+    --muted-foreground: 330 8% 48%;
+    --accent: 270 70% 72%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 330 12% 17%;
+    --input: 330 12% 17%;
+    --ring: 330 86% 70%;
+    --surface: 330 12% 8%;
+    --surface-raised: 330 12% 12%;
+    --glow: 330 86% 70%;
+    --glow-purple: 270 70% 72%;
+
+    --sidebar-background: 330 18% 5%;
+    --sidebar-foreground: 330 10% 58%;
+    --sidebar-primary: 330 86% 70%;
+    --sidebar-primary-foreground: 330 20% 7%;
+    --sidebar-accent: 330 12% 11%;
+    --sidebar-accent-foreground: 330 82% 75%;
+    --sidebar-border: 330 12% 13%;
+    --sidebar-ring: 330 86% 70%;
   }
 }
 
