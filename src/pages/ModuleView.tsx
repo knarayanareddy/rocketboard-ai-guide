@@ -174,6 +174,13 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         </motion.div>
       </AnimatePresence>
 
+      {/* Simplify error */}
+      {simplifyError && (
+        <div className="mt-3">
+          <AIErrorDisplay error={simplifyError} compact onRetry={handleSimplify} />
+        </div>
+      )}
+
       {displayCitations && displayCitations.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
           {displayCitations.map((c) => (
