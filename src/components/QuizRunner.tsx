@@ -2,6 +2,7 @@ import { useState } from "react";
 import { QuizQuestion } from "@/data/onboarding-data";
 import { GeneratedQuizQuestion } from "@/hooks/useGeneratedQuiz";
 import { CitationBadge } from "@/components/CitationBadge";
+import { validateCitations } from "@/lib/citation-validator";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Trophy, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
