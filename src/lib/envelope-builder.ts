@@ -155,8 +155,25 @@ export function buildGenerateModuleEnvelope(opts: {
   };
   return env;
 }
-export function buildGenerateQuizEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("generate_quiz", opts.auth, opts.pack);
+export function buildGenerateQuizEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  moduleKey: string;
+  trackKey?: string | null;
+  moduleData?: any;
+  evidenceSpans?: EvidenceSpan[];
+  audienceProfile?: AudienceProfile;
+}) {
+  const env = baseEnvelope("generate_quiz", opts.auth, opts.pack);
+  env.context.current_module_key = opts.moduleKey;
+  env.context.current_track_key = opts.trackKey || null;
+  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = `${opts.moduleKey} quiz assessment`;
+  if (opts.moduleData) {
+    (env.inputs as any).existing_module = opts.moduleData;
+  }
+  return env;
 }
 export function buildGenerateGlossaryEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("generate_glossary", opts.auth, opts.pack);
