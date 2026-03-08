@@ -449,7 +449,7 @@ async function handleGenerateQuiz(envelope: any): Promise<Response> {
     : `\nModule key: ${moduleKey}`;
 
   const systemPrompt = `You are RocketBoard AI Quiz Generator. Generate multiple-choice quiz questions that test comprehension of module content.
-
+${buildLanguageBlock(context, pack)}
 TASK: Generate up to ${limits.max_quiz_questions || 5} quiz questions for module "${moduleKey}".
 ${moduleContext}
 ${packBlock}
