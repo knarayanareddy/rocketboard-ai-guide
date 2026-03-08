@@ -214,7 +214,7 @@ export function useGeneratedModules() {
           depth: moduleData.depth || null,
           module_data: moduleData as any,
           contradictions: (result.contradictions || []) as any,
-          status: "published",
+          status: "draft",
         }, { onConflict: "pack_id,module_key,module_revision" })
         .select()
         .single();
