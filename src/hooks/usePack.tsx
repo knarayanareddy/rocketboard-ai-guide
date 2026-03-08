@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const DEFAULT_PACK_ID = "00000000-0000-0000-0000-000000000002";
 
-interface Pack {
+export interface Pack {
   id: string;
   org_id: string;
   title: string;
@@ -44,41 +45,41 @@ export function PackProvider({ children }: { children: ReactNode }) {
     (async () => {
       setLoading(true);
 
-      // Auto-enroll user in the default pack if not a member
-      const { data: membership } = await supabase
-        .from("pack_members")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("pack_id", DEFAULT_PACK_ID)
-        .maybeSingle();
-
-      if (!membership) {
-        await supabase.from("pack_members").insert({
-          user_id: user.id,
-          pack_id: DEFAULT_PACK_ID,
-          access_level: "learner",
-        });
-      }
-
       // Try to restore last selected pack from localStorage
-      const savedPackId = localStorage.getItem("rocketboard_current_pack") || DEFAULT_PACK_ID;
+      const savedPackId = localStorage.getItem("rocketboard_current_pack");
 
-      const { data: pack } = await supabase
-        .from("packs")
-        .select("*")
-        .eq("id", savedPackId)
-        .maybeSingle();
-
-      if (pack) {
-        setCurrentPack(pack as Pack);
-      } else {
-        // Fallback to default
-        const { data: defaultPack } = await supabase
+      if (savedPackId) {
+        const { data: pack } = await supabase
           .from("packs")
           .select("*")
-          .eq("id", DEFAULT_PACK_ID)
+          .eq("id", savedPackId)
           .maybeSingle();
-        if (defaultPack) setCurrentPack(defaultPack as Pack);
+
+        if (pack) {
+          setCurrentPack(pack as Pack);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fallback: load user's first pack membership
+      const { data: memberships } = await supabase
+        .from("pack_members")
+        .select("pack_id")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      if (memberships && memberships.length > 0) {
+        const { data: pack } = await supabase
+          .from("packs")
+          .select("*")
+          .eq("id", memberships[0].pack_id)
+          .maybeSingle();
+
+        if (pack) {
+          setCurrentPack(pack as Pack);
+          localStorage.setItem("rocketboard_current_pack", pack.id);
+        }
       }
 
       setLoading(false);
@@ -104,6 +105,39 @@ export function PackProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Hook to get the current pack context.
+ * If inside a pack-scoped route (/packs/:packId/*), auto-syncs to URL packId.
+ */
 export function usePack() {
-  return useContext(PackContext);
+  const ctx = useContext(PackContext);
+  return ctx;
+}
+
+/**
+ * Hook to read :packId from URL and sync with PackContext.
+ * Call this from components inside pack-scoped routes.
+ */
+export function usePackFromUrl() {
+  const params = useParams<{ packId: string }>();
+  const ctx = useContext(PackContext);
+
+  useEffect(() => {
+    if (params.packId && params.packId !== ctx.currentPack?.id) {
+      // Load the pack from URL if it doesn't match current
+      supabase
+        .from("packs")
+        .select("*")
+        .eq("id", params.packId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) ctx.setPack(data as Pack);
+        });
+    }
+  }, [params.packId]);
+
+  return {
+    ...ctx,
+    packIdFromUrl: params.packId,
+  };
 }
