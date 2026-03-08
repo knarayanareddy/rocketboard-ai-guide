@@ -5,6 +5,12 @@ import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 
 export type GlossaryDensity = "low" | "standard" | "high";
+export type ExperienceLevel = "new" | "mid" | "senior";
+
+export interface LearnerProfile {
+  learner_role: string | null;
+  experience_level: ExperienceLevel | null;
+}
 
 export function useAudiencePrefs() {
   const { user } = useAuth();
@@ -28,16 +34,24 @@ export function useAudiencePrefs() {
   });
 
   const updatePrefs = useMutation({
-    mutationFn: async ({ audience, depth, glossary_density }: { audience: Audience; depth: Depth; glossary_density?: GlossaryDensity }) => {
+    mutationFn: async (opts: {
+      audience: Audience;
+      depth: Depth;
+      glossary_density?: GlossaryDensity;
+      learner_role?: string | null;
+      experience_level?: ExperienceLevel | null;
+    }) => {
       if (!user) return;
       const payload: any = {
         user_id: user.id,
-        audience,
-        depth,
+        audience: opts.audience,
+        depth: opts.depth,
         pack_id: currentPackId,
         updated_at: new Date().toISOString(),
       };
-      if (glossary_density) payload.glossary_density = glossary_density;
+      if (opts.glossary_density) payload.glossary_density = opts.glossary_density;
+      if (opts.learner_role !== undefined) payload.learner_role = opts.learner_role;
+      if (opts.experience_level !== undefined) payload.experience_level = opts.experience_level;
       const { error } = await supabase.from("audience_preferences").upsert(
         payload,
         { onConflict: "user_id" }
@@ -53,6 +67,8 @@ export function useAudiencePrefs() {
     audience: (prefs?.audience as Audience) ?? "technical",
     depth: (prefs?.depth as Depth) ?? "standard",
     glossaryDensity: ((prefs as any)?.glossary_density as GlossaryDensity) ?? "standard",
+    learnerRole: ((prefs as any)?.learner_role as string | null) ?? null,
+    experienceLevel: ((prefs as any)?.experience_level as ExperienceLevel | null) ?? null,
     updatePrefs,
   };
 }
