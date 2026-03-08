@@ -3,11 +3,13 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { askLeadQuestions } from "@/data/ask-lead-data";
 import { TrackBadge } from "@/components/TrackBadge";
 import { CitationBadge } from "@/components/CitationBadge";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useGeneratedAskLead, GeneratedAskLeadQuestion } from "@/hooks/useGeneratedAskLead";
 import { useAskLeadProgress } from "@/hooks/useAskLeadProgress";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
 import { usePackTracks } from "@/hooks/usePackTracks";
+import { AIError } from "@/lib/ai-errors";
 import { MessageSquareMore, CheckCircle2, Circle, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ const CATEGORIES = [
 export default function AskLeadPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [trackFilter, setTrackFilter] = useState<string>("all");
+  const [genError, setGenError] = useState<AIError | null>(null);
 
   const { askLead, askLeadLoading, generateAskLead } = useGeneratedAskLead();
   const { askedQuestions, toggleQuestion } = useAskLeadProgress();
@@ -54,9 +57,13 @@ export default function AskLeadPage() {
   const totalQuestions = isGenerated ? generatedQuestions.length : askLeadQuestions.length;
 
   const handleGenerate = () => {
+    setGenError(null);
     generateAskLead.mutate(undefined, {
       onSuccess: () => toast.success("Questions generated!"),
-      onError: (e) => toast.error(e.message),
+      onError: (e) => {
+        if (e instanceof AIError) setGenError(e);
+        else toast.error(e.message);
+      },
     });
   };
 
@@ -143,6 +150,12 @@ export default function AskLeadPage() {
         <div className="text-xs text-muted-foreground mb-4">
           {askedQuestions.size}/{totalQuestions} questions asked
         </div>
+
+        {genError && (
+          <div className="mb-6">
+            <AIErrorDisplay error={genError} />
+          </div>
+        )}
 
         {askLeadLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading questions...</div>

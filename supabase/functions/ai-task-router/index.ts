@@ -13,6 +13,17 @@ function errorResponse(status: number, body: object) {
   });
 }
 
+function structuredError(requestId: string, errorCode: string, message: string, extra?: { suggested_search_queries?: string[]; warnings?: string[] }) {
+  return jsonResponse({
+    type: "error",
+    request_id: requestId,
+    error_code: errorCode,
+    message,
+    suggested_search_queries: extra?.suggested_search_queries || [],
+    warnings: extra?.warnings || [],
+  });
+}
+
 function jsonResponse(body: object) {
   return new Response(JSON.stringify(body), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -20,14 +31,7 @@ function jsonResponse(body: object) {
 }
 
 function unsupportedTask(requestId: string, taskType: string) {
-  return errorResponse(200, {
-    type: "error",
-    request_id: requestId,
-    error_code: "unsupported_task",
-    message: `Task type '${taskType}' not yet implemented`,
-    suggested_search_queries: [],
-    warnings: [],
-  });
+  return structuredError(requestId, "unsupported_task", `Task type '${taskType}' not yet implemented`);
 }
 
 function buildSpansBlock(spans: any[]): string {
@@ -56,31 +60,37 @@ function buildMermaidBlock(envelope: any): string {
 
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+  if (!LOVABLE_API_KEY) throw { status: 500, error_code: "network_error", message: "AI service not configured" };
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      stream: false,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        stream: false,
+      }),
+    });
+  } catch (e) {
+    console.error("AI gateway network error:", e);
+    throw { status: 503, error_code: "network_error", message: "Could not reach AI service. Please try again." };
+  }
 
   if (!response.ok) {
     const status = response.status;
     const t = await response.text();
-    if (status === 429) throw { status: 429, message: "Rate limit exceeded. Please try again in a moment." };
-    if (status === 402) throw { status: 402, message: "AI credits exhausted. Please add credits to continue." };
     console.error("AI gateway error:", status, t);
-    throw { status: 500, message: "AI service unavailable" };
+    if (status === 429) throw { status: 429, error_code: "rate_limited", message: "Too many requests. Please wait a moment and try again." };
+    if (status === 402) throw { status: 402, error_code: "credit_exhausted", message: "AI credits exhausted. Contact your admin to add more credits." };
+    throw { status: 500, error_code: "network_error", message: "AI service unavailable" };
   }
 
   const aiResult = await response.json();
@@ -122,7 +132,7 @@ async function callAIWithRetry(
   const parsed2 = tryParseJson(raw2);
   if (parsed2 && validateStructure(parsed2, requiredKeys)) return parsed2;
 
-  // Both attempts failed
+  // Both attempts failed — return structured error
   if (parsed2) return parsed2; // structurally incomplete but valid JSON
   if (parsed1) return parsed1;
 
@@ -130,9 +140,9 @@ async function callAIWithRetry(
     ...defaults,
     type: "error",
     error_code: "invalid_output",
-    message: "AI produced invalid JSON output after retry",
+    message: "AI produced invalid JSON output after 2 attempts. Please try again.",
+    suggested_search_queries: [],
     warnings: ["AI response was not valid JSON after 2 attempts."],
-    _raw: raw2 || raw1,
   };
 }
 
@@ -202,11 +212,11 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
   });
 
   if (!response.ok) {
-    if (response.status === 429) return errorResponse(429, { error: "Rate limit exceeded." });
-    if (response.status === 402) return errorResponse(402, { error: "AI credits exhausted." });
     const t = await response.text();
     console.error("AI gateway error:", response.status, t);
-    return errorResponse(500, { error: "AI service unavailable" });
+    if (response.status === 429) return structuredError(requestId, "rate_limited", "Too many requests. Please wait a moment.");
+    if (response.status === 402) return structuredError(requestId, "credit_exhausted", "AI credits exhausted. Contact your admin.");
+    return structuredError(requestId, "network_error", "AI service unavailable");
   }
 
   const aiResult = await response.json();
@@ -1135,14 +1145,14 @@ serve(async (req) => {
         return errorResponse(400, {
           type: "error",
           request_id: requestId,
-          error_code: "unknown_task",
-          message: `Unknown task type: ${taskType}`,
-          suggested_search_queries: [],
-          warnings: [],
-        });
+        return structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`);
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error("ai-task-router error:", e);
-    return errorResponse(500, { error: e instanceof Error ? e.message : "Unknown error" });
+    const requestId = "unknown";
+    if (e.error_code) {
+      return structuredError(requestId, e.error_code, e.message || "An error occurred");
+    }
+    return structuredError(requestId, "network_error", e instanceof Error ? e.message : "Unknown error");
   }
 });

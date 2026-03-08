@@ -3,10 +3,12 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { day1Path, week1Path, PathStep } from "@/data/paths-data";
 import { TrackBadge } from "@/components/TrackBadge";
 import { CitationBadge } from "@/components/CitationBadge";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useGeneratedPaths, GeneratedPathStep } from "@/hooks/useGeneratedPaths";
 import { usePathProgress } from "@/hooks/usePathProgress";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
+import { AIError } from "@/lib/ai-errors";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, Circle, Clock, Rocket, Calendar, Sparkles, RotateCcw, Loader2, Filter } from "lucide-react";
 import { motion } from "framer-motion";
@@ -141,6 +143,7 @@ export default function PathsPage() {
   const { paths: generatedPaths, pathsLoading, generatePaths } = useGeneratedPaths();
   const { hasPackPermission } = useRole();
   const { user } = useAuth();
+  const [genError, setGenError] = useState<AIError | null>(null);
 
   // DB-backed progress for percentage display
   const { checkedSteps: checkedDay1 } = usePathProgress("day1");
@@ -155,9 +158,13 @@ export default function PathsPage() {
   const week1Progress = week1Steps.length > 0 ? Math.round((checkedWeek1.size / week1Steps.length) * 100) : 0;
 
   const handleGenerate = () => {
+    setGenError(null);
     generatePaths.mutate(undefined, {
       onSuccess: () => toast.success("Paths generated!"),
-      onError: (e) => toast.error(e.message),
+      onError: (e) => {
+        if (e instanceof AIError) setGenError(e);
+        else toast.error(e.message);
+      },
     });
   };
 
@@ -200,6 +207,12 @@ export default function PathsPage() {
             )}
           </p>
         </motion.div>
+
+        {genError && (
+          <div className="mb-6">
+            <AIErrorDisplay error={genError} />
+          </div>
+        )}
 
         {pathsLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading paths...</div>

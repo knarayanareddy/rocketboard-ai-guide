@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useModulePlan, ModulePlanData, DetectedSignal, ModulePlanEntry, PlanTrack } from "@/hooks/useModulePlan";
 import { useGeneratedModules } from "@/hooks/useGeneratedModules";
 import { useTemplates, TemplateRow } from "@/hooks/useTemplates";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
+import { AIError } from "@/lib/ai-errors";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +109,7 @@ export default function PlanPage() {
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0 });
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
+  const [planError, setPlanError] = useState<AIError | null>(null);
 
   if (!hasPackPermission("author")) {
     return (
@@ -125,12 +128,14 @@ export default function PlanPage() {
   const generatedKeys = new Set(generatedModules.map((m) => m.module_key));
 
   const handleGenerate = async () => {
+    setPlanError(null);
     try {
       const result = await generatePlan.mutateAsync();
       setLivePlan(result);
       toast.success("Module plan generated!");
     } catch (e: any) {
-      toast.error(e.message || "Failed to generate plan");
+      if (e instanceof AIError) setPlanError(e);
+      else toast.error(e.message || "Failed to generate plan");
     }
   };
 
@@ -280,6 +285,11 @@ export default function PlanPage() {
               <p className="text-xs text-muted-foreground/60 mt-1">This may take 15-30 seconds</p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Plan error */}
+        {planError && !generatePlan.isPending && (
+          <AIErrorDisplay error={planError} />
         )}
 
         {/* Empty state */}

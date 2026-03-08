@@ -3,9 +3,11 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { glossaryTerms } from "@/data/glossary-data";
 import { TrackBadge } from "@/components/TrackBadge";
 import { CitationBadge } from "@/components/CitationBadge";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useGeneratedGlossary, GlossaryTerm } from "@/hooks/useGeneratedGlossary";
 import { useRole } from "@/hooks/useRole";
 import { usePackTracks } from "@/hooks/usePackTracks";
+import { AIError } from "@/lib/ai-errors";
 import { Search, BookText, Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ export default function GlossaryPage() {
   const [search, setSearch] = useState("");
   const [trackFilter, setTrackFilter] = useState<string>("all");
   const [density, setDensity] = useState<string>("standard");
+  const [genError, setGenError] = useState<AIError | null>(null);
 
   const { glossary: generatedGlossary, glossaryLoading, generateGlossary } = useGeneratedGlossary();
   const { hasPackPermission } = useRole();
@@ -57,11 +60,15 @@ export default function GlossaryPage() {
   }, [search, trackFilter, isGenerated]);
 
   const handleGenerate = () => {
+    setGenError(null);
     generateGlossary.mutate(
       { density },
       {
         onSuccess: () => toast.success("Glossary generated!"),
-        onError: (e) => toast.error(e.message),
+        onError: (e) => {
+          if (e instanceof AIError) setGenError(e);
+          else toast.error(e.message);
+        },
       }
     );
   };
@@ -153,6 +160,12 @@ export default function GlossaryPage() {
             </div>
           )}
         </div>
+
+        {genError && (
+          <div className="mb-6">
+            <AIErrorDisplay error={genError} />
+          </div>
+        )}
 
         {glossaryLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading glossary...</div>
