@@ -60,11 +60,15 @@ export default function GlossaryPage() {
   }, [search, trackFilter, isGenerated]);
 
   const handleGenerate = () => {
+    setGenError(null);
     generateGlossary.mutate(
       { density },
       {
         onSuccess: () => toast.success("Glossary generated!"),
-        onError: (e) => toast.error(e.message),
+        onError: (e) => {
+          if (e instanceof AIError) setGenError(e);
+          else toast.error(e.message);
+        },
       }
     );
   };
