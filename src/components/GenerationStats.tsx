@@ -17,9 +17,11 @@ interface GenerationStatsProps {
   validationResult?: ValidationResult | null;
 }
 
-export function GenerationStats({ stats, className }: GenerationStatsProps) {
+export function GenerationStats({ stats, className, validationResult }: GenerationStatsProps) {
   const [open, setOpen] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
   const exceeded = stats.filter((s) => s.actual > s.limit).length;
+  const validationIssues = validationResult ? [...validationResult.errors, ...validationResult.warnings] : [];
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className={className}>
