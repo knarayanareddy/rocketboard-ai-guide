@@ -4,16 +4,17 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useModulePlan, ModulePlanData, DetectedSignal, ModulePlanEntry, PlanTrack } from "@/hooks/useModulePlan";
 import { useGeneratedModules } from "@/hooks/useGeneratedModules";
-import { useTemplates, TemplateRow } from "@/hooks/useTemplates";
+import { useTemplates } from "@/hooks/useTemplates";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
+import { useCascadeGeneration, CascadeModuleStatus, CascadeSupportStatus } from "@/hooks/useCascadeGeneration";
 import { AIError } from "@/lib/ai-errors";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap, ArrowRight, Layout } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap, ArrowRight, Layout, XCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 const confidenceColors: Record<string, string> = {
@@ -99,15 +100,94 @@ function PlanModuleCard({ mod, index, generated }: { mod: ModulePlanEntry; index
   );
 }
 
+function StatusIcon({ status }: { status: string }) {
+  if (status === "completed") return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+  if (status === "generating") return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
+  if (status === "failed") return <XCircle className="w-4 h-4 text-destructive" />;
+  return <Clock className="w-4 h-4 text-muted-foreground" />;
+}
+
+function CascadeProgress({ moduleStatuses, supportStatus }: {
+  moduleStatuses: CascadeModuleStatus[];
+  supportStatus: CascadeSupportStatus;
+}) {
+  const completedModules = moduleStatuses.filter(m => m.moduleStatus === "completed").length;
+  const totalModules = moduleStatuses.length;
+  const pct = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+
+  return (
+    <div className="space-y-4">
+      {/* Module Generation */}
+      <Card className="border-primary/20">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Module Generation</span>
+            <span className="text-sm text-muted-foreground">{completedModules}/{totalModules} modules</span>
+          </div>
+          <Progress value={pct} className="h-2" />
+          <div className="space-y-2">
+            {moduleStatuses.map(m => (
+              <div key={m.moduleKey} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <StatusIcon status={m.moduleStatus} />
+                  <span className="text-foreground">{m.title}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground capitalize">
+                    {m.moduleStatus === "completed" ? "Generated (draft)" : m.moduleStatus}
+                  </span>
+                  {m.moduleStatus === "completed" && (
+                    <span className="flex items-center gap-1 text-xs">
+                      {m.quizStatus === "completed" ? (
+                        <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-400 border-green-500/30">Quiz ✓</Badge>
+                      ) : m.quizStatus === "generating" ? (
+                        <Badge variant="outline" className="text-[10px] bg-primary/15 text-primary border-primary/30">
+                          <Loader2 className="w-2 h-2 animate-spin mr-0.5" /> Quiz
+                        </Badge>
+                      ) : m.quizStatus === "failed" ? (
+                        <Badge variant="outline" className="text-[10px] bg-destructive/15 text-destructive border-destructive/30">Quiz ✗</Badge>
+                      ) : null}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Supporting Content */}
+      <Card className="border-border/50">
+        <CardContent className="p-4 space-y-2">
+          <span className="text-sm font-medium text-foreground">Supporting Content</span>
+          {[
+            { label: "Glossary", status: supportStatus.glossary, extra: supportStatus.glossaryTermCount ? `(${supportStatus.glossaryTermCount} terms)` : "" },
+            { label: "Onboarding Paths", status: supportStatus.paths },
+            { label: "Ask-Your-Lead Questions", status: supportStatus.askLead },
+          ].map(item => (
+            <div key={item.label} className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <StatusIcon status={item.status} />
+                <span className="text-foreground">{item.label} {item.extra || ""}</span>
+              </div>
+              <span className="text-xs text-muted-foreground capitalize">{item.status === "completed" ? "Generated" : item.status}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function PlanPage() {
-  const { currentPack } = usePack();
+  const navigate = useNavigate();
+  const { currentPack, currentPackId } = usePack();
   const { hasPackPermission } = useRole();
   const { plan, planLoading, generatePlan, savePlan, approvePlan } = useModulePlan();
-  const { modules: generatedModules, generateModule } = useGeneratedModules();
+  const { modules: generatedModules } = useGeneratedModules();
   const { templates } = useTemplates();
+  const cascade = useCascadeGeneration();
   const [livePlan, setLivePlan] = useState<ModulePlanData | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [genProgress, setGenProgress] = useState({ current: 0, total: 0 });
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("none");
   const [planError, setPlanError] = useState<AIError | null>(null);
 
@@ -124,7 +204,6 @@ export default function PlanPage() {
   const displayPlan = livePlan || (plan?.plan_data as ModulePlanData | undefined) || null;
   const isSaved = !!plan && !livePlan;
   const isApproved = plan?.status === "approved" || plan?.status === "generating" || plan?.status === "completed";
-
   const generatedKeys = new Set(generatedModules.map((m) => m.module_key));
 
   const handleGenerate = async () => {
@@ -162,36 +241,12 @@ export default function PlanPage() {
 
   const handleGenerateAll = async () => {
     if (!displayPlan?.module_plan) return;
-    const modulesToGenerate = displayPlan.module_plan.filter((m) => !generatedKeys.has(m.module_key));
-    if (modulesToGenerate.length === 0) {
-      toast.info("All modules already generated!");
-      return;
-    }
-
-    setGenerating(true);
-    setGenProgress({ current: 0, total: modulesToGenerate.length });
-
-    for (let i = 0; i < modulesToGenerate.length; i++) {
-      const mod = modulesToGenerate[i];
-      setGenProgress({ current: i + 1, total: modulesToGenerate.length });
-      try {
-        await generateModule.mutateAsync({
-          moduleKey: mod.module_key,
-          title: mod.title,
-          description: mod.description,
-          trackKey: mod.track_key,
-          difficulty: mod.difficulty,
-          estimatedMinutes: mod.estimated_minutes,
-        });
-        toast.success(`Generated: ${mod.title}`);
-      } catch (e: any) {
-        toast.error(`Failed to generate ${mod.title}: ${e.message}`);
-      }
-    }
-
-    setGenerating(false);
-    toast.success("All modules generated!");
+    await cascade.runCascade(displayPlan.module_plan, generatedKeys);
+    toast.success("Cascade generation complete! Head to Review to publish.");
   };
+
+  const cascadeDone = !cascade.running && cascade.moduleStatuses.length > 0 &&
+    cascade.moduleStatuses.every(m => m.moduleStatus === "completed" || m.moduleStatus === "failed");
 
   return (
     <DashboardLayout>
@@ -217,7 +272,7 @@ export default function PlanPage() {
                 Approve Plan
               </Button>
             )}
-            {isApproved && !generating && (
+            {isApproved && !cascade.running && (
               <div className="flex items-center gap-2">
                 {templates.length > 0 && (
                   <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
@@ -235,29 +290,33 @@ export default function PlanPage() {
                 )}
                 <Button onClick={handleGenerateAll} variant="outline" size="sm">
                   <ArrowRight className="w-4 h-4 mr-1" />
-                  Generate All Modules
+                  Generate All Content
                 </Button>
               </div>
             )}
-            <Button onClick={handleGenerate} disabled={generatePlan.isPending || generating} size="sm">
+            <Button onClick={handleGenerate} disabled={generatePlan.isPending || cascade.running} size="sm">
               {generatePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
               {displayPlan ? "Regenerate Plan" : "Generate Plan"}
             </Button>
           </div>
         </div>
 
-        {/* Generation progress */}
-        {generating && (
-          <Card className="border-primary/20">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-sm font-medium text-foreground">Generating modules...</span>
-                </div>
-                <span className="text-sm text-muted-foreground">{genProgress.current} / {genProgress.total}</span>
+        {/* Cascade progress */}
+        {(cascade.running || cascade.moduleStatuses.length > 0) && (
+          <CascadeProgress moduleStatuses={cascade.moduleStatuses} supportStatus={cascade.supportStatus} />
+        )}
+
+        {/* Go to review after cascade */}
+        {cascadeDone && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Content generation complete!</p>
+                <p className="text-xs text-muted-foreground">Review and publish your content to make it available to learners.</p>
               </div>
-              <Progress value={(genProgress.current / genProgress.total) * 100} className="h-2" />
+              <Button onClick={() => navigate(`/packs/${currentPackId}/review`)} className="gap-2">
+                Review & Publish <ArrowRight className="w-4 h-4" />
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -268,6 +327,7 @@ export default function PlanPage() {
             <Badge variant="outline" className={
               plan.status === "approved" ? "bg-green-500/15 text-green-400 border-green-500/30" :
               plan.status === "draft" ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" :
+              plan.status === "completed" ? "bg-primary/15 text-primary border-primary/30" :
               "bg-muted text-muted-foreground border-border"
             }>
               {plan.status}
