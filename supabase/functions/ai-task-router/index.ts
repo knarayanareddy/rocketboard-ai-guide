@@ -1142,9 +1142,6 @@ serve(async (req) => {
       case "refine_module":
         return await handleRefineModule(envelope);
       default:
-        return errorResponse(400, {
-          type: "error",
-          request_id: requestId,
         return structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`);
     }
   } catch (e: any) {
