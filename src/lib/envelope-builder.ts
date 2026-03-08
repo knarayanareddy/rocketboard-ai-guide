@@ -192,8 +192,17 @@ export function buildGenerateGlossaryEnvelope(opts: {
   };
   return env;
 }
-export function buildGeneratePathsEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("generate_paths", opts.auth, opts.pack);
+export function buildGeneratePathsEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  evidenceSpans?: EvidenceSpan[];
+  audienceProfile?: AudienceProfile;
+}) {
+  const env = baseEnvelope("generate_paths", opts.auth, opts.pack);
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = "setup onboarding getting started environment workflow";
+  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
+  return env;
 }
 export function buildGenerateAskLeadEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
   return baseEnvelope("generate_ask_lead", opts.auth, opts.pack);
