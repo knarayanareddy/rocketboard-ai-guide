@@ -15,6 +15,7 @@ import PathsPage from "./pages/PathsPage";
 import AskLeadPage from "./pages/AskLeadPage";
 import PacksPage from "./pages/PacksPage";
 import PackMembersPage from "./pages/PackMembersPage";
+import SourcesPage from "./pages/SourcesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
