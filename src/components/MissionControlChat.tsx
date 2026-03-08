@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageCircle, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink, Rocket } from "lucide-react";
+import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -10,58 +10,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { sendAITask, AIError } from "@/lib/ai-client";
-import { buildChatEnvelope } from "@/lib/envelope-builder";
-import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
+import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-interface ChatResponse {
-  response_markdown: string;
-  referenced_spans?: { span_id: string; path: string; chunk_id: string }[];
-  unverified_claims?: { claim: string; reason: string }[];
-  contradictions?: { description: string }[];
-  suggested_search_queries?: string[];
-  warnings?: string[];
-}
+const SUGGESTED_QUESTIONS = [
+  "What features does this platform have?",
+  "How do I get started with onboarding?",
+  "What modules are available?",
+  "How does the AI generation work?",
+];
 
-interface ModuleContext {
-  title: string;
-  description: string;
-  keyTakeaways: string[];
-  sections: { title: string; content: string }[];
-}
-
-interface ModuleChatPanelProps {
-  moduleId: string;
-  moduleContext: ModuleContext;
-}
-
-async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string) {
-  await supabase.from("chat_messages").insert({
-    user_id: userId,
-    module_id: moduleId,
-    role,
-    content,
-    pack_id: packId || null,
-  });
-}
-
-// Evidence spans fetched via shared helper (imported at top)
-
-export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
+export function MissionControlChat() {
   const { user } = useAuth();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [lastError, setLastError] = useState<AIError | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Load chat history
   useEffect(() => {
     if (!isOpen || !user || historyLoaded) return;
     (async () => {
@@ -69,9 +42,9 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
         .from("chat_messages")
         .select("role, content")
         .eq("user_id", user.id)
-        .eq("module_id", moduleId)
+        .eq("module_id", "__mission_control__")
         .order("created_at", { ascending: true });
-      
+
       const { data } = currentPackId
         ? await q.eq("pack_id", currentPackId)
         : await q;
@@ -81,28 +54,27 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
       }
       setHistoryLoaded(true);
     })();
-  }, [isOpen, user, moduleId, historyLoaded, currentPackId]);
+  }, [isOpen, user, historyLoaded, currentPackId]);
 
+  // Reset on pack change
   useEffect(() => {
     setMessages([]);
     setHistoryLoaded(false);
-    setLastResponse(null);
     setLastError(null);
-  }, [moduleId]);
+  }, [currentPackId]);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [messages, lastResponse, lastError, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [messages, lastError, scrollToBottom]);
 
   const clearHistory = async () => {
     if (!user) return;
-    await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", moduleId);
+    await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", "__mission_control__");
     setMessages([]);
-    setLastResponse(null);
     setLastError(null);
-    toast.success("Chat history cleared");
+    toast.success("Mission Control history cleared");
   };
 
   const send = async () => {
@@ -114,15 +86,22 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
     const allMessages = [...messages, userMsg];
     setMessages(allMessages);
     setIsLoading(true);
-    setLastResponse(null);
     setLastError(null);
 
-    if (user) saveMessage(user.id, moduleId, "user", text, currentPackId);
+    if (user) {
+      await supabase.from("chat_messages").insert({
+        user_id: user.id,
+        module_id: "__mission_control__",
+        role: "user",
+        content: text,
+        pack_id: currentPackId || null,
+      });
+    }
 
     try {
       const spans = currentPackId ? await fetchEvidenceSpans(currentPackId, text) : [];
 
-      const envelope = buildChatEnvelope({
+      const envelope = buildGlobalChatEnvelope({
         auth: {
           user_id: user?.id || null,
           org_id: currentPack?.org_id || null,
@@ -138,7 +117,6 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
         },
         messages: allMessages,
         evidenceSpans: spans,
-        moduleKey: moduleId,
         query: text,
       });
 
@@ -146,14 +124,21 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
       const responseMarkdown = result.response_markdown || "No response received.";
 
       setMessages((prev) => [...prev, { role: "assistant", content: responseMarkdown }]);
-      setLastResponse(result as ChatResponse);
 
-      if (user) saveMessage(user.id, moduleId, "assistant", responseMarkdown, currentPackId);
+      if (user) {
+        await supabase.from("chat_messages").insert({
+          user_id: user.id,
+          module_id: "__mission_control__",
+          role: "assistant",
+          content: responseMarkdown,
+          pack_id: currentPackId || null,
+        });
+      }
     } catch (e: any) {
       if (e instanceof AIError) {
         setLastError(e);
       } else {
-        setLastError(new (await import("@/lib/ai-errors")).AIError({
+        setLastError(new AIError({
           code: "network_error",
           message: e.message || "Failed to get response",
         }));
@@ -165,12 +150,17 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
 
   return (
     <>
-      {/* FAB */}
+      {/* FAB — bottom-left to avoid collision with module-level Rocket */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="fixed bottom-6 right-6 z-50">
-            <Button onClick={() => setIsOpen(true)} size="lg" className="rounded-full h-14 w-14 shadow-lg gradient-primary border-0" title="Rocket — Module Assistant">
-              <Rocket className="w-6 h-6" />
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="fixed bottom-6 left-20 z-50">
+            <Button
+              onClick={() => setIsOpen(true)}
+              size="lg"
+              className="rounded-full h-14 w-14 shadow-lg bg-accent text-accent-foreground border border-border hover:bg-accent/80"
+              title="Mission Control — General Assistant"
+            >
+              <Compass className="w-6 h-6" />
             </Button>
           </motion.div>
         )}
@@ -184,13 +174,13 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 right-6 z-50 w-[380px] h-[560px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-6 left-20 z-50 w-[380px] h-[560px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-accent/30">
               <div className="flex items-center gap-2">
-              <Rocket className="w-5 h-5 text-primary" />
-              <span className="font-semibold text-sm text-foreground">🚀 Rocket — Module Assistant</span>
+                <Compass className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-sm text-foreground">🧭 Mission Control</span>
               </div>
               <div className="flex items-center gap-1">
                 {messages.length > 0 && (
@@ -208,18 +198,20 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 && historyLoaded && !lastError && (
                 <div className="text-center py-8">
-                  <Rocket className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    🚀 Ask <strong className="text-foreground">Rocket</strong> anything about <strong className="text-foreground">{moduleContext.title}</strong>
+                  <Compass className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-foreground mb-1">Mission Control</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Ask about the platform, features, onboarding flow, or anything about{" "}
+                    <strong className="text-foreground">{currentPack?.title || "your pack"}</strong>
                   </p>
-                  <div className="mt-4 space-y-2">
-                    {["Summarize the key concepts", "What should I focus on?", "Explain the main takeaways"].map((q) => (
+                  <div className="space-y-2">
+                    {SUGGESTED_QUESTIONS.map((q) => (
                       <button
                         key={q}
                         onClick={() => setInput(q)}
                         className="block w-full text-left text-xs px-3 py-2 rounded-lg bg-muted hover:bg-accent transition-colors text-muted-foreground"
                       >
-                        💡 {q}
+                        🧭 {q}
                       </button>
                     ))}
                   </div>
@@ -235,8 +227,8 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
               {messages.map((msg, i) => (
                 <div key={i} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   {msg.role === "assistant" && (
-                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                      <Bot className="w-3.5 h-3.5 text-primary" />
+                    <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center flex-shrink-0 mt-1">
+                      <Compass className="w-3.5 h-3.5 text-primary" />
                     </div>
                   )}
                   <div
@@ -260,11 +252,10 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                 </div>
               ))}
 
-              {/* Loading indicator */}
               {isLoading && (
                 <div className="flex gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-3.5 h-3.5 text-primary" />
+                  <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                    <Compass className="w-3.5 h-3.5 text-primary" />
                   </div>
                   <div className="bg-muted rounded-xl px-3 py-2">
                     <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -272,68 +263,9 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                 </div>
               )}
 
-              {/* AI Error inline */}
               {lastError && !isLoading && (
                 <div className="ml-8">
                   <AIErrorDisplay error={lastError} compact onSearchQuery={(q) => setInput(q)} />
-                </div>
-              )}
-
-              {/* Structured response extras */}
-              {lastResponse && !isLoading && !lastError && (
-                <div className="space-y-2 ml-8">
-                  {lastResponse.referenced_spans && lastResponse.referenced_spans.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {lastResponse.referenced_spans.map((span) => (
-                        <span
-                          key={span.span_id}
-                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
-                          title={span.path}
-                        >
-                          <ExternalLink className="w-2.5 h-2.5" />
-                          {span.span_id}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {lastResponse.unverified_claims && lastResponse.unverified_claims.length > 0 && (
-                    <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-300">
-                      <div className="flex items-center gap-1 font-medium mb-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Unverified claims
-                      </div>
-                      <ul className="list-disc list-inside space-y-0.5">
-                        {lastResponse.unverified_claims.map((c, i) => (
-                          <li key={i}>{c.claim} — <span className="opacity-75">{c.reason}</span></li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {lastResponse.contradictions && lastResponse.contradictions.length > 0 && (
-                    <div className="space-y-2">
-                      {lastResponse.contradictions.map((c: any, i: number) => (
-                        <div key={i} className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
-                          <div className="flex items-center gap-1 font-medium text-amber-700 dark:text-amber-300 mb-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            {c.topic || "Contradiction detected"}
-                          </div>
-                          {c.side_a && c.side_b ? (
-                            <div className="space-y-1 text-muted-foreground">
-                              <p><span className="font-medium">View A:</span> {c.side_a.claim}</p>
-                              <p><span className="font-medium">View B:</span> {c.side_b.claim}</p>
-                            </div>
-                          ) : (
-                            <p className="text-muted-foreground">{c.description || JSON.stringify(c)}</p>
-                          )}
-                          {c.how_to_resolve && c.how_to_resolve.length > 0 && (
-                            <p className="text-muted-foreground mt-1 italic">Resolve: {c.how_to_resolve.join("; ")}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -344,7 +276,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question..."
+                  placeholder="Ask Mission Control..."
                   className="flex-1 bg-muted rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   disabled={isLoading}
                 />
