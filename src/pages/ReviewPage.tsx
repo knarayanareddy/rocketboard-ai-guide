@@ -324,10 +324,17 @@ export default function ReviewPage() {
                 mod={mod}
                 quizCount={0} // Will be enriched later
                 onPreview={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?preview=1`)}
-                onRefine={() => { setRefineTarget(mod); setRefineInstruction(""); setChangeLog([]); }}
+                onRefine={() => { setRefineTarget(mod); setRefineInstruction(""); setChangeLog([]); setRefineError(null); }}
                 onRegenerate={() => handleRegenerate(mod)}
               />
             ))}
+
+            {/* Regenerate error */}
+            {regenError && (
+              <AIErrorDisplay error={regenError} onRetry={() => {
+                if (allModulesForReview.length > 0) handleRegenerate(allModulesForReview[0]);
+              }} />
+            )}
           </div>
         </div>
 
