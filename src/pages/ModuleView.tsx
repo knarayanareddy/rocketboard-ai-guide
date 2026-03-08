@@ -180,7 +180,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           transition={{ duration: 0.2 }}
           className="prose prose-sm dark:prose-invert max-w-none text-sm text-muted-foreground leading-relaxed [&>p]:my-2 [&>ul]:my-2 [&>ol]:my-2 [&>pre]:my-2"
         >
-          <ReactMarkdown>{displayMarkdown}</ReactMarkdown>
+          <MarkdownRenderer>{displayMarkdown}</MarkdownRenderer>
         </motion.div>
       </AnimatePresence>
 
