@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Trash2, User, Layers, BookText, GraduationCap } from "lucide-react";
+import { Trash2, User, Layers, BookText, GraduationCap, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,7 @@ import { useAudiencePrefs, GlossaryDensity, ExperienceLevel } from "@/hooks/useA
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; desc: string }[] = [
   { key: "technical", label: "Technical", desc: "Detailed, code-oriented content" },
