@@ -90,6 +90,68 @@ export type Database = {
           },
         ]
       }
+      generated_modules: {
+        Row: {
+          audience: string | null
+          created_at: string
+          depth: string | null
+          description: string | null
+          difficulty: string | null
+          estimated_minutes: number | null
+          id: string
+          module_data: Json
+          module_key: string
+          module_revision: number
+          pack_id: string
+          status: string
+          title: string
+          track_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          audience?: string | null
+          created_at?: string
+          depth?: string | null
+          description?: string | null
+          difficulty?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          module_data?: Json
+          module_key: string
+          module_revision?: number
+          pack_id: string
+          status?: string
+          title: string
+          track_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audience?: string | null
+          created_at?: string
+          depth?: string | null
+          description?: string | null
+          difficulty?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          module_data?: Json
+          module_key?: string
+          module_revision?: number
+          pack_id?: string
+          status?: string
+          title?: string
+          track_key?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_modules_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingestion_jobs: {
         Row: {
           completed_at: string | null
