@@ -83,12 +83,12 @@ export default function TemplateDetailPage() {
     }
   };
 
-  const triggers = tpl?.trigger_rules || {};
+  const triggers = tpl?.trigger_rules as any || {};
   const allTriggers = [
-    ...(triggers.required_signals || []).map((s: string) => ({ label: s, type: "signal" })),
-    ...(triggers.path_patterns_any || []).map((p: string) => ({ label: p, type: "path" })),
-    ...(triggers.file_types_any || []).map((f: string) => ({ label: f, type: "file" })),
-    ...(triggers.repo_hints_any || []).map((r: string) => ({ label: r, type: "repo" })),
+    ...((triggers.required_signals as string[]) || []).map((s: string) => ({ label: s, type: "signal" })),
+    ...((triggers.path_patterns_any as string[]) || []).map((p: string) => ({ label: p, type: "path" })),
+    ...((triggers.file_types_any as string[]) || []).map((f: string) => ({ label: f, type: "file" })),
+    ...((triggers.repo_hints_any as string[]) || []).map((r: string) => ({ label: r, type: "repo" })),
   ];
 
   return (
