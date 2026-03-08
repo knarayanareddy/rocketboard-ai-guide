@@ -11,7 +11,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useProgress } from "@/hooks/useProgress";
 import { useNotes } from "@/hooks/useNotes";
 import { useLearnerState } from "@/hooks/useLearnerState";
-import { useEffect } from "react";
+import { useEffect, useMemo as useMemo2 } from "react";
+import { ModuleChatPanel } from "@/components/ModuleChatPanel";
 
 export default function ModuleView() {
   const { moduleId } = useParams();
@@ -227,6 +228,15 @@ export default function ModuleView() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <ModuleChatPanel
+          moduleContext={{
+            title: mod.title,
+            description: mod.description,
+            keyTakeaways: mod.key_takeaways,
+            sections: mod.sections.map((s) => ({ title: s.title, content: s.content })),
+          }}
+        />
       </div>
     </DashboardLayout>
   );
