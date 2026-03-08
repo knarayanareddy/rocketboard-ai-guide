@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { ModuleCard } from "@/components/ModuleCard";
@@ -14,12 +15,14 @@ import { useGeneratedModules, GeneratedModuleRow } from "@/hooks/useGeneratedMod
 import { useSources } from "@/hooks/useSources";
 import { useModulePlan } from "@/hooks/useModulePlan";
 import { useRole } from "@/hooks/useRole";
-import { useMemo } from "react";
+
 import { TrackBadge } from "@/components/TrackBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useLearnerOnboardingCheck } from "@/hooks/useLearnerOnboardingCheck";
+import { LearnerOnboardingWizard } from "@/components/LearnerOnboardingWizard";
 
 const container = {
   hidden: { opacity: 0 },
@@ -236,12 +239,18 @@ function SetupEmptyState({ packId }: { packId: string }) {
 const Index = () => {
   const { packId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { getModuleProgress, totalSectionsRead, totalSections: staticTotalSections, completedModules: staticCompletedModules, progressData } = useProgress();
   const { lastOpenedModuleId } = useLearnerState();
   const { currentPack } = usePackFromUrl();
   const { modules: allGenModules, modulesLoading } = useGeneratedModules();
   const { hasPackPermission } = useRole();
   const isAuthor = hasPackPermission("author");
+  const { hasCompletedOnboarding, isChecking: onboardingChecking } = useLearnerOnboardingCheck();
+  const [showLearnerWizard, setShowLearnerWizard] = useState(false);
+
+  // Show wizard for non-author learners who haven't completed onboarding
+  const shouldShowWizard = !isAuthor && !hasCompletedOnboarding && !onboardingChecking;
 
   // Learners see only published; authors see all
   const generatedModules = isAuthor ? allGenModules : allGenModules.filter(m => m.status === "published");
@@ -313,6 +322,15 @@ const Index = () => {
   const showEmptyState = !useGenerated && !modulesLoading;
 
   return (
+    <>
+      {(shouldShowWizard || showLearnerWizard) && (
+        <LearnerOnboardingWizard
+          onComplete={() => {
+            setShowLearnerWizard(false);
+            queryClient.invalidateQueries({ queryKey: ["learner_onboarding_check"] });
+          }}
+        />
+      )}
     <DashboardLayout>
       <div className="max-w-6xl mx-auto">
         {/* Hero */}
@@ -437,6 +455,7 @@ const Index = () => {
         )}
       </div>
     </DashboardLayout>
+    </>
   );
 };
 
