@@ -4,29 +4,34 @@ import { usePacks } from "@/hooks/usePacks";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { ProtectedAction } from "@/components/ProtectedAction";
-import { Package, ArrowRight, Globe, Hash, Users } from "lucide-react";
+import { Package, ArrowRight, Globe, Hash, Users, Plus } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 export default function PacksPage() {
   const navigate = useNavigate();
   const { packs, isLoading } = usePacks();
   const { setPack } = usePack();
-  const { hasPackPermission } = useRole();
 
   const handleSelect = (pack: any) => {
     setPack(pack);
-    navigate("/");
+    navigate(`/packs/${pack.id}`);
   };
 
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Package className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Your Packs</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Package className="w-6 h-6 text-primary" />
+              <h1 className="text-2xl font-bold text-foreground">Your Packs</h1>
+            </div>
+            <Button onClick={() => navigate("/packs/new")} className="gradient-primary text-primary-foreground border-0 gap-2">
+              <Plus className="w-4 h-4" /> New Pack
+            </Button>
           </div>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm mt-2">
             Select an onboarding pack to start learning. Each pack contains modules, quizzes, and resources.
           </p>
         </motion.div>
@@ -36,8 +41,12 @@ export default function PacksPage() {
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
           </div>
         ) : packs.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            No packs available. Contact your organization admin to get access.
+          <div className="text-center py-16">
+            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground mb-4">No packs yet. Create your first one!</p>
+            <Button onClick={() => navigate("/packs/new")} className="gradient-primary text-primary-foreground border-0 gap-2">
+              <Plus className="w-4 h-4" /> Create Pack
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -77,18 +86,16 @@ export default function PacksPage() {
                     </div>
                   </button>
 
-                  <ProtectedAction requiredLevel="admin">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/packs/${pack.id}/members`);
-                      }}
-                      className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <Users className="w-3 h-3" />
-                      Manage Members
-                    </button>
-                  </ProtectedAction>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/packs/${pack.id}/members`);
+                    }}
+                    className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Users className="w-3 h-3" />
+                    Manage Members
+                  </button>
                 </div>
               </motion.div>
             ))}

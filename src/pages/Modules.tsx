@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { ModuleCard } from "@/components/ModuleCard";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -91,9 +91,11 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
 
 export default function Modules() {
   const navigate = useNavigate();
+  const { packId } = useParams();
   const { getModuleProgress } = useProgress();
   const { modules: generatedModules, modulesLoading } = useGeneratedModules();
-  const { currentPack } = usePack();
+  const { currentPack, currentPackId } = usePack();
+  const effectivePackId = packId || currentPackId;
 
   const hasGenerated = generatedModules.length > 0;
 
@@ -120,7 +122,7 @@ export default function Modules() {
                   mod={mod}
                   index={i}
                   progress={getModuleProgress(mod.module_key)}
-                  onClick={() => navigate(`/modules/${mod.module_key}`)}
+                  onClick={() => navigate(`/packs/${effectivePackId}/modules/${mod.module_key}`)}
                 />
               ))}
             </div>
@@ -143,7 +145,7 @@ export default function Modules() {
                 module={mod}
                 index={i}
                 progress={getModuleProgress(mod.id)}
-                onClick={() => navigate(`/modules/${mod.id}`)}
+                onClick={() => navigate(`/packs/${effectivePackId}/modules/${mod.id}`)}
               />
             ))}
           </div>

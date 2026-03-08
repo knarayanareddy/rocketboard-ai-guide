@@ -1,16 +1,24 @@
-import { ChevronDown, Package } from "lucide-react";
+import { ChevronDown, Package, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { usePacks } from "@/hooks/usePacks";
 import { usePack } from "@/hooks/usePack";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export function PackSelector({ collapsed }: { collapsed?: boolean }) {
   const { packs } = usePacks();
   const { currentPack, setPack } = usePack();
+  const navigate = useNavigate();
+
+  const handleSelect = (pack: any) => {
+    setPack(pack);
+    navigate(`/packs/${pack.id}`);
+  };
 
   if (collapsed) {
     return (
@@ -37,7 +45,7 @@ export function PackSelector({ collapsed }: { collapsed?: boolean }) {
         {packs.map((pack) => (
           <DropdownMenuItem
             key={pack.id}
-            onClick={() => setPack(pack as any)}
+            onClick={() => handleSelect(pack)}
             className={pack.id === currentPack?.id ? "bg-accent" : ""}
           >
             <div className="flex flex-col">
@@ -48,6 +56,15 @@ export function PackSelector({ collapsed }: { collapsed?: boolean }) {
             </div>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate("/packs")}>
+          <Package className="w-3.5 h-3.5 mr-2" />
+          All Packs
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/packs/new")}>
+          <Plus className="w-3.5 h-3.5 mr-2" />
+          Create New Pack
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

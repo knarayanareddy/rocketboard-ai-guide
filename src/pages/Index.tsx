@@ -1,19 +1,25 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { ModuleCard } from "@/components/ModuleCard";
 import { ProgressChart } from "@/components/ProgressChart";
 import { StatsStrip } from "@/components/StatsStrip";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Rocket, Play, Package, Sparkles, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Rocket, Play, Package, Sparkles, ChevronRight, CheckCircle2, Database, Map, BookOpen, FileText, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
 import { useLearnerState } from "@/hooks/useLearnerState";
-import { usePack } from "@/hooks/usePack";
+import { usePackFromUrl } from "@/hooks/usePack";
 import { IngestionStatus } from "@/components/IngestionStatus";
 import { useGeneratedModules, GeneratedModuleRow } from "@/hooks/useGeneratedModules";
+import { useSources } from "@/hooks/useSources";
+import { useModulePlan } from "@/hooks/useModulePlan";
+import { useRole } from "@/hooks/useRole";
 import { useMemo } from "react";
 import { TrackBadge } from "@/components/TrackBadge";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const container = {
   hidden: { opacity: 0 },
@@ -42,54 +48,31 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
 }) {
   const isComplete = progress === 100;
   return (
-    <motion.div
-      variants={item}
-      className="cursor-pointer group"
-      onClick={onClick}
-    >
+    <motion.div variants={item} className="cursor-pointer group" onClick={onClick}>
       <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-all relative overflow-hidden">
-        {/* Progress bar at top */}
         <div className="absolute top-0 left-0 h-1 bg-muted w-full">
-          <div
-            className="h-full gradient-primary transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="h-full gradient-primary transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
-
         <div className="flex items-start justify-between mt-1">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-card-foreground group-hover:text-primary transition-colors text-sm">
-                {mod.title}
-              </h3>
+              <h3 className="font-semibold text-card-foreground group-hover:text-primary transition-colors text-sm">{mod.title}</h3>
               {mod.difficulty && (
-                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${difficultyColor[mod.difficulty] || ""}`}>
-                  {mod.difficulty}
-                </span>
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${difficultyColor[mod.difficulty] || ""}`}>{mod.difficulty}</span>
               )}
             </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-muted-foreground">{progress}%</span>
-            {isComplete ? (
-              <CheckCircle2 className="w-4 h-4 text-primary" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            )}
+            {isComplete ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />}
           </div>
         </div>
-
-        {mod.description && (
-          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{mod.description}</p>
-        )}
-
+        {mod.description && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{mod.description}</p>}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          {mod.estimated_minutes && (
-            <span className="text-[10px] text-muted-foreground">~{mod.estimated_minutes} min</span>
-          )}
+          {mod.estimated_minutes && <span className="text-[10px] text-muted-foreground">~{mod.estimated_minutes} min</span>}
           {mod.track_key && <TrackBadge track={mod.track_key} />}
           <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary/70 border-primary/20">
             <Sparkles className="w-2 h-2 mr-0.5" /> AI Generated
@@ -100,42 +83,155 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
   );
 }
 
+function SetupEmptyState({ packId }: { packId: string }) {
+  const navigate = useNavigate();
+  const { hasPackPermission } = useRole();
+  const isAuthor = hasPackPermission("author");
+  
+  // Check what exists
+  const { data: sourceCount = 0 } = useQuery({
+    queryKey: ["source_count", packId],
+    queryFn: async () => {
+      const { count } = await supabase.from("pack_sources").select("id", { count: "exact", head: true }).eq("pack_id", packId);
+      return count || 0;
+    },
+    enabled: !!packId,
+  });
+
+  const { data: planCount = 0 } = useQuery({
+    queryKey: ["plan_count", packId],
+    queryFn: async () => {
+      const { count } = await supabase.from("module_plans").select("id", { count: "exact", head: true }).eq("pack_id", packId).eq("status", "approved");
+      return count || 0;
+    },
+    enabled: !!packId,
+  });
+
+  const { data: draftModuleCount = 0 } = useQuery({
+    queryKey: ["draft_module_count", packId],
+    queryFn: async () => {
+      const { count } = await supabase.from("generated_modules").select("id", { count: "exact", head: true }).eq("pack_id", packId).eq("status", "draft");
+      return count || 0;
+    },
+    enabled: !!packId,
+  });
+
+  if (!isAuthor) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-border rounded-xl p-8 text-center">
+        <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-foreground mb-2">Content Coming Soon</h3>
+        <p className="text-muted-foreground text-sm">Your team is preparing onboarding content. Check back soon!</p>
+      </motion.div>
+    );
+  }
+
+  // Determine the current phase
+  if (sourceCount === 0) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Database className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">No sources connected yet</h3>
+            <p className="text-sm text-muted-foreground">Connect your GitHub repos and documents to get started.</p>
+          </div>
+        </div>
+        <Button onClick={() => navigate(`/packs/${packId}/sources`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+          Add Sources <ArrowRight className="w-4 h-4" />
+        </Button>
+      </motion.div>
+    );
+  }
+
+  if (planCount === 0) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Map className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">Sources synced! Generate a learning plan</h3>
+            <p className="text-sm text-muted-foreground">Let AI analyze your codebase and propose onboarding modules.</p>
+          </div>
+        </div>
+        <Button onClick={() => navigate(`/packs/${packId}/plan`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+          Generate Plan <ArrowRight className="w-4 h-4" />
+        </Button>
+      </motion.div>
+    );
+  }
+
+  if (draftModuleCount > 0) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <FileText className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">Content generated! Review and publish</h3>
+            <p className="text-sm text-muted-foreground">{draftModuleCount} draft module(s) ready for review.</p>
+          </div>
+        </div>
+        <Button onClick={() => navigate(`/packs/${packId}/modules`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+          Review & Publish <ArrowRight className="w-4 h-4" />
+        </Button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <BookOpen className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-foreground">Plan approved! Generate module content</h3>
+          <p className="text-sm text-muted-foreground">Generate onboarding content from your approved plan.</p>
+        </div>
+      </div>
+      <Button onClick={() => navigate(`/packs/${packId}/plan`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
+        Generate Modules <ArrowRight className="w-4 h-4" />
+      </Button>
+    </motion.div>
+  );
+}
+
 const Index = () => {
+  const { packId } = useParams();
   const navigate = useNavigate();
   const { getModuleProgress, totalSectionsRead, totalSections: staticTotalSections, completedModules: staticCompletedModules, progressData } = useProgress();
   const { lastOpenedModuleId } = useLearnerState();
-  const { currentPack } = usePack();
+  const { currentPack } = usePackFromUrl();
   const { modules: generatedModules, modulesLoading } = useGeneratedModules();
 
-  // Determine data source: if any generated modules exist, use them exclusively
   const useGenerated = generatedModules.length > 0;
+  const effectivePackId = packId || currentPack?.id || "";
 
-  // Compute dynamic progress stats for generated modules
   const genStats = useMemo(() => {
     if (!useGenerated) return null;
-
     const moduleProgresses = generatedModules.map((mod) => {
       const sectionCount = (mod.module_data?.sections?.length) || 0;
       const readCount = progressData.filter((p) => p.module_id === mod.module_key).length;
       const pct = sectionCount > 0 ? Math.round((readCount / sectionCount) * 100) : (readCount > 0 ? 50 : 0);
       return { mod, sectionCount, readCount, pct };
     });
-
     const totalSections = moduleProgresses.reduce((a, m) => a + m.sectionCount, 0);
     const totalRead = moduleProgresses.reduce((a, m) => a + m.readCount, 0);
     const completedModules = moduleProgresses.filter((m) => m.pct === 100).length;
     const avgProgress = moduleProgresses.length > 0
-      ? Math.round(moduleProgresses.reduce((a, m) => a + m.pct, 0) / moduleProgresses.length)
-      : 0;
-
+      ? Math.round(moduleProgresses.reduce((a, m) => a + m.pct, 0) / moduleProgresses.length) : 0;
     return { moduleProgresses, totalSections, totalRead, completedModules, avgProgress };
   }, [useGenerated, generatedModules, progressData]);
 
-  // Unified getters
   const getGenModuleProgress = (moduleKey: string): number => {
     if (!genStats) return 0;
-    const found = genStats.moduleProgresses.find((m) => m.mod.module_key === moduleKey);
-    return found?.pct || 0;
+    return genStats.moduleProgresses.find((m) => m.mod.module_key === moduleKey)?.pct || 0;
   };
 
   const effectiveGetProgress = useGenerated ? getGenModuleProgress : getModuleProgress;
@@ -148,7 +244,6 @@ const Index = () => {
     ? (genStats?.avgProgress || 0)
     : Math.round(staticModules.reduce((a, m) => a + getModuleProgress(m.id), 0) / staticModules.length);
 
-  // Chart data
   const chartData = useMemo(() => {
     if (useGenerated) {
       return generatedModules.map((mod) => ({
@@ -162,14 +257,11 @@ const Index = () => {
       progress: getModuleProgress(mod.id),
       fullMark: 100,
     }));
-  }, [useGenerated, generatedModules, genStats, staticModules, progressData]);
+  }, [useGenerated, generatedModules, genStats, progressData]);
 
-  // Resume module logic
   const resumeTarget = useMemo(() => {
     if (useGenerated) {
-      const last = lastOpenedModuleId
-        ? generatedModules.find((m) => m.module_key === lastOpenedModuleId)
-        : null;
+      const last = lastOpenedModuleId ? generatedModules.find((m) => m.module_key === lastOpenedModuleId) : null;
       if (last && getGenModuleProgress(last.module_key) < 100) return { id: last.module_key, title: last.title, progress: getGenModuleProgress(last.module_key) };
       const next = generatedModules.find((m) => getGenModuleProgress(m.module_key) < 100);
       if (next) return { id: next.module_key, title: next.title, progress: getGenModuleProgress(next.module_key) };
@@ -182,6 +274,9 @@ const Index = () => {
     return null;
   }, [useGenerated, generatedModules, lastOpenedModuleId, genStats, progressData]);
 
+  const hasContent = useGenerated || staticModules.length > 0;
+  const showEmptyState = !useGenerated && !modulesLoading;
+
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto">
@@ -193,10 +288,7 @@ const Index = () => {
           className="mb-8"
         >
           <div className="flex items-center gap-3 mb-2">
-            <motion.div
-              animate={{ rotate: [0, -10, 10, -5, 0] }}
-              transition={{ duration: 1.5, delay: 0.5, ease: "easeInOut" }}
-            >
+            <motion.div animate={{ rotate: [0, -10, 10, -5, 0] }} transition={{ duration: 1.5, delay: 0.5, ease: "easeInOut" }}>
               <Rocket className="w-7 h-7 text-primary" />
             </motion.div>
             <h1 className="text-3xl font-bold text-foreground">
@@ -219,7 +311,7 @@ const Index = () => {
           )}
 
           <p className="text-muted-foreground max-w-xl">
-            Your onboarding launchpad. Complete modules, take notes, pass quizzes, and get up to speed with the codebase, workflows, and infrastructure.
+            Your onboarding launchpad. Complete modules, take notes, pass quizzes, and get up to speed.
           </p>
 
           {resumeTarget && (
@@ -227,7 +319,7 @@ const Index = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              onClick={() => navigate(`/modules/${resumeTarget.id}`)}
+              onClick={() => navigate(`/packs/${effectivePackId}/modules/${resumeTarget.id}`)}
               className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
             >
               <Play className="w-4 h-4" />
@@ -241,65 +333,51 @@ const Index = () => {
           <IngestionStatus />
         </div>
 
+        {/* Empty state for authors */}
+        {showEmptyState && effectivePackId && (
+          <div className="mb-8">
+            <SetupEmptyState packId={effectivePackId} />
+          </div>
+        )}
+
         {/* Stats strip */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8"
-        >
-          <StatsStrip
-            completedModules={effectiveCompleted}
-            totalSectionsRead={effectiveTotalRead}
-            totalSections={effectiveTotalSections}
-            totalModules={effectiveModuleCount}
-          />
-        </motion.div>
+        {(useGenerated || staticModules.length > 0) && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-8">
+            <StatsStrip
+              completedModules={effectiveCompleted}
+              totalSectionsRead={effectiveTotalRead}
+              totalSections={effectiveTotalSections}
+              totalModules={effectiveModuleCount}
+            />
+          </motion.div>
+        )}
 
         {/* Progress bar + chart row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-          <div className="lg:col-span-2 flex flex-col justify-center">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, type: "spring" as const }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-foreground">Overall Progress</span>
-                <span className="text-sm font-mono text-primary">{avgProgress}%</span>
-              </div>
-              <div className="h-3 rounded-full bg-muted overflow-hidden">
-                <motion.div
-                  className="h-full gradient-primary rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${avgProgress}%` }}
-                  transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {effectiveCompleted} of {effectiveModuleCount} modules completed
-              </p>
+        {(useGenerated || staticModules.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            <div className="lg:col-span-2 flex flex-col justify-center">
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, type: "spring" as const }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-foreground">Overall Progress</span>
+                  <span className="text-sm font-mono text-primary">{avgProgress}%</span>
+                </div>
+                <div className="h-3 rounded-full bg-muted overflow-hidden">
+                  <motion.div className="h-full gradient-primary rounded-full" initial={{ width: 0 }} animate={{ width: `${avgProgress}%` }} transition={{ duration: 1, delay: 0.5, ease: "easeOut" }} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">{effectiveCompleted} of {effectiveModuleCount} modules completed</p>
+              </motion.div>
+            </div>
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4, type: "spring" as const }}>
+              <ProgressChart chartData={chartData} />
             </motion.div>
           </div>
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4, type: "spring" as const }}
-          >
-            <ProgressChart chartData={chartData} />
-          </motion.div>
-        </div>
+        )}
 
         {/* Module grid */}
         {modulesLoading ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground">Loading modules...</div>
         ) : (
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
-          >
+          <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {useGenerated
               ? generatedModules.map((mod, i) => (
                   <GeneratedModuleCard
@@ -307,7 +385,7 @@ const Index = () => {
                     mod={mod}
                     index={i}
                     progress={getGenModuleProgress(mod.module_key)}
-                    onClick={() => navigate(`/modules/${mod.module_key}`)}
+                    onClick={() => navigate(`/packs/${effectivePackId}/modules/${mod.module_key}`)}
                   />
                 ))
               : staticModules.map((mod, i) => (
@@ -316,7 +394,7 @@ const Index = () => {
                       module={mod}
                       index={i}
                       progress={getModuleProgress(mod.id)}
-                      onClick={() => navigate(`/modules/${mod.id}`)}
+                      onClick={() => navigate(`/packs/${effectivePackId}/modules/${mod.id}`)}
                     />
                   </motion.div>
                 ))}

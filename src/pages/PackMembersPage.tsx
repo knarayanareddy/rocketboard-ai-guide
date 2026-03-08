@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole, PackAccessLevel } from "@/hooks/useRole";
+import { usePendingInvites } from "@/hooks/usePendingInvites";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Users, UserPlus, Shield, Trash2, Crown, ShieldCheck, Pen, BookOpen, Eye } from "lucide-react";
+import { ArrowLeft, Users, UserPlus, Shield, Trash2, Crown, ShieldCheck, Pen, BookOpen, Eye, Clock, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
@@ -36,6 +37,8 @@ export default function PackMembersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLevel, setInviteLevel] = useState<PackAccessLevel>("learner");
 
+  const { invites: pendingInvites, sendInvite, deleteInvite } = usePendingInvites(packId);
+
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["pack_members_list", packId],
     queryFn: async () => {
@@ -47,7 +50,6 @@ export default function PackMembersPage() {
         .order("joined_at", { ascending: true });
       if (error) throw error;
 
-      // Fetch profiles for display names
       const userIds = data.map((m) => m.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
@@ -107,49 +109,19 @@ export default function PackMembersPage() {
     onError: () => toast.error("Failed to remove member"),
   });
 
-  const inviteMember = useMutation({
-    mutationFn: async () => {
-      if (!packId || !inviteEmail.trim()) return;
-
-      // Look up user by email via profiles (display_name might be email)
-      // We need to find the user_id — check profiles where display_name = email
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, display_name")
-        .ilike("display_name", inviteEmail.trim());
-
-      if (!profiles || profiles.length === 0) {
-        throw new Error("No user found with that email/name. They must sign up first.");
+  const handleInvite = () => {
+    if (!inviteEmail.trim()) return;
+    sendInvite.mutate(
+      { email: inviteEmail.trim(), accessLevel: inviteLevel },
+      {
+        onSuccess: (result) => {
+          setInviteEmail("");
+          toast.success(result.status === "added" ? "Member added!" : "Invite sent (pending signup)");
+        },
+        onError: (err: any) => toast.error(err.message || "Failed to invite"),
       }
-
-      const targetUserId = profiles[0].user_id;
-
-      // Check if already a member
-      const { data: existing } = await supabase
-        .from("pack_members")
-        .select("id")
-        .eq("pack_id", packId)
-        .eq("user_id", targetUserId)
-        .maybeSingle();
-
-      if (existing) {
-        throw new Error("User is already a member of this pack.");
-      }
-
-      const { error } = await supabase.from("pack_members").insert({
-        pack_id: packId,
-        user_id: targetUserId,
-        access_level: inviteLevel,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pack_members_list", packId] });
-      setInviteEmail("");
-      toast.success("Member invited successfully");
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to invite member"),
-  });
+    );
+  };
 
   if (!hasPackPermission("admin")) {
     return (
@@ -166,20 +138,18 @@ export default function PackMembersPage() {
       <div className="max-w-4xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           <button
-            onClick={() => navigate("/packs")}
+            onClick={() => navigate(`/packs/${packId}`)}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Packs
+            Back to Dashboard
           </button>
 
           <div className="flex items-center gap-3 mb-6">
             <Shield className="w-6 h-6 text-primary" />
             <div>
               <h1 className="text-2xl font-bold text-foreground">Manage Members</h1>
-              {pack && (
-                <p className="text-sm text-muted-foreground">{pack.title}</p>
-              )}
+              {pack && <p className="text-sm text-muted-foreground">{pack.title}</p>}
             </div>
           </div>
 
@@ -188,21 +158,23 @@ export default function PackMembersPage() {
             <div className="bg-card border border-border rounded-xl p-5 mb-6">
               <div className="flex items-center gap-2 mb-4">
                 <UserPlus className="w-4 h-4 text-primary" />
-                <h2 className="font-semibold text-foreground">Invite Member</h2>
+                <h2 className="font-semibold text-foreground">Invite by Email</h2>
               </div>
               <div className="flex gap-3">
                 <Input
-                  placeholder="User display name or email..."
+                  type="email"
+                  placeholder="email@company.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   className="flex-1"
+                  maxLength={255}
                 />
                 <Select value={inviteLevel} onValueChange={(v) => setInviteLevel(v as PackAccessLevel)}>
                   <SelectTrigger className="w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ACCESS_LEVELS.map((l) => (
+                    {ACCESS_LEVELS.filter((l) => l.value !== "owner").map((l) => (
                       <SelectItem key={l.value} value={l.value}>
                         {l.label}
                       </SelectItem>
@@ -210,14 +182,47 @@ export default function PackMembersPage() {
                   </SelectContent>
                 </Select>
                 <Button
-                  onClick={() => inviteMember.mutate()}
-                  disabled={!inviteEmail.trim() || inviteMember.isPending}
+                  onClick={handleInvite}
+                  disabled={!inviteEmail.trim() || sendInvite.isPending}
                 >
                   Invite
                 </Button>
               </div>
             </div>
           </ProtectedAction>
+
+          {/* Pending Invites */}
+          {pendingInvites.length > 0 && (
+            <div className="bg-card border border-border rounded-xl overflow-hidden mb-6">
+              <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <h2 className="font-semibold text-foreground">Pending Invites ({pendingInvites.length})</h2>
+              </div>
+              <div className="divide-y divide-border">
+                {pendingInvites.filter((i: any) => !i.accepted_at).map((invite: any) => (
+                  <div key={invite.id} className="flex items-center justify-between px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{invite.email}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{invite.access_level} • Pending</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => deleteInvite.mutate(invite.id)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Members List */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">

@@ -362,7 +362,7 @@ export default function ModuleView() {
       <div className="max-w-4xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(`/packs/${currentPackId}`)}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
