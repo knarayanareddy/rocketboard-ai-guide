@@ -18,7 +18,6 @@ export function useProgress() {
         .select("*")
         .eq("user_id", user.id);
       
-      // Support both pack-scoped and legacy null pack_id data
       const { data, error } = await query.or(`pack_id.eq.${currentPackId},pack_id.is.null`);
       if (error) throw error;
       return data;
@@ -84,11 +83,14 @@ export function useProgress() {
     },
   });
 
-  const getModuleProgress = (moduleId: string): number => {
-    const mod = modules.find((m) => m.id === moduleId);
-    if (!mod) return 0;
+  // Works with both static module IDs and generated module_keys
+  const getModuleProgress = (moduleId: string, totalSectionsOverride?: number): number => {
     const readCount = progressData.filter((p) => p.module_id === moduleId).length;
-    return Math.round((readCount / mod.sections.length) * 100);
+    // Try static module first
+    const staticMod = modules.find((m) => m.id === moduleId);
+    const totalSections = totalSectionsOverride || staticMod?.sections.length;
+    if (!totalSections || totalSections === 0) return readCount > 0 ? 50 : 0;
+    return Math.round((readCount / totalSections) * 100);
   };
 
   const isSectionRead = (moduleId: string, sectionId: string): boolean => {

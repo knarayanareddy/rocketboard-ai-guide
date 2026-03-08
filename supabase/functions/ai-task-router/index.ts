@@ -264,6 +264,123 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── GENERATE MODULE HANDLER ───
+async function handleGenerateModule(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const limits = envelope.limits || {};
+  const inputs = envelope.inputs || {};
+  const audience = context.audience_profile || {};
+  const spans = retrieval.evidence_spans || [];
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+
+  const moduleKey = inputs.module?.module_key || context.current_module_key || "mod-unknown";
+  const moduleTitle = inputs.module?.title || "Untitled Module";
+  const moduleDesc = inputs.module?.description || "";
+  const trackKey = inputs.module?.track_key || context.current_track_key || null;
+  const moduleRevision = inputs.module_revision || 1;
+
+  const systemPrompt = `You are RocketBoard AI Module Generator. Your job is to generate comprehensive onboarding module content grounded in evidence spans.
+
+TASK: Generate a complete module titled "${moduleTitle}" (key: ${moduleKey}).
+${moduleDesc ? `Description: ${moduleDesc}` : ""}
+${trackKey ? `Track: ${trackKey}` : ""}
+${packBlock}
+
+RULES:
+- Generate 4-7 sections, each with a clear heading, markdown content, learning objectives, note prompts, and citations.
+- Ground ALL content in evidence spans. Cite using [S1], [S2], etc.
+- Stay within ${limits.max_module_words || 1400} total words across all sections.
+- Each section should have up to ${limits.max_note_prompts_per_section || 3} note prompts.
+- Include up to ${limits.max_key_takeaways || 7} key takeaways.
+- Include up to ${limits.max_reflection_prompts || 4} reflection prompts in the endcap.
+- Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+- Use markdown formatting with code blocks, lists, and emphasis where appropriate.
+- Section IDs should be like "sec-1", "sec-2", etc.
+${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "generate_module",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "module_revision": ${moduleRevision},
+  "module": {
+    "module_key": "${moduleKey}",
+    "title": "${moduleTitle}",
+    "description": "string",
+    "estimated_minutes": 15,
+    "difficulty": "beginner|intermediate|advanced",
+    "track_key": ${trackKey ? `"${trackKey}"` : "null"},
+    "audience": "${audience.audience || "technical"}",
+    "depth": "${audience.depth || "standard"}",
+    "sections": [{
+      "section_id": "sec-1",
+      "heading": "string",
+      "markdown": "string (full markdown content)",
+      "learning_objectives": ["string"],
+      "note_prompts": ["string"],
+      "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }]
+    }],
+    "endcap": {
+      "reflection_prompts": ["string"],
+      "quiz_objectives": ["string"],
+      "ready_for_quiz_markdown": "string",
+      "citations": [{ "span_id": "S1" }]
+    },
+    "key_takeaways": ["string"],
+    "evidence_index": [{
+      "topic": "string",
+      "citations": [{ "span_id": "S1" }]
+    }]
+  },
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Generate the complete module "${moduleTitle}" using the ${spans.length} evidence spans provided. Make the content comprehensive, educational, and well-structured for onboarding engineers.`;
+
+  try {
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "generate_module",
+      request_id: requestId,
+      pack_id: pack.pack_id || null,
+      pack_version: pack.pack_version || 1,
+      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+      module_revision: moduleRevision,
+      module: {
+        module_key: moduleKey,
+        title: moduleTitle,
+        description: moduleDesc,
+        estimated_minutes: 15,
+        difficulty: "beginner",
+        track_key: trackKey,
+        audience: audience.audience || "technical",
+        depth: audience.depth || "standard",
+        sections: [],
+        endcap: { reflection_prompts: [], quiz_objectives: [], ready_for_quiz_markdown: "", citations: [] },
+        key_takeaways: [],
+        evidence_index: [],
+      },
+      warnings: ["AI response could not be parsed as JSON"],
+    });
+    parsed.type = "generate_module";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -282,6 +399,7 @@ serve(async (req) => {
       case "module_planner":
         return await handleModulePlanner(envelope);
       case "generate_module":
+        return await handleGenerateModule(envelope);
       case "generate_quiz":
       case "generate_glossary":
       case "generate_paths":
