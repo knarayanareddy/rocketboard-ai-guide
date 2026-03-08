@@ -195,7 +195,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
         onDone: () => {
           setIsLoading(false);
           // Save completed assistant message
-          if (user && soFar) saveMessage(user.id, moduleId, "assistant", soFar);
+          if (user && soFar) saveMessage(user.id, moduleId, "assistant", soFar, currentPackId);
         },
         signal: controller.signal,
       });
