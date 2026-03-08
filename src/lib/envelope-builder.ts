@@ -20,6 +20,7 @@ interface AudienceProfile {
   audience?: string;
   depth?: string;
   glossary_density?: string;
+  output_language?: string;
 }
 
 interface ConversationMessage {
