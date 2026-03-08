@@ -166,6 +166,12 @@ export function AppSidebar() {
             </span>
           </div>
         )}
+        {/* Theme mode toggle */}
+        {collapsed ? (
+          <ThemeToggleCompact />
+        ) : (
+          <ThemeToggle />
+        )}
         <button
           onClick={signOut}
           className="flex items-center gap-2 text-xs text-sidebar-foreground/50 hover:text-sidebar-accent-foreground transition-colors"
