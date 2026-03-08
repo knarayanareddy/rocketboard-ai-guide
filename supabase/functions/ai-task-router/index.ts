@@ -238,7 +238,7 @@ async function handleModulePlanner(envelope: any): Promise<Response> {
     : "The pack has no tracks yet. Propose tracks based on what you see in the evidence.";
 
   const systemPrompt = `You are RocketBoard AI Module Planner. Your job is to analyze codebase evidence spans and propose a structured onboarding plan.
-
+${buildLanguageBlock(envelope.context, pack)}
 TASK:
 1. Analyze the evidence spans to understand the codebase/system architecture.
 2. Detect technology signals (e.g., "uses_kubernetes", "has_ci_pipeline", "uses_typescript", "has_monitoring", "has_auth_system", "uses_react", "has_database_migrations", etc.).
