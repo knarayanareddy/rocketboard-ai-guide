@@ -5,7 +5,7 @@ import { CitationBadge } from "@/components/CitationBadge";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Trophy, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ReactMarkdown from "react-markdown";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 
 // Unified question shape used internally
 interface UnifiedQuestion {
