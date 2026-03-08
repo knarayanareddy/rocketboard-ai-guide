@@ -151,6 +151,12 @@ export default function AskLeadPage() {
           {askedQuestions.size}/{totalQuestions} questions asked
         </div>
 
+        {genError && (
+          <div className="mb-6">
+            <AIErrorDisplay error={genError} />
+          </div>
+        )}
+
         {askLeadLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading questions...</div>
         ) : isGenerated ? (
