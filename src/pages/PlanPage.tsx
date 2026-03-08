@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { useModulePlan, ModulePlanData, DetectedSignal, ModulePlanEntry, PlanTrack } from "@/hooks/useModulePlan";
 import { useGeneratedModules } from "@/hooks/useGeneratedModules";
 import { useTemplates, TemplateRow } from "@/hooks/useTemplates";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
+import { AIError } from "@/lib/ai-errors";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
