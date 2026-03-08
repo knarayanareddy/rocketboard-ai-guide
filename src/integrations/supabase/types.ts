@@ -19,6 +19,7 @@ export type Database = {
           audience: string
           created_at: string
           depth: string
+          glossary_density: string
           id: string
           pack_id: string | null
           updated_at: string
@@ -28,6 +29,7 @@ export type Database = {
           audience?: string
           created_at?: string
           depth?: string
+          glossary_density?: string
           id?: string
           pack_id?: string | null
           updated_at?: string
@@ -37,6 +39,7 @@ export type Database = {
           audience?: string
           created_at?: string
           depth?: string
+          glossary_density?: string
           id?: string
           pack_id?: string | null
           updated_at?: string
@@ -83,6 +86,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "chat_messages_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_glossaries: {
+        Row: {
+          created_at: string
+          glossary_data: Json
+          glossary_density: string | null
+          id: string
+          pack_id: string
+        }
+        Insert: {
+          created_at?: string
+          glossary_data?: Json
+          glossary_density?: string | null
+          id?: string
+          pack_id: string
+        }
+        Update: {
+          created_at?: string
+          glossary_data?: Json
+          glossary_density?: string | null
+          id?: string
+          pack_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_glossaries_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
