@@ -43,7 +43,10 @@ export function ModuleCard({ module, index, progress, onClick }: ModuleCardProps
               <span>•</span>
               <span>{module.sections.length} sections</span>
               <span>•</span>
-              <span>{module.quiz.length} quiz questions</span>
+              <span className={`capitalize ${
+                module.difficulty === "beginner" ? "text-green-500" :
+                module.difficulty === "intermediate" ? "text-yellow-500" : "text-red-500"
+              }`}>{module.difficulty}</span>
             </div>
           </div>
         </div>
