@@ -138,6 +138,18 @@ export function useModulePlan() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["module_plan", currentPackId] }),
   });
 
+  // Update existing plan's plan_data
+  const updatePlan = useMutation({
+    mutationFn: async ({ planId, planData }: { planId: string; planData: ModulePlanData }) => {
+      const { error } = await supabase
+        .from("module_plans")
+        .update({ plan_data: planData as any, status: "draft" })
+        .eq("id", planId);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["module_plan", currentPackId] }),
+  });
+
   // Approve a plan
   const approvePlan = useMutation({
     mutationFn: async (planId: string) => {
@@ -155,6 +167,7 @@ export function useModulePlan() {
     planLoading: planQuery.isLoading,
     generatePlan,
     savePlan,
+    updatePlan,
     approvePlan,
   };
 }
