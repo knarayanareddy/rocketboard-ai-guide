@@ -208,6 +208,12 @@ export default function PathsPage() {
           </p>
         </motion.div>
 
+        {genError && (
+          <div className="mb-6">
+            <AIErrorDisplay error={genError} />
+          </div>
+        )}
+
         {pathsLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading paths...</div>
         ) : (
