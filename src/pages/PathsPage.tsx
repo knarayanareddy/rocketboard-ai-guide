@@ -111,15 +111,18 @@ function PathTabContent({ steps, pathType, isGenerated }: {
           >
             All
           </button>
-          {tracks.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTrackFilter(t)}
-              className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t ? "opacity-40" : ""}`}
-            >
-              <TrackBadge track={t as any} />
-            </button>
-          ))}
+          {tracks.map((t) => {
+            const pt = packTracks.find(p => p.track_key === t);
+            return (
+              <button
+                key={t}
+                onClick={() => setTrackFilter(t)}
+                className={`transition-opacity ${trackFilter !== "all" && trackFilter !== t ? "opacity-40" : ""}`}
+              >
+                <TrackBadge track={t as any} title={pt?.title} />
+              </button>
+            );
+          })}
         </div>
       )}
       <div className="space-y-3">
