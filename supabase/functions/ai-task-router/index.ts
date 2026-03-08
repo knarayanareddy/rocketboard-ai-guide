@@ -967,6 +967,7 @@ serve(async (req) => {
       case "generate_ask_lead":
         return await handleGenerateAskLead(envelope);
       case "simplify_section":
+        return await handleSimplifySection(envelope);
       case "create_template":
       case "refine_template":
         return unsupportedTask(requestId, taskType);
