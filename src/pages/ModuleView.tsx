@@ -52,6 +52,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
   const [simplified, setSimplified] = useState<SimplifiedSection | undefined>(
     moduleKey ? getCachedSimplification(moduleKey, section.section_id) : undefined
   );
+  const [simplifyError, setSimplifyError] = useState<AIError | null>(null);
 
   const handleSimplify = () => {
     if (simplified) {
@@ -59,6 +60,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
       return;
     }
     if (!moduleKey) return;
+    setSimplifyError(null);
     simplifySection.mutate(
       {
         moduleKey,
@@ -71,7 +73,13 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           setSimplified(result);
           setShowSimplified(true);
         },
-        onError: (e) => toast.error(e.message),
+        onError: (e) => {
+          if (e instanceof AIError) {
+            setSimplifyError(e);
+          } else {
+            toast.error(e.message);
+          }
+        },
       }
     );
   };
