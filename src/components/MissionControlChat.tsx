@@ -99,6 +99,7 @@ export function MissionControlChat() {
     const allMessages = [...messages, userMsg];
     setMessages(allMessages);
     setIsLoading(true);
+    setLastResponse(null);
     setLastError(null);
 
     if (user) {
