@@ -23,6 +23,23 @@ interface AudienceProfile {
   output_language?: string;
 }
 
+interface LearnerProfile {
+  role?: string | null;
+  experience_level?: string | null;
+}
+
+interface GenerationPrefsInput {
+  include_mermaid_if_supported?: boolean;
+  target_reading_level?: string;
+  max_sections_hint?: number;
+}
+
+interface LimitsOverrides {
+  max_module_words?: number;
+  max_quiz_questions?: number;
+  max_key_takeaways?: number;
+}
+
 interface ConversationMessage {
   role: "user" | "assistant";
   content: string;
@@ -44,6 +61,9 @@ function baseEnvelope(
   taskType: string,
   auth: AuthInfo,
   pack: PackInfo,
+  genPrefs?: GenerationPrefsInput,
+  limitsOverrides?: LimitsOverrides,
+  learnerProfile?: LearnerProfile,
 ) {
   return {
     task: {
@@ -74,7 +94,7 @@ function baseEnvelope(
       current_track_key: null as string | null,
       output_language: null as string | null,
       audience_profile: { audience: "technical", depth: "standard", glossary_density: "standard", output_language: "en" } as AudienceProfile,
-      learner_profile: { role: null as string | null, experience_level: null as string | null },
+      learner_profile: { role: learnerProfile?.role || null, experience_level: learnerProfile?.experience_level || null },
       learner_state: { completed_module_keys: [], last_opened_module_key: null, last_opened_track_key: null },
       author_instruction: null as string | null,
       conversation: { conversation_id: null, messages: [] as ConversationMessage[] },
@@ -90,63 +110,70 @@ function baseEnvelope(
       original_section_markdown: null,
     },
     generation_prefs: {
-      include_mermaid_if_supported: true,
-      target_reading_level: "plain",
-      max_sections_hint: 7,
+      include_mermaid_if_supported: genPrefs?.include_mermaid_if_supported ?? true,
+      target_reading_level: genPrefs?.target_reading_level ?? "plain",
+      max_sections_hint: genPrefs?.max_sections_hint ?? 7,
     },
-    limits: { ...DEFAULT_LIMITS },
+    limits: {
+      ...DEFAULT_LIMITS,
+      ...(limitsOverrides?.max_module_words != null ? { max_module_words: limitsOverrides.max_module_words } : {}),
+      ...(limitsOverrides?.max_quiz_questions != null ? { max_quiz_questions: limitsOverrides.max_quiz_questions } : {}),
+      ...(limitsOverrides?.max_key_takeaways != null ? { max_key_takeaways: limitsOverrides.max_key_takeaways } : {}),
+    },
     expected_output_schema: {},
   };
 }
 
-export function buildChatEnvelope(opts: {
+// Common opts shared across builders
+interface CommonOpts {
   auth: AuthInfo;
   pack: PackInfo;
-  messages: ConversationMessage[];
+  audienceProfile?: AudienceProfile;
+  learnerProfile?: LearnerProfile;
+  generationPrefs?: GenerationPrefsInput;
+  limitsOverrides?: LimitsOverrides;
   evidenceSpans?: EvidenceSpan[];
+}
+
+function applyCommon(env: ReturnType<typeof baseEnvelope>, opts: CommonOpts) {
+  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+}
+
+export function buildChatEnvelope(opts: CommonOpts & {
+  messages: ConversationMessage[];
   moduleKey?: string | null;
   trackKey?: string | null;
-  audienceProfile?: AudienceProfile;
   query?: string;
 }) {
-  const env = baseEnvelope("chat", opts.auth, opts.pack);
+  const env = baseEnvelope("chat", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.context.conversation.messages = opts.messages;
   env.context.current_module_key = opts.moduleKey || null;
   env.context.current_track_key = opts.trackKey || null;
-  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
   env.retrieval.query = opts.query || null;
   return env;
 }
 
-// Stub builders for future task types
-export function buildModulePlannerEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
-  evidenceSpans?: EvidenceSpan[];
-}) {
-  const env = baseEnvelope("module_planner", opts.auth, opts.pack);
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+export function buildModulePlannerEnvelope(opts: CommonOpts) {
+  const env = baseEnvelope("module_planner", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.retrieval.query = "architecture setup configuration deployment infrastructure code structure";
   return env;
 }
-export function buildGenerateModuleEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
-  evidenceSpans?: EvidenceSpan[];
+
+export function buildGenerateModuleEnvelope(opts: CommonOpts & {
   moduleKey: string;
   moduleTitle: string;
   moduleDescription?: string;
   trackKey?: string | null;
   moduleRevision?: number;
-  audienceProfile?: AudienceProfile;
 }) {
-  const env = baseEnvelope("generate_module", opts.auth, opts.pack);
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  const env = baseEnvelope("generate_module", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.retrieval.query = `${opts.moduleTitle} ${opts.moduleDescription || ""}`;
   env.context.current_module_key = opts.moduleKey;
   env.context.current_track_key = opts.trackKey || null;
-  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
   env.inputs.module_revision = opts.moduleRevision || 1;
   (env.inputs as any).module = {
     module_key: opts.moduleKey,
@@ -156,35 +183,26 @@ export function buildGenerateModuleEnvelope(opts: {
   };
   return env;
 }
-export function buildGenerateQuizEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
+
+export function buildGenerateQuizEnvelope(opts: CommonOpts & {
   moduleKey: string;
   trackKey?: string | null;
   moduleData?: any;
-  evidenceSpans?: EvidenceSpan[];
-  audienceProfile?: AudienceProfile;
 }) {
-  const env = baseEnvelope("generate_quiz", opts.auth, opts.pack);
+  const env = baseEnvelope("generate_quiz", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.context.current_module_key = opts.moduleKey;
   env.context.current_track_key = opts.trackKey || null;
-  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
   env.retrieval.query = `${opts.moduleKey} quiz assessment`;
-  if (opts.moduleData) {
-    (env.inputs as any).existing_module = opts.moduleData;
-  }
+  if (opts.moduleData) (env.inputs as any).existing_module = opts.moduleData;
   return env;
 }
-export function buildGenerateGlossaryEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
-  evidenceSpans?: EvidenceSpan[];
+
+export function buildGenerateGlossaryEnvelope(opts: CommonOpts & {
   glossaryDensity?: string;
-  audienceProfile?: AudienceProfile;
 }) {
-  const env = baseEnvelope("generate_glossary", opts.auth, opts.pack);
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  const env = baseEnvelope("generate_glossary", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.retrieval.query = "glossary terms definitions technical vocabulary";
   env.context.audience_profile = {
     ...env.context.audience_profile,
@@ -193,79 +211,63 @@ export function buildGenerateGlossaryEnvelope(opts: {
   };
   return env;
 }
-export function buildGeneratePathsEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
-  evidenceSpans?: EvidenceSpan[];
-  audienceProfile?: AudienceProfile;
-}) {
-  const env = baseEnvelope("generate_paths", opts.auth, opts.pack);
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+
+export function buildGeneratePathsEnvelope(opts: CommonOpts) {
+  const env = baseEnvelope("generate_paths", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.retrieval.query = "setup onboarding getting started environment workflow";
-  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
   return env;
 }
-export function buildGenerateAskLeadEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
-  evidenceSpans?: EvidenceSpan[];
-  audienceProfile?: AudienceProfile;
-}) {
-  const env = baseEnvelope("generate_ask_lead", opts.auth, opts.pack);
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+
+export function buildGenerateAskLeadEnvelope(opts: CommonOpts) {
+  const env = baseEnvelope("generate_ask_lead", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.retrieval.query = "team lead questions onboarding process workflow architecture decisions";
-  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
   return env;
 }
-export function buildSimplifySectionEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
+
+export function buildSimplifySectionEnvelope(opts: CommonOpts & {
   moduleKey: string;
   sectionId: string;
   originalMarkdown: string;
   trackKey?: string | null;
-  evidenceSpans?: EvidenceSpan[];
-  audienceProfile?: AudienceProfile;
 }) {
-  const env = baseEnvelope("simplify_section", opts.auth, opts.pack);
+  const env = baseEnvelope("simplify_section", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.context.current_module_key = opts.moduleKey;
   env.context.current_track_key = opts.trackKey || null;
-  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
   env.retrieval.query = opts.originalMarkdown.slice(0, 200);
   env.inputs.original_section_markdown = opts.originalMarkdown;
   (env.inputs as any).section_id = opts.sectionId;
   return env;
 }
-export function buildRefineModuleEnvelope(opts: {
-  auth: AuthInfo;
-  pack: PackInfo;
+
+export function buildRefineModuleEnvelope(opts: CommonOpts & {
   existingModule: any;
   authorInstruction: string;
   moduleKey: string;
   trackKey?: string | null;
   moduleRevision: number;
-  evidenceSpans?: EvidenceSpan[];
-  audienceProfile?: AudienceProfile;
 }) {
-  const env = baseEnvelope("refine_module", opts.auth, opts.pack);
+  const env = baseEnvelope("refine_module", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
+  applyCommon(env, opts);
   env.context.current_module_key = opts.moduleKey;
   env.context.current_track_key = opts.trackKey || null;
   env.context.author_instruction = opts.authorInstruction;
-  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
-  env.retrieval.evidence_spans = opts.evidenceSpans || [];
   env.retrieval.query = `${opts.existingModule?.title || opts.moduleKey} ${opts.authorInstruction}`;
   env.inputs.existing_module = opts.existingModule;
   env.inputs.module_revision = opts.moduleRevision;
   return env;
 }
-export function buildCreateTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo; authorInstruction: string }) {
-  const env = baseEnvelope("create_template", opts.auth, opts.pack);
+
+export function buildCreateTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo; authorInstruction: string; generationPrefs?: GenerationPrefsInput; limitsOverrides?: LimitsOverrides; learnerProfile?: LearnerProfile }) {
+  const env = baseEnvelope("create_template", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
   env.context.author_instruction = opts.authorInstruction;
   return env;
 }
-export function buildRefineTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo; existingTemplate: any; authorInstruction: string }) {
-  const env = baseEnvelope("refine_template", opts.auth, opts.pack);
+
+export function buildRefineTemplateEnvelope(opts: { auth: AuthInfo; pack: PackInfo; existingTemplate: any; authorInstruction: string; generationPrefs?: GenerationPrefsInput; limitsOverrides?: LimitsOverrides; learnerProfile?: LearnerProfile }) {
+  const env = baseEnvelope("refine_template", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
   env.context.author_instruction = opts.authorInstruction;
   env.inputs.existing_template = opts.existingTemplate;
   return env;

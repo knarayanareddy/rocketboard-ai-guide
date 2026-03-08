@@ -58,9 +58,11 @@ export type Database = {
           glossary_density: string
           id: string
           learner_role: string | null
+          max_sections_hint: number
           mermaid_enabled: boolean
           output_language: string
           pack_id: string | null
+          target_reading_level: string
           updated_at: string
           user_id: string
         }
@@ -72,9 +74,11 @@ export type Database = {
           glossary_density?: string
           id?: string
           learner_role?: string | null
+          max_sections_hint?: number
           mermaid_enabled?: boolean
           output_language?: string
           pack_id?: string | null
+          target_reading_level?: string
           updated_at?: string
           user_id: string
         }
@@ -86,9 +90,11 @@ export type Database = {
           glossary_density?: string
           id?: string
           learner_role?: string | null
+          max_sections_hint?: number
           mermaid_enabled?: boolean
           output_language?: string
           pack_id?: string | null
+          target_reading_level?: string
           updated_at?: string
           user_id?: string
         }
@@ -654,6 +660,44 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      pack_generation_limits: {
+        Row: {
+          id: string
+          max_key_takeaways: number
+          max_module_words: number
+          max_quiz_questions: number
+          pack_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          max_key_takeaways?: number
+          max_module_words?: number
+          max_quiz_questions?: number
+          pack_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          max_key_takeaways?: number
+          max_module_words?: number
+          max_quiz_questions?: number
+          pack_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_generation_limits_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: true
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pack_members: {
         Row: {
