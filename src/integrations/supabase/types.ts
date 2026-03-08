@@ -54,8 +54,10 @@ export type Database = {
           audience: string
           created_at: string
           depth: string
+          experience_level: string | null
           glossary_density: string
           id: string
+          learner_role: string | null
           pack_id: string | null
           updated_at: string
           user_id: string
@@ -64,8 +66,10 @@ export type Database = {
           audience?: string
           created_at?: string
           depth?: string
+          experience_level?: string | null
           glossary_density?: string
           id?: string
+          learner_role?: string | null
           pack_id?: string | null
           updated_at?: string
           user_id: string
@@ -74,8 +78,10 @@ export type Database = {
           audience?: string
           created_at?: string
           depth?: string
+          experience_level?: string | null
           glossary_density?: string
           id?: string
+          learner_role?: string | null
           pack_id?: string | null
           updated_at?: string
           user_id?: string

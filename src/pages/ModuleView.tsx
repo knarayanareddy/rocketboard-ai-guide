@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { modules as staticModules, Track, TRACKS } from "@/data/onboarding-data";
+import { modules as staticModules } from "@/data/onboarding-data";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SectionViewer } from "@/components/SectionViewer";
 import { QuizRunner } from "@/components/QuizRunner";
@@ -8,7 +8,7 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +16,8 @@ import { useProgress } from "@/hooks/useProgress";
 import { useNotes } from "@/hooks/useNotes";
 import { useLearnerState } from "@/hooks/useLearnerState";
 import { useRole } from "@/hooks/useRole";
+import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
+import { usePackTracks } from "@/hooks/usePackTracks";
 import { ModuleChatPanel } from "@/components/ModuleChatPanel";
 import { useGeneratedModules, GeneratedModuleRow, GeneratedSection, ChangeLogEntry } from "@/hooks/useGeneratedModules";
 import { useGeneratedQuiz } from "@/hooks/useGeneratedQuiz";
@@ -179,6 +181,60 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
     </motion.div>
   );
 }
+
+function StaticTrackFilter({ activeTrack, setActiveTrack }: { activeTrack: string; setActiveTrack: (t: string) => void }) {
+  const { tracks: packTracks } = usePackTracks();
+  if (packTracks.length === 0) return null;
+  return (
+    <div className="flex items-center gap-2 mb-6 flex-wrap">
+      <Filter className="w-4 h-4 text-muted-foreground" />
+      <button
+        onClick={() => setActiveTrack("all")}
+        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+          activeTrack === "all" ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"
+        }`}
+      >
+        All Tracks
+      </button>
+      {packTracks.map((t) => (
+        <button key={t.track_key} onClick={() => setActiveTrack(t.track_key)} className={`transition-opacity ${activeTrack !== "all" && activeTrack !== t.track_key ? "opacity-40" : ""}`}>
+          <TrackBadge track={t.track_key} title={t.title} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AudienceMismatchBanner({ moduleAudience, moduleDepth }: { moduleAudience?: string | null; moduleDepth?: string | null }) {
+  const { audience, depth } = useAudiencePrefs();
+  if (!moduleAudience && !moduleDepth) return null;
+  const audienceMismatch = moduleAudience && moduleAudience !== audience;
+  const depthMismatch = moduleDepth && moduleDepth !== depth;
+  if (!audienceMismatch && !depthMismatch) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      className="mb-4 bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3"
+    >
+      <Info className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+      <div className="text-sm">
+        <p className="text-foreground font-medium">Content may not match your preferences</p>
+        <p className="text-muted-foreground text-xs mt-1">
+          This module was generated for{" "}
+          {moduleAudience && <span className="font-medium">{moduleAudience}</span>}
+          {moduleAudience && moduleDepth && " / "}
+          {moduleDepth && <span className="font-medium">{moduleDepth}</span>}
+          {" "}audience. Your preference is{" "}
+          <span className="font-medium">{audience}</span> / <span className="font-medium">{depth}</span>.
+          Use the <Wand2 className="w-3 h-3 inline" /> Simplify button on each section to adapt it.
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ModuleView() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
@@ -200,7 +256,7 @@ export default function ModuleView() {
   const { updateLastOpened } = useLearnerState();
   const { hasPackPermission } = useRole();
 
-  const [activeTrack, setActiveTrack] = useState<Track | "all">("all");
+  const [activeTrack, setActiveTrack] = useState<string>("all");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [refineOpen, setRefineOpen] = useState(false);
   const [refineInstruction, setRefineInstruction] = useState("");
@@ -221,7 +277,7 @@ export default function ModuleView() {
   const filteredStaticSections = useMemo(() => {
     if (!staticMod) return [];
     if (activeTrack === "all") return staticMod.sections;
-    return staticMod.sections.filter((s) => s.tracks.includes(activeTrack));
+    return staticMod.sections.filter((s) => s.tracks.includes(activeTrack as any));
   }, [staticMod, activeTrack]);
 
   if (!staticMod && !genLoading && !generatedMod) {
@@ -401,6 +457,8 @@ export default function ModuleView() {
             </TabsList>
 
             <TabsContent value="content">
+              {/* Audience mismatch banner */}
+              <AudienceMismatchBanner moduleAudience={moduleData?.audience} moduleDepth={moduleData?.depth} />
               {/* Contradictions callout */}
               {generatedMod?.contradictions && generatedMod.contradictions.length > 0 && (
                 <div className="space-y-3 mb-6">
@@ -561,22 +619,7 @@ export default function ModuleView() {
             </TabsList>
 
             <TabsContent value="content">
-              <div className="flex items-center gap-2 mb-6 flex-wrap">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <button
-                  onClick={() => setActiveTrack("all")}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    activeTrack === "all" ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"
-                  }`}
-                >
-                  All Tracks
-                </button>
-                {TRACKS.map((t) => (
-                  <button key={t.key} onClick={() => setActiveTrack(t.key)} className={`transition-opacity ${activeTrack !== "all" && activeTrack !== t.key ? "opacity-40" : ""}`}>
-                    <TrackBadge track={t.key} />
-                  </button>
-                ))}
-              </div>
+              <StaticTrackFilter activeTrack={activeTrack} setActiveTrack={setActiveTrack} />
 
               <div className="space-y-4">
                 {filteredStaticSections.map((section, i) => (

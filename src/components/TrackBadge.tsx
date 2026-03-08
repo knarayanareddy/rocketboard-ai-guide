@@ -1,17 +1,33 @@
-import { Track, TRACKS } from "@/data/onboarding-data";
+const TRACK_COLORS = [
+  { bg: "bg-primary/15", text: "text-primary", border: "border-primary/30" },
+  { bg: "bg-accent/15", text: "text-accent", border: "border-accent/30" },
+  { bg: "bg-destructive/15", text: "text-destructive", border: "border-destructive/30" },
+  { bg: "bg-secondary", text: "text-secondary-foreground", border: "border-border" },
+  { bg: "bg-primary/10", text: "text-primary", border: "border-primary/20" },
+  { bg: "bg-accent/10", text: "text-accent", border: "border-accent/20" },
+];
 
-const trackColorMap: Record<Track, string> = {
-  frontend: "bg-track-frontend/15 text-track-frontend border-track-frontend/30",
-  backend: "bg-track-backend/15 text-track-backend border-track-backend/30",
-  infra: "bg-track-infra/15 text-track-infra border-track-infra/30",
-  "cross-repo": "bg-track-cross/15 text-track-cross border-track-cross/30",
-};
+function hashTrackKey(key: string): number {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
 
-export function TrackBadge({ track }: { track: Track }) {
-  const info = TRACKS.find((t) => t.key === track);
+interface TrackBadgeProps {
+  track: string;
+  title?: string;
+}
+
+export function TrackBadge({ track, title }: TrackBadgeProps) {
+  const colorIdx = hashTrackKey(track) % TRACK_COLORS.length;
+  const colors = TRACK_COLORS[colorIdx];
+  const label = title || track.replace(/[-_]/g, " ");
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${trackColorMap[track]}`}>
-      {info?.label ?? track}
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
+      {label}
     </span>
   );
 }

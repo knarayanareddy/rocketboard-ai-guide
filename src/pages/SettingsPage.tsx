@@ -1,14 +1,16 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Trash2, User, Layers, BookText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Trash2, User, Layers, BookText, GraduationCap } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useAudiencePrefs, GlossaryDensity } from "@/hooks/useAudiencePrefs";
+import { useAudiencePrefs, GlossaryDensity, ExperienceLevel } from "@/hooks/useAudiencePrefs";
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
+import { useState } from "react";
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; desc: string }[] = [
   { key: "technical", label: "Technical", desc: "Detailed, code-oriented content" },
@@ -28,11 +30,18 @@ const GLOSSARY_DENSITY_OPTIONS: { key: GlossaryDensity; label: string; desc: str
   { key: "high", label: "High", desc: "Comprehensive, includes niche terms" },
 ];
 
+const EXPERIENCE_OPTIONS: { key: ExperienceLevel; label: string; desc: string }[] = [
+  { key: "new", label: "New", desc: "Just starting out, need extra guidance" },
+  { key: "mid", label: "Mid-Level", desc: "Some experience, familiar with basics" },
+  { key: "senior", label: "Senior", desc: "Experienced, focus on architecture & patterns" },
+];
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { audience, depth, glossaryDensity, updatePrefs } = useAudiencePrefs();
+  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, updatePrefs } = useAudiencePrefs();
   const { currentPackId } = usePack();
+  const [roleInput, setRoleInput] = useState(learnerRole || "");
 
   const handleResetProgress = async () => {
     if (!user) return;
@@ -47,6 +56,16 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["learner_notes"] });
       toast.success("Progress reset successfully");
     }
+  };
+
+  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null }>) => {
+    updatePrefs.mutate({
+      audience: overrides.audience ?? audience,
+      depth: overrides.depth ?? depth,
+      glossary_density: overrides.glossary_density ?? glossaryDensity,
+      learner_role: overrides.learner_role !== undefined ? overrides.learner_role : learnerRole,
+      experience_level: overrides.experience_level !== undefined ? overrides.experience_level : experienceLevel,
+    });
   };
 
   return (
@@ -68,7 +87,7 @@ export default function SettingsPage() {
               {AUDIENCE_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
-                  onClick={() => updatePrefs.mutate({ audience: opt.key, depth, glossary_density: glossaryDensity })}
+                  onClick={() => saveAll({ audience: opt.key })}
                   className={`text-left p-3 rounded-lg border transition-all ${
                     audience === opt.key
                       ? "border-primary/40 bg-primary/10"
@@ -95,7 +114,7 @@ export default function SettingsPage() {
               {DEPTH_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
-                  onClick={() => updatePrefs.mutate({ audience, depth: opt.key, glossary_density: glossaryDensity })}
+                  onClick={() => saveAll({ depth: opt.key })}
                   className={`text-left p-3 rounded-lg border transition-all ${
                     depth === opt.key
                       ? "border-primary/40 bg-primary/10"
@@ -122,7 +141,7 @@ export default function SettingsPage() {
               {GLOSSARY_DENSITY_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
-                  onClick={() => updatePrefs.mutate({ audience, depth, glossary_density: opt.key })}
+                  onClick={() => saveAll({ glossary_density: opt.key })}
                   className={`text-left p-3 rounded-lg border transition-all ${
                     glossaryDensity === opt.key
                       ? "border-primary/40 bg-primary/10"
@@ -133,6 +152,59 @@ export default function SettingsPage() {
                   <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Learner Profile */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <GraduationCap className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Learner Profile</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Help the AI tailor content to your role and experience.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-card-foreground mb-2 block">Your Role</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={roleInput}
+                    onChange={(e) => setRoleInput(e.target.value)}
+                    placeholder="e.g. Frontend Developer, DevOps Engineer"
+                    className="flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => saveAll({ learner_role: roleInput || null })}
+                    disabled={roleInput === (learnerRole || "")}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-card-foreground mb-2 block">Experience Level</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {EXPERIENCE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => saveAll({ experience_level: opt.key })}
+                      className={`text-left p-3 rounded-lg border transition-all ${
+                        experienceLevel === opt.key
+                          ? "border-primary/40 bg-primary/10"
+                          : "border-border hover:border-primary/20"
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-card-foreground">{opt.label}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
