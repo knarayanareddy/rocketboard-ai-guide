@@ -6,6 +6,7 @@ import { StatsStrip } from "@/components/StatsStrip";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Rocket } from "lucide-react";
 import { motion } from "framer-motion";
+import { useProgress } from "@/hooks/useProgress";
 
 const container = {
   hidden: { opacity: 0 },
@@ -22,14 +23,10 @@ const item = {
 
 const Index = () => {
   const navigate = useNavigate();
-
-  const getProgress = (moduleId: string) => {
-    const stored = localStorage.getItem(`progress-${moduleId}`);
-    return stored ? parseInt(stored, 10) : 0;
-  };
+  const { getModuleProgress, totalSectionsRead, totalSections, completedModules } = useProgress();
 
   const avgProgress = Math.round(
-    modules.reduce((a, m) => a + getProgress(m.id), 0) / modules.length
+    modules.reduce((a, m) => a + getModuleProgress(m.id), 0) / modules.length
   );
 
   return (
@@ -39,7 +36,7 @@ const Index = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 200, damping: 18 }}
+          transition={{ type: "spring" as const, stiffness: 200, damping: 18 }}
           className="mb-8"
         >
           <div className="flex items-center gap-3 mb-2">
@@ -65,7 +62,11 @@ const Index = () => {
           transition={{ delay: 0.2 }}
           className="mb-8"
         >
-          <StatsStrip getProgress={getProgress} />
+          <StatsStrip
+            completedModules={completedModules}
+            totalSectionsRead={totalSectionsRead}
+            totalSections={totalSections}
+          />
         </motion.div>
 
         {/* Progress bar + chart row */}
@@ -74,7 +75,7 @@ const Index = () => {
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, type: "spring" }}
+              transition={{ delay: 0.3, type: "spring" as const }}
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium text-foreground">Overall Progress</span>
@@ -89,16 +90,16 @@ const Index = () => {
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {modules.filter((m) => getProgress(m.id) === 100).length} of {modules.length} modules completed
+                {completedModules} of {modules.length} modules completed
               </p>
             </motion.div>
           </div>
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4, type: "spring" }}
+            transition={{ delay: 0.4, type: "spring" as const }}
           >
-            <ProgressChart getProgress={getProgress} />
+            <ProgressChart getProgress={getModuleProgress} />
           </motion.div>
         </div>
 
@@ -114,7 +115,7 @@ const Index = () => {
               <ModuleCard
                 module={mod}
                 index={i}
-                progress={getProgress(mod.id)}
+                progress={getModuleProgress(mod.id)}
                 onClick={() => navigate(`/modules/${mod.id}`)}
               />
             </motion.div>
