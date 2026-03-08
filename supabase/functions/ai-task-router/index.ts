@@ -132,7 +132,7 @@ async function callAIWithRetry(
   const parsed2 = tryParseJson(raw2);
   if (parsed2 && validateStructure(parsed2, requiredKeys)) return parsed2;
 
-  // Both attempts failed
+  // Both attempts failed — return structured error
   if (parsed2) return parsed2; // structurally incomplete but valid JSON
   if (parsed1) return parsed1;
 
@@ -140,9 +140,9 @@ async function callAIWithRetry(
     ...defaults,
     type: "error",
     error_code: "invalid_output",
-    message: "AI produced invalid JSON output after retry",
+    message: "AI produced invalid JSON output after 2 attempts. Please try again.",
+    suggested_search_queries: [],
     warnings: ["AI response was not valid JSON after 2 attempts."],
-    _raw: raw2 || raw1,
   };
 }
 
