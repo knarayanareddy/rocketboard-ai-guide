@@ -48,6 +48,7 @@ export default function OnboardingWizard() {
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [orgId, setOrgId] = useState<string | null>(() => localStorage.getItem(STORAGE_ORG_KEY));
+  const [existingOrgDetected, setExistingOrgDetected] = useState(false);
 
   // Pack state
   const [packTitle, setPackTitle] = useState("");
@@ -68,10 +69,12 @@ export default function OnboardingWizard() {
         .select("org_id")
         .eq("user_id", user.id)
         .limit(1);
-      if (data && data.length > 0 && !orgId) {
-        setOrgId(data[0].org_id);
-        localStorage.setItem(STORAGE_ORG_KEY, data[0].org_id);
-        // If on step 0 or 1, jump to pack creation
+      if (data && data.length > 0) {
+        const detectedOrgId = data[0].org_id;
+        setOrgId(detectedOrgId);
+        localStorage.setItem(STORAGE_ORG_KEY, detectedOrgId);
+        setExistingOrgDetected(true);
+        // If on welcome or org creation step, jump to pack creation
         if (step <= 1) {
           setStep(2);
         }
@@ -89,7 +92,11 @@ export default function OnboardingWizard() {
   }, [orgName]);
 
   const next = () => setStep((s) => Math.min(s + 1, 4));
-  const prev = () => setStep((s) => Math.max(s - 1, 0));
+  // Don't allow going back to org creation if org already exists
+  const prev = () => setStep((s) => {
+    const minStep = existingOrgDetected ? 2 : 0;
+    return Math.max(s - 1, minStep);
+  });
 
   const handleCreateOrg = async () => {
     if (!user || !orgName.trim()) return;
