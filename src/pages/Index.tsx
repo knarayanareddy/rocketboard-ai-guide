@@ -239,12 +239,18 @@ function SetupEmptyState({ packId }: { packId: string }) {
 const Index = () => {
   const { packId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { getModuleProgress, totalSectionsRead, totalSections: staticTotalSections, completedModules: staticCompletedModules, progressData } = useProgress();
   const { lastOpenedModuleId } = useLearnerState();
   const { currentPack } = usePackFromUrl();
   const { modules: allGenModules, modulesLoading } = useGeneratedModules();
   const { hasPackPermission } = useRole();
   const isAuthor = hasPackPermission("author");
+  const { hasCompletedOnboarding, isChecking: onboardingChecking } = useLearnerOnboardingCheck();
+  const [showLearnerWizard, setShowLearnerWizard] = useState(false);
+
+  // Show wizard for non-author learners who haven't completed onboarding
+  const shouldShowWizard = !isAuthor && !hasCompletedOnboarding && !onboardingChecking;
 
   // Learners see only published; authors see all
   const generatedModules = isAuthor ? allGenModules : allGenModules.filter(m => m.status === "published");
