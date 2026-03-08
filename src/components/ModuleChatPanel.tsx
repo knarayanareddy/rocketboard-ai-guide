@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageCircle, Send, X, Bot, User, Loader2, Trash2 } from "lucide-react";
+import { MessageCircle, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,21 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
+import { useRole } from "@/hooks/useRole";
+import { sendAITask } from "@/lib/ai-client";
+import { buildChatEnvelope } from "@/lib/envelope-builder";
+import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
 
 type Msg = { role: "user" | "assistant"; content: string };
+
+interface ChatResponse {
+  response_markdown: string;
+  referenced_spans?: { span_id: string; path: string; chunk_id: string }[];
+  unverified_claims?: { claim: string; reason: string }[];
+  contradictions?: { description: string }[];
+  suggested_search_queries?: string[];
+  warnings?: string[];
+}
 
 interface ModuleContext {
   title: string;
@@ -22,80 +35,6 @@ interface ModuleChatPanelProps {
   moduleContext: ModuleContext;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/module-chat`;
-
-async function streamChat({
-  messages,
-  moduleContext,
-  onDelta,
-  onDone,
-  signal,
-}: {
-  messages: Msg[];
-  moduleContext: ModuleContext;
-  onDelta: (text: string) => void;
-  onDone: () => void;
-  signal?: AbortSignal;
-}) {
-  const resp = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
-    body: JSON.stringify({ messages, moduleContext }),
-    signal,
-  });
-
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(err.error || `Error ${resp.status}`);
-  }
-
-  if (!resp.body) throw new Error("No response body");
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let idx: number;
-    while ((idx = buffer.indexOf("\n")) !== -1) {
-      let line = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 1);
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (line.startsWith(":") || line.trim() === "") continue;
-      if (!line.startsWith("data: ")) continue;
-      const json = line.slice(6).trim();
-      if (json === "[DONE]") { onDone(); return; }
-      try {
-        const parsed = JSON.parse(json);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch {
-        buffer = line + "\n" + buffer;
-        break;
-      }
-    }
-  }
-
-  for (const raw of buffer.split("\n")) {
-    if (!raw.startsWith("data: ")) continue;
-    const json = raw.slice(6).trim();
-    if (json === "[DONE]") continue;
-    try {
-      const p = JSON.parse(json);
-      const c = p.choices?.[0]?.delta?.content;
-      if (c) onDelta(c);
-    } catch { /* ignore */ }
-  }
-  onDone();
-}
-
 async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string) {
   await supabase.from("chat_messages").insert({
     user_id: userId,
@@ -106,56 +45,77 @@ async function saveMessage(userId: string, moduleId: string, role: string, conte
   });
 }
 
+async function fetchEvidenceSpans(packId: string, query: string): Promise<EvidenceSpan[]> {
+  try {
+    const resp = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/retrieve-spans`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ pack_id: packId, query, max_spans: 10 }),
+      }
+    );
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return data.spans || [];
+  } catch {
+    return [];
+  }
+}
+
 export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
   const { user } = useAuth();
-  const { currentPackId } = usePack();
+  const { currentPack, currentPackId } = usePack();
+  const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
-  // Load history when panel opens
   useEffect(() => {
     if (!isOpen || !user || historyLoaded) return;
     (async () => {
-      const { data } = await supabase
+      const q = supabase
         .from("chat_messages")
         .select("role, content")
         .eq("user_id", user.id)
         .eq("module_id", moduleId)
         .order("created_at", { ascending: true });
+      
+      const { data } = currentPackId
+        ? await q.eq("pack_id", currentPackId)
+        : await q;
+
       if (data && data.length > 0) {
         setMessages(data.map((d) => ({ role: d.role as "user" | "assistant", content: d.content })));
       }
       setHistoryLoaded(true);
     })();
-  }, [isOpen, user, moduleId, historyLoaded]);
+  }, [isOpen, user, moduleId, historyLoaded, currentPackId]);
 
-  // Reset when moduleId changes
   useEffect(() => {
     setMessages([]);
     setHistoryLoaded(false);
+    setLastResponse(null);
   }, [moduleId]);
 
   const scrollToBottom = useCallback(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, []);
 
-  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+  useEffect(() => { scrollToBottom(); }, [messages, lastResponse, scrollToBottom]);
 
   const clearHistory = async () => {
     if (!user) return;
-    await supabase
-      .from("chat_messages")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("module_id", moduleId);
+    await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", moduleId);
     setMessages([]);
+    setLastResponse(null);
     toast.success("Chat history cleared");
   };
 
@@ -165,44 +125,48 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
     setInput("");
 
     const userMsg: Msg = { role: "user", content: text };
-    setMessages((prev) => [...prev, userMsg]);
+    const allMessages = [...messages, userMsg];
+    setMessages(allMessages);
     setIsLoading(true);
+    setLastResponse(null);
 
-    // Save user message
     if (user) saveMessage(user.id, moduleId, "user", text, currentPackId);
 
-    let soFar = "";
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    const upsert = (chunk: string) => {
-      soFar += chunk;
-      const snapshot = soFar;
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant") {
-          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: snapshot } : m));
-        }
-        return [...prev, { role: "assistant", content: snapshot }];
-      });
-    };
-
     try {
-      await streamChat({
-        messages: [...messages, userMsg],
-        moduleContext,
-        onDelta: upsert,
-        onDone: () => {
-          setIsLoading(false);
-          // Save completed assistant message
-          if (user && soFar) saveMessage(user.id, moduleId, "assistant", soFar, currentPackId);
+      // Retrieve evidence spans
+      const spans = currentPackId ? await fetchEvidenceSpans(currentPackId, text) : [];
+
+      // Build envelope
+      const envelope = buildChatEnvelope({
+        auth: {
+          user_id: user?.id || null,
+          org_id: currentPack?.org_id || null,
+          roles: [],
+          pack_access_level: packAccessLevel,
         },
-        signal: controller.signal,
+        pack: {
+          pack_id: currentPackId,
+          pack_version: currentPack?.pack_version,
+          title: currentPack?.title,
+          description: currentPack?.description,
+          language_mode: currentPack?.language_mode,
+        },
+        messages: allMessages,
+        evidenceSpans: spans,
+        moduleKey: moduleId,
+        query: text,
       });
+
+      const result = await sendAITask(envelope);
+      const responseMarkdown = result.response_markdown || "No response received.";
+
+      setMessages((prev) => [...prev, { role: "assistant", content: responseMarkdown }]);
+      setLastResponse(result as ChatResponse);
+
+      if (user) saveMessage(user.id, moduleId, "assistant", responseMarkdown, currentPackId);
     } catch (e: any) {
-      if (e.name !== "AbortError") {
-        toast.error(e.message || "Failed to get response");
-      }
+      toast.error(e.message || "Failed to get response");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -212,17 +176,8 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
       {/* FAB */}
       <AnimatePresence>
         {!isOpen && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0 }}
-            className="fixed bottom-6 right-6 z-50"
-          >
-            <Button
-              onClick={() => setIsOpen(true)}
-              size="lg"
-              className="rounded-full h-14 w-14 shadow-lg gradient-primary border-0"
-            >
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="fixed bottom-6 right-6 z-50">
+            <Button onClick={() => setIsOpen(true)} size="lg" className="rounded-full h-14 w-14 shadow-lg gradient-primary border-0">
               <MessageCircle className="w-6 h-6" />
             </Button>
           </motion.div>
@@ -237,7 +192,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-6 right-6 z-50 w-[380px] h-[520px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-6 right-6 z-50 w-[380px] h-[560px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
@@ -294,9 +249,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                   )}
                   <div
                     className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
+                      msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                     }`}
                   >
                     {msg.role === "assistant" ? (
@@ -315,7 +268,8 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                 </div>
               ))}
 
-              {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+              {/* Loading indicator */}
+              {isLoading && (
                 <div className="flex gap-2">
                   <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Bot className="w-3.5 h-3.5 text-primary" />
@@ -325,14 +279,62 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                   </div>
                 </div>
               )}
+
+              {/* Structured response extras */}
+              {lastResponse && !isLoading && (
+                <div className="space-y-2 ml-8">
+                  {/* Citation badges */}
+                  {lastResponse.referenced_spans && lastResponse.referenced_spans.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {lastResponse.referenced_spans.map((span) => (
+                        <span
+                          key={span.span_id}
+                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
+                          title={span.path}
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          {span.span_id}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Unverified claims */}
+                  {lastResponse.unverified_claims && lastResponse.unverified_claims.length > 0 && (
+                    <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-300">
+                      <div className="flex items-center gap-1 font-medium mb-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Unverified claims
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        {lastResponse.unverified_claims.map((c, i) => (
+                          <li key={i}>{c.claim} — <span className="opacity-75">{c.reason}</span></li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Contradictions */}
+                  {lastResponse.contradictions && lastResponse.contradictions.length > 0 && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                      <div className="flex items-center gap-1 font-medium mb-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Contradictions detected
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        {lastResponse.contradictions.map((c: any, i) => (
+                          <li key={i}>{c.description || JSON.stringify(c)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Input */}
             <div className="border-t border-border p-3">
-              <form
-                onSubmit={(e) => { e.preventDefault(); send(); }}
-                className="flex gap-2"
-              >
+              <form onSubmit={(e) => { e.preventDefault(); send(); }} className="flex gap-2">
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
