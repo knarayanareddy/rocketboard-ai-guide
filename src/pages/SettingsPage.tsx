@@ -367,11 +367,13 @@ export default function SettingsPage() {
             </Select>
           </div>
 
-          {/* Generation Preferences */}
+          {/* Generation Preferences (author+ only) */}
+          {isAuthorPlus && (
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <Settings2 className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Generation Preferences</h2>
+              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Author+</span>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Control how AI generates content for you.
