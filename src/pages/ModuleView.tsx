@@ -554,7 +554,7 @@ export default function ModuleView() {
 
                     <div className="border-t border-border pt-4">
                       <div className="prose prose-sm dark:prose-invert max-w-none mb-3">
-                        <ReactMarkdown>{moduleData.endcap.ready_for_quiz_markdown || "You're ready for the quiz!"}</ReactMarkdown>
+                        <MarkdownRenderer>{moduleData.endcap.ready_for_quiz_markdown || "You're ready for the quiz!"}</MarkdownRenderer>
                       </div>
                       {moduleData.endcap.quiz_objectives?.length > 0 && (
                         <div className="flex flex-wrap gap-2">
