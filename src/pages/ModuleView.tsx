@@ -264,85 +264,154 @@ export default function ModuleView() {
 
         {/* Generated module content */}
         {isGenerated && moduleData ? (
-          <div className="space-y-4">
-            {moduleData.sections.map((section, i) => (
-              <GeneratedSectionViewer
-                key={section.section_id}
-                section={section}
-                index={i}
-                isRead={readSections.has(section.section_id)}
-                onMarkRead={canInteract ? () => handleToggleRead(section.section_id) : undefined}
-                savedNote={getNoteForSection(section.section_id)}
-                onSaveNote={canInteract ? (content) => saveNote.mutate({ sectionId: section.section_id, content }) : undefined}
-                onDeleteNote={canInteract ? () => deleteNote.mutate({ sectionId: section.section_id }) : undefined}
-              />
-            ))}
+          <Tabs defaultValue="content" className="w-full">
+            <TabsList className="bg-muted border border-border mb-6">
+              <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card">
+                <BookOpen className="w-4 h-4" /> Content
+              </TabsTrigger>
+              <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card" disabled={!canInteract}>
+                <BrainCircuit className="w-4 h-4" /> Quiz
+                {!canInteract && <Lock className="w-3 h-3 ml-1" />}
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Endcap */}
-            {readSections.size === moduleData.sections.length && moduleData.endcap && (
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-8 bg-card border border-primary/20 rounded-xl p-6"
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Lightbulb className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold text-foreground">Module Complete — Reflection</h3>
-                </div>
+            <TabsContent value="content">
+              <div className="space-y-4">
+                {moduleData.sections.map((section, i) => (
+                  <GeneratedSectionViewer
+                    key={section.section_id}
+                    section={section}
+                    index={i}
+                    isRead={readSections.has(section.section_id)}
+                    onMarkRead={canInteract ? () => handleToggleRead(section.section_id) : undefined}
+                    savedNote={getNoteForSection(section.section_id)}
+                    onSaveNote={canInteract ? (content) => saveNote.mutate({ sectionId: section.section_id, content }) : undefined}
+                    onDeleteNote={canInteract ? () => deleteNote.mutate({ sectionId: section.section_id }) : undefined}
+                  />
+                ))}
 
-                {moduleData.endcap.reflection_prompts?.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Reflect on what you learned:</p>
-                    <ol className="space-y-2 list-decimal list-inside">
-                      {moduleData.endcap.reflection_prompts.map((p, i) => (
-                        <li key={i} className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">💭 {p}</li>
-                      ))}
-                    </ol>
-                  </div>
+                {/* Endcap */}
+                {readSections.size === moduleData.sections.length && moduleData.endcap && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-8 bg-card border border-primary/20 rounded-xl p-6"
+                  >
+                    <div className="flex items-center gap-2 mb-4">
+                      <Lightbulb className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold text-foreground">Module Complete — Reflection</h3>
+                    </div>
+
+                    {moduleData.endcap.reflection_prompts?.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Reflect on what you learned:</p>
+                        <ol className="space-y-2 list-decimal list-inside">
+                          {moduleData.endcap.reflection_prompts.map((p, i) => (
+                            <li key={i} className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">💭 {p}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    <div className="border-t border-border pt-4">
+                      <div className="prose prose-sm dark:prose-invert max-w-none mb-3">
+                        <ReactMarkdown>{moduleData.endcap.ready_for_quiz_markdown || "You're ready for the quiz!"}</ReactMarkdown>
+                      </div>
+                      {moduleData.endcap.quiz_objectives?.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {moduleData.endcap.quiz_objectives.map((obj, i) => (
+                            <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md">📝 {obj}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
                 )}
 
-                <div className="border-t border-border pt-4">
-                  <div className="prose prose-sm dark:prose-invert max-w-none mb-3">
-                    <ReactMarkdown>{moduleData.endcap.ready_for_quiz_markdown || "You're ready for the quiz!"}</ReactMarkdown>
+                {/* Evidence Index */}
+                {moduleData.evidence_index && moduleData.evidence_index.length > 0 && (
+                  <div className="mt-6">
+                    <button
+                      onClick={() => setEvidenceOpen(!evidenceOpen)}
+                      className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {evidenceOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      Sources ({moduleData.evidence_index.length} topics)
+                    </button>
+                    {evidenceOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 space-y-2">
+                        {moduleData.evidence_index.map((entry, i) => (
+                          <div key={i} className="bg-muted/50 rounded-lg p-3">
+                            <span className="text-xs font-medium text-foreground">{entry.topic}</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {entry.citations.map((c) => (
+                                <CitationBadge key={c.span_id} spanId={c.span_id} />
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
                   </div>
-                  {moduleData.endcap.quiz_objectives?.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {moduleData.endcap.quiz_objectives.map((obj, i) => (
-                        <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md">📝 {obj}</span>
-                      ))}
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="quiz">
+              <ProtectedAction requiredLevel="learner" fallback={
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <Lock className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">You need learner access or higher to take quizzes.</p>
+                </div>
+              }>
+                <div className="bg-card border border-border rounded-xl p-8">
+                  {/* Author controls */}
+                  {hasPackPermission("author") && (
+                    <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                      <div className="text-xs text-muted-foreground">
+                        {generatedQuiz ? (
+                          <>Generated {new Date(generatedQuiz.created_at).toLocaleDateString()}</>
+                        ) : (
+                          <>No generated quiz yet</>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleGenerateQuiz}
+                        disabled={generateQuiz.isPending}
+                        className="gap-2 text-xs"
+                      >
+                        {generateQuiz.isPending ? (
+                          <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+                        ) : (
+                          <><RotateCcw className="w-3 h-3" /> {generatedQuiz ? "Regenerate Quiz" : "Generate Quiz"}</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {quizLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">Loading quiz...</div>
+                  ) : generatedQuiz?.quiz_data?.questions?.length ? (
+                    <QuizRunner
+                      generatedQuestions={generatedQuiz.quiz_data.questions}
+                      onComplete={handleQuizComplete}
+                    />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No quiz available for this module yet.</p>
+                      {hasPackPermission("author") && (
+                        <Button size="sm" className="mt-3 gap-2" onClick={handleGenerateQuiz} disabled={generateQuiz.isPending}>
+                          <Sparkles className="w-3 h-3" /> Generate Quiz
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
-              </motion.div>
-            )}
-
-            {/* Evidence Index */}
-            {moduleData.evidence_index && moduleData.evidence_index.length > 0 && (
-              <div className="mt-6">
-                <button
-                  onClick={() => setEvidenceOpen(!evidenceOpen)}
-                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {evidenceOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  Sources ({moduleData.evidence_index.length} topics)
-                </button>
-                {evidenceOpen && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 space-y-2">
-                    {moduleData.evidence_index.map((entry, i) => (
-                      <div key={i} className="bg-muted/50 rounded-lg p-3">
-                        <span className="text-xs font-medium text-foreground">{entry.topic}</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {entry.citations.map((c) => (
-                            <CitationBadge key={c.span_id} spanId={c.span_id} />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-            )}
-          </div>
+              </ProtectedAction>
+            </TabsContent>
+          </Tabs>
         ) : staticMod ? (
           /* Static module content */
           <Tabs defaultValue="content" className="w-full">
