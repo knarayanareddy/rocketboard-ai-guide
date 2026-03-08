@@ -552,6 +552,83 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── GENERATE PATHS HANDLER ───
+async function handleGeneratePaths(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const audience = context.audience_profile || {};
+  const spans = retrieval.evidence_spans || [];
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+
+  const systemPrompt = `You are RocketBoard AI Paths Generator. Generate structured onboarding checklists for Day 1 and Week 1.
+
+TASK: Generate onboarding paths for the "${pack.title || "unknown"}" pack.
+${packBlock}
+
+RULES:
+- Generate 3-5 steps for Day 1 (first day tasks) and 4-6 steps for Week 1 (first week tasks).
+- Each step must have: id, title, time_estimate_minutes, steps (substeps), success_criteria, citations, and optionally track_key.
+- Day 1 should focus on: environment setup, access, first code change, architecture overview.
+- Week 1 should focus on: deeper learning, shipping real work, shadowing, team integration.
+- Ground all steps in evidence spans. Cite using [S1], [S2], etc.
+- Step IDs should be "d1-1", "d1-2" for Day 1 and "w1-1", "w1-2" for Week 1.
+- Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
+- If pack has tracks, assign track_key to relevant steps.
+${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "generate_paths",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "day1": [
+    {
+      "id": "d1-1",
+      "title": "string",
+      "time_estimate_minutes": 30,
+      "steps": ["substep 1", "substep 2"],
+      "success_criteria": ["criteria 1"],
+      "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }],
+      "track_key": "string|null",
+      "audience": "${audience.audience || "technical"}",
+      "depth": "${audience.depth || "standard"}"
+    }
+  ],
+  "week1": [same structure with "w1-" prefixed IDs],
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Generate Day 1 and Week 1 onboarding paths for the "${pack.title || "unknown"}" pack using the ${spans.length} evidence spans provided.`;
+
+  try {
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "generate_paths",
+      request_id: requestId,
+      pack_id: pack.pack_id || null,
+      pack_version: pack.pack_version || 1,
+      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+      day1: [],
+      week1: [],
+      warnings: ["AI response could not be parsed as JSON"],
+    });
+    parsed.type = "generate_paths";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -576,6 +653,7 @@ serve(async (req) => {
       case "generate_glossary":
         return await handleGenerateGlossary(envelope);
       case "generate_paths":
+        return await handleGeneratePaths(envelope);
       case "generate_ask_lead":
       case "simplify_section":
       case "refine_module":
