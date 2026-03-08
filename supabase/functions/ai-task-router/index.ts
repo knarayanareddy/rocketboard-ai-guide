@@ -13,6 +13,12 @@ function errorResponse(status: number, body: object) {
   });
 }
 
+function jsonResponse(body: object) {
+  return new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 function unsupportedTask(requestId: string, taskType: string) {
   return errorResponse(200, {
     type: "error",
@@ -24,10 +30,60 @@ function unsupportedTask(requestId: string, taskType: string) {
   });
 }
 
-async function handleChat(envelope: any): Promise<Response> {
+function buildSpansBlock(spans: any[]): string {
+  if (!spans.length) return "";
+  return `\n## Evidence Spans\nUse these numbered evidence spans to ground your answers. Cite them as [S1], [S2], etc.\n\n${spans.map((s: any) => `[${s.span_id}] ${s.path} (lines ${s.start_line}-${s.end_line}):\n\`\`\`\n${s.text}\n\`\`\``).join("\n\n")}`;
+}
+
+function buildPackBlock(pack: any): string {
+  const tracks = (pack.tracks || []).map((t: any) => `- ${t.track_key}: ${t.title}`).join("\n");
+  return pack.title ? `\n## Pack Context\nPack: ${pack.title}\n${pack.description || ""}\nTracks:\n${tracks}` : "";
+}
+
+async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      stream: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const status = response.status;
+    const t = await response.text();
+    if (status === 429) throw { status: 429, message: "Rate limit exceeded. Please try again in a moment." };
+    if (status === 402) throw { status: 402, message: "AI credits exhausted. Please add credits to continue." };
+    console.error("AI gateway error:", status, t);
+    throw { status: 500, message: "AI service unavailable" };
+  }
+
+  const aiResult = await response.json();
+  return aiResult.choices?.[0]?.message?.content || "";
+}
+
+function parseAIJson(raw: string, defaults: object): any {
+  try {
+    const cleaned = raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return { ...defaults, warnings: ["AI response was not valid JSON; returning raw text."], _raw: raw };
+  }
+}
+
+// ─── CHAT HANDLER ───
+async function handleChat(envelope: any): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -36,27 +92,12 @@ async function handleChat(envelope: any): Promise<Response> {
   const audience = context.audience_profile || {};
   const conversation = context.conversation || {};
 
-  // Build evidence spans block
-  const spans = retrieval.evidence_spans || [];
-  const spansBlock = spans.length > 0
-    ? `\n## Evidence Spans\nUse these numbered evidence spans to ground your answers. Cite them as [S1], [S2], etc.\n\n${spans.map((s: any) => `[${s.span_id}] ${s.path} (lines ${s.start_line}-${s.end_line}):\n\`\`\`\n${s.text}\n\`\`\``).join("\n\n")}`
-    : "";
-
-  // Build pack context
-  const tracks = (pack.tracks || []).map((t: any) => `- ${t.track_key}: ${t.title}`).join("\n");
-  const packBlock = pack.title
-    ? `\n## Pack Context\nPack: ${pack.title}\n${pack.description || ""}\nTracks:\n${tracks}`
-    : "";
-
-  // Module context
+  const spansBlock = buildSpansBlock(retrieval.evidence_spans || []);
+  const packBlock = buildPackBlock(pack);
   const moduleBlock = context.current_module_key
     ? `\nCurrent module: ${context.current_module_key}${context.current_track_key ? ` (track: ${context.current_track_key})` : ""}`
     : "";
-
-  // Audience instructions
-  const audienceBlock = audience.audience
-    ? `\nAudience: ${audience.audience}, depth: ${audience.depth || "standard"}`
-    : "";
+  const audienceBlock = audience.audience ? `\nAudience: ${audience.audience}, depth: ${audience.depth || "standard"}` : "";
 
   const systemPrompt = `You are RocketBoard AI, an expert onboarding assistant. You help engineers learn about codebases and systems.
 
@@ -87,10 +128,11 @@ You MUST respond with VALID JSON matching this schema:
 
 Return ONLY the JSON object, no markdown fences, no extra text.`;
 
-  const messages = (conversation.messages || []).map((m: any) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  const messages = (conversation.messages || []).map((m: any) => ({ role: m.role, content: m.content }));
+
+  // For chat we need to pass the full conversation, so use callAI with the last user message
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -106,12 +148,8 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
   });
 
   if (!response.ok) {
-    if (response.status === 429) {
-      return errorResponse(429, { error: "Rate limit exceeded. Please try again in a moment." });
-    }
-    if (response.status === 402) {
-      return errorResponse(402, { error: "AI credits exhausted. Please add credits to continue." });
-    }
+    if (response.status === 429) return errorResponse(429, { error: "Rate limit exceeded." });
+    if (response.status === 402) return errorResponse(402, { error: "AI credits exhausted." });
     const t = await response.text();
     console.error("AI gateway error:", response.status, t);
     return errorResponse(500, { error: "AI service unavailable" });
@@ -120,35 +158,109 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
   const aiResult = await response.json();
   const rawContent = aiResult.choices?.[0]?.message?.content || "";
 
-  // Try to parse the JSON response
+  const parsed = parseAIJson(rawContent, {
+    type: "chat",
+    request_id: requestId,
+    pack_id: pack.pack_id || null,
+    pack_version: pack.pack_version || 1,
+    generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+    response_markdown: rawContent,
+    referenced_spans: [],
+    unverified_claims: [],
+    contradictions: [],
+    suggested_search_queries: [],
+    suggested_next: { module_key: null, track_key: null },
+  });
+  parsed.type = "chat";
+  parsed.request_id = requestId;
+  return jsonResponse(parsed);
+}
+
+// ─── MODULE PLANNER HANDLER ───
+async function handleModulePlanner(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const retrieval = envelope.retrieval || {};
+  const spans = retrieval.evidence_spans || [];
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+
+  const hasTracks = (pack.tracks || []).length > 0;
+  const tracksInstruction = hasTracks
+    ? "The pack already has these tracks defined. Assign modules to existing tracks where appropriate."
+    : "The pack has no tracks yet. Propose tracks based on what you see in the evidence.";
+
+  const systemPrompt = `You are RocketBoard AI Module Planner. Your job is to analyze codebase evidence spans and propose a structured onboarding plan.
+
+TASK:
+1. Analyze the evidence spans to understand the codebase/system architecture.
+2. Detect technology signals (e.g., "uses_kubernetes", "has_ci_pipeline", "uses_typescript", "has_monitoring", "has_auth_system", "uses_react", "has_database_migrations", etc.).
+3. ${tracksInstruction}
+4. Propose an ordered list of onboarding modules that cover the key areas a new engineer needs to learn.
+5. Ground ALL claims in evidence span citations [S1], [S2], etc.
+
+GUIDELINES:
+- Order modules from foundational (setup, architecture overview) to advanced (deployment, monitoring).
+- Each module should be completable in 10-30 minutes of reading.
+- Assign difficulty levels: beginner for setup/overview, intermediate for core systems, advanced for complex topics.
+- Include a mix of cross-cutting modules (architecture, conventions) and track-specific modules.
+${packBlock}${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "module_planner",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "detected_signals": [
+    { "signal_key": "string", "confidence": "high|medium|low", "explanation": "string", "citations": [{ "span_id": "S1" }] }
+  ],
+  "tracks": [
+    { "track_key": "string", "title": "string", "description": "string" }
+  ],
+  "module_plan": [
+    {
+      "module_key": "mod-1",
+      "title": "string",
+      "description": "string",
+      "estimated_minutes": 15,
+      "difficulty": "beginner|intermediate|advanced",
+      "rationale": "string",
+      "citations": [{ "span_id": "S1" }],
+      "track_key": "string|null",
+      "audience": "technical",
+      "depth": "standard"
+    }
+  ],
+  "contradictions": [],
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Analyze the ${spans.length} evidence spans provided and create a comprehensive onboarding module plan for the "${pack.title || "unknown"}" pack.`;
+
   try {
-    // Strip potential markdown fences
-    const cleaned = rawContent.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "").trim();
-    const parsed = JSON.parse(cleaned);
-    // Ensure required fields
-    parsed.type = "chat";
-    parsed.request_id = requestId;
-    return new Response(JSON.stringify(parsed), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch {
-    // If AI didn't return valid JSON, wrap the raw text
-    return new Response(JSON.stringify({
-      type: "chat",
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "module_planner",
       request_id: requestId,
       pack_id: pack.pack_id || null,
       pack_version: pack.pack_version || 1,
       generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
-      response_markdown: rawContent,
-      referenced_spans: [],
-      unverified_claims: [],
+      detected_signals: [],
+      tracks: [],
+      module_plan: [],
       contradictions: [],
-      suggested_search_queries: [],
-      suggested_next: { module_key: null, track_key: null },
-      warnings: ["AI response was not valid JSON; returning raw text."],
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+    parsed.type = "module_planner";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
   }
 }
 
@@ -168,6 +280,7 @@ serve(async (req) => {
       case "chat":
         return await handleChat(envelope);
       case "module_planner":
+        return await handleModulePlanner(envelope);
       case "generate_module":
       case "generate_quiz":
       case "generate_glossary":

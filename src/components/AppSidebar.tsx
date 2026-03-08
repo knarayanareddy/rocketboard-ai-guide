@@ -1,4 +1,4 @@
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +22,7 @@ const navItems = [
   { title: "Modules", url: "/modules", icon: BookOpen, minLevel: "read_only" as const },
   { title: "Packs", url: "/packs", icon: Package, minLevel: "read_only" as const },
   { title: "Sources", url: "/sources", icon: Database, minLevel: "author" as const },
+  { title: "Plan", url: "/plan", icon: Map, minLevel: "author" as const },
   { title: "Glossary", url: "/glossary", icon: BookText, minLevel: "read_only" as const },
   { title: "Paths", url: "/paths", icon: Route, minLevel: "read_only" as const },
   { title: "Ask Your Lead", url: "/ask-lead", icon: MessageSquareMore, minLevel: "read_only" as const },

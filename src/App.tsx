@@ -16,6 +16,7 @@ import AskLeadPage from "./pages/AskLeadPage";
 import PacksPage from "./pages/PacksPage";
 import PackMembersPage from "./pages/PackMembersPage";
 import SourcesPage from "./pages/SourcesPage";
+import PlanPage from "./pages/PlanPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,8 @@ const App = () => (
               <Route path="/packs/:packId/members" element={<ProtectedRoute><PackMembersPage /></ProtectedRoute>} />
               <Route path="/packs/:packId/sources" element={<ProtectedRoute><SourcesPage /></ProtectedRoute>} />
               <Route path="/sources" element={<ProtectedRoute><SourcesPage /></ProtectedRoute>} />
+              <Route path="/packs/:packId/plan" element={<ProtectedRoute><PlanPage /></ProtectedRoute>} />
+              <Route path="/plan" element={<ProtectedRoute><PlanPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
