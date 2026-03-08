@@ -216,8 +216,25 @@ export function buildGenerateAskLeadEnvelope(opts: {
   if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
   return env;
 }
-export function buildSimplifySectionEnvelope(opts: { auth: AuthInfo; pack: PackInfo }) {
-  return baseEnvelope("simplify_section", opts.auth, opts.pack);
+export function buildSimplifySectionEnvelope(opts: {
+  auth: AuthInfo;
+  pack: PackInfo;
+  moduleKey: string;
+  sectionId: string;
+  originalMarkdown: string;
+  trackKey?: string | null;
+  evidenceSpans?: EvidenceSpan[];
+  audienceProfile?: AudienceProfile;
+}) {
+  const env = baseEnvelope("simplify_section", opts.auth, opts.pack);
+  env.context.current_module_key = opts.moduleKey;
+  env.context.current_track_key = opts.trackKey || null;
+  if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
+  env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  env.retrieval.query = opts.originalMarkdown.slice(0, 200);
+  env.inputs.original_section_markdown = opts.originalMarkdown;
+  (env.inputs as any).section_id = opts.sectionId;
+  return env;
 }
 export function buildRefineModuleEnvelope(opts: {
   auth: AuthInfo;

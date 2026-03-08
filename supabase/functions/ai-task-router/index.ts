@@ -849,6 +849,96 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── SIMPLIFY SECTION HANDLER ───
+async function handleSimplifySection(envelope: any): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const context = envelope.context || {};
+  const retrieval = envelope.retrieval || {};
+  const inputs = envelope.inputs || {};
+  const audience = context.audience_profile || {};
+  const spans = retrieval.evidence_spans || [];
+  const moduleKey = context.current_module_key || "unknown";
+  const sectionId = (inputs as any).section_id || "unknown";
+  const originalMarkdown = inputs.original_section_markdown || "";
+
+  if (!originalMarkdown) {
+    return errorResponse(400, { type: "error", request_id: requestId, error_code: "missing_input", message: "inputs.original_section_markdown is required for simplify_section" });
+  }
+
+  const spansBlock = buildSpansBlock(spans);
+  const packBlock = buildPackBlock(pack);
+
+  const systemPrompt = `You are RocketBoard AI Section Simplifier. You rewrite technical content to be more accessible.
+
+TASK: Simplify the following section content for the target audience.
+${packBlock}
+
+Module: ${moduleKey}, Section: ${sectionId}
+Target audience: ${audience.audience || "non-technical"}
+Target depth: ${audience.depth || "shallow"}
+
+ORIGINAL SECTION MARKDOWN:
+---
+${originalMarkdown}
+---
+
+RULES:
+- Rewrite the content to be simpler, clearer, and more accessible for the target audience.
+- For "non-technical" audience: replace jargon with plain language, add analogies, explain acronyms.
+- For "shallow" depth: focus on key concepts and practical implications, skip implementation details.
+- For "standard" depth: keep core concepts but simplify complex explanations.
+- Preserve the essential meaning and accuracy of the content.
+- Keep code blocks but add more explanatory comments.
+- Ground explanations in evidence spans when available. Cite using [S1], [S2], etc.
+- Maintain markdown formatting (headings, lists, code blocks, emphasis).
+${spansBlock}
+
+You MUST respond with VALID JSON matching this exact schema:
+{
+  "type": "simplify_section",
+  "request_id": "${requestId}",
+  "pack_id": "${pack.pack_id || ""}",
+  "pack_version": ${pack.pack_version || 1},
+  "generation_meta": { "timestamp_iso": "${new Date().toISOString()}", "request_id": "${requestId}" },
+  "module_key": "${moduleKey}",
+  "section_id": "${sectionId}",
+  "simplified_markdown": "<your simplified markdown content>",
+  "citations": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }],
+  "audience": "${audience.audience || "non-technical"}",
+  "depth": "${audience.depth || "shallow"}",
+  "warnings": []
+}
+
+Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  const userPrompt = `Simplify this section for a ${audience.audience || "non-technical"} audience at ${audience.depth || "shallow"} depth. The original content is ${originalMarkdown.length} characters long. Use the ${spans.length} evidence spans to ground your explanation where possible.`;
+
+  try {
+    const raw = await callAI(systemPrompt, userPrompt);
+    const parsed = parseAIJson(raw, {
+      type: "simplify_section",
+      request_id: requestId,
+      pack_id: pack.pack_id || null,
+      pack_version: pack.pack_version || 1,
+      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+      module_key: moduleKey,
+      section_id: sectionId,
+      simplified_markdown: originalMarkdown,
+      citations: [],
+      audience: audience.audience || "non-technical",
+      depth: audience.depth || "shallow",
+      warnings: ["AI response could not be parsed as JSON"],
+    });
+    parsed.type = "simplify_section";
+    parsed.request_id = requestId;
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -877,6 +967,7 @@ serve(async (req) => {
       case "generate_ask_lead":
         return await handleGenerateAskLead(envelope);
       case "simplify_section":
+        return await handleSimplifySection(envelope);
       case "create_template":
       case "refine_template":
         return unsupportedTask(requestId, taskType);

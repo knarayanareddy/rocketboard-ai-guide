@@ -8,9 +8,10 @@ import { TrackBadge } from "@/components/TrackBadge";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProgress } from "@/hooks/useProgress";
 import { useNotes } from "@/hooks/useNotes";
 import { useLearnerState } from "@/hooks/useLearnerState";
@@ -18,6 +19,7 @@ import { useRole } from "@/hooks/useRole";
 import { ModuleChatPanel } from "@/components/ModuleChatPanel";
 import { useGeneratedModules, GeneratedModuleRow, GeneratedSection, ChangeLogEntry } from "@/hooks/useGeneratedModules";
 import { useGeneratedQuiz } from "@/hooks/useGeneratedQuiz";
+import { useSimplifySection, SimplifiedSection } from "@/hooks/useSimplifySection";
 import { usePack } from "@/hooks/usePack";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
-function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote }: {
+function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
   index: number;
   isRead: boolean;
@@ -34,7 +36,42 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
   savedNote?: string;
   onSaveNote?: (content: string) => void;
   onDeleteNote?: () => void;
+  moduleKey?: string;
+  trackKey?: string | null;
 }) {
+  const { simplifySection, getCachedSimplification } = useSimplifySection();
+  const [showSimplified, setShowSimplified] = useState(false);
+  const [simplified, setSimplified] = useState<SimplifiedSection | undefined>(
+    moduleKey ? getCachedSimplification(moduleKey, section.section_id) : undefined
+  );
+
+  const handleSimplify = () => {
+    if (simplified) {
+      setShowSimplified(!showSimplified);
+      return;
+    }
+    if (!moduleKey) return;
+    simplifySection.mutate(
+      {
+        moduleKey,
+        sectionId: section.section_id,
+        originalMarkdown: section.markdown,
+        trackKey,
+      },
+      {
+        onSuccess: (result) => {
+          setSimplified(result);
+          setShowSimplified(true);
+        },
+        onError: (e) => toast.error(e.message),
+      }
+    );
+  };
+
+  const isSimplifying = simplifySection.isPending;
+  const displayMarkdown = showSimplified && simplified ? simplified.simplified_markdown : section.markdown;
+  const displayCitations = showSimplified && simplified ? simplified.citations : section.citations;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -48,18 +85,54 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">§{index + 1}</span>
           <h3 className="font-semibold text-card-foreground">{section.heading}</h3>
+          {showSimplified && (
+            <Badge variant="outline" className="text-[10px] bg-accent/50 text-accent-foreground border-accent">
+              <Wand2 className="w-2.5 h-2.5 mr-0.5" /> Simplified
+            </Badge>
+          )}
         </div>
-        {onMarkRead && (
-          <button
-            onClick={onMarkRead}
-            className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
-              isRead ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            {isRead ? "Read" : "Mark as read"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {moduleKey && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleSimplify}
+                  disabled={isSimplifying}
+                  className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full transition-all ${
+                    showSimplified
+                      ? "bg-accent/20 text-accent-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-accent/10 hover:text-accent-foreground"
+                  }`}
+                >
+                  {isSimplifying ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : showSimplified ? (
+                    <Eye className="w-3 h-3" />
+                  ) : (
+                    <Wand2 className="w-3 h-3" />
+                  )}
+                  {isSimplifying ? "Simplifying..." : showSimplified ? "Original" : "Simplify"}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs max-w-xs">
+                {showSimplified
+                  ? "Switch back to the original version"
+                  : "Get a simplified version adapted to your audience profile"}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {onMarkRead && (
+            <button
+              onClick={onMarkRead}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
+                isRead ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              {isRead ? "Read" : "Mark as read"}
+            </button>
+          )}
+        </div>
       </div>
 
       {section.learning_objectives && section.learning_objectives.length > 0 && (
@@ -72,13 +145,22 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         </div>
       )}
 
-      <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-muted-foreground leading-relaxed [&>p]:my-2 [&>ul]:my-2 [&>ol]:my-2 [&>pre]:my-2">
-        <ReactMarkdown>{section.markdown}</ReactMarkdown>
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={showSimplified ? "simplified" : "original"}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.2 }}
+          className="prose prose-sm dark:prose-invert max-w-none text-sm text-muted-foreground leading-relaxed [&>p]:my-2 [&>ul]:my-2 [&>ol]:my-2 [&>pre]:my-2"
+        >
+          <ReactMarkdown>{displayMarkdown}</ReactMarkdown>
+        </motion.div>
+      </AnimatePresence>
 
-      {section.citations && section.citations.length > 0 && (
+      {displayCitations && displayCitations.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
-          {section.citations.map((c) => (
+          {displayCitations.map((c) => (
             <CitationBadge key={c.span_id} spanId={c.span_id} path={c.path} chunkId={c.chunk_id} />
           ))}
         </div>
@@ -96,7 +178,6 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
     </motion.div>
   );
 }
-
 export default function ModuleView() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
@@ -330,6 +411,8 @@ export default function ModuleView() {
                     savedNote={getNoteForSection(section.section_id)}
                     onSaveNote={canInteract ? (content) => saveNote.mutate({ sectionId: section.section_id, content }) : undefined}
                     onDeleteNote={canInteract ? () => deleteNote.mutate({ sectionId: section.section_id }) : undefined}
+                    moduleKey={moduleId}
+                    trackKey={moduleData.track_key}
                   />
                 ))}
 
