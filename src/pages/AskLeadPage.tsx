@@ -57,9 +57,13 @@ export default function AskLeadPage() {
   const totalQuestions = isGenerated ? generatedQuestions.length : askLeadQuestions.length;
 
   const handleGenerate = () => {
+    setGenError(null);
     generateAskLead.mutate(undefined, {
       onSuccess: () => toast.success("Questions generated!"),
-      onError: (e) => toast.error(e.message),
+      onError: (e) => {
+        if (e instanceof AIError) setGenError(e);
+        else toast.error(e.message);
+      },
     });
   };
 
