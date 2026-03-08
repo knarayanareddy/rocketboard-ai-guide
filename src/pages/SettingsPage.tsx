@@ -71,13 +71,14 @@ export default function SettingsPage() {
     }
   };
 
-  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null }>) => {
+  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null; output_language: string }>) => {
     updatePrefs.mutate({
       audience: overrides.audience ?? audience,
       depth: overrides.depth ?? depth,
       glossary_density: overrides.glossary_density ?? glossaryDensity,
       learner_role: overrides.learner_role !== undefined ? overrides.learner_role : learnerRole,
       experience_level: overrides.experience_level !== undefined ? overrides.experience_level : experienceLevel,
+      output_language: overrides.output_language ?? outputLanguage,
     });
   };
 
