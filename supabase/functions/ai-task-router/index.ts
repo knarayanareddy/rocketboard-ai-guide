@@ -299,15 +299,52 @@ async function authenticateRequest(req: Request): Promise<{ userId: string } | R
   return { userId: data.claims.sub as string };
 }
 
-// ─── ENVELOPE PREPROCESSOR (redaction + validation) ───
+// ─── PACK ACCESS AUTHORIZATION ───
+const AUTHOR_TASKS = new Set([
+  "generate_module", "refine_module", "generate_quiz", "generate_glossary",
+  "generate_paths", "generate_ask_lead", "create_template", "refine_template", "module_planner",
+]);
+
+async function checkPackAccess(userId: string, envelope: any): Promise<Response | null> {
+  const packId = envelope.pack?.pack_id;
+  const taskType = envelope.task?.type;
+  const requestId = envelope.task?.request_id || "unknown";
+
+  if (!packId) return null; // Some tasks may not need a pack
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  const minLevel = AUTHOR_TASKS.has(taskType) ? "author" : "learner";
+  const { data, error } = await supabase.rpc("has_pack_access", {
+    _user_id: userId,
+    _pack_id: packId,
+    _min_level: minLevel,
+  });
+
+  if (error || !data) {
+    return structuredError(requestId, "invalid_input", "Not authorized for this pack.");
+  }
+
+  return null;
+}
+
+// ─── ENVELOPE PREPROCESSOR (sanitization + redaction) ───
 function preprocessEnvelope(envelope: any): { envelope: any; warnings: string[] } | Response {
   const warnings: string[] = [];
 
-  // Validate input limits
-  const limitError = validateInputLimits(envelope);
-  if (limitError) {
-    const requestId = envelope.task?.request_id || "unknown";
-    return structuredError(requestId, "invalid_input", limitError);
+  // Sanitize inputs (graceful truncation)
+  try {
+    const sanitizeResult = sanitizeInputs(envelope);
+    warnings.push(...sanitizeResult.warnings);
+  } catch (e: any) {
+    if (e.hard_error) {
+      const requestId = envelope.task?.request_id || "unknown";
+      return structuredError(requestId, e.code || "invalid_input", e.message);
+    }
+    throw e;
   }
 
   // Second-pass redaction on evidence spans
