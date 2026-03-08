@@ -531,6 +531,7 @@ export default function ModuleView() {
                     <QuizRunner
                       generatedQuestions={generatedQuiz.quiz_data.questions}
                       onComplete={handleQuizComplete}
+                      hasContradictions={!!generatedMod?.contradictions?.length}
                     />
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
