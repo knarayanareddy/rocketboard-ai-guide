@@ -19,16 +19,18 @@ interface SectionViewerProps {
 }
 
 export function SectionViewer({ section, index, isRead, moduleKey, onMarkRead, savedNote = "", onSaveNote, onDeleteNote }: SectionViewerProps) {
-  const { currentPackId } = usePack();
-  
   // Fetch discussions for this section
   const { threads } = useDiscussions({ moduleKey, sectionId: section.id });
   
-  // Fetch helpful ratings for this section
-  const { feedbackStats } = useContentFeedback(moduleKey || "", section.id);
+  // Fetch feedback for this module (and filter for section)
+  const { packFeedback } = useContentFeedback(moduleKey);
+  
+  // Count thumbs_up for this section
+  const helpfulCount = packFeedback.filter(
+    f => f.section_id === section.id && f.feedback_type === "thumbs_up"
+  ).length;
   
   const discussionCount = threads.length;
-  const helpfulCount = feedbackStats?.thumbsUp || 0;
 
   return (
     <motion.div
