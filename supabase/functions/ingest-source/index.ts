@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
 
     const jobId = job.id;
-    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean }[] = [];
+    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any> }[] = [];
     let totalRedactions = 0;
 
     if (source_type === "github_repo") {
