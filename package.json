@@ -57,6 +57,7 @@
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.462.0",
+    "mammoth": "^1.11.0",
     "mermaid": "^11.12.3",
     "pdfjs-dist": "4.8.69",
     "prism-react-renderer": "^2.4.1",
