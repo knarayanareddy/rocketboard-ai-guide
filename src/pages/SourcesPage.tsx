@@ -278,7 +278,8 @@ export default function SourcesPage() {
                   </Button>
                 </div>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           </div>
 
           {/* First Sync CTA */}
