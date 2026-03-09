@@ -1096,6 +1096,18 @@ export default function ModuleView() {
                 </div>
               </ProtectedAction>
             </TabsContent>
+
+            {/* Discussions Tab (static) */}
+            <TabsContent value="discussions">
+              {selectedThread ? (
+                <ThreadDetail thread={selectedThread} onBack={() => setSelectedThread(null)} />
+              ) : (
+                <DiscussionList
+                  moduleKey={moduleId}
+                  onSelectThread={setSelectedThread}
+                />
+              )}
+            </TabsContent>
           </Tabs>
         ) : null}
 
