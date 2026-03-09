@@ -9,7 +9,7 @@ import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -38,6 +38,7 @@ import { useGenerationPrefs } from "@/hooks/useGenerationPrefs";
 import { validateAIOutput } from "@/lib/schema-validator";
 import { validateCitations } from "@/lib/citation-validator";
 import { KeyFilesSection } from "@/components/KeyFilesSection";
+import { CodeExplorer } from "@/components/CodeExplorer";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -310,6 +311,7 @@ export default function ModuleView() {
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
   const [changeLogOpen, setChangeLogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [codeExplorerOpen, setCodeExplorerOpen] = useState(false);
 
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
@@ -456,6 +458,20 @@ export default function ModuleView() {
                   )}
                 </div>
               )}
+
+              {/* Explore Code button for generated modules with citations */}
+              {isGenerated && moduleData?.evidence_index && moduleData.evidence_index.length > 0 && (
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-xs"
+                    onClick={() => setCodeExplorerOpen(true)}
+                  >
+                    <FolderCode className="w-3.5 h-3.5" /> Explore Code
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -509,6 +525,11 @@ export default function ModuleView() {
                 <BrainCircuit className="w-4 h-4" /> Quiz
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
               </TabsTrigger>
+              {moduleData?.evidence_index && moduleData.evidence_index.length > 0 && (
+                <TabsTrigger value="code" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
+                  <FolderCode className="w-4 h-4" /> Code
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="content">
@@ -675,6 +696,22 @@ export default function ModuleView() {
                 </div>
               </ProtectedAction>
             </TabsContent>
+
+            {/* Code Explorer Tab */}
+            {moduleData?.evidence_index && moduleData.evidence_index.length > 0 && currentPackId && (
+              <TabsContent value="code">
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <FolderCode className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <h3 className="font-medium mb-2">Explore Source Code</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Browse the source files referenced in this module with syntax highlighting and annotations.
+                  </p>
+                  <Button onClick={() => setCodeExplorerOpen(true)} className="gap-2">
+                    <FolderCode className="w-4 h-4" /> Open Code Explorer
+                  </Button>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         ) : staticMod ? (
           /* Static module content */
@@ -888,6 +925,17 @@ export default function ModuleView() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Code Explorer */}
+        {isGenerated && moduleData && currentPackId && (
+          <CodeExplorer
+            packId={currentPackId}
+            moduleTitle={title || "Module"}
+            moduleData={moduleData}
+            isOpen={codeExplorerOpen}
+            onClose={() => setCodeExplorerOpen(false)}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
