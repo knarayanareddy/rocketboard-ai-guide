@@ -1,4 +1,4 @@
-import { Github, FileText, Database, Cloud, FolderOpen, Share2, Palette, Box, ClipboardList, Ticket, FileJson } from "lucide-react";
+import { Github, FileText, Database, Cloud, FolderOpen, Share2, Palette, Box, ClipboardList, Ticket, FileJson, MessageSquare, Video, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +15,8 @@ export type SourceType =
   | "linear"
   | "figma"
   | "slack_channel"
-  | "loom_video";
+  | "loom_video"
+  | "pagerduty";
 
 interface SourceTypeOption {
   type: SourceType;
@@ -24,7 +25,7 @@ interface SourceTypeOption {
   icon: React.ReactNode;
   color: string;
   available: boolean;
-  category: "code" | "documentation" | "project" | "design" | "api";
+  category: "code" | "documentation" | "project" | "design" | "api" | "ops";
 }
 
 const SOURCE_TYPES: SourceTypeOption[] = [
@@ -74,6 +75,15 @@ const SOURCE_TYPES: SourceTypeOption[] = [
     category: "documentation",
   },
   {
+    type: "slack_channel",
+    label: "Slack",
+    description: "Channel history",
+    icon: <MessageSquare className="w-6 h-6" />,
+    color: "bg-[#4A154B] text-white",
+    available: true,
+    category: "project",
+  },
+  {
     type: "jira",
     label: "Jira",
     description: "Issues & epics",
@@ -119,6 +129,24 @@ const SOURCE_TYPES: SourceTypeOption[] = [
     category: "design",
   },
   {
+    type: "loom_video",
+    label: "Loom / Video",
+    description: "Transcripts",
+    icon: <Video className="w-6 h-6" />,
+    color: "bg-purple-500 text-white",
+    available: true,
+    category: "documentation",
+  },
+  {
+    type: "pagerduty",
+    label: "PagerDuty",
+    description: "Services & on-call",
+    icon: <AlertTriangle className="w-6 h-6" />,
+    color: "bg-green-600 text-white",
+    available: true,
+    category: "ops",
+  },
+  {
     type: "document",
     label: "Document",
     description: "Paste content",
@@ -135,29 +163,29 @@ interface SourceTypeSelectorProps {
 
 export function SourceTypeSelector({ onSelect }: SourceTypeSelectorProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto">
       {SOURCE_TYPES.map((option, i) => (
         <motion.button
           key={option.type}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: i * 0.03 }}
+          transition={{ delay: i * 0.02 }}
           onClick={() => option.available && onSelect(option.type)}
           disabled={!option.available}
           className={cn(
-            "relative flex flex-col items-center justify-center p-4 rounded-xl border transition-all",
+            "relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all",
             option.available
               ? "border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
               : "border-border/50 opacity-50 cursor-not-allowed"
           )}
         >
-          <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center mb-2", option.color)}>
+          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center mb-1.5", option.color)}>
             {option.icon}
           </div>
           <span className="text-sm font-medium text-foreground">{option.label}</span>
-          <span className="text-xs text-muted-foreground">{option.description}</span>
+          <span className="text-[10px] text-muted-foreground">{option.description}</span>
           {!option.available && (
-            <span className="absolute top-2 right-2 text-[10px] bg-muted px-1.5 py-0.5 rounded">
+            <span className="absolute top-1.5 right-1.5 text-[9px] bg-muted px-1 py-0.5 rounded">
               Soon
             </span>
           )}
@@ -179,6 +207,8 @@ export function getSourceTypeIcon(type: string) {
       return <FolderOpen className="w-4 h-4 text-yellow-500" />;
     case "sharepoint":
       return <Share2 className="w-4 h-4 text-blue-400" />;
+    case "slack_channel":
+      return <MessageSquare className="w-4 h-4 text-[#4A154B]" />;
     case "jira":
       return <Ticket className="w-4 h-4 text-blue-500" />;
     case "linear":
@@ -189,6 +219,10 @@ export function getSourceTypeIcon(type: string) {
       return <Box className="w-4 h-4 text-orange-500" />;
     case "figma":
       return <Palette className="w-4 h-4 text-purple-500" />;
+    case "loom_video":
+      return <Video className="w-4 h-4 text-purple-500" />;
+    case "pagerduty":
+      return <AlertTriangle className="w-4 h-4 text-green-500" />;
     case "document":
       return <Database className="w-4 h-4" />;
     default:
@@ -208,6 +242,8 @@ export function getSourceTypeLabel(type: string) {
       return "Google Drive";
     case "sharepoint":
       return "SharePoint";
+    case "slack_channel":
+      return "Slack Channel";
     case "jira":
       return "Jira";
     case "linear":
@@ -218,6 +254,10 @@ export function getSourceTypeLabel(type: string) {
       return "Postman Collection";
     case "figma":
       return "Figma";
+    case "loom_video":
+      return "Loom / Video";
+    case "pagerduty":
+      return "PagerDuty";
     case "document":
       return "Document";
     default:
