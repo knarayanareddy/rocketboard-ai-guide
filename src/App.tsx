@@ -26,6 +26,7 @@ import TemplatesPage from "./pages/TemplatesPage";
 import TemplateDetailPage from "./pages/TemplateDetailPage";
 import OnboardingWizard from "./pages/OnboardingWizard";
 import ReviewPage from "./pages/ReviewPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
