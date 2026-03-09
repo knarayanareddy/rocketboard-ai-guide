@@ -12,6 +12,8 @@ import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode } from "lucide-react";
 import { SectionFeedback } from "@/components/SectionFeedback";
 import { ModuleRating } from "@/components/ModuleRating";
+import { useModuleDependencies } from "@/hooks/useModuleDependencies";
+import { useGeneratedModules as useGenModulesForTitleMap } from "@/hooks/useGeneratedModules";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -306,6 +308,8 @@ export default function ModuleView() {
   const { updateLastOpened } = useLearnerState();
   const { hasPackPermission } = useRole();
   const { packLimits } = useGenerationPrefs();
+  const { checkPrerequisitesMet } = useModuleDependencies();
+  const { modules: allGenModules } = useGenModulesForTitleMap();
   const effectiveLimits = getEffectiveLimits({ max_module_words: packLimits.maxModuleWords, max_quiz_questions: packLimits.maxQuizQuestions, max_key_takeaways: packLimits.maxKeyTakeaways });
 
   const [activeTrack, setActiveTrack] = useState<string>("all");
@@ -333,6 +337,16 @@ export default function ModuleView() {
     return staticMod.sections.filter((s) => s.tracks.includes(activeTrack as any));
   }, [staticMod, activeTrack]);
 
+  // Build title map for prerequisite display
+  const moduleTitleMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allGenModules.forEach((m) => { map[m.module_key] = m.title; });
+    staticModules.forEach((m) => { map[m.id] = m.title; });
+    return map;
+  }, [allGenModules]);
+
+  const prereqCheck = checkPrerequisitesMet(moduleId || "", moduleTitleMap);
+
   if (!staticMod && !genLoading && !generatedMod) {
     return (
       <DashboardLayout>
@@ -345,6 +359,58 @@ export default function ModuleView() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64 text-muted-foreground">Loading module...</div>
+      </DashboardLayout>
+    );
+  }
+
+  // Lock screen for hard-blocked modules
+  if (prereqCheck.hasHardBlock && !hasPackPermission("author")) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-lg mx-auto mt-20 text-center">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h1 className="text-xl font-bold text-foreground mb-2">This module is locked</h1>
+          <p className="text-muted-foreground text-sm mb-8">
+            Complete the following prerequisites to unlock this module.
+          </p>
+          <div className="space-y-3 text-left max-w-sm mx-auto mb-8">
+            {prereqCheck.hardUnmet.map((u) => (
+              <div key={u.moduleKey} className="border border-border rounded-lg p-4 bg-card">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">{u.title || u.moduleKey}</span>
+                  {u.met ? (
+                    <Badge variant="outline" className="text-[10px] text-primary border-primary/30">✓ Done</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground">{u.currentProgress}% / {u.requiredProgress}%</Badge>
+                  )}
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mb-2">
+                  <div className="h-full gradient-primary" style={{ width: `${Math.min(100, (u.currentProgress / u.requiredProgress) * 100)}%` }} />
+                </div>
+                {u.requiredQuizScore > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Quiz score: {u.currentQuizScore ?? 0}% / {u.requiredQuizScore}% required
+                  </p>
+                )}
+                {!u.met && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    onClick={() => navigate(`/packs/${currentPackId}/modules/${u.moduleKey}`)}
+                  >
+                    Go to {u.title || u.moduleKey} →
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+          <Button variant="ghost" onClick={() => navigate(`/packs/${currentPackId}/modules`)}>
+            ← Back to Modules
+          </Button>
+        </div>
       </DashboardLayout>
     );
   }
@@ -415,6 +481,33 @@ export default function ModuleView() {
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </button>
+
+          {/* Soft prerequisite warning */}
+          {prereqCheck.hasSoftWarning && !prereqCheck.hasHardBlock && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="mb-4 bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3"
+            >
+              <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="text-foreground font-medium">Recommended prerequisites</p>
+                <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                  {prereqCheck.softUnmet.map((u) => (
+                    <p key={u.moduleKey}>
+                      Complete "{u.title || u.moduleKey}" first ({u.currentProgress}% done).{" "}
+                      <button
+                        onClick={() => navigate(`/packs/${currentPackId}/modules/${u.moduleKey}`)}
+                        className="text-primary hover:underline"
+                      >
+                        Go →
+                      </button>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           <div className="flex items-start gap-4 mb-2">
             {!isGenerated && staticMod && <span className="text-4xl">{staticMod.icon}</span>}
