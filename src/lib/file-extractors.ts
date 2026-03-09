@@ -161,7 +161,7 @@ async function extractXLSX(file: File): Promise<ExtractionResult> {
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
+    const jsonData = (XLSX.utils as any).sheet_to_json(sheet, { header: 1 }) as any[][];
     if (!jsonData.length) continue;
 
     const header = (jsonData[0] as any[]) || [];
