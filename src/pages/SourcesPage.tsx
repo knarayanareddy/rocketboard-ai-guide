@@ -5,6 +5,20 @@ import { ProtectedAction } from "@/components/ProtectedAction";
 import { IngestionStatus } from "@/components/IngestionStatus";
 import { ChunkBrowser } from "@/components/ChunkBrowser";
 import { BulkImportModal } from "@/components/BulkImportModal";
+import {
+  SourceTypeSelector,
+  SourceType,
+  getSourceTypeIcon,
+  getSourceTypeLabel,
+  ConfluenceForm,
+  ConfluenceConfig,
+  NotionForm,
+  NotionConfig,
+  GoogleDriveForm,
+  GoogleDriveConfig,
+  SharePointForm,
+  SharePointConfig,
+} from "@/components/sources";
 import { useSources } from "@/hooks/useSources";
 import { useIngestion } from "@/hooks/useIngestion";
 import { useRole } from "@/hooks/useRole";
@@ -22,13 +36,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   ArrowLeft,
   Database,
   Plus,
@@ -37,13 +44,14 @@ import {
   RefreshCw,
   Trash2,
   Clock,
-  CheckCircle2,
   Loader2,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+
+type AddSourceStep = "select" | "form";
 
 export default function SourcesPage() {
   const { packId } = useParams();
@@ -55,7 +63,10 @@ export default function SourcesPage() {
   const { plan } = useModulePlan();
 
   const [addOpen, setAddOpen] = useState(false);
-  const [sourceType, setSourceType] = useState<string>("github_repo");
+  const [addStep, setAddStep] = useState<AddSourceStep>("select");
+  const [selectedType, setSelectedType] = useState<SourceType | null>(null);
+  
+  // Form state for GitHub/Document
   const [sourceUri, setSourceUri] = useState("");
   const [label, setLabel] = useState("");
   const [docContent, setDocContent] = useState("");
@@ -63,6 +74,17 @@ export default function SourcesPage() {
   // Track previous chunk counts for re-sync diff
   const prevChunkCountsRef = useRef<Record<string, number>>({});
   const [showFirstSyncCTA, setShowFirstSyncCTA] = useState(false);
+
+  // Reset dialog state when closed
+  useEffect(() => {
+    if (!addOpen) {
+      setAddStep("select");
+      setSelectedType(null);
+      setSourceUri("");
+      setLabel("");
+      setDocContent("");
+    }
+  }, [addOpen]);
 
   // Celebration: detect when a job completes
   useEffect(() => {
@@ -114,39 +136,179 @@ export default function SourcesPage() {
     );
   }
 
-  const handleAddSource = async () => {
-    if (!sourceUri.trim() && sourceType !== "document") {
-      toast.error("Please enter a source URI");
+  const handleTypeSelect = (type: SourceType) => {
+    setSelectedType(type);
+    setAddStep("form");
+  };
+
+  const handleBackToSelect = () => {
+    setAddStep("select");
+    setSelectedType(null);
+  };
+
+  const handleAddGitHub = async () => {
+    if (!sourceUri.trim()) {
+      toast.error("Please enter a repository URL");
       return;
     }
-    if (sourceType === "document" && !docContent.trim()) {
+
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "github_repo",
+        sourceUri,
+        label: label || undefined,
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "github_repo",
+        sourceUri,
+        label: label || undefined,
+      });
+
+      setAddOpen(false);
+      toast.success("GitHub source added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add source");
+    }
+  };
+
+  const handleAddDocument = async () => {
+    if (!docContent.trim()) {
       toast.error("Please enter document content");
       return;
     }
 
     try {
       const source = await addSource.mutateAsync({
-        sourceType,
-        sourceUri: sourceType === "document" ? (label || "Untitled Document") : sourceUri,
+        sourceType: "document",
+        sourceUri: label || "Untitled Document",
         label: label || undefined,
       });
 
-      // Auto-trigger ingestion
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
-        sourceType,
-        sourceUri,
-        documentContent: sourceType === "document" ? docContent : undefined,
+        sourceType: "document",
+        sourceUri: label || "Untitled Document",
+        documentContent: docContent,
         label: label || undefined,
       });
 
       setAddOpen(false);
-      setSourceUri("");
-      setLabel("");
-      setDocContent("");
-      toast.success("Source added and ingestion started");
+      toast.success("Document added and ingestion started");
     } catch (err: any) {
       toast.error(err.message || "Failed to add source");
+    }
+  };
+
+  const handleAddConfluence = async (config: ConfluenceConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "confluence",
+        sourceUri: `${config.baseUrl}/wiki/spaces/${config.spaceKey}`,
+        label: label || `Confluence: ${config.spaceKey}`,
+        sourceConfig: {
+          base_url: config.baseUrl,
+          space_key: config.spaceKey,
+          auth_email: config.authEmail,
+          api_token: config.apiToken,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "confluence",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config,
+      });
+
+      setAddOpen(false);
+      toast.success("Confluence source added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add Confluence source");
+    }
+  };
+
+  const handleAddNotion = async (config: NotionConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "notion",
+        sourceUri: config.rootPageId ? `notion:${config.rootPageId}` : "notion:workspace",
+        label: label || "Notion Workspace",
+        sourceConfig: {
+          integration_token: config.integrationToken,
+          root_page_id: config.rootPageId,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "notion",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config,
+      });
+
+      setAddOpen(false);
+      toast.success("Notion source added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add Notion source");
+    }
+  };
+
+  const handleAddGoogleDrive = async (config: GoogleDriveConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "google_drive",
+        sourceUri: `gdrive:${config.folderId}`,
+        label: label || "Google Drive Folder",
+        sourceConfig: {
+          folder_id: config.folderId,
+          auth_method: config.authMethod,
+          service_account_email: config.serviceAccountEmail,
+          service_account_key: config.serviceAccountKey,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "google_drive",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config,
+      });
+
+      setAddOpen(false);
+      toast.success("Google Drive source added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add Google Drive source");
+    }
+  };
+
+  const handleAddSharePoint = async (config: SharePointConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "sharepoint",
+        sourceUri: config.siteUrl,
+        label: label || `SharePoint: ${config.documentLibrary}`,
+        sourceConfig: {
+          site_url: config.siteUrl,
+          document_library: config.documentLibrary,
+          tenant_id: config.tenantId,
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "sharepoint",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config,
+      });
+
+      setAddOpen(false);
+      toast.success("SharePoint source added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add SharePoint source");
     }
   };
 
@@ -156,6 +318,7 @@ export default function SourcesPage() {
         sourceId: source.id,
         sourceType: source.source_type,
         sourceUri: source.source_uri,
+        sourceConfig: source.source_config,
       });
       toast.success("Ingestion started");
     } catch (err: any) {
@@ -172,11 +335,146 @@ export default function SourcesPage() {
     }
   };
 
-  const sourceTypeIcon = (type: string) => {
-    switch (type) {
-      case "github_repo": return <Github className="w-4 h-4" />;
-      case "document": return <FileText className="w-4 h-4" />;
-      default: return <Database className="w-4 h-4" />;
+  const renderForm = () => {
+    if (!selectedType) return null;
+
+    switch (selectedType) {
+      case "github_repo":
+        return (
+          <div className="space-y-4">
+            <button
+              onClick={handleBackToSelect}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
+                <Github className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">GitHub Repository</h3>
+                <p className="text-xs text-muted-foreground">Import code and documentation</p>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Label</label>
+              <Input
+                placeholder="e.g., Main API Repo"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Repository URL</label>
+              <Input
+                placeholder="https://github.com/org/repo"
+                value={sourceUri}
+                onChange={(e) => setSourceUri(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={handleAddGitHub}
+              disabled={addSource.isPending || triggerIngestion.isPending}
+              className="w-full gap-2"
+            >
+              {(addSource.isPending || triggerIngestion.isPending) && (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
+              Add & Ingest
+            </Button>
+          </div>
+        );
+
+      case "document":
+        return (
+          <div className="space-y-4">
+            <button
+              onClick={handleBackToSelect}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+                <FileText className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Document</h3>
+                <p className="text-xs text-muted-foreground">Paste text content directly</p>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Label</label>
+              <Input
+                placeholder="e.g., Architecture Overview"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Content</label>
+              <Textarea
+                placeholder="Paste document content here..."
+                value={docContent}
+                onChange={(e) => setDocContent(e.target.value)}
+                rows={8}
+              />
+            </div>
+            <Button
+              onClick={handleAddDocument}
+              disabled={addSource.isPending || triggerIngestion.isPending}
+              className="w-full gap-2"
+            >
+              {(addSource.isPending || triggerIngestion.isPending) && (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
+              Add & Ingest
+            </Button>
+          </div>
+        );
+
+      case "confluence":
+        return (
+          <ConfluenceForm
+            onSubmit={handleAddConfluence}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "notion":
+        return (
+          <NotionForm
+            onSubmit={handleAddNotion}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "google_drive":
+        return (
+          <GoogleDriveForm
+            onSubmit={handleAddGoogleDrive}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+            hasConnector={false} // TODO: Check for Google Drive connector
+          />
+        );
+
+      case "sharepoint":
+        return (
+          <SharePointForm
+            onSubmit={handleAddSharePoint}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      default:
+        return null;
     }
   };
 
@@ -212,72 +510,20 @@ export default function SourcesPage() {
                     Add Source
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Add Source</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Source Type</label>
-                    <Select value={sourceType} onValueChange={setSourceType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="github_repo">
-                          <span className="flex items-center gap-2"><Github className="w-3.5 h-3.5" /> GitHub Repository</span>
-                        </SelectItem>
-                        <SelectItem value="document">
-                          <span className="flex items-center gap-2"><FileText className="w-3.5 h-3.5" /> Document</span>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1.5 block">Label</label>
-                    <Input
-                      placeholder="e.g., Main API Repo"
-                      value={label}
-                      onChange={(e) => setLabel(e.target.value)}
-                    />
-                  </div>
-
-                  {sourceType === "github_repo" && (
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-1.5 block">Repository URL</label>
-                      <Input
-                        placeholder="https://github.com/org/repo"
-                        value={sourceUri}
-                        onChange={(e) => setSourceUri(e.target.value)}
-                      />
-                    </div>
-                  )}
-
-                  {sourceType === "document" && (
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-1.5 block">Document Content</label>
-                      <Textarea
-                        placeholder="Paste document content here..."
-                        value={docContent}
-                        onChange={(e) => setDocContent(e.target.value)}
-                        rows={8}
-                      />
-                    </div>
-                  )}
-
-                  <Button
-                    onClick={handleAddSource}
-                    disabled={addSource.isPending || triggerIngestion.isPending}
-                    className="w-full gap-2"
-                  >
-                    {(addSource.isPending || triggerIngestion.isPending) && (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {addStep === "select" ? "Choose Source Type" : "Configure Source"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="pt-2">
+                    {addStep === "select" ? (
+                      <SourceTypeSelector onSelect={handleTypeSelect} />
+                    ) : (
+                      renderForm()
                     )}
-                    Add & Ingest
-                  </Button>
-                </div>
-              </DialogContent>
+                  </div>
+                </DialogContent>
               </Dialog>
             </div>
           </div>
@@ -285,7 +531,7 @@ export default function SourcesPage() {
           {/* First Sync CTA */}
           {showFirstSyncCTA && (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-              <Card className="border-primary/30 bg-primary/5">
+              <Card className="border-primary/30 bg-primary/5 mb-6">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -322,7 +568,7 @@ export default function SourcesPage() {
             <div className="text-center py-16 bg-card border border-border rounded-xl">
               <Database className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-muted-foreground text-sm">
-                No sources yet. Add a GitHub repository or document to get started.
+                No sources yet. Add a GitHub repository, document, or connect a wiki platform.
               </p>
             </div>
           ) : (
@@ -338,14 +584,15 @@ export default function SourcesPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
-                        {sourceTypeIcon(source.source_type)}
+                        {getSourceTypeIcon(source.source_type)}
                       </div>
                       <div>
                         <h3 className="font-medium text-foreground text-sm">
                           {source.label || source.source_uri}
                         </h3>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {source.source_type === "github_repo" ? source.source_uri : "Document"}
+                          {getSourceTypeLabel(source.source_type)}
+                          {source.source_type === "github_repo" && ` • ${source.source_uri}`}
                         </p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
