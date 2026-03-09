@@ -23,8 +23,10 @@ export interface CascadeModuleStatus {
   title: string;
   moduleStatus: CascadeJobStatus;
   quizStatus: CascadeJobStatus;
+  exerciseStatus: CascadeJobStatus;
   error?: string;
   quizError?: string;
+  exerciseError?: string;
 }
 
 export interface CascadeSupportStatus {
