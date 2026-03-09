@@ -47,6 +47,7 @@ export function MobileTopBar() {
   const { currentPack } = usePack();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   if (!isMobile) return null;
 
