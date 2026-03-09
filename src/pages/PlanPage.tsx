@@ -567,6 +567,7 @@ export default function PlanPage() {
   const { templates } = useTemplates();
   const { tracks } = usePackTracks();
   const cascade = useCascadeGeneration();
+  const { dependencies, addDependency, removeDependency } = useModuleDependencies();
 
   const [livePlan, setLivePlan] = useState<ModulePlanData | null>(null);
   const [planError, setPlanError] = useState<AIError | null>(null);
