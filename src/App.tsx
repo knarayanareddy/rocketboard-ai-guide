@@ -35,6 +35,7 @@ import TeamPage from "./pages/TeamPage";
 import BookmarksPage from "./pages/BookmarksPage";
 import TimelinePage from "./pages/TimelinePage";
 import ContentHealthPage from "./pages/ContentHealthPage";
+import QuizAnalyticsPage from "./pages/QuizAnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -140,6 +141,7 @@ const App = () => (
               <Route path="/packs/:packId/bookmarks" element={<ProtectedRoute><InviteAcceptor><BookmarksPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/timeline" element={<ProtectedRoute><InviteAcceptor><TimelinePage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/health" element={<ProtectedRoute><InviteAcceptor><ContentHealthPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/quiz-analytics" element={<ProtectedRoute><InviteAcceptor><QuizAnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />

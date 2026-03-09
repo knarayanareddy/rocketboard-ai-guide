@@ -1693,6 +1693,94 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_attempts: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          id: string
+          is_correct: boolean
+          module_key: string
+          pack_id: string
+          question_id: string
+          selected_choice_id: string
+          time_spent_seconds: number | null
+          user_id: string
+        }
+        Insert: {
+          attempt_number?: number
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          module_key: string
+          pack_id: string
+          question_id: string
+          selected_choice_id: string
+          time_spent_seconds?: number | null
+          user_id: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          module_key?: string
+          pack_id?: string
+          question_id?: string
+          selected_choice_id?: string
+          time_spent_seconds?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_question_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          module_key: string
+          pack_id: string
+          question_id: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          module_key: string
+          pack_id: string
+          question_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          module_key?: string
+          pack_id?: string
+          question_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_question_feedback_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_scores: {
         Row: {
           completed_at: string

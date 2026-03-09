@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SectionViewer } from "@/components/SectionViewer";
-import { QuizRunner } from "@/components/QuizRunner";
+import { QuizRunner, QuizQuestionResult } from "@/components/QuizRunner";
+import { useQuizAttempts } from "@/hooks/useQuizAttempts";
 import { TrackBadge } from "@/components/TrackBadge";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
@@ -286,6 +287,42 @@ function AudienceMismatchBanner({ moduleAudience, moduleDepth }: { moduleAudienc
     </motion.div>
   );
 }
+
+/** Wrapper that adds per-question attempt tracking to QuizRunner */
+function QuizRunnerWithTracking({ moduleKey, sectionTitles, ...props }: {
+  moduleKey: string;
+  sectionTitles: { id: string; heading: string }[];
+} & Omit<React.ComponentProps<typeof QuizRunner>, 'onQuestionAnswered' | 'onQuestionFeedback' | 'moduleKey' | 'sectionTitles'>) {
+  const { getMaxAttemptNumber, saveAttempt, saveQuestionFeedback } = useQuizAttempts(moduleKey);
+  const attemptNum = useRef(getMaxAttemptNumber() + 1);
+
+  const handleQuestionAnswered = (result: QuizQuestionResult) => {
+    saveAttempt.mutate({
+      module_key: moduleKey,
+      question_id: result.questionId,
+      selected_choice_id: result.selectedId,
+      is_correct: result.isCorrect,
+      time_spent_seconds: result.timeSpentSeconds,
+      attempt_number: attemptNum.current,
+    });
+  };
+
+  const handleQuestionFeedback = (questionId: string, feedbackType: string) => {
+    saveQuestionFeedback.mutate({ question_id: questionId, feedback_type: feedbackType });
+  };
+
+  return (
+    <QuizRunner
+      {...props}
+      moduleKey={moduleKey}
+      sectionTitles={sectionTitles}
+      onQuestionAnswered={handleQuestionAnswered}
+      onQuestionFeedback={handleQuestionFeedback}
+      attemptNumber={attemptNum.current}
+    />
+  );
+}
+
 
 export default function ModuleView() {
   const { moduleId } = useParams();
@@ -782,10 +819,12 @@ export default function ModuleView() {
                   {quizLoading ? (
                     <div className="text-center py-8 text-muted-foreground">Loading quiz...</div>
                   ) : generatedQuiz?.quiz_data?.questions?.length ? (
-                    <QuizRunner
+                    <QuizRunnerWithTracking
                       generatedQuestions={generatedQuiz.quiz_data.questions}
                       onComplete={handleQuizComplete}
                       hasContradictions={!!generatedMod?.contradictions?.length}
+                      moduleKey={moduleId || ""}
+                      sectionTitles={moduleData?.sections?.map(s => ({ id: s.section_id, heading: s.heading })) || []}
                     />
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
