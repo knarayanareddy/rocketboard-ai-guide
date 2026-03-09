@@ -324,6 +324,7 @@ function QuizRunnerWithTracking({ moduleKey, sectionTitles, ...props }: {
 }
 
 
+export default function ModuleView() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
   const { currentPackId } = usePack();
