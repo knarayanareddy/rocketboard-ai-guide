@@ -696,6 +696,22 @@ export default function ModuleView() {
                 </div>
               </ProtectedAction>
             </TabsContent>
+
+            {/* Code Explorer Tab */}
+            {moduleData?.evidence_index && moduleData.evidence_index.length > 0 && currentPackId && (
+              <TabsContent value="code">
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <FolderCode className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <h3 className="font-medium mb-2">Explore Source Code</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Browse the source files referenced in this module with syntax highlighting and annotations.
+                  </p>
+                  <Button onClick={() => setCodeExplorerOpen(true)} className="gap-2">
+                    <FolderCode className="w-4 h-4" /> Open Code Explorer
+                  </Button>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         ) : staticMod ? (
           /* Static module content */
