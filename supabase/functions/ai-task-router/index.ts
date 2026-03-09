@@ -915,9 +915,14 @@ ${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
 TASK: Generate a glossary for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
+GLOSSARY CODE EXAMPLES:
+- For technical terms that appear in the codebase, include a brief code example showing how the term is used in THIS pack's code.
+- Format the 'context' field to include a small code snippet using markdown fenced code blocks.
+- Example: Term 'AuthMiddleware' → Context: 'Used in the API gateway to protect all /api/* routes:\n\`\`\`typescript\napp.use("/api", authMiddleware, apiRouter);\n\`\`\`'
+
 RULES:
 - ${densityInstruction}
-- Each term must include: term name, definition, context (how it's used in THIS specific pack/codebase), and citations.
+- Each term must include: term name, definition, context (how it's used in THIS specific pack/codebase, with code examples where applicable), and citations.
 - Do NOT include generic programming terms (like "function", "variable", "class") UNLESS they have a pack-specific meaning.
 - Ground definitions in evidence spans. Cite using [S1], [S2], etc.
 - Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
