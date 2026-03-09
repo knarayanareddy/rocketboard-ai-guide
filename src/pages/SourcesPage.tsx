@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { IngestionStatus } from "@/components/IngestionStatus";
 import { ChunkBrowser } from "@/components/ChunkBrowser";
+import { BulkImportModal } from "@/components/BulkImportModal";
 import { useSources } from "@/hooks/useSources";
 import { useIngestion } from "@/hooks/useIngestion";
 import { useRole } from "@/hooks/useRole";
