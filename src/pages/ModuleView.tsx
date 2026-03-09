@@ -127,6 +127,13 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           )}
         </div>
         <div className="flex items-center gap-2">
+          <BookmarkButton
+            type="module_section"
+            referenceKey={`${moduleKey}:${section.section_id}`}
+            label={section.heading}
+            subtitle={`Module: ${moduleKey}`}
+            previewText={section.markdown?.slice(0, 100)}
+          />
           {moduleKey && (
             <Tooltip>
               <TooltipTrigger asChild>
