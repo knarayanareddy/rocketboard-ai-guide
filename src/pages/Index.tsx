@@ -478,6 +478,11 @@ const Index = () => {
           </motion.div>
         )}
 
+        {/* Cohort Widget */}
+        <div className="mb-8">
+          <CohortWidget />
+        </div>
+
         {/* Progress bar + chart row */}
         {(useGenerated || staticModules.length > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
