@@ -458,6 +458,20 @@ export default function ModuleView() {
                   )}
                 </div>
               )}
+
+              {/* Explore Code button for generated modules with citations */}
+              {isGenerated && moduleData?.evidence_index && moduleData.evidence_index.length > 0 && (
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-xs"
+                    onClick={() => setCodeExplorerOpen(true)}
+                  >
+                    <FolderCode className="w-3.5 h-3.5" /> Explore Code
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
