@@ -244,6 +244,73 @@ export type Database = {
           },
         ]
       }
+      cohort_members: {
+        Row: {
+          cohort_id: string
+          id: string
+          joined_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cohort_id: string
+          id?: string
+          joined_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cohort_id?: string
+          id?: string
+          joined_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohort_members_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cohorts: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          pack_id: string
+          start_date: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          pack_id: string
+          start_date?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          pack_id?: string
+          start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohorts_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_feedback: {
         Row: {
           comment: string | null
@@ -378,6 +445,127 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      discussion_replies: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string | null
+          id: string
+          is_accepted_answer: boolean | null
+          thread_id: string
+          upvote_count: number | null
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_accepted_answer?: boolean | null
+          thread_id: string
+          upvote_count?: number | null
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_accepted_answer?: boolean | null
+          thread_id?: string
+          upvote_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discussion_replies_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "discussion_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discussion_threads: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string | null
+          id: string
+          is_pinned: boolean | null
+          is_resolved: boolean | null
+          module_key: string | null
+          pack_id: string
+          reply_count: number | null
+          section_id: string | null
+          thread_type: string | null
+          title: string
+          updated_at: string | null
+          upvote_count: number | null
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_pinned?: boolean | null
+          is_resolved?: boolean | null
+          module_key?: string | null
+          pack_id: string
+          reply_count?: number | null
+          section_id?: string | null
+          thread_type?: string | null
+          title: string
+          updated_at?: string | null
+          upvote_count?: number | null
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_pinned?: boolean | null
+          is_resolved?: boolean | null
+          module_key?: string | null
+          pack_id?: string
+          reply_count?: number | null
+          section_id?: string | null
+          thread_type?: string | null
+          title?: string
+          updated_at?: string | null
+          upvote_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discussion_threads_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discussion_upvotes: {
+        Row: {
+          created_at: string | null
+          id: string
+          target_id: string
+          target_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          target_id: string
+          target_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          target_id?: string
+          target_type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       exercise_submissions: {
         Row: {
@@ -1800,6 +1988,41 @@ export type Database = {
           },
         ]
       }
+      peer_visibility_preferences: {
+        Row: {
+          allow_direct_messages: boolean | null
+          id: string
+          pack_id: string
+          show_my_activity: boolean | null
+          show_my_progress: boolean | null
+          user_id: string
+        }
+        Insert: {
+          allow_direct_messages?: boolean | null
+          id?: string
+          pack_id: string
+          show_my_activity?: boolean | null
+          show_my_progress?: boolean | null
+          user_id: string
+        }
+        Update: {
+          allow_direct_messages?: boolean | null
+          id?: string
+          pack_id?: string
+          show_my_activity?: boolean | null
+          show_my_progress?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "peer_visibility_preferences_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_invites: {
         Row: {
           accepted_at: string | null
@@ -2179,6 +2402,7 @@ export type Database = {
         Args: { _email: string; _user_id: string }
         Returns: number
       }
+      get_cohort_pack_id: { Args: { _cohort_id: string }; Returns: string }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }
         Returns: string
@@ -2187,8 +2411,13 @@ export type Database = {
         Args: { _pack_id: string; _user_id: string }
         Returns: string
       }
+      get_thread_pack_id: { Args: { _thread_id: string }; Returns: string }
       has_pack_access: {
         Args: { _min_level: string; _pack_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_cohort_member: {
+        Args: { _cohort_id: string; _user_id: string }
         Returns: boolean
       }
       is_org_admin: {
