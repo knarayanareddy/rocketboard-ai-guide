@@ -10,6 +10,7 @@ import { PackSelector } from "@/components/PackSelector";
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 import { usePack } from "@/hooks/usePack";
 import { toast } from "sonner";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   Sidebar,
   SidebarContent,
@@ -158,6 +159,11 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-3">
+        {/* Notifications - always visible */}
+        <div className="flex items-center justify-center">
+          <NotificationBell />
+        </div>
+        
         {!collapsed && user && (
           <div className="space-y-1">
             <div className="text-xs text-sidebar-foreground/60 truncate">

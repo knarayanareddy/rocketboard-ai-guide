@@ -494,6 +494,38 @@ export type Database = {
           },
         ]
       }
+      learner_badges: {
+        Row: {
+          badge_key: string
+          earned_at: string
+          id: string
+          pack_id: string | null
+          user_id: string
+        }
+        Insert: {
+          badge_key: string
+          earned_at?: string
+          id?: string
+          pack_id?: string | null
+          user_id: string
+        }
+        Update: {
+          badge_key?: string
+          earned_at?: string
+          id?: string
+          pack_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_badges_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learner_notes: {
         Row: {
           content: string
@@ -563,6 +595,79 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "learner_state_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learner_streaks: {
+        Row: {
+          current_streak: number
+          id: string
+          last_activity_date: string | null
+          longest_streak: number
+          pack_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_streak?: number
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number
+          pack_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_streak?: number
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number
+          pack_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_streaks_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learner_xp: {
+        Row: {
+          amount: number
+          earned_at: string
+          id: string
+          pack_id: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          earned_at?: string
+          id?: string
+          pack_id?: string | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          earned_at?: string
+          id?: string
+          pack_id?: string | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_xp_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -651,6 +756,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          message: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          message?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       org_members: {
         Row: {
@@ -1025,6 +1163,53 @@ export type Database = {
             foreignKeyName: "quiz_scores_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slack_integrations: {
+        Row: {
+          channel_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notify_on_invite: boolean
+          notify_on_module_complete: boolean
+          notify_on_new_source: boolean
+          pack_id: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          channel_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notify_on_invite?: boolean
+          notify_on_module_complete?: boolean
+          notify_on_new_source?: boolean
+          pack_id: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          channel_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notify_on_invite?: boolean
+          notify_on_module_complete?: boolean
+          notify_on_new_source?: boolean
+          pack_id?: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_integrations_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: true
             referencedRelation: "packs"
             referencedColumns: ["id"]
           },
