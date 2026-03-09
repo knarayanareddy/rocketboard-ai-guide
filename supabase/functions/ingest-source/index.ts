@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { pack_id, source_id, source_type, source_uri, document_content, label } = await req.json();
+    const { pack_id, source_id, source_type, source_uri, document_content, label, source_config } = await req.json();
 
     if (!pack_id || !source_id || !source_type) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
