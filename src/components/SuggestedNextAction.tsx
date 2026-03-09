@@ -60,7 +60,7 @@ export function SuggestedNextAction() {
     }
 
     // 2. Quiz ready — all sections read in a module but no quiz score
-    for (const mod of modules) {
+    for (const mod of unlockedModules) {
       const sectionCount = (mod.module_data as any)?.sections?.length || 0;
       if (sectionCount === 0) continue;
       const readCount = progressData.filter(p => p.module_id === mod.module_key).length;
