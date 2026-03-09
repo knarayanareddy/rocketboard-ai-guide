@@ -540,6 +540,11 @@ export default function SettingsPage() {
             </Button>
           </div>
 
+          {/* Slack Integration - Admin only */}
+          {hasPackPermission("admin") && (
+            <SlackSettingsSection />
+          )}
+
           {/* Reset Progress */}
           <div className="bg-card border border-destructive/20 rounded-xl p-6">
             <div className="flex items-center gap-2 mb-3">
