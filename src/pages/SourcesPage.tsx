@@ -302,7 +302,7 @@ export default function SourcesPage() {
         sourceId: source.id,
         sourceType: "sharepoint",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config,
+        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
