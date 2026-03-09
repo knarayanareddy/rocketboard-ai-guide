@@ -14,6 +14,8 @@ import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState, useMemo } from "react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { SlackSettingsSection } from "@/components/SlackSettingsSection";
+import { useRole } from "@/hooks/useRole";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -86,6 +88,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { targetReadingLevel, maxSectionsHint, packLimits, isAuthorPlus, updatePrefs: updateGenPrefs, updatePackLimits } = useGenerationPrefs();
+  const { hasPackPermission } = useRole();
   const { currentPackId, currentPack } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
   const [sectionsInput, setSectionsInput] = useState(maxSectionsHint);
@@ -536,6 +539,11 @@ export default function SettingsPage() {
               Reset & Re-run Setup
             </Button>
           </div>
+
+          {/* Slack Integration - Admin only */}
+          {hasPackPermission("admin") && (
+            <SlackSettingsSection />
+          )}
 
           {/* Reset Progress */}
           <div className="bg-card border border-destructive/20 rounded-xl p-6">

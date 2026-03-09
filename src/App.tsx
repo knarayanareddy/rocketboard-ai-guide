@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
@@ -26,6 +27,7 @@ import TemplatesPage from "./pages/TemplatesPage";
 import TemplateDetailPage from "./pages/TemplateDetailPage";
 import OnboardingWizard from "./pages/OnboardingWizard";
 import ReviewPage from "./pages/ReviewPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -83,6 +85,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <OfflineIndicator />
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
@@ -106,6 +109,7 @@ const App = () => (
               <Route path="/packs/:packId/plan" element={<ProtectedRoute><InviteAcceptor><PlanPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/members" element={<ProtectedRoute><InviteAcceptor><PackMembersPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/review" element={<ProtectedRoute><InviteAcceptor><ReviewPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/analytics" element={<ProtectedRoute><InviteAcceptor><AnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />
