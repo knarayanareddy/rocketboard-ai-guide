@@ -1027,6 +1027,9 @@ export default function ModuleView() {
                 <BrainCircuit className="w-4 h-4" /> Quiz ({staticMod.quiz.length})
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
               </TabsTrigger>
+              <TabsTrigger value="discussions" className="gap-2 data-[state=active]:bg-card">
+                <MessageCircle className="w-4 h-4" /> Discussions
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="content">
