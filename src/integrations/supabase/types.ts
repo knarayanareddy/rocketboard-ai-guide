@@ -757,6 +757,50 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_invites: boolean
+          email_milestones: boolean
+          email_module_published: boolean
+          email_weekly_digest: boolean
+          id: string
+          pack_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_invites?: boolean
+          email_milestones?: boolean
+          email_module_published?: boolean
+          email_weekly_digest?: boolean
+          id?: string
+          pack_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_invites?: boolean
+          email_milestones?: boolean
+          email_module_published?: boolean
+          email_weekly_digest?: boolean
+          id?: string
+          pack_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
