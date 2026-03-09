@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, BookOpen, BookText, StickyNote, MessageSquare, Code, Clock, ArrowRight } from "lucide-react";
+import { Search, X, BookOpen, BookText, StickyNote, MessageSquare, Code, Clock, ArrowRight, Bookmark } from "lucide-react";
 import { useGlobalSearch, SearchFilter } from "@/hooks/useGlobalSearch";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { usePack } from "@/hooks/usePack";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";

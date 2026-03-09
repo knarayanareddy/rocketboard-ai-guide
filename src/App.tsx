@@ -94,6 +94,11 @@ function GlobalSearchShortcut() {
         e.preventDefault();
         setSearchOpen(true);
       }
+      // Cmd+D / Ctrl+D: bookmark current content
+      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("bookmark-current"));
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
