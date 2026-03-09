@@ -393,6 +393,8 @@ const Index = () => {
 
         {/* Sources updated banner */}
         <SourcesUpdatedBanner />
+        {/* Pinned Bookmarks Widget */}
+        <PinnedBookmarksWidget />
         {/* Ingestion Status */}
         <div className="mb-6">
           <IngestionStatus />
