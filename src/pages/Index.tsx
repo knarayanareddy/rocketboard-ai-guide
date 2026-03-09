@@ -53,6 +53,62 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
   progress: number;
   onClick: () => void;
 }) {
+
+function PinnedBookmarksWidget() {
+  const { pinnedBookmarks } = useBookmarks();
+  const navigate = useNavigate();
+  const { currentPackId } = usePack();
+  if (pinnedBookmarks.length === 0) return null;
+  const prefix = `/packs/${currentPackId}`;
+
+  const handleNav = (b: typeof pinnedBookmarks[0]) => {
+    switch (b.bookmark_type) {
+      case "module_section":
+      case "exercise": {
+        const [modKey] = b.reference_key.split(":");
+        navigate(`${prefix}/modules/${modKey}`);
+        break;
+      }
+      case "glossary_term": navigate(`${prefix}/glossary`); break;
+      case "path_step": navigate(`${prefix}/paths`); break;
+      case "ask_lead_question": navigate(`${prefix}/ask-lead`); break;
+      default: break;
+    }
+  };
+
+  return (
+    <div className="mb-6">
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+            <Pin className="w-3.5 h-3.5 text-primary" /> Pinned References
+          </h3>
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => navigate(`${prefix}/bookmarks`)}
+          >
+            Manage Pins →
+          </button>
+        </div>
+        <div className="space-y-1.5">
+          {pinnedBookmarks.map((b) => (
+            <button
+              key={b.id}
+              className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-foreground hover:bg-muted transition-colors"
+              onClick={() => handleNav(b)}
+            >
+              <Bookmark className="w-3 h-3 text-primary shrink-0 fill-primary" />
+              <span className="truncate">{b.label ?? b.reference_key}</span>
+              <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0 ml-auto" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GeneratedModuleCard2Placeholder() { return null; }
   const isComplete = progress === 100;
   return (
     <motion.div variants={item} className="cursor-pointer group" onClick={onClick}>
