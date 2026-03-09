@@ -47,6 +47,7 @@ import { CodeExplorer } from "@/components/CodeExplorer";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { useExercises } from "@/hooks/useExercises";
 import { BookmarkButton } from "@/components/BookmarkButton";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
