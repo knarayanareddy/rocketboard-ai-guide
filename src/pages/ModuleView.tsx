@@ -482,6 +482,33 @@ export default function ModuleView() {
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </button>
 
+          {/* Soft prerequisite warning */}
+          {prereqCheck.hasSoftWarning && !prereqCheck.hasHardBlock && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="mb-4 bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3"
+            >
+              <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="text-foreground font-medium">Recommended prerequisites</p>
+                <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                  {prereqCheck.softUnmet.map((u) => (
+                    <p key={u.moduleKey}>
+                      Complete "{u.title || u.moduleKey}" first ({u.currentProgress}% done).{" "}
+                      <button
+                        onClick={() => navigate(`/packs/${currentPackId}/modules/${u.moduleKey}`)}
+                        className="text-primary hover:underline"
+                      >
+                        Go →
+                      </button>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           <div className="flex items-start gap-4 mb-2">
             {!isGenerated && staticMod && <span className="text-4xl">{staticMod.icon}</span>}
             {isGenerated && (
