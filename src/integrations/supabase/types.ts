@@ -108,6 +108,44 @@ export type Database = {
           },
         ]
       }
+      bookmarks: {
+        Row: {
+          bookmark_type: string
+          created_at: string
+          id: string
+          label: string | null
+          pack_id: string
+          reference_key: string
+          user_id: string
+        }
+        Insert: {
+          bookmark_type: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          pack_id: string
+          reference_key: string
+          user_id: string
+        }
+        Update: {
+          bookmark_type?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          pack_id?: string
+          reference_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmarks_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
@@ -139,6 +177,141 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "chat_messages_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          is_resolved: boolean
+          module_key: string
+          pack_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          section_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          is_resolved?: boolean
+          module_key: string
+          pack_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          is_resolved?: boolean
+          module_key?: string
+          pack_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_feedback_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_freshness: {
+        Row: {
+          chunk_hash_at_generation: Json | null
+          chunks_snapshot: Json | null
+          id: string
+          is_stale: boolean
+          last_checked_at: string | null
+          module_key: string
+          pack_id: string
+          referenced_chunk_ids: string[] | null
+          section_id: string
+          staleness_details: Json | null
+        }
+        Insert: {
+          chunk_hash_at_generation?: Json | null
+          chunks_snapshot?: Json | null
+          id?: string
+          is_stale?: boolean
+          last_checked_at?: string | null
+          module_key: string
+          pack_id: string
+          referenced_chunk_ids?: string[] | null
+          section_id: string
+          staleness_details?: Json | null
+        }
+        Update: {
+          chunk_hash_at_generation?: Json | null
+          chunks_snapshot?: Json | null
+          id?: string
+          is_stale?: boolean
+          last_checked_at?: string | null
+          module_key?: string
+          pack_id?: string
+          referenced_chunk_ids?: string[] | null
+          section_id?: string
+          staleness_details?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_freshness_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          module_key: string
+          pack_id: string
+          rating: number
+          section_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module_key: string
+          pack_id: string
+          rating: number
+          section_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module_key?: string
+          pack_id?: string
+          rating?: number
+          section_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_ratings_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -472,6 +645,50 @@ export type Database = {
           },
         ]
       }
+      knowledge_checks: {
+        Row: {
+          check_type: string
+          created_at: string
+          id: string
+          module_key: string
+          pack_id: string
+          questions_data: Json | null
+          score: number
+          total: number
+          user_id: string
+        }
+        Insert: {
+          check_type: string
+          created_at?: string
+          id?: string
+          module_key: string
+          pack_id: string
+          questions_data?: Json | null
+          score: number
+          total: number
+          user_id: string
+        }
+        Update: {
+          check_type?: string
+          created_at?: string
+          id?: string
+          module_key?: string
+          pack_id?: string
+          questions_data?: Json | null
+          score?: number
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_checks_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_chunks: {
         Row: {
           chunk_id: string
@@ -560,6 +777,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "learner_badges_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learner_milestone_progress: {
+        Row: {
+          completed_at: string | null
+          id: string
+          milestone_id: string
+          pack_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          milestone_id: string
+          pack_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          milestone_id?: string
+          pack_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_milestone_progress_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learner_milestone_progress_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -712,6 +971,99 @@ export type Database = {
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_checklist: {
+        Row: {
+          created_at: string
+          id: string
+          pack_id: string
+          priority: string
+          suggested_topics: string[] | null
+          team_member_id: string
+          time_estimate_minutes: number | null
+          track_key: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pack_id: string
+          priority?: string
+          suggested_topics?: string[] | null
+          team_member_id: string
+          time_estimate_minutes?: number | null
+          track_key?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pack_id?: string
+          priority?: string
+          suggested_topics?: string[] | null
+          team_member_id?: string
+          time_estimate_minutes?: number | null
+          track_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_checklist_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_checklist_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_progress: {
+        Row: {
+          id: string
+          is_met: boolean
+          met_at: string | null
+          notes: string | null
+          pack_id: string
+          team_member_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_met?: boolean
+          met_at?: string | null
+          notes?: string | null
+          pack_id: string
+          team_member_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_met?: boolean
+          met_at?: string | null
+          notes?: string | null
+          pack_id?: string
+          team_member_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_progress_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_progress_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -874,6 +1226,88 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      onboarding_milestones: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_required: boolean
+          pack_id: string
+          phase: string
+          sort_order: number
+          target_type: string
+          target_value: Json | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          pack_id: string
+          phase?: string
+          sort_order?: number
+          target_type?: string
+          target_value?: Json | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          pack_id?: string
+          phase?: string
+          sort_order?: number
+          target_type?: string
+          target_value?: Json | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_milestones_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_schedule: {
+        Row: {
+          created_at: string
+          expected_completion_date: string | null
+          id: string
+          pack_id: string
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_completion_date?: string | null
+          id?: string
+          pack_id: string
+          start_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expected_completion_date?: string | null
+          id?: string
+          pack_id?: string
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_schedule_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       org_members: {
         Row: {
@@ -1256,6 +1690,44 @@ export type Database = {
           },
         ]
       }
+      review_schedule: {
+        Row: {
+          id: string
+          last_reviewed_at: string | null
+          module_key: string
+          next_review_date: string
+          pack_id: string
+          review_count: number
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_reviewed_at?: string | null
+          module_key: string
+          next_review_date?: string
+          pack_id: string
+          review_count?: number
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_reviewed_at?: string | null
+          module_key?: string
+          next_review_date?: string
+          pack_id?: string
+          review_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_schedule_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slack_integrations: {
         Row: {
           channel_name: string | null
@@ -1298,6 +1770,62 @@ export type Database = {
             foreignKeyName: "slack_integrations_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: true
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          areas_of_expertise: string[] | null
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          email: string | null
+          github_handle: string | null
+          id: string
+          is_auto_detected: boolean
+          name: string
+          pack_id: string
+          role_title: string | null
+          services_owned: string[] | null
+          slack_handle: string | null
+        }
+        Insert: {
+          areas_of_expertise?: string[] | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          github_handle?: string | null
+          id?: string
+          is_auto_detected?: boolean
+          name: string
+          pack_id: string
+          role_title?: string | null
+          services_owned?: string[] | null
+          slack_handle?: string | null
+        }
+        Update: {
+          areas_of_expertise?: string[] | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          github_handle?: string | null
+          id?: string
+          is_auto_detected?: boolean
+          name?: string
+          pack_id?: string
+          role_title?: string | null
+          services_owned?: string[] | null
+          slack_handle?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
             referencedRelation: "packs"
             referencedColumns: ["id"]
           },

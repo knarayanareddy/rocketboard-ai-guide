@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle, ThemeToggleCompact } from "@/components/ThemeToggle";
@@ -81,11 +81,16 @@ export function AppSidebar() {
     { title: "Glossary", url: `${packPrefix}/glossary`, icon: BookText, minLevel: "read_only" as const, end: false },
     { title: "Paths", url: `${packPrefix}/paths`, icon: Route, minLevel: "read_only" as const, end: false },
     { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only" as const, end: false },
+    { title: "Team", url: `${packPrefix}/team`, icon: Users, minLevel: "read_only" as const, end: false },
+    { title: "Saved", url: `${packPrefix}/bookmarks`, icon: Bookmark, minLevel: "read_only" as const, end: false },
+    { title: "My Timeline", url: `${packPrefix}/timeline`, icon: Calendar, minLevel: "read_only" as const, end: false },
     { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author" as const, end: false },
     { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author" as const, end: false },
     { title: "Review", url: `${packPrefix}/review`, icon: CheckCircle2, minLevel: "author" as const, end: false },
     { title: "Analytics", url: `${packPrefix}/analytics`, icon: BarChart3, minLevel: "admin" as const, end: false },
     { title: "Members", url: `${packPrefix}/members`, icon: Shield, minLevel: "admin" as const, end: false },
+    { title: "Feedback", url: `${packPrefix}/feedback`, icon: MessageCircle, minLevel: "author" as const, end: false },
+    { title: "Content Health", url: `${packPrefix}/health`, icon: Activity, minLevel: "author" as const, end: false },
     { title: "Templates", url: "/templates", icon: Layout, minLevel: "admin" as const, end: false },
     { title: "Settings", url: "/settings", icon: Settings, minLevel: "read_only" as const, end: false },
   ];
