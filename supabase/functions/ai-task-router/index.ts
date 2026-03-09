@@ -672,6 +672,20 @@ ${moduleDesc ? `Description: ${moduleDesc}` : ""}
 ${trackKey ? `Track: ${trackKey}` : ""}
 ${packBlock}
 
+CODE INCLUSION RULES (CRITICAL FOR DEVELOPER ONBOARDING):
+- When an evidence span contains source code that is relevant to the section you are writing, you MUST include the relevant code snippet in your markdown using a fenced code block with the correct language.
+- Format code snippets as:
+  \`\`\`typescript
+  // filepath: src/auth/middleware.ts (lines 45-60)
+  [relevant code here]
+  \`\`\`
+- Include a filepath comment at the top of each code block so the learner knows where the code lives.
+- Every module section that discusses implementation details MUST include at least one code snippet from evidence.
+- For configuration files (YAML, JSON, .env, Terraform, Docker, etc.), include the relevant config snippet.
+- Keep code snippets focused — show the relevant 10-30 lines, not entire files. Use // ... to indicate omitted lines.
+- After each code snippet, briefly explain what the code does and why it matters for the learner.
+- If a section discusses architecture or patterns, include the code that IMPLEMENTS that pattern, not just a description.
+
 RULES:
 - Generate 4-7 sections, each with a clear heading, markdown content, learning objectives, note prompts, and citations.
 - Ground ALL content in evidence spans. Cite using [S1], [S2], etc.
@@ -683,6 +697,9 @@ RULES:
 ${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting with code blocks, lists, and emphasis where appropriate.
 - Section IDs should be like "sec-1", "sec-2", etc.
+
+EVIDENCE INDEX:
+In the evidence_index field, group your citations by FILE PATH, not just by topic. Each entry should map a source file to the topics it covers. This helps create a 'Key Files' reference for the learner.
 
 CONTRADICTION HANDLING: If you encounter evidence spans that contradict each other, you MUST include them in a top-level "contradictions" array in your output. For each contradiction, provide: topic (what the conflict is about), side_a (the first claim with its supporting citations), side_b (the opposing claim with its supporting citations), how_to_resolve (practical suggestions for resolving the ambiguity). Do NOT silently choose one side. Surface all conflicts.
 ${spansBlock}
