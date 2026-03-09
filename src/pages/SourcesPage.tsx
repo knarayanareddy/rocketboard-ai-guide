@@ -11,6 +11,8 @@ import {
   SourceType,
   getSourceTypeIcon,
   getSourceTypeLabel,
+  DocumentForm,
+  UrlImportConfig,
   ConfluenceForm,
   ConfluenceConfig,
   NotionForm,
