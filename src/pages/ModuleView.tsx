@@ -655,7 +655,7 @@ export default function ModuleView() {
               animate={{ opacity: 1, height: "auto" }}
               className="mb-4 bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3"
             >
-              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
               <div className="text-sm">
                 <p className="text-foreground font-medium">Recommended prerequisites</p>
                 <div className="text-xs text-muted-foreground mt-1 space-y-1">
