@@ -208,8 +208,13 @@ export function useDiscussions(filters?: ThreadFilters) {
           .from("discussion_upvotes")
           .insert({ user_id: user!.id, target_type: targetType, target_id: targetId } as any);
         if (error) throw error;
-        const table = targetType === "thread" ? "discussion_threads" : "discussion_replies";
-        await supabase.rpc("increment_upvote" as any, { p_table: table, p_id: targetId }).catch(() => {});
+        if (targetType === "thread") {
+          const { data: t } = await supabase.from("discussion_threads").select("upvote_count").eq("id", targetId).single();
+          await supabase.from("discussion_threads").update({ upvote_count: ((t as any)?.upvote_count ?? 0) + 1 } as any).eq("id", targetId);
+        } else {
+          const { data: r } = await supabase.from("discussion_replies").select("upvote_count").eq("id", targetId).single();
+          await supabase.from("discussion_replies").update({ upvote_count: ((r as any)?.upvote_count ?? 0) + 1 } as any).eq("id", targetId);
+        }
         return { action: "added" as const };
       }
     },
