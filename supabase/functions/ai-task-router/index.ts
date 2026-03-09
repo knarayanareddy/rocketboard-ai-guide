@@ -479,6 +479,12 @@ async function handleGlobalChat(envelope: any, extraWarnings: string[] = []): Pr
 - General questions about the codebase and onboarding workflow
 
 ${SECURITY_RULES_BLOCK}
+CODE IN CHAT RESPONSES:
+- When answering questions about how something works in the codebase, ALWAYS include the relevant code snippet from evidence spans.
+- Format as fenced code blocks with language identifier.
+- Include a filepath comment (e.g., // filepath: src/auth/middleware.ts) so the learner can find the file.
+- If the learner asks 'how does X work?', show them the code that implements X, then explain it.
+
 RULES:
 - Be friendly, concise, and helpful.
 - If evidence spans are provided, ground your answers in them and cite using [S1], [S2] etc.
