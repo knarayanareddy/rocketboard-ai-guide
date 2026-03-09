@@ -1019,7 +1019,7 @@ export default function ModuleView() {
         ) : staticMod ? (
           /* Static module content */
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="bg-muted border border-border mb-6">
+            <TabsList className="bg-muted border border-border mb-6 overflow-x-auto w-full flex-wrap sm:flex-nowrap">
               <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>
