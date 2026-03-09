@@ -159,6 +159,11 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-3">
+        {/* Notifications - always visible */}
+        <div className="flex items-center justify-center">
+          <NotificationBell />
+        </div>
+        
         {!collapsed && user && (
           <div className="space-y-1">
             <div className="text-xs text-sidebar-foreground/60 truncate">
