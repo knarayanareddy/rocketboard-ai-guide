@@ -857,6 +857,12 @@ export default function SourcesPage() {
             </motion.div>
           )}
 
+          {/* Suggested Sources */}
+          <SuggestedSources
+            existingTypes={sources.map(s => s.source_type)}
+            onAddSource={handleSuggestedSource}
+          />
+
           {/* Ingestion Status */}
           <div className="mb-6">
             <IngestionStatus />
