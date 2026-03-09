@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { Rocket, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { Rocket, Mail, Lock, User, ArrowRight, Loader2, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
