@@ -10,6 +10,7 @@ import { PackSelector } from "@/components/PackSelector";
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 import { usePack } from "@/hooks/usePack";
 import { toast } from "sonner";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   Sidebar,
   SidebarContent,
