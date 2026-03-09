@@ -47,7 +47,7 @@ export default function OnboardingWizard() {
   // Org state
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
-  const [orgId, setOrgId] = useState<string | null>(() => localStorage.getItem(STORAGE_ORG_KEY));
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [existingOrgDetected, setExistingOrgDetected] = useState(false);
 
   // Pack state
@@ -77,6 +77,14 @@ export default function OnboardingWizard() {
         // If on welcome or org creation step, jump to pack creation
         if (step <= 1) {
           setStep(2);
+        }
+      } else {
+        // No org found — clear any stale localStorage and reset to org creation
+        localStorage.removeItem(STORAGE_ORG_KEY);
+        localStorage.removeItem(STORAGE_PACK_KEY);
+        setOrgId(null);
+        if (step > 1) {
+          setStep(0);
         }
       }
     };
