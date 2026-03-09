@@ -203,13 +203,15 @@ export default function SourcesPage() {
               </div>
             </div>
 
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Source
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <BulkImportModal existingUris={sources.map(s => s.source_uri)} />
+              <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Source
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Add Source</DialogTitle>
