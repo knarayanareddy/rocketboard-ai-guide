@@ -1,4 +1,6 @@
-import { Menu, Settings, LogOut, User } from "lucide-react";
+import { useState } from "react";
+import { Menu, Settings, LogOut, User, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import { useIsMobile } from "@/hooks/use-mobile";
