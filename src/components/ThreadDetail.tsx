@@ -163,7 +163,7 @@ export function ThreadDetail({ thread, onBack }: ThreadDetailProps) {
                         </span>
                       </div>
                       <div className="mt-2 prose prose-sm max-w-none dark:prose-invert">
-                        <MarkdownRenderer content={reply.content} />
+                        <MarkdownRenderer>{reply.content}</MarkdownRenderer>
                       </div>
                       <div className="flex items-center gap-2 mt-3">
                         <button
