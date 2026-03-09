@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit } from "lucide-react";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle, ThemeToggleCompact } from "@/components/ThemeToggle";
