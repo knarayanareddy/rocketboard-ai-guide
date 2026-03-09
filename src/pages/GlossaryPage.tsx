@@ -4,11 +4,12 @@ import { glossaryTerms } from "@/data/glossary-data";
 import { TrackBadge } from "@/components/TrackBadge";
 import { CitationBadge } from "@/components/CitationBadge";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { useGeneratedGlossary, GlossaryTerm } from "@/hooks/useGeneratedGlossary";
 import { useRole } from "@/hooks/useRole";
 import { usePackTracks } from "@/hooks/usePackTracks";
 import { AIError } from "@/lib/ai-errors";
-import { Search, BookText, Sparkles, RotateCcw, Loader2 } from "lucide-react";
+import { Search, BookText, Sparkles, RotateCcw, Loader2, Code } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -180,9 +181,22 @@ export default function GlossaryPage() {
                 className="bg-card border border-border rounded-xl p-5 hover:border-primary/20 transition-colors"
               >
                 <div className="flex-1">
-                  <h3 className="font-semibold text-card-foreground font-mono text-sm">{term.term}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-card-foreground font-mono text-sm">{term.term}</h3>
+                    {term.context && term.context.includes("```") && (
+                      <Code className="w-3 h-3 text-muted-foreground" />
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{term.definition}</p>
-                  <p className="text-xs text-muted-foreground/70 mt-2 italic">{term.context}</p>
+                  {term.context && (
+                    <div className="text-xs text-muted-foreground/70 mt-2 italic">
+                      {term.context.includes("```") ? (
+                        <MarkdownRenderer className="prose-xs">{term.context}</MarkdownRenderer>
+                      ) : (
+                        <p>{term.context}</p>
+                      )}
+                    </div>
+                  )}
                   {term.citations && term.citations.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border/50">
                       {term.citations.map((c) => (

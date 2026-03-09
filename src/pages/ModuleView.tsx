@@ -37,6 +37,7 @@ import { getEffectiveLimits } from "@/lib/limits";
 import { useGenerationPrefs } from "@/hooks/useGenerationPrefs";
 import { validateAIOutput } from "@/lib/schema-validator";
 import { validateCitations } from "@/lib/citation-validator";
+import { KeyFilesSection } from "@/components/KeyFilesSection";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -473,6 +474,14 @@ export default function ModuleView() {
                 ))}
               </ul>
             </div>
+          )}
+
+          {/* Key Files section */}
+          {isGenerated && moduleData?.evidence_index && currentPackId && (
+            <KeyFilesSection
+              evidenceIndex={moduleData.evidence_index}
+              packId={currentPackId}
+            />
           )}
 
           {/* Progress bar */}

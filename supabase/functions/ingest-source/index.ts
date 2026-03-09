@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
 
     const jobId = job.id;
-    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean }[] = [];
+    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any> }[] = [];
     let totalRedactions = 0;
 
     if (source_type === "github_repo") {
@@ -194,14 +194,18 @@ Deno.serve(async (req) => {
             console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${redactionCount} secret(s) redacted`);
           }
           const hash = await sha256(content);
+          const repoName = repo.replace(/\.git$/, "");
+          const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
+          const ext = filepath.split(".").pop() || "";
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
-            path: `repo:${owner}/${repo.replace(/\.git$/, "")}/${filepath}`,
+            path: `repo:${owner}/${repoName}/${filepath}`,
             start_line: chunk.start,
             end_line: chunk.end,
             content,
             content_hash: hash,
             is_redacted: isRedacted,
+            metadata: { source_url: sourceUrl, file_type: ext },
           });
         }
 
@@ -231,6 +235,7 @@ Deno.serve(async (req) => {
           content,
           content_hash: hash,
           is_redacted: isRedacted,
+          metadata: { file_type: "document", source_url: source_uri || null },
         });
       }
     } else if (["confluence", "notion", "google_drive", "sharepoint", "jira", "linear", "openapi_spec", "postman_collection", "figma", "slack_channel", "loom_video", "pagerduty"].includes(source_type)) {

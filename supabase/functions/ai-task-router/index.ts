@@ -377,6 +377,12 @@ async function handleChat(envelope: any, extraWarnings: string[] = []): Promise<
 
   const systemPrompt = `You are RocketBoard AI, an expert onboarding assistant. You help engineers learn about codebases and systems.
 ${SECURITY_RULES_BLOCK}
+CODE IN CHAT RESPONSES:
+- When answering questions about how something works in the codebase, ALWAYS include the relevant code snippet from evidence spans.
+- Format as fenced code blocks with language identifier.
+- Include a filepath comment (e.g., // filepath: src/auth/middleware.ts) so the learner can find the file.
+- If the learner asks 'how does X work?', show them the code that implements X, then explain it.
+
 RULES:
 - Ground your answers in the evidence spans provided. Cite spans using [S1], [S2] etc.
 - If you cannot find evidence for a claim, mark it as unverified.
@@ -479,6 +485,12 @@ async function handleGlobalChat(envelope: any, extraWarnings: string[] = []): Pr
 - General questions about the codebase and onboarding workflow
 
 ${SECURITY_RULES_BLOCK}
+CODE IN CHAT RESPONSES:
+- When answering questions about how something works in the codebase, ALWAYS include the relevant code snippet from evidence spans.
+- Format as fenced code blocks with language identifier.
+- Include a filepath comment (e.g., // filepath: src/auth/middleware.ts) so the learner can find the file.
+- If the learner asks 'how does X work?', show them the code that implements X, then explain it.
+
 RULES:
 - Be friendly, concise, and helpful.
 - If evidence spans are provided, ground your answers in them and cite using [S1], [S2] etc.
@@ -672,6 +684,20 @@ ${moduleDesc ? `Description: ${moduleDesc}` : ""}
 ${trackKey ? `Track: ${trackKey}` : ""}
 ${packBlock}
 
+CODE INCLUSION RULES (CRITICAL FOR DEVELOPER ONBOARDING):
+- When an evidence span contains source code that is relevant to the section you are writing, you MUST include the relevant code snippet in your markdown using a fenced code block with the correct language.
+- Format code snippets as:
+  \`\`\`typescript
+  // filepath: src/auth/middleware.ts (lines 45-60)
+  [relevant code here]
+  \`\`\`
+- Include a filepath comment at the top of each code block so the learner knows where the code lives.
+- Every module section that discusses implementation details MUST include at least one code snippet from evidence.
+- For configuration files (YAML, JSON, .env, Terraform, Docker, etc.), include the relevant config snippet.
+- Keep code snippets focused — show the relevant 10-30 lines, not entire files. Use // ... to indicate omitted lines.
+- After each code snippet, briefly explain what the code does and why it matters for the learner.
+- If a section discusses architecture or patterns, include the code that IMPLEMENTS that pattern, not just a description.
+
 RULES:
 - Generate 4-7 sections, each with a clear heading, markdown content, learning objectives, note prompts, and citations.
 - Ground ALL content in evidence spans. Cite using [S1], [S2], etc.
@@ -683,6 +709,9 @@ RULES:
 ${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting with code blocks, lists, and emphasis where appropriate.
 - Section IDs should be like "sec-1", "sec-2", etc.
+
+EVIDENCE INDEX:
+In the evidence_index field, group your citations by FILE PATH, not just by topic. Each entry should map a source file to the topics it covers. This helps create a 'Key Files' reference for the learner.
 
 CONTRADICTION HANDLING: If you encounter evidence spans that contradict each other, you MUST include them in a top-level "contradictions" array in your output. For each contradiction, provide: topic (what the conflict is about), side_a (the first claim with its supporting citations), side_b (the opposing claim with its supporting citations), how_to_resolve (practical suggestions for resolving the ambiguity). Do NOT silently choose one side. Surface all conflicts.
 ${spansBlock}
@@ -794,6 +823,11 @@ TASK: Generate up to ${limits.max_quiz_questions || 5} quiz questions for module
 ${moduleContext}
 ${packBlock}
 
+QUIZ CODE INCLUSION:
+- For questions about implementation, include a code snippet IN the question prompt (e.g., 'What does this code do?', 'What's missing from this configuration?').
+- In explanation_markdown, include the relevant code with annotations explaining why the correct answer is correct.
+- This helps learners connect quiz questions to actual codebase patterns.
+
 RULES:
 - Each question must have exactly 4 choices with unique IDs (e.g., "q1-a", "q1-b", etc.).
 - One choice must be marked as correct via correct_choice_id.
@@ -887,9 +921,14 @@ ${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
 TASK: Generate a glossary for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
+GLOSSARY CODE EXAMPLES:
+- For technical terms that appear in the codebase, include a brief code example showing how the term is used in THIS pack's code.
+- Format the 'context' field to include a small code snippet using markdown fenced code blocks.
+- Example: Term 'AuthMiddleware' → Context: 'Used in the API gateway to protect all /api/* routes:\n\`\`\`typescript\napp.use("/api", authMiddleware, apiRouter);\n\`\`\`'
+
 RULES:
 - ${densityInstruction}
-- Each term must include: term name, definition, context (how it's used in THIS specific pack/codebase), and citations.
+- Each term must include: term name, definition, context (how it's used in THIS specific pack/codebase, with code examples where applicable), and citations.
 - Do NOT include generic programming terms (like "function", "variable", "class") UNLESS they have a pack-specific meaning.
 - Ground definitions in evidence spans. Cite using [S1], [S2], etc.
 - Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
