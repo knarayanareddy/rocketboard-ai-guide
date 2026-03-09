@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle2, Circle, Clock, Rocket, Calendar, Sparkles, RotateCcw, Loader2, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { BookmarkButton } from "@/components/BookmarkButton";
 import { toast } from "sonner";
 
 function PathCard({ step, index, checked, onToggle, citations, checkedSteps, onToggleCommand }: {
