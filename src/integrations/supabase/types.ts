@@ -1068,6 +1068,47 @@ export type Database = {
           },
         ]
       }
+      module_dependencies: {
+        Row: {
+          created_at: string
+          id: string
+          min_completion_percentage: number
+          min_quiz_score: number
+          module_key: string
+          pack_id: string
+          requirement_type: string
+          requires_module_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_completion_percentage?: number
+          min_quiz_score?: number
+          module_key: string
+          pack_id: string
+          requirement_type?: string
+          requires_module_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_completion_percentage?: number
+          min_quiz_score?: number
+          module_key?: string
+          pack_id?: string
+          requirement_type?: string
+          requires_module_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_dependencies_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       module_plans: {
         Row: {
           created_at: string
