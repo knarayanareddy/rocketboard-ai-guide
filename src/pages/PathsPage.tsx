@@ -4,6 +4,8 @@ import { day1Path, week1Path, PathStep } from "@/data/paths-data";
 import { TrackBadge } from "@/components/TrackBadge";
 import { CitationBadge } from "@/components/CitationBadge";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
+import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { SetupChecklist, extractShellCommands } from "@/components/SetupChecklist";
 import { useGeneratedPaths, GeneratedPathStep } from "@/hooks/useGeneratedPaths";
 import { usePathProgress } from "@/hooks/usePathProgress";
 import { useRole } from "@/hooks/useRole";
@@ -11,18 +13,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePackTracks } from "@/hooks/usePackTracks";
 import { AIError } from "@/lib/ai-errors";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CheckCircle2, Circle, Clock, Rocket, Calendar, Sparkles, RotateCcw, Loader2, Filter } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Rocket, Calendar, Sparkles, RotateCcw, Loader2, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-function PathCard({ step, index, checked, onToggle, citations }: {
+function PathCard({ step, index, checked, onToggle, citations, checkedSteps, onToggleCommand }: {
   step: PathStep | GeneratedPathStep;
   index: number;
   checked: boolean;
   onToggle: () => void;
   citations?: { span_id: string; path?: string; chunk_id?: string }[];
+  checkedSteps: Set<string>;
+  onToggleCommand: (commandKey: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  
+  // Detect if any substep contains bash commands
+  const allStepsText = step.steps.join("\n");
+  const shellCommands = useMemo(() => extractShellCommands(allStepsText), [allStepsText]);
+  const hasCommands = shellCommands.length > 0;
+  
+  // Also check for markdown code blocks in substeps
+  const hasCodeBlocks = step.steps.some(s => s.includes("```"));
+  const hasCallouts = step.steps.some(s => s.includes(":::"));
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -49,14 +64,43 @@ function PathCard({ step, index, checked, onToggle, citations }: {
               {step.time_estimate_minutes}m
             </span>
           </div>
+          
           <ul className="space-y-1 mt-2">
             {step.steps.map((s, i) => (
-              <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-                <span className="text-primary/50 mt-0.5">•</span>
-                {s}
+              <li key={i} className="text-xs text-muted-foreground">
+                {hasCallouts || hasCodeBlocks ? (
+                  <MarkdownRenderer className="[&_p]:inline">{s}</MarkdownRenderer>
+                ) : (
+                  <span className="flex items-start gap-2">
+                    <span className="text-primary/50 mt-0.5">•</span>
+                    {s}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
+
+          {/* Interactive setup checklist for steps with commands */}
+          {hasCommands && (
+            <div>
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+              >
+                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {expanded ? "Hide" : "Show"} setup commands ({shellCommands.length})
+              </button>
+              {expanded && (
+                <SetupChecklist
+                  commands={shellCommands}
+                  stepId={step.id}
+                  checkedCommands={checkedSteps}
+                  onToggleCommand={(cmdIdx) => onToggleCommand(`${step.id}-cmd-${cmdIdx}`)}
+                />
+              )}
+            </div>
+          )}
+
           <div className="mt-3 flex flex-wrap gap-1">
             {step.success_criteria.map((c, i) => (
               <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md">
@@ -86,6 +130,8 @@ function PathTabContent({ steps, pathType, isGenerated }: {
   const { checkedSteps, toggleStep } = usePathProgress(pathType);
   const [trackFilter, setTrackFilter] = useState<string | "all">("all");
   const { tracks: packTracks } = usePackTracks();
+  // Local state for command-level checks (stored in path_progress as sub-step IDs)
+  const [localCommandChecks, setLocalCommandChecks] = useState<Set<string>>(new Set());
 
   const tracks = useMemo(() => {
     if (packTracks.length > 0) return packTracks.map(t => t.track_key);
@@ -98,6 +144,15 @@ function PathTabContent({ steps, pathType, isGenerated }: {
     if (trackFilter === "all") return steps;
     return steps.filter((s) => s.track_key === trackFilter);
   }, [steps, trackFilter]);
+
+  const handleToggleCommand = (commandKey: string) => {
+    setLocalCommandChecks(prev => {
+      const next = new Set(prev);
+      if (next.has(commandKey)) next.delete(commandKey);
+      else next.add(commandKey);
+      return next;
+    });
+  };
 
   return (
     <div>
@@ -135,6 +190,8 @@ function PathTabContent({ steps, pathType, isGenerated }: {
             checked={checkedSteps.has(step.id)}
             onToggle={() => { if (user) toggleStep.mutate(step.id); }}
             citations={isGenerated ? (step as GeneratedPathStep).citations : undefined}
+            checkedSteps={localCommandChecks}
+            onToggleCommand={handleToggleCommand}
           />
         ))}
         {filtered.length === 0 && (

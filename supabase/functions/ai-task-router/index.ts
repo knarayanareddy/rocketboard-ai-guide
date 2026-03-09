@@ -698,6 +698,36 @@ CODE INCLUSION RULES (CRITICAL FOR DEVELOPER ONBOARDING):
 - After each code snippet, briefly explain what the code does and why it matters for the learner.
 - If a section discusses architecture or patterns, include the code that IMPLEMENTS that pattern, not just a description.
 
+SPECIAL CODE CALLOUTS:
+When including code in sections, use these markers in your markdown to indicate special code blocks. The UI will render them distinctly:
+
+For setup commands the learner needs to run:
+:::setup[Title]
+content with code blocks
+:::
+
+For important patterns:
+:::pattern[Title]
+content with code blocks
+:::
+
+For configuration files:
+:::config[Title]
+content with code blocks
+:::
+
+For gotchas and warnings:
+:::warning[Title]
+content with code blocks
+:::
+
+Use these liberally. Every module should have at least:
+- 1-2 setup callouts (if the module covers tools/environments)
+- 2-3 pattern callouts (for key code patterns)
+- 1-2 config callouts (for important configuration)
+- 1+ warning callouts (for common mistakes or gotchas)
+If the evidence doesn't support a particular callout type for a section, don't force it.
+
 RULES:
 - Generate 4-7 sections, each with a clear heading, markdown content, learning objectives, note prompts, and citations.
 - Ground ALL content in evidence spans. Cite using [S1], [S2], etc.
@@ -1005,6 +1035,27 @@ RULES:
 - Step IDs should be "d1-1", "d1-2" for Day 1 and "w1-1", "w1-2" for Week 1.
 - Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
 - If pack has tracks, assign track_key to relevant steps.
+
+SETUP GUIDE (Day 1 — First Item):
+The FIRST item in the Day 1 path MUST be a detailed local development setup guide. Analyze the evidence spans for:
+- package.json → detect Node version, scripts (dev, build, test, migrate)
+- docker-compose.yml → detect required services (databases, caches, etc.)
+- .env.example → detect required environment variables
+- Makefile / scripts/ → detect setup scripts
+- README.md → detect existing setup instructions
+- Dockerfile → detect container setup
+- terraform/k8s configs → detect infrastructure requirements
+
+Generate step-by-step setup instructions using ONLY information from evidence.
+Include the actual commands from evidence in substeps as bash/shell commands.
+Use :::setup, :::config, and :::warning callout blocks in the substeps where appropriate.
+
+CALLOUT SYNTAX for path step substeps:
+- For setup commands: :::setup[Title]\ncontent\n:::
+- For configuration: :::config[Title]\ncontent\n:::
+- For gotchas: :::warning[Title]\ncontent\n:::
+
+If evidence contains a README with setup instructions, use those as the base and enrich with details from other files.
 ${spansBlock}
 
 You MUST respond with VALID JSON matching this exact schema:
