@@ -47,7 +47,7 @@ export default function OnboardingWizard() {
   // Org state
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
-  const [orgId, setOrgId] = useState<string | null>(() => localStorage.getItem(STORAGE_ORG_KEY));
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [existingOrgDetected, setExistingOrgDetected] = useState(false);
 
   // Pack state
