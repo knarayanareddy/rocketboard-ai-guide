@@ -319,6 +319,118 @@ export type Database = {
           },
         ]
       }
+      exercise_submissions: {
+        Row: {
+          ai_feedback: Json | null
+          content: string
+          exercise_key: string
+          hints_used: number | null
+          id: string
+          pack_id: string
+          status: string | null
+          submission_type: string
+          submitted_at: string | null
+          time_spent_seconds: number | null
+          user_id: string
+        }
+        Insert: {
+          ai_feedback?: Json | null
+          content: string
+          exercise_key: string
+          hints_used?: number | null
+          id?: string
+          pack_id: string
+          status?: string | null
+          submission_type: string
+          submitted_at?: string | null
+          time_spent_seconds?: number | null
+          user_id: string
+        }
+        Update: {
+          ai_feedback?: Json | null
+          content?: string
+          exercise_key?: string
+          hints_used?: number | null
+          id?: string
+          pack_id?: string
+          status?: string | null
+          submission_type?: string
+          submitted_at?: string | null
+          time_spent_seconds?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_submissions_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercises: {
+        Row: {
+          created_at: string | null
+          description: string
+          difficulty: string | null
+          estimated_minutes: number | null
+          evidence_citations: Json | null
+          exercise_key: string
+          exercise_type: string
+          hints: Json | null
+          id: string
+          module_key: string
+          pack_id: string
+          section_id: string | null
+          sort_order: number | null
+          title: string
+          verification: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          difficulty?: string | null
+          estimated_minutes?: number | null
+          evidence_citations?: Json | null
+          exercise_key: string
+          exercise_type: string
+          hints?: Json | null
+          id?: string
+          module_key: string
+          pack_id: string
+          section_id?: string | null
+          sort_order?: number | null
+          title: string
+          verification?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          difficulty?: string | null
+          estimated_minutes?: number | null
+          evidence_citations?: Json | null
+          exercise_key?: string
+          exercise_type?: string
+          hints?: Json | null
+          id?: string
+          module_key?: string
+          pack_id?: string
+          section_id?: string | null
+          sort_order?: number | null
+          title?: string
+          verification?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercises_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_ask_lead: {
         Row: {
           created_at: string
