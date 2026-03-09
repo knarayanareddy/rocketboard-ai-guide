@@ -804,6 +804,99 @@ export type Database = {
           },
         ]
       }
+      meeting_checklist: {
+        Row: {
+          created_at: string
+          id: string
+          pack_id: string
+          priority: string
+          suggested_topics: string[] | null
+          team_member_id: string
+          time_estimate_minutes: number | null
+          track_key: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pack_id: string
+          priority?: string
+          suggested_topics?: string[] | null
+          team_member_id: string
+          time_estimate_minutes?: number | null
+          track_key?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pack_id?: string
+          priority?: string
+          suggested_topics?: string[] | null
+          team_member_id?: string
+          time_estimate_minutes?: number | null
+          track_key?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_checklist_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_checklist_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_progress: {
+        Row: {
+          id: string
+          is_met: boolean
+          met_at: string | null
+          notes: string | null
+          pack_id: string
+          team_member_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_met?: boolean
+          met_at?: string | null
+          notes?: string | null
+          pack_id: string
+          team_member_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_met?: boolean
+          met_at?: string | null
+          notes?: string | null
+          pack_id?: string
+          team_member_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_progress_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_progress_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       module_plans: {
         Row: {
           created_at: string
@@ -1386,6 +1479,62 @@ export type Database = {
             foreignKeyName: "slack_integrations_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: true
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          areas_of_expertise: string[] | null
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          email: string | null
+          github_handle: string | null
+          id: string
+          is_auto_detected: boolean
+          name: string
+          pack_id: string
+          role_title: string | null
+          services_owned: string[] | null
+          slack_handle: string | null
+        }
+        Insert: {
+          areas_of_expertise?: string[] | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          github_handle?: string | null
+          id?: string
+          is_auto_detected?: boolean
+          name: string
+          pack_id: string
+          role_title?: string | null
+          services_owned?: string[] | null
+          slack_handle?: string | null
+        }
+        Update: {
+          areas_of_expertise?: string[] | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string | null
+          github_handle?: string | null
+          id?: string
+          is_auto_detected?: boolean
+          name?: string
+          pack_id?: string
+          role_title?: string | null
+          services_owned?: string[] | null
+          slack_handle?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
             referencedRelation: "packs"
             referencedColumns: ["id"]
           },
