@@ -82,6 +82,7 @@ export function AppSidebar() {
     { title: "Paths", url: `${packPrefix}/paths`, icon: Route, minLevel: "read_only" as const, end: false },
     { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only" as const, end: false },
     { title: "Team", url: `${packPrefix}/team`, icon: Users, minLevel: "read_only" as const, end: false },
+    { title: "Saved", url: `${packPrefix}/bookmarks`, icon: Bookmark, minLevel: "read_only" as const, end: false },
     { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author" as const, end: false },
     { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author" as const, end: false },
     { title: "Review", url: `${packPrefix}/review`, icon: CheckCircle2, minLevel: "author" as const, end: false },
