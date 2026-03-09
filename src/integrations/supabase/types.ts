@@ -693,6 +693,48 @@ export type Database = {
           },
         ]
       }
+      learner_milestone_progress: {
+        Row: {
+          completed_at: string | null
+          id: string
+          milestone_id: string
+          pack_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          milestone_id: string
+          pack_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          milestone_id?: string
+          pack_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_milestone_progress_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learner_milestone_progress_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learner_notes: {
         Row: {
           content: string
@@ -1093,6 +1135,88 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      onboarding_milestones: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_required: boolean
+          pack_id: string
+          phase: string
+          sort_order: number
+          target_type: string
+          target_value: Json | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          pack_id: string
+          phase?: string
+          sort_order?: number
+          target_type?: string
+          target_value?: Json | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          pack_id?: string
+          phase?: string
+          sort_order?: number
+          target_type?: string
+          target_value?: Json | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_milestones_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_schedule: {
+        Row: {
+          created_at: string
+          expected_completion_date: string | null
+          id: string
+          pack_id: string
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_completion_date?: string | null
+          id?: string
+          pack_id: string
+          start_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expected_completion_date?: string | null
+          id?: string
+          pack_id?: string
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_schedule_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       org_members: {
         Row: {
