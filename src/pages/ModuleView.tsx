@@ -462,6 +462,7 @@ export default function ModuleView() {
   const [changeLogOpen, setChangeLogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [codeExplorerOpen, setCodeExplorerOpen] = useState(false);
+  const [selectedThread, setSelectedThread] = useState<DiscussionThread | null>(null);
 
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
