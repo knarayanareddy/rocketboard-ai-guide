@@ -275,7 +275,7 @@ export default function QuizAnalyticsPage() {
                           </TableHeader>
                           <TableBody>
                             {questionStats.map((qs, i) => (
-                              <>
+                              <Fragment key={qs.questionId}>
                                 <TableRow
                                   key={qs.questionId}
                                   className="cursor-pointer"
