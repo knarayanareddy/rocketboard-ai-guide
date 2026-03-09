@@ -27,7 +27,6 @@ export function useIngestion(sourceId?: string) {
     },
     enabled: !!currentPackId,
     refetchInterval: (query) => {
-      // Poll more frequently when there are active jobs
       const data = query.state.data;
       const hasActive = data?.some((j: any) => j.status === "pending" || j.status === "processing");
       return hasActive ? 3000 : false;
@@ -54,12 +53,13 @@ export function useIngestion(sourceId?: string) {
   }, [currentPackId, queryClient]);
 
   const triggerIngestion = useMutation({
-    mutationFn: async ({ sourceId, sourceType, sourceUri, documentContent, label }: {
+    mutationFn: async ({ sourceId, sourceType, sourceUri, documentContent, label, sourceConfig }: {
       sourceId: string;
       sourceType: string;
       sourceUri: string;
       documentContent?: string;
       label?: string;
+      sourceConfig?: Record<string, any>;
     }) => {
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ingest-source`,
@@ -76,6 +76,7 @@ export function useIngestion(sourceId?: string) {
             source_uri: sourceUri,
             document_content: documentContent,
             label,
+            source_config: sourceConfig,
           }),
         }
       );

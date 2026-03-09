@@ -1,0 +1,351 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const REDACTION_PATTERNS = [
+  /AKIA[0-9A-Z]{16}/g,
+  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
+  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
+  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
+  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
+  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
+  /sk-[A-Za-z0-9]{32,}/g,
+  /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
+  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
+];
+
+function redactSecrets(text: string): { content: string; isRedacted: boolean } {
+  let redacted = text;
+  let wasRedacted = false;
+  for (const pattern of REDACTION_PATTERNS) {
+    pattern.lastIndex = 0;
+    const newText = redacted.replace(pattern, "***REDACTED***");
+    if (newText !== redacted) wasRedacted = true;
+    redacted = newText;
+  }
+  return { content: redacted, isRedacted: wasRedacted };
+}
+
+function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const chunks: { start: number; end: number; text: string }[] = [];
+  let i = 0;
+  let lineEstimate = 1;
+  while (i < words.length) {
+    const end = Math.min(i + wordCount, words.length);
+    const chunk = words.slice(i, end).join(" ");
+    const lines = chunk.split("\n").length;
+    chunks.push({ start: lineEstimate, end: lineEstimate + lines - 1, text: chunk });
+    lineEstimate += lines;
+    i = end;
+  }
+  return chunks;
+}
+
+async function sha256(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Google service account JWT creation
+async function createServiceAccountJWT(keyData: any): Promise<string> {
+  const header = { alg: "RS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const claims = {
+    iss: keyData.client_email,
+    scope: "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/spreadsheets.readonly",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const encodedClaims = btoa(JSON.stringify(claims)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const signatureInput = `${encodedHeader}.${encodedClaims}`;
+
+  // Import the private key
+  const pemKey = keyData.private_key;
+  const pemContent = pemKey.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\n/g, "");
+  const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
+
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(signatureInput));
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+
+  return `${signatureInput}.${encodedSignature}`;
+}
+
+async function getAccessToken(keyData: any): Promise<string> {
+  const jwt = await createServiceAccountJWT(keyData);
+
+  const resp = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Google OAuth error: ${resp.status} ${err}`);
+  }
+
+  const data = await resp.json();
+  return data.access_token;
+}
+
+async function listFilesRecursive(folderId: string, accessToken: string): Promise<any[]> {
+  const files: any[] = [];
+  let pageToken: string | undefined;
+
+  while (true) {
+    let url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken,files(id,name,mimeType,parents)&pageSize=100`;
+    if (pageToken) url += `&pageToken=${pageToken}`;
+
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`Google Drive API error: ${resp.status} ${err}`);
+    }
+
+    const data = await resp.json();
+    
+    for (const file of (data.files || [])) {
+      if (file.mimeType === "application/vnd.google-apps.folder") {
+        // Recurse into subfolder
+        const subFiles = await listFilesRecursive(file.id, accessToken);
+        files.push(...subFiles.map((f: any) => ({ ...f, parentName: file.name })));
+      } else {
+        files.push(file);
+      }
+    }
+
+    pageToken = data.nextPageToken;
+    if (!pageToken) break;
+  }
+
+  return files;
+}
+
+async function extractGoogleDoc(docId: string, accessToken: string): Promise<string> {
+  const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!resp.ok) return "";
+  const doc = await resp.json();
+
+  const parts: string[] = [];
+  for (const elem of (doc.body?.content || [])) {
+    if (elem.paragraph) {
+      const text = (elem.paragraph.elements || [])
+        .map((e: any) => e.textRun?.content || "")
+        .join("");
+      
+      // Check for heading style
+      const style = elem.paragraph.paragraphStyle?.namedStyleType;
+      if (style === "HEADING_1") parts.push(`# ${text}`);
+      else if (style === "HEADING_2") parts.push(`## ${text}`);
+      else if (style === "HEADING_3") parts.push(`### ${text}`);
+      else parts.push(text);
+    } else if (elem.table) {
+      for (const row of (elem.table.tableRows || [])) {
+        const cells = (row.tableCells || []).map((cell: any) => {
+          return (cell.content || []).map((c: any) =>
+            (c.paragraph?.elements || []).map((e: any) => e.textRun?.content || "").join("")
+          ).join("");
+        });
+        parts.push(`| ${cells.join(" | ")} |`);
+      }
+    }
+  }
+
+  return parts.join("\n").trim();
+}
+
+async function extractGoogleSheet(sheetId: string, accessToken: string): Promise<string> {
+  const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?includeGridData=true`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!resp.ok) return "";
+  const data = await resp.json();
+
+  const parts: string[] = [];
+  for (const sheet of (data.sheets || [])) {
+    parts.push(`## ${sheet.properties?.title || "Sheet"}\n`);
+    for (const row of (sheet.data?.[0]?.rowData || []).slice(0, 200)) {
+      const cells = (row.values || []).map((v: any) => v.formattedValue || "");
+      if (cells.some((c: string) => c.trim())) {
+        parts.push(`| ${cells.join(" | ")} |`);
+      }
+    }
+    parts.push("");
+  }
+
+  return parts.join("\n").trim();
+}
+
+async function downloadFileAsText(fileId: string, accessToken: string): Promise<string> {
+  const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!resp.ok) return "";
+  return await resp.text();
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { pack_id, source_id, source_config } = await req.json();
+
+    if (!pack_id || !source_id || !source_config) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { folder_id, service_account_key, auth_method } = source_config;
+    if (!folder_id) {
+      return new Response(JSON.stringify({ error: "Missing folder ID" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let accessToken: string;
+    
+    if (auth_method === "service_account" && service_account_key) {
+      const keyData = typeof service_account_key === "string" ? JSON.parse(service_account_key) : service_account_key;
+      accessToken = await getAccessToken(keyData);
+    } else {
+      // TODO: Support connector-based OAuth
+      return new Response(JSON.stringify({ error: "Service account key required for Google Drive ingestion" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const { data: job, error: jobErr } = await supabase
+      .from("ingestion_jobs")
+      .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
+      .select()
+      .single();
+    if (jobErr) throw jobErr;
+    const jobId = job.id;
+
+    console.log(`[GDrive] Listing files in folder ${folder_id}...`);
+    const files = await listFilesRecursive(folder_id, accessToken);
+    console.log(`[GDrive] Found ${files.length} files`);
+
+    await supabase.from("ingestion_jobs").update({ total_chunks: files.length }).eq("id", jobId);
+
+    const allChunks: any[] = [];
+    let chunkIdx = 0;
+
+    const SUPPORTED_MIME_TYPES = new Set([
+      "application/vnd.google-apps.document",
+      "application/vnd.google-apps.spreadsheet",
+      "text/plain",
+      "text/markdown",
+      "text/csv",
+      "application/json",
+    ]);
+
+    for (const file of files) {
+      if (!SUPPORTED_MIME_TYPES.has(file.mimeType)) continue;
+
+      let content = "";
+      const fileName = file.parentName ? `${file.parentName}/${file.name}` : file.name;
+
+      try {
+        if (file.mimeType === "application/vnd.google-apps.document") {
+          content = await extractGoogleDoc(file.id, accessToken);
+        } else if (file.mimeType === "application/vnd.google-apps.spreadsheet") {
+          content = await extractGoogleSheet(file.id, accessToken);
+        } else {
+          content = await downloadFileAsText(file.id, accessToken);
+        }
+      } catch (err) {
+        console.error(`[GDrive] Error extracting ${fileName}:`, err);
+        continue;
+      }
+
+      if (!content.trim()) continue;
+
+      const wordChunks = chunkWords(content);
+      for (const chunk of wordChunks) {
+        chunkIdx++;
+        const { content: redacted, isRedacted } = redactSecrets(chunk.text);
+        const hash = await sha256(redacted);
+
+        allChunks.push({
+          chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
+          path: `gdrive:${fileName}`,
+          start_line: chunk.start,
+          end_line: chunk.end,
+          content: redacted,
+          content_hash: hash,
+          is_redacted: isRedacted,
+        });
+      }
+
+      if (allChunks.length % 30 === 0) {
+        await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
+      }
+    }
+
+    // Upsert chunks
+    const BATCH_SIZE = 100;
+    let processed = 0;
+    for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
+      const batch = allChunks.slice(i, i + BATCH_SIZE).map((c) => ({
+        pack_id, source_id, ...c,
+      }));
+      const { error: upsertErr } = await supabase
+        .from("knowledge_chunks")
+        .upsert(batch, { onConflict: "pack_id,chunk_id" });
+      if (upsertErr) console.error("Upsert error:", upsertErr);
+      processed += batch.length;
+      await supabase.from("ingestion_jobs").update({ processed_chunks: processed }).eq("id", jobId);
+    }
+
+    await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+
+    await supabase.from("ingestion_jobs").update({
+      status: "completed",
+      processed_chunks: allChunks.length,
+      completed_at: new Date().toISOString(),
+    }).eq("id", jobId);
+
+    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, files: files.length }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Google Drive ingestion error:", err);
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
