@@ -43,17 +43,81 @@ const REDACTION_PATTERNS = [
 const SUPPORTED_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".md", ".json", ".yaml", ".yml",
   ".toml", ".py", ".go", ".rs", ".java", ".rb", ".sh", ".bash",
-  ".css", ".scss", ".html", ".sql", ".graphql", ".gql",
+  ".css", ".scss", ".html", ".sql", ".graphql", ".gql", ".tf",
 ]);
 
 const SUPPORTED_FILENAMES = new Set([
   "Dockerfile", "Makefile", ".env.example", ".env.sample",
-  "docker-compose.yml", "docker-compose.yaml",
+  "docker-compose.yml", "docker-compose.yaml", "Jenkinsfile",
+  "README.md", "README", "CONTRIBUTING.md", "SETUP.md",
 ]);
+
+// Setup-relevant file patterns for metadata tagging
+const SETUP_PATTERNS: Record<string, RegExp[]> = {
+  dependencies: [
+    /^package\.json$/,
+    /^requirements\.txt$/,
+    /^Gemfile$/,
+    /^go\.mod$/,
+    /^Cargo\.toml$/,
+    /^pom\.xml$/,
+    /^build\.gradle$/,
+  ],
+  configuration: [
+    /^\.env/,
+    /^config\//,
+    /\.config\.(js|ts|json|yaml|yml)$/,
+    /settings\.(json|yaml|yml)$/,
+  ],
+  docker: [
+    /^Dockerfile/,
+    /^docker-compose/,
+    /\.dockerfile$/i,
+  ],
+  ci_cd: [
+    /^\.github\/workflows\//,
+    /^\.gitlab-ci\.yml$/,
+    /^Jenkinsfile$/,
+    /^\.circleci\//,
+    /^azure-pipelines\.yml$/,
+  ],
+  environment: [
+    /^Makefile$/,
+    /^scripts\//,
+    /^bin\//,
+    /^README/i,
+    /^CONTRIBUTING/i,
+    /^SETUP/i,
+    /^INSTALL/i,
+  ],
+  infrastructure: [
+    /^terraform\//,
+    /^k8s\//,
+    /^kubernetes\//,
+    /^helm\//,
+    /\.tf$/,
+  ],
+};
+
+function getSetupMetadata(filepath: string): { is_setup_relevant: boolean; setup_category?: string } {
+  const basename = filepath.split("/").pop() || "";
+  
+  for (const [category, patterns] of Object.entries(SETUP_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(filepath) || pattern.test(basename)) {
+        return { is_setup_relevant: true, setup_category: category };
+      }
+    }
+  }
+  
+  return { is_setup_relevant: false };
+}
 
 function isSupported(filepath: string): boolean {
   const basename = filepath.split("/").pop() || "";
   if (SUPPORTED_FILENAMES.has(basename)) return true;
+  // Check for special filenames that start with common patterns
+  if (basename.startsWith("README") || basename.startsWith("CONTRIBUTING") || basename.startsWith("SETUP")) return true;
   const ext = "." + basename.split(".").pop();
   return SUPPORTED_EXTENSIONS.has(ext);
 }
