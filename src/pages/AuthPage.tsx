@@ -47,10 +47,34 @@ export default function AuthPage() {
   const handleGoogleSignIn = async () => {
     setOauthLoading("google");
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (result?.error) throw result.error;
+      const isPreviewDomain =
+        window.location.hostname.includes("lovableproject.com");
+
+      if (isPreviewDomain) {
+        // Use Lovable auth-bridge on preview domains
+        const result = await lovable.auth.signInWithOAuth("google", {
+          redirect_uri: window.location.origin,
+        });
+        if (result?.error) throw result.error;
+      } else {
+        // On published/custom domains, use Supabase directly
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: window.location.origin,
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error) throw error;
+        if (data?.url) {
+          const oauthUrl = new URL(data.url);
+          const allowedHosts = ["accounts.google.com"];
+          if (!allowedHosts.some((host) => oauthUrl.hostname === host)) {
+            throw new Error("Invalid OAuth redirect URL");
+          }
+          window.location.href = data.url;
+        }
+      }
     } catch (err: any) {
       toast.error(`Google sign in failed: ${err.message}`);
       setOauthLoading(null);
