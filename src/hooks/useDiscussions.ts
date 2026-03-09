@@ -299,9 +299,8 @@ export function useDiscussionReplies(threadId: string | null, threadAuthorId?: s
         .select()
         .single();
       if (error) throw error;
-      // Increment reply_count
-      const { data: tc } = await supabase.from("discussion_threads").select("reply_count").eq("id", threadId!).single();
-      await supabase.from("discussion_threads").update({ reply_count: ((tc as any)?.reply_count ?? 0) + 1 } as any).eq("id", threadId!);
+      // Atomic increment via RPC
+      await supabase.rpc("increment_thread_reply_count", { thread_id: threadId! });
       return data;
     },
     onSuccess: () => {
