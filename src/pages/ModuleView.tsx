@@ -226,6 +226,8 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           onDelete={onDeleteNote}
         />
       )}
+
+      {moduleKey && <SectionFeedback moduleKey={moduleKey} sectionId={section.section_id} />}
     </motion.div>
   );
 }
