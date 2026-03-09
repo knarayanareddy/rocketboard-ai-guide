@@ -365,9 +365,6 @@ export default function ModuleView() {
 
   // Lock screen for hard-blocked modules
   if (prereqCheck.hasHardBlock && !hasPackPermission("author")) {
-
-  // Lock screen for hard-blocked modules
-  if (prereqCheck.hasHardBlock && !hasPackPermission("author")) {
     return (
       <DashboardLayout>
         <div className="max-w-lg mx-auto mt-20 text-center">
