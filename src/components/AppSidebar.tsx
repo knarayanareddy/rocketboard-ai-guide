@@ -183,6 +183,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Quick Access Bookmarks */}
+        {!collapsed && <QuickAccessBookmarks packPrefix={packPrefix} />}
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-3">
