@@ -15,7 +15,7 @@ import { useGeneratedModules, GeneratedModuleRow } from "@/hooks/useGeneratedMod
 import { useSources } from "@/hooks/useSources";
 import { useModulePlan } from "@/hooks/useModulePlan";
 import { useRole } from "@/hooks/useRole";
-
+import { useModuleDependencies } from "@/hooks/useModuleDependencies";
 import { TrackBadge } from "@/components/TrackBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
