@@ -34,6 +34,7 @@ import FeedbackPage from "./pages/FeedbackPage";
 import TeamPage from "./pages/TeamPage";
 import BookmarksPage from "./pages/BookmarksPage";
 import TimelinePage from "./pages/TimelinePage";
+import ContentHealthPage from "./pages/ContentHealthPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
