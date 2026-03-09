@@ -78,6 +78,14 @@ export default function OnboardingWizard() {
         if (step <= 1) {
           setStep(2);
         }
+      } else {
+        // No org found — clear any stale localStorage and reset to org creation
+        localStorage.removeItem(STORAGE_ORG_KEY);
+        localStorage.removeItem(STORAGE_PACK_KEY);
+        setOrgId(null);
+        if (step > 1) {
+          setStep(0);
+        }
       }
     };
     checkExistingOrg();
