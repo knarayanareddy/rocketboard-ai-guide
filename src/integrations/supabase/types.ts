@@ -234,6 +234,53 @@ export type Database = {
           },
         ]
       }
+      content_freshness: {
+        Row: {
+          chunk_hash_at_generation: Json | null
+          chunks_snapshot: Json | null
+          id: string
+          is_stale: boolean
+          last_checked_at: string | null
+          module_key: string
+          pack_id: string
+          referenced_chunk_ids: string[] | null
+          section_id: string
+          staleness_details: Json | null
+        }
+        Insert: {
+          chunk_hash_at_generation?: Json | null
+          chunks_snapshot?: Json | null
+          id?: string
+          is_stale?: boolean
+          last_checked_at?: string | null
+          module_key: string
+          pack_id: string
+          referenced_chunk_ids?: string[] | null
+          section_id: string
+          staleness_details?: Json | null
+        }
+        Update: {
+          chunk_hash_at_generation?: Json | null
+          chunks_snapshot?: Json | null
+          id?: string
+          is_stale?: boolean
+          last_checked_at?: string | null
+          module_key?: string
+          pack_id?: string
+          referenced_chunk_ids?: string[] | null
+          section_id?: string
+          staleness_details?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_freshness_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_ratings: {
         Row: {
           created_at: string
@@ -594,6 +641,50 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_checks: {
+        Row: {
+          check_type: string
+          created_at: string
+          id: string
+          module_key: string
+          pack_id: string
+          questions_data: Json | null
+          score: number
+          total: number
+          user_id: string
+        }
+        Insert: {
+          check_type: string
+          created_at?: string
+          id?: string
+          module_key: string
+          pack_id: string
+          questions_data?: Json | null
+          score: number
+          total: number
+          user_id: string
+        }
+        Update: {
+          check_type?: string
+          created_at?: string
+          id?: string
+          module_key?: string
+          pack_id?: string
+          questions_data?: Json | null
+          score?: number
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_checks_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
             referencedColumns: ["id"]
           },
         ]
@@ -1592,6 +1683,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "quiz_scores_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_schedule: {
+        Row: {
+          id: string
+          last_reviewed_at: string | null
+          module_key: string
+          next_review_date: string
+          pack_id: string
+          review_count: number
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_reviewed_at?: string | null
+          module_key: string
+          next_review_date?: string
+          pack_id: string
+          review_count?: number
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_reviewed_at?: string | null
+          module_key?: string
+          next_review_date?: string
+          pack_id?: string
+          review_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_schedule_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
