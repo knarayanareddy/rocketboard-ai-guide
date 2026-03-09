@@ -261,6 +261,7 @@ Deno.serve(async (req) => {
           const repoName = repo.replace(/\.git$/, "");
           const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
           const ext = filepath.split(".").pop() || "";
+          const setupMeta = getSetupMetadata(filepath);
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `repo:${owner}/${repoName}/${filepath}`,
@@ -269,7 +270,7 @@ Deno.serve(async (req) => {
             content,
             content_hash: hash,
             is_redacted: isRedacted,
-            metadata: { source_url: sourceUrl, file_type: ext },
+            metadata: { source_url: sourceUrl, file_type: ext, ...setupMeta },
           });
         }
 
