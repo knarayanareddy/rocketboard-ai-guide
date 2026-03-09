@@ -148,6 +148,7 @@ const App = () => (
               <Route path="/packs/:packId/timeline" element={<ProtectedRoute><InviteAcceptor><TimelinePage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/health" element={<ProtectedRoute><InviteAcceptor><ContentHealthPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/quiz-analytics" element={<ProtectedRoute><InviteAcceptor><QuizAnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/discussions" element={<ProtectedRoute><InviteAcceptor><DiscussionsPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />
