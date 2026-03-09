@@ -303,8 +303,7 @@ export default function QuizAnalyticsPage() {
                                     </TableCell>
                                   </TableRow>
                                 )}
-                              </>
-                            ))}
+                              </Fragment>
                           </TableBody>
                         </Table>
                       </div>
