@@ -353,5 +353,3 @@ function ResultSection({ title, icon: Icon, count, items, query }: ResultSection
     </div>
   );
 }
-  );
-}
