@@ -1035,6 +1035,27 @@ RULES:
 - Step IDs should be "d1-1", "d1-2" for Day 1 and "w1-1", "w1-2" for Week 1.
 - Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
 - If pack has tracks, assign track_key to relevant steps.
+
+SETUP GUIDE (Day 1 — First Item):
+The FIRST item in the Day 1 path MUST be a detailed local development setup guide. Analyze the evidence spans for:
+- package.json → detect Node version, scripts (dev, build, test, migrate)
+- docker-compose.yml → detect required services (databases, caches, etc.)
+- .env.example → detect required environment variables
+- Makefile / scripts/ → detect setup scripts
+- README.md → detect existing setup instructions
+- Dockerfile → detect container setup
+- terraform/k8s configs → detect infrastructure requirements
+
+Generate step-by-step setup instructions using ONLY information from evidence.
+Include the actual commands from evidence in substeps as bash/shell commands.
+Use :::setup, :::config, and :::warning callout blocks in the substeps where appropriate.
+
+CALLOUT SYNTAX for path step substeps:
+- For setup commands: :::setup[Title]\ncontent\n:::
+- For configuration: :::config[Title]\ncontent\n:::
+- For gotchas: :::warning[Title]\ncontent\n:::
+
+If evidence contains a README with setup instructions, use those as the base and enrich with details from other files.
 ${spansBlock}
 
 You MUST respond with VALID JSON matching this exact schema:
