@@ -179,9 +179,17 @@ export default function AskLeadPage() {
                     )}
                   </button>
                   <div className="flex-1">
-                    <p className={`text-sm font-medium ${askedQuestions.has(q.id) ? "text-muted-foreground" : "text-card-foreground"}`}>
-                      {q.question}
-                    </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`text-sm font-medium ${askedQuestions.has(q.id) ? "text-muted-foreground" : "text-card-foreground"}`}>
+                        {q.question}
+                      </p>
+                      <BookmarkButton
+                        type="ask_lead_question"
+                        referenceKey={q.id}
+                        label={q.question}
+                        previewText={q.why_it_matters?.slice(0, 100)}
+                      />
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1">{q.why_it_matters}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       {q.track_key && <TrackBadge track={q.track_key} />}

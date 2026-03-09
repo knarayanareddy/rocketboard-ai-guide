@@ -184,6 +184,12 @@ export default function GlossaryPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-card-foreground font-mono text-sm">{term.term}</h3>
+                    <BookmarkButton
+                      type="glossary_term"
+                      referenceKey={`term:${term.term}`}
+                      label={term.term}
+                      previewText={term.definition?.slice(0, 100)}
+                    />
                     {term.context && term.context.includes("```") && (
                       <Code className="w-3 h-3 text-muted-foreground" />
                     )}

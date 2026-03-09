@@ -94,6 +94,13 @@ export function ExerciseCard({ exercise, submission, onSubmit, onVerify, isSubmi
           <h4 className="font-semibold text-foreground">{exercise.title}</h4>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <BookmarkButton
+            type="exercise"
+            referenceKey={`${exercise.module_key}:${exercise.exercise_key}`}
+            label={exercise.title}
+            subtitle={`Exercise · ${exercise.exercise_type}`}
+            previewText={exercise.description?.slice(0, 100)}
+          />
           <Badge variant="outline" className={`text-[10px] ${DIFF_COLORS[exercise.difficulty] || ""}`}>
             {exercise.difficulty}
           </Badge>

@@ -64,6 +64,12 @@ function PathCard({ step, index, checked, onToggle, citations, checkedSteps, onT
               <Clock className="w-3 h-3" />
               {step.time_estimate_minutes}m
             </span>
+            <BookmarkButton
+              type="path_step"
+              referenceKey={`${step.id || `step-${index}`}`}
+              label={step.title}
+              previewText={step.steps[0]?.slice(0, 100)}
+            />
           </div>
           
           <ul className="space-y-1 mt-2">

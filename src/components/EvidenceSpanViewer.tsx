@@ -125,6 +125,13 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
 
             {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
+              <BookmarkButton
+                type="code_snippet"
+                referenceKey={`${span.chunk_id}:${startLine}-${endLine}`}
+                label={fileName}
+                subtitle={path}
+                previewText={content?.slice(0, 100)}
+              />
               {sourceLink && (
                 <Button
                   variant="outline"

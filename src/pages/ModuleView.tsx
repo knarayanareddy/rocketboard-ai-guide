@@ -46,6 +46,7 @@ import { KeyFilesSection } from "@/components/KeyFilesSection";
 import { CodeExplorer } from "@/components/CodeExplorer";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { useExercises } from "@/hooks/useExercises";
+import { BookmarkButton } from "@/components/BookmarkButton";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
