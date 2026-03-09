@@ -859,6 +859,18 @@ export default function ModuleView() {
                 </div>
               </TabsContent>
             )}
+
+            {/* Exercises Tab */}
+            <TabsContent value="exercises">
+              <ProtectedAction requiredLevel="learner" fallback={
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <Lock className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">You need learner access or higher for exercises.</p>
+                </div>
+              }>
+                <ExercisesTab moduleKey={moduleId || ""} moduleTitle={moduleData?.title || generatedMod?.title || ""} moduleDescription={moduleData?.description || generatedMod?.description || ""} />
+              </ProtectedAction>
+            </TabsContent>
           </Tabs>
         ) : staticMod ? (
           /* Static module content */
