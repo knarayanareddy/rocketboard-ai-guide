@@ -30,6 +30,7 @@ import TemplateDetailPage from "./pages/TemplateDetailPage";
 import OnboardingWizard from "./pages/OnboardingWizard";
 import ReviewPage from "./pages/ReviewPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import FeedbackPage from "./pages/FeedbackPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
