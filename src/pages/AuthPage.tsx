@@ -58,7 +58,6 @@ export default function AuthPage() {
       setOauthLoading(null);
     }
   };
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background dark p-4">
