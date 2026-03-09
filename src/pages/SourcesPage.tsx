@@ -18,6 +18,16 @@ import {
   GoogleDriveConfig,
   SharePointForm,
   SharePointConfig,
+  JiraForm,
+  JiraConfig,
+  LinearForm,
+  LinearConfig,
+  OpenAPIForm,
+  OpenAPIConfig,
+  PostmanForm,
+  PostmanConfig,
+  FigmaForm,
+  FigmaConfig,
 } from "@/components/sources";
 import { useSources } from "@/hooks/useSources";
 import { useIngestion } from "@/hooks/useIngestion";
