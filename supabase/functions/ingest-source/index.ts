@@ -233,6 +233,30 @@ Deno.serve(async (req) => {
           is_redacted: isRedacted,
         });
       }
+    } else if (["confluence", "notion", "google_drive", "sharepoint"].includes(source_type)) {
+      // Route to provider-specific edge function
+      const functionName = `ingest-${source_type === "google_drive" ? "google-drive" : source_type}`;
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      
+      const routeResp = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ pack_id, source_id, source_config: source_config || {} }),
+      });
+
+      if (!routeResp.ok) {
+        const errData = await routeResp.json().catch(() => ({ error: "Provider ingestion failed" }));
+        throw new Error(errData.error || `${source_type} ingestion failed`);
+      }
+
+      const result = await routeResp.json();
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     } else {
       throw new Error(`Unsupported source_type: ${source_type}`);
     }
