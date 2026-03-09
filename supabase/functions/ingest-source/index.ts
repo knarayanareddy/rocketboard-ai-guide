@@ -233,9 +233,14 @@ Deno.serve(async (req) => {
           is_redacted: isRedacted,
         });
       }
-    } else if (["confluence", "notion", "google_drive", "sharepoint"].includes(source_type)) {
+    } else if (["confluence", "notion", "google_drive", "sharepoint", "jira", "linear", "openapi_spec", "postman_collection", "figma"].includes(source_type)) {
       // Route to provider-specific edge function
-      const functionName = `ingest-${source_type === "google_drive" ? "google-drive" : source_type}`;
+      const functionNameMap: Record<string, string> = {
+        google_drive: "ingest-google-drive",
+        openapi_spec: "ingest-openapi",
+        postman_collection: "ingest-postman",
+      };
+      const functionName = functionNameMap[source_type] || `ingest-${source_type}`;
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
