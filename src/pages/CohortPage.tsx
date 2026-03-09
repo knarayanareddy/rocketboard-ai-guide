@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { supabase } from "@/integrations/supabase/client";
-import { useCohort as useCohortHook } from "@/hooks/useCohort";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
