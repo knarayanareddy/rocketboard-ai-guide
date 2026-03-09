@@ -337,6 +337,16 @@ export default function ModuleView() {
     return staticMod.sections.filter((s) => s.tracks.includes(activeTrack as any));
   }, [staticMod, activeTrack]);
 
+  // Build title map for prerequisite display
+  const moduleTitleMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allGenModules.forEach((m) => { map[m.module_key] = m.title; });
+    staticModules.forEach((m) => { map[m.id] = m.title; });
+    return map;
+  }, [allGenModules]);
+
+  const prereqCheck = checkPrerequisitesMet(moduleId || "", moduleTitleMap);
+
   if (!staticMod && !genLoading && !generatedMod) {
     return (
       <DashboardLayout>
@@ -353,15 +363,8 @@ export default function ModuleView() {
     );
   }
 
-  // Build title map for prerequisite display
-  const moduleTitleMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    allGenModules.forEach((m) => { map[m.module_key] = m.title; });
-    staticModules.forEach((m) => { map[m.id] = m.title; });
-    return map;
-  }, [allGenModules]);
-
-  const prereqCheck = checkPrerequisitesMet(moduleId || "", moduleTitleMap);
+  // Lock screen for hard-blocked modules
+  if (prereqCheck.hasHardBlock && !hasPackPermission("author")) {
 
   // Lock screen for hard-blocked modules
   if (prereqCheck.hasHardBlock && !hasPackPermission("author")) {
