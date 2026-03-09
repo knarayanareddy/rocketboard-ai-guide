@@ -783,10 +783,12 @@ export default function ModuleView() {
                   {quizLoading ? (
                     <div className="text-center py-8 text-muted-foreground">Loading quiz...</div>
                   ) : generatedQuiz?.quiz_data?.questions?.length ? (
-                    <QuizRunner
+                    <QuizRunnerWithTracking
                       generatedQuestions={generatedQuiz.quiz_data.questions}
                       onComplete={handleQuizComplete}
                       hasContradictions={!!generatedMod?.contradictions?.length}
+                      moduleKey={moduleId || ""}
+                      sectionTitles={moduleData?.sections?.map(s => ({ id: s.section_id, heading: s.heading })) || []}
                     />
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
