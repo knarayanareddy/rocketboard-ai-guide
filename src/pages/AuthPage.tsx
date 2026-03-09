@@ -43,6 +43,23 @@ export default function AuthPage() {
     }
   };
 
+  const handleOAuth = async (provider: 'google' | 'github') => {
+    setOauthLoading(provider);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      toast.error(`${provider} sign in failed: ${err.message}`);
+      setOauthLoading(null);
+    }
+  };
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background dark p-4">
       <motion.div
