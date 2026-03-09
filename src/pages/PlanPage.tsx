@@ -915,8 +915,42 @@ export default function PlanPage() {
                           disabled={editDisabled}
                           tracks={tracks}
                           templates={templates}
+                          allModules={displayPlan.module_plan}
+                          dependencies={dependencies.map(d => ({
+                            module_key: d.module_key,
+                            requires_module_key: d.requires_module_key,
+                            requirement_type: d.requirement_type,
+                            id: d.id,
+                          }))}
                           onUpdate={updateModule}
                           onRemove={removeModule}
+                          onAddDep={(moduleKey, reqKey, type) => {
+                            // Check for circular dependency
+                            const edges = dependencies.map(d => ({
+                              moduleKey: d.module_key,
+                              requiresModuleKey: d.requires_module_key,
+                              requirementType: d.requirement_type as "hard" | "soft",
+                              minCompletionPercentage: d.min_completion_percentage,
+                              minQuizScore: d.min_quiz_score,
+                            }));
+                            const graph = buildDependencyGraph(
+                              displayPlan.module_plan.map(m => m.module_key),
+                              edges
+                            );
+                            if (wouldCreateCycle(graph, moduleKey, reqKey)) {
+                              toast.error("Cannot add: this would create a circular dependency");
+                              return;
+                            }
+                            addDependency.mutate(
+                              { moduleKey, requiresModuleKey: reqKey, requirementType: type },
+                              { onSuccess: () => toast.success("Prerequisite added") }
+                            );
+                          }}
+                          onRemoveDep={(depId) => {
+                            removeDependency.mutate(depId, {
+                              onSuccess: () => toast.success("Prerequisite removed"),
+                            });
+                          }}
                         />
                       ))}
                     </div>
