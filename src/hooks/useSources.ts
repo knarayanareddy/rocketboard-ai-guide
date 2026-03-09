@@ -23,10 +23,24 @@ export function useSources() {
   });
 
   const addSource = useMutation({
-    mutationFn: async ({ sourceType, sourceUri, label }: { sourceType: string; sourceUri: string; label?: string }) => {
+    mutationFn: async ({ sourceType, sourceUri, label, sourceConfig }: {
+      sourceType: string;
+      sourceUri: string;
+      label?: string;
+      sourceConfig?: Record<string, any>;
+    }) => {
+      const insertData: any = {
+        pack_id: currentPackId,
+        source_type: sourceType,
+        source_uri: sourceUri,
+        label: label || null,
+      };
+      if (sourceConfig) {
+        insertData.source_config = sourceConfig;
+      }
       const { data, error } = await supabase
         .from("pack_sources")
-        .insert({ pack_id: currentPackId, source_type: sourceType, source_uri: sourceUri, label: label || null })
+        .insert(insertData)
         .select()
         .single();
       if (error) throw error;
