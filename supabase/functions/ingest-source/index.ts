@@ -235,6 +235,7 @@ Deno.serve(async (req) => {
           content,
           content_hash: hash,
           is_redacted: isRedacted,
+          metadata: { file_type: "document", source_url: source_uri || null },
         });
       }
     } else if (["confluence", "notion", "google_drive", "sharepoint", "jira", "linear", "openapi_spec", "postman_collection", "figma", "slack_channel", "loom_video", "pagerduty"].includes(source_type)) {
