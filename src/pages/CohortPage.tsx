@@ -35,7 +35,7 @@ export default function CohortPage() {
     cohorts, cohortsLoading,
     myCohort, myCohortLoading,
     cohortMembers, cohortMembersLoading,
-    createCohort, deleteCohort,
+    createCohort, deleteCohort, addMembers,
   } = useCohort();
 
   const [createOpen, setCreateOpen] = useState(false);
