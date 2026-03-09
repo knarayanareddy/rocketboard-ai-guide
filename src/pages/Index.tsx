@@ -47,13 +47,6 @@ const difficultyColor: Record<string, string> = {
   advanced: "text-red-500 bg-red-500/10",
 };
 
-function GeneratedModuleCard({ mod, index, progress, onClick }: {
-  mod: GeneratedModuleRow;
-  index: number;
-  progress: number;
-  onClick: () => void;
-}) {
-
 function PinnedBookmarksWidget() {
   const { pinnedBookmarks } = useBookmarks();
   const navigate = useNavigate();
@@ -108,7 +101,12 @@ function PinnedBookmarksWidget() {
   );
 }
 
-function GeneratedModuleCard2Placeholder() { return null; }
+function GeneratedModuleCard({ mod, index, progress, onClick }: {
+  mod: GeneratedModuleRow;
+  index: number;
+  progress: number;
+  onClick: () => void;
+}) {
   const isComplete = progress === 100;
   return (
     <motion.div variants={item} className="cursor-pointer group" onClick={onClick}>
