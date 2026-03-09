@@ -272,12 +272,16 @@ interface EditableCardProps {
   disabled: boolean;
   tracks: PackTrack[];
   templates: TemplateRow[];
+  allModules: ModulePlanEntry[];
+  dependencies: { module_key: string; requires_module_key: string; requirement_type: string; id: string }[];
   onUpdate: (key: string, patch: Partial<ModulePlanEntry>) => void;
   onRemove: (key: string) => void;
+  onAddDep: (moduleKey: string, reqKey: string, type: string) => void;
+  onRemoveDep: (depId: string) => void;
 }
 
 function SortableModuleCard(props: EditableCardProps) {
-  const { mod, index, generated, disabled, tracks, templates, onUpdate, onRemove } = props;
+  const { mod, index, generated, disabled, tracks, templates, allModules, dependencies, onUpdate, onRemove, onAddDep, onRemoveDep } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.module_key });
   const [confirmRemove, setConfirmRemove] = useState(false);
 
