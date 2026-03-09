@@ -596,51 +596,12 @@ export default function SourcesPage() {
 
       case "document":
         return (
-          <div className="space-y-4">
-            <button
-              onClick={handleBackToSelect}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <FileText className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Document</h3>
-                <p className="text-xs text-muted-foreground">Paste text content directly</p>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Label</label>
-              <Input
-                placeholder="e.g., Architecture Overview"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Content</label>
-              <Textarea
-                placeholder="Paste document content here..."
-                value={docContent}
-                onChange={(e) => setDocContent(e.target.value)}
-                rows={8}
-              />
-            </div>
-            <Button
-              onClick={handleAddDocument}
-              disabled={addSource.isPending || triggerIngestion.isPending}
-              className="w-full gap-2"
-            >
-              {(addSource.isPending || triggerIngestion.isPending) && (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              )}
-              Add & Ingest
-            </Button>
-          </div>
+          <DocumentForm
+            onSubmitDocument={handleAddDocument}
+            onSubmitUrl={handleAddUrl}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
         );
 
       case "confluence":
