@@ -664,6 +664,10 @@ export default function ModuleView() {
                   <FolderCode className="w-4 h-4" /> Code
                 </TabsTrigger>
               )}
+              <TabsTrigger value="exercises" className="gap-2 data-[state=active]:bg-card min-h-[44px]" disabled={!canInteract}>
+                <Dumbbell className="w-4 h-4" /> Exercises
+                {!canInteract && <Lock className="w-3 h-3 ml-1" />}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="content">
