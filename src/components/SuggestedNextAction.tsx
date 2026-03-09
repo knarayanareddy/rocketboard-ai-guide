@@ -94,7 +94,7 @@ export function SuggestedNextAction() {
     }
 
     // 4. All complete celebration
-    const allModulesComplete = modules.every(mod => {
+    const allModulesComplete = unlockedModules.every(mod => {
       const sectionCount = (mod.module_data as any)?.sections?.length || 0;
       const readCount = progressData.filter(p => p.module_id === mod.module_key).length;
       return sectionCount > 0 && readCount >= sectionCount;
