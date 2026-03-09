@@ -117,8 +117,8 @@ const App = () => (
           <Toaster />
           <Sonner />
           <OfflineIndicator />
-          <GlobalSearchShortcut />
           <BrowserRouter>
+            <GlobalSearchShortcut />
             <Routes>
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><InviteAcceptor><OnboardingWizard /></InviteAcceptor></ProtectedRoute>} />
