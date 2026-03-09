@@ -12,6 +12,7 @@ import { AIError } from "@/lib/ai-errors";
 import { Search, BookText, Sparkles, RotateCcw, Loader2, Code } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { BookmarkButton } from "@/components/BookmarkButton";
 import { toast } from "sonner";
 
 const DENSITY_OPTIONS = [
