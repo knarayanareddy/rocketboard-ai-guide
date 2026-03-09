@@ -89,6 +89,34 @@ export default function CohortPage() {
 
   const myProgress = visibleMembers.find((m) => m.user_id === user?.id)?.progress_pct ?? 0;
 
+  const handleAddMemberByEmail = async () => {
+    if (!addMemberEmail.trim() || !addMemberCohortId) return;
+    setAddingMember(true);
+    try {
+      const { data, error } = await supabase.rpc("lookup_user_by_email", { _email: addMemberEmail.trim() });
+      if (error) throw error;
+      const rows = data as any[];
+      if (!rows || rows.length === 0) {
+        toast.error("No user found with that email");
+        return;
+      }
+      const userId = rows[0].user_id;
+      addMembers.mutate(
+        { cohortId: addMemberCohortId, userIds: [userId] },
+        {
+          onSuccess: () => {
+            setAddMemberEmail("");
+            setAddMemberCohortId(null);
+          },
+        }
+      );
+    } catch {
+      toast.error("Failed to look up user");
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="max-w-3xl mx-auto">
