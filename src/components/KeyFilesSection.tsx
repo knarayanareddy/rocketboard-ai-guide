@@ -1,9 +1,8 @@
 import { useState, useMemo } from "react";
 import { FileCode, ExternalLink, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EvidenceSpanViewer, type EvidenceSpan } from "@/components/EvidenceSpanViewer";
-import { buildSourceLink } from "@/lib/source-link-builder";
-import { getSourceTypeFromPath, getShortFileName } from "@/lib/language-detect";
+import { buildSourceLink, getShortFileName } from "@/lib/source-link-builder";
+import { getSourceTypeFromPath } from "@/lib/language-detect";
 import { cn } from "@/lib/utils";
 
 interface Citation {
