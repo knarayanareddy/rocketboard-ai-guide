@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const PAGE_TITLES: Record<string, string> = {
   modules: "Modules",
