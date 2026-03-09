@@ -392,6 +392,53 @@ function SortableModuleCard(props: EditableCardProps) {
                     <span key={c.span_id} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{c.span_id}</span>
                   ))}
                 </div>
+
+                {/* Row 5: Prerequisites */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link2 className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground font-medium">Prereqs:</span>
+                  {dependencies
+                    .filter(d => d.module_key === mod.module_key)
+                    .map(dep => {
+                      const prereqMod = allModules.find(m => m.module_key === dep.requires_module_key);
+                      return (
+                        <span key={dep.id} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
+                          dep.requirement_type === "hard"
+                            ? "bg-destructive/10 text-destructive border-destructive/30"
+                            : "bg-accent/50 text-accent-foreground border-border"
+                        }`}>
+                          {prereqMod?.title || dep.requires_module_key}
+                          <span className="text-[8px] opacity-60">({dep.requirement_type})</span>
+                          {!disabled && (
+                            <button onClick={() => onRemoveDep(dep.id)} className="ml-0.5 hover:text-destructive">
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  {!disabled && (
+                    <Select
+                      value=""
+                      onValueChange={v => {
+                        if (v) onAddDep(mod.module_key, v, "soft");
+                      }}
+                    >
+                      <SelectTrigger className="h-5 w-[120px] text-[10px] border-dashed">
+                        <Plus className="w-2.5 h-2.5 mr-0.5" />
+                        <span>Add prereq</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allModules
+                          .filter(m => m.module_key !== mod.module_key)
+                          .filter(m => !dependencies.some(d => d.module_key === mod.module_key && d.requires_module_key === m.module_key))
+                          .map(m => (
+                            <SelectItem key={m.module_key} value={m.module_key}>{m.title}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
