@@ -30,7 +30,7 @@ interface EvidenceSpanViewerProps {
 
 export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSpanViewerProps) {
   const [copied, setCopied] = useState(false);
-  const { theme } = useTheme();
+  const { resolvedMode } = useTheme();
 
   const { data: chunkContent, isLoading } = useEvidenceSpanContent(
     isOpen ? packId : null,

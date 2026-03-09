@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface ChunkContent {
   id: string;
@@ -8,8 +9,8 @@ export interface ChunkContent {
   path: string;
   start_line: number;
   end_line: number;
-  metadata: Record<string, any> | null;
-  is_redacted: boolean;
+  metadata: Json | null;
+  is_redacted: boolean | null;
 }
 
 /**
