@@ -183,6 +183,37 @@ export function useCascadeGeneration() {
           updateModuleStatus(mod.module_key, { quizStatus: "failed", quizError: e.message });
           await upsertJob("quiz", mod.module_key, "failed", e.message);
         }
+
+        // Auto-generate exercises for this module
+        updateModuleStatus(mod.module_key, { exerciseStatus: "generating" });
+        try {
+          const exEnvelope = {
+            task: { type: "generate_exercises", request_id: crypto.randomUUID() },
+            auth: authInfo(), pack: packInfo(),
+            retrieval: { evidence_spans: [] },
+            inputs: { module_key: mod.module_key, module_title: mod.title, module_description: mod.description },
+          };
+          const exResult = await sendAITask(exEnvelope);
+          const exercises = exResult.exercises || [];
+          // Save exercises
+          await supabase.from("exercises").delete().eq("pack_id", currentPackId).eq("module_key", mod.module_key);
+          for (let i = 0; i < exercises.length; i++) {
+            const ex = exercises[i];
+            await supabase.from("exercises").insert({
+              pack_id: currentPackId, module_key: mod.module_key,
+              exercise_key: ex.exercise_key || `${mod.module_key}-ex-${i + 1}`,
+              title: ex.title, description: ex.description,
+              exercise_type: ex.exercise_type, difficulty: ex.difficulty || "intermediate",
+              estimated_minutes: ex.estimated_minutes || 10, hints: ex.hints || [],
+              verification: ex.verification || {}, evidence_citations: ex.evidence_citations || [],
+              sort_order: i,
+            } as any);
+          }
+          updateModuleStatus(mod.module_key, { exerciseStatus: "completed" });
+          queryClient.invalidateQueries({ queryKey: ["exercises", currentPackId, mod.module_key] });
+        } catch (e: any) {
+          updateModuleStatus(mod.module_key, { exerciseStatus: "failed", exerciseError: e.message });
+        }
       } catch (e: any) {
         updateModuleStatus(mod.module_key, { moduleStatus: "failed", error: e.message });
         await upsertJob("module", mod.module_key, "failed", e.message);
