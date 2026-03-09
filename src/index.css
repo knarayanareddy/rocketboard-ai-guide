@@ -26,6 +26,8 @@
     --border: 210 15% 87%;
     --input: 210 15% 87%;
     --ring: 174 72% 40%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
     --radius: 0.75rem;
 
     --sidebar-background: 200 20% 97%;
