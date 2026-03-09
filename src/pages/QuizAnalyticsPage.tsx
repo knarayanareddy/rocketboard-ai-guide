@@ -12,6 +12,7 @@ import {
   BarChart3, Target, Clock, AlertTriangle, ChevronDown, ChevronUp,
   Lightbulb, ThumbsUp, ThumbsDown, HelpCircle, TrendingUp,
 } from "lucide-react";
+import { Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
@@ -274,7 +275,7 @@ export default function QuizAnalyticsPage() {
                           </TableHeader>
                           <TableBody>
                             {questionStats.map((qs, i) => (
-                              <>
+                              <Fragment key={qs.questionId}>
                                 <TableRow
                                   key={qs.questionId}
                                   className="cursor-pointer"
@@ -302,7 +303,7 @@ export default function QuizAnalyticsPage() {
                                     </TableCell>
                                   </TableRow>
                                 )}
-                              </>
+                              </Fragment>
                             ))}
                           </TableBody>
                         </Table>
