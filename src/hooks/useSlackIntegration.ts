@@ -93,5 +93,13 @@ export function useSlackIntegration() {
     }
   };
 
-  return { integration, isLoading, saveIntegration, deleteIntegration, testWebhook };
+  const sendNotification = async (messageType: string, data: any) => {
+    if (!currentPackId) return false;
+    const { data: result, error } = await supabase.functions.invoke('send-slack-message', {
+      body: { packId: currentPackId, messageType, data }
+    });
+    return result?.success || false;
+  };
+
+  return { integration, isLoading, saveIntegration, deleteIntegration, testWebhook, sendNotification };
 }
