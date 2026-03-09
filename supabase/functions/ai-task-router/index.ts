@@ -304,6 +304,7 @@ async function authenticateRequest(req: Request): Promise<{ userId: string } | R
 const AUTHOR_TASKS = new Set([
   "generate_module", "refine_module", "generate_quiz", "generate_glossary",
   "generate_paths", "generate_ask_lead", "create_template", "refine_template", "module_planner",
+  "generate_exercises",
 ]);
 
 async function checkPackAccess(userId: string, envelope: any): Promise<Response | null> {
