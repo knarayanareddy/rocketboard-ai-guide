@@ -100,7 +100,6 @@ export default function SourcesPage() {
       setSelectedType(null);
       setSourceUri("");
       setLabel("");
-      setDocContent("");
     }
   }, [addOpen]);
 
