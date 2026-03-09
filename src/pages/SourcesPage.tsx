@@ -11,6 +11,8 @@ import {
   SourceType,
   getSourceTypeIcon,
   getSourceTypeLabel,
+  DocumentForm,
+  UrlImportConfig,
   ConfluenceForm,
   ConfluenceConfig,
   NotionForm,
@@ -43,7 +45,7 @@ import { usePack } from "@/hooks/usePack";
 import { useModulePlan } from "@/hooks/useModulePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -83,10 +85,9 @@ export default function SourcesPage() {
   const [addStep, setAddStep] = useState<AddSourceStep>("select");
   const [selectedType, setSelectedType] = useState<SourceType | null>(null);
   
-  // Form state for GitHub/Document
+  // Form state for GitHub
   const [sourceUri, setSourceUri] = useState("");
   const [label, setLabel] = useState("");
-  const [docContent, setDocContent] = useState("");
 
   // Track previous chunk counts for re-sync diff
   const prevChunkCountsRef = useRef<Record<string, number>>({});
@@ -99,7 +100,6 @@ export default function SourcesPage() {
       setSelectedType(null);
       setSourceUri("");
       setLabel("");
-      setDocContent("");
     }
   }, [addOpen]);
 
@@ -190,31 +190,76 @@ export default function SourcesPage() {
     }
   };
 
-  const handleAddDocument = async () => {
-    if (!docContent.trim()) {
-      toast.error("Please enter document content");
-      return;
-    }
-
+  const handleAddDocument = async (content: string, lbl: string) => {
     try {
       const source = await addSource.mutateAsync({
         sourceType: "document",
-        sourceUri: label || "Untitled Document",
-        label: label || undefined,
+        sourceUri: lbl || "Untitled Document",
+        label: lbl || undefined,
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "document",
-        sourceUri: label || "Untitled Document",
-        documentContent: docContent,
-        label: label || undefined,
+        sourceUri: lbl || "Untitled Document",
+        documentContent: content,
+        label: lbl || undefined,
       });
 
       setAddOpen(false);
       toast.success("Document added and ingestion started");
     } catch (err: any) {
       toast.error(err.message || "Failed to add source");
+    }
+  };
+
+  const handleAddUrl = async (config: UrlImportConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "document",
+        sourceUri: config.url,
+        label: config.label || undefined,
+        sourceConfig: {
+          import_type: "url",
+          crawl_mode: config.crawlMode,
+          max_depth: config.maxDepth,
+          max_pages: config.maxPages,
+          follow_internal_only: config.followInternalOnly,
+          include_pdfs: config.includePdfs,
+        },
+      });
+
+      // Call the ingest-url edge function
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ingest-url`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            pack_id: currentPackId,
+            source_id: source.id,
+            url: config.url,
+            crawl_mode: config.crawlMode,
+            max_depth: config.maxDepth,
+            max_pages: config.maxPages,
+            follow_internal_only: config.followInternalOnly,
+            include_pdfs: config.includePdfs,
+            label: config.label,
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Failed" }));
+        throw new Error(err.error || "URL ingestion failed");
+      }
+
+      setAddOpen(false);
+      toast.success("URL import started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to import URL");
     }
   };
 
@@ -549,51 +594,12 @@ export default function SourcesPage() {
 
       case "document":
         return (
-          <div className="space-y-4">
-            <button
-              onClick={handleBackToSelect}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <FileText className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Document</h3>
-                <p className="text-xs text-muted-foreground">Paste text content directly</p>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Label</label>
-              <Input
-                placeholder="e.g., Architecture Overview"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Content</label>
-              <Textarea
-                placeholder="Paste document content here..."
-                value={docContent}
-                onChange={(e) => setDocContent(e.target.value)}
-                rows={8}
-              />
-            </div>
-            <Button
-              onClick={handleAddDocument}
-              disabled={addSource.isPending || triggerIngestion.isPending}
-              className="w-full gap-2"
-            >
-              {(addSource.isPending || triggerIngestion.isPending) && (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              )}
-              Add & Ingest
-            </Button>
-          </div>
+          <DocumentForm
+            onSubmitDocument={handleAddDocument}
+            onSubmitUrl={handleAddUrl}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
         );
 
       case "confluence":
@@ -813,7 +819,7 @@ export default function SourcesPage() {
                     Add Source
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className={selectedType === "document" ? "sm:max-w-2xl" : "sm:max-w-lg"}>
                   <DialogHeader>
                     <DialogTitle>
                       {addStep === "select" ? "Choose Source Type" : "Configure Source"}
