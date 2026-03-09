@@ -31,6 +31,7 @@ import OnboardingWizard from "./pages/OnboardingWizard";
 import ReviewPage from "./pages/ReviewPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import FeedbackPage from "./pages/FeedbackPage";
+import TeamPage from "./pages/TeamPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
