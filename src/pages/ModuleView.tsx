@@ -288,7 +288,42 @@ function AudienceMismatchBanner({ moduleAudience, moduleDepth }: { moduleAudienc
   );
 }
 
-export default function ModuleView() {
+/** Wrapper that adds per-question attempt tracking to QuizRunner */
+function QuizRunnerWithTracking({ moduleKey, sectionTitles, ...props }: {
+  moduleKey: string;
+  sectionTitles: { id: string; heading: string }[];
+} & Omit<React.ComponentProps<typeof QuizRunner>, 'onQuestionAnswered' | 'onQuestionFeedback' | 'moduleKey' | 'sectionTitles'>) {
+  const { getMaxAttemptNumber, saveAttempt, saveQuestionFeedback } = useQuizAttempts(moduleKey);
+  const attemptNum = useRef(getMaxAttemptNumber() + 1);
+
+  const handleQuestionAnswered = (result: QuizQuestionResult) => {
+    saveAttempt.mutate({
+      module_key: moduleKey,
+      question_id: result.questionId,
+      selected_choice_id: result.selectedId,
+      is_correct: result.isCorrect,
+      time_spent_seconds: result.timeSpentSeconds,
+      attempt_number: attemptNum.current,
+    });
+  };
+
+  const handleQuestionFeedback = (questionId: string, feedbackType: string) => {
+    saveQuestionFeedback.mutate({ question_id: questionId, feedback_type: feedbackType });
+  };
+
+  return (
+    <QuizRunner
+      {...props}
+      moduleKey={moduleKey}
+      sectionTitles={sectionTitles}
+      onQuestionAnswered={handleQuestionAnswered}
+      onQuestionFeedback={handleQuestionFeedback}
+      attemptNumber={attemptNum.current}
+    />
+  );
+}
+
+
   const { moduleId } = useParams();
   const navigate = useNavigate();
   const { currentPackId } = usePack();
