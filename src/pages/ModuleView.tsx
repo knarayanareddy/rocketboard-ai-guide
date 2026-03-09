@@ -10,6 +10,8 @@ import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode } from "lucide-react";
+import { SectionFeedback } from "@/components/SectionFeedback";
+import { ModuleRating } from "@/components/ModuleRating";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
