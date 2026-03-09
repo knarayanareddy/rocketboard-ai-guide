@@ -108,35 +108,95 @@ export type Database = {
           },
         ]
       }
+      bookmark_collections: {
+        Row: {
+          created_at: string | null
+          icon: string | null
+          id: string
+          name: string
+          pack_id: string
+          sort_order: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          pack_id: string
+          sort_order?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          pack_id?: string
+          sort_order?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmark_collections_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookmarks: {
         Row: {
           bookmark_type: string
+          collection_id: string | null
           created_at: string
           id: string
+          is_pinned: boolean | null
           label: string | null
           pack_id: string
+          preview_text: string | null
           reference_key: string
+          subtitle: string | null
+          tags: string[] | null
           user_id: string
         }
         Insert: {
           bookmark_type: string
+          collection_id?: string | null
           created_at?: string
           id?: string
+          is_pinned?: boolean | null
           label?: string | null
           pack_id: string
+          preview_text?: string | null
           reference_key: string
+          subtitle?: string | null
+          tags?: string[] | null
           user_id: string
         }
         Update: {
           bookmark_type?: string
+          collection_id?: string | null
           created_at?: string
           id?: string
+          is_pinned?: boolean | null
           label?: string | null
           pack_id?: string
+          preview_text?: string | null
           reference_key?: string
+          subtitle?: string | null
+          tags?: string[] | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bookmarks_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "bookmark_collections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bookmarks_pack_id_fkey"
             columns: ["pack_id"]
