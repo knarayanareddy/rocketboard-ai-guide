@@ -108,6 +108,44 @@ export type Database = {
           },
         ]
       }
+      bookmarks: {
+        Row: {
+          bookmark_type: string
+          created_at: string
+          id: string
+          label: string | null
+          pack_id: string
+          reference_key: string
+          user_id: string
+        }
+        Insert: {
+          bookmark_type: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          pack_id: string
+          reference_key: string
+          user_id: string
+        }
+        Update: {
+          bookmark_type?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          pack_id?: string
+          reference_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmarks_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
