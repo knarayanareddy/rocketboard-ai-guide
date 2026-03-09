@@ -811,6 +811,11 @@ TASK: Generate up to ${limits.max_quiz_questions || 5} quiz questions for module
 ${moduleContext}
 ${packBlock}
 
+QUIZ CODE INCLUSION:
+- For questions about implementation, include a code snippet IN the question prompt (e.g., 'What does this code do?', 'What's missing from this configuration?').
+- In explanation_markdown, include the relevant code with annotations explaining why the correct answer is correct.
+- This helps learners connect quiz questions to actual codebase patterns.
+
 RULES:
 - Each question must have exactly 4 choices with unique IDs (e.g., "q1-a", "q1-b", etc.).
 - One choice must be marked as correct via correct_choice_id.
