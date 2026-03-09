@@ -8,6 +8,7 @@ import { useGeneratedPaths } from "@/hooks/useGeneratedPaths";
 import { usePathProgress } from "@/hooks/usePathProgress";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
+import { useModuleDependencies } from "@/hooks/useModuleDependencies";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { ListChecks, GraduationCap, MessageSquareMore, PartyPopper, ArrowRight } from "lucide-react";
