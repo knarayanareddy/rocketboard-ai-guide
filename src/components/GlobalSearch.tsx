@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, BookOpen, BookText, StickyNote, MessageSquare, Code, Clock, ArrowRight } from "lucide-react";
+import { Search, X, BookOpen, BookText, StickyNote, MessageSquare, Code, Clock, ArrowRight, Bookmark } from "lucide-react";
 import { useGlobalSearch, SearchFilter } from "@/hooks/useGlobalSearch";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { usePack } from "@/hooks/usePack";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ interface GlobalSearchProps {
 export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const { query, setQuery, filters, setFilters, results, isLoading, totalResults, getRecentSearches, saveRecentSearch, clearRecentSearches } = useGlobalSearch();
   const { currentPackId } = usePack();
+  const { isBookmarked } = useBookmarks();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -180,6 +182,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                 primary: `${r.moduleTitle}${r.sectionHeading ? ` › ${r.sectionHeading}` : ""}`,
                 snippet: r.snippet,
                 selected: allResults[selectedIndex]?.id === `mod-${i}`,
+                bookmarked: r.sectionId ? isBookmarked("module_section", `${r.moduleKey}:${r.sectionId}`) : false,
                 onClick: () =>
                   handleNavigate({ type: "module", id: `mod-${i}`, moduleKey: r.moduleKey, sectionId: r.sectionId }),
               }))}
@@ -198,6 +201,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                 primary: r.term,
                 snippet: r.snippet,
                 selected: allResults[selectedIndex]?.id === `gls-${i}`,
+                bookmarked: isBookmarked("glossary_term", `term:${r.term}`),
                 onClick: () => handleNavigate({ type: "glossary", id: `gls-${i}` }),
               }))}
               query={query}
@@ -312,6 +316,7 @@ interface ResultSectionProps {
     primary: string;
     snippet: string;
     selected: boolean;
+    bookmarked?: boolean;
     onClick: () => void;
   }>;
   query: string;
@@ -335,7 +340,10 @@ function ResultSection({ title, icon: Icon, count, items, query }: ResultSection
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground truncate">{highlightSnippet(item.primary, query)}</span>
+              <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                {item.bookmarked && <Bookmark className="w-3 h-3 text-primary fill-primary shrink-0" />}
+                {highlightSnippet(item.primary, query)}
+              </span>
               <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
             </div>
             <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{highlightSnippet(item.snippet, query)}</div>

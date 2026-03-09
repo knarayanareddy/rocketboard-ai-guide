@@ -47,6 +47,7 @@ import { CodeExplorer } from "@/components/CodeExplorer";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { useExercises } from "@/hooks/useExercises";
 import { BookmarkButton } from "@/components/BookmarkButton";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -462,6 +463,29 @@ export default function ModuleView() {
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
   }, [moduleId]);
+
+  // Cmd+D bookmark shortcut — bookmark the current module's first section
+  const { toggleBookmark: bmToggle } = useBookmarks();
+  useEffect(() => {
+    const handler = () => {
+      if (!moduleId) return;
+      const title = isGenerated ? generatedMod?.title : staticMod?.title;
+      const firstSection = isGenerated
+        ? moduleData?.sections?.[0]
+        : staticMod?.sections?.[0];
+      if (firstSection) {
+        const sectionId = isGenerated ? (firstSection as any).section_id : (firstSection as any).id;
+        bmToggle.mutate({
+          type: "module_section",
+          referenceKey: `${moduleId}:${sectionId}`,
+          label: isGenerated ? (firstSection as any).heading : (firstSection as any).title,
+          subtitle: title ?? moduleId,
+        });
+      }
+    };
+    window.addEventListener("bookmark-current", handler);
+    return () => window.removeEventListener("bookmark-current", handler);
+  }, [moduleId, isGenerated, generatedMod, staticMod, moduleData]);
 
   const readSections = getReadSectionsForModule(moduleId || "");
 
