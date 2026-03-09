@@ -698,6 +698,36 @@ CODE INCLUSION RULES (CRITICAL FOR DEVELOPER ONBOARDING):
 - After each code snippet, briefly explain what the code does and why it matters for the learner.
 - If a section discusses architecture or patterns, include the code that IMPLEMENTS that pattern, not just a description.
 
+SPECIAL CODE CALLOUTS:
+When including code in sections, use these markers in your markdown to indicate special code blocks. The UI will render them distinctly:
+
+For setup commands the learner needs to run:
+:::setup[Title]
+content with code blocks
+:::
+
+For important patterns:
+:::pattern[Title]
+content with code blocks
+:::
+
+For configuration files:
+:::config[Title]
+content with code blocks
+:::
+
+For gotchas and warnings:
+:::warning[Title]
+content with code blocks
+:::
+
+Use these liberally. Every module should have at least:
+- 1-2 setup callouts (if the module covers tools/environments)
+- 2-3 pattern callouts (for key code patterns)
+- 1-2 config callouts (for important configuration)
+- 1+ warning callouts (for common mistakes or gotchas)
+If the evidence doesn't support a particular callout type for a section, don't force it.
+
 RULES:
 - Generate 4-7 sections, each with a clear heading, markdown content, learning objectives, note prompts, and citations.
 - Ground ALL content in evidence spans. Cite using [S1], [S2], etc.
