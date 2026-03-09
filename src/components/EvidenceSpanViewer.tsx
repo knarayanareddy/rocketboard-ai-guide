@@ -53,13 +53,15 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
   const startLine = chunkContent?.start_line || span.start_line || 1;
   const endLine = chunkContent?.end_line || span.end_line;
   const content = chunkContent?.content || "";
-  const metadata = chunkContent?.metadata as Record<string, any> || {};
+  const metadata = (typeof chunkContent?.metadata === "object" && chunkContent?.metadata !== null && !Array.isArray(chunkContent.metadata))
+    ? (chunkContent.metadata as Record<string, unknown>)
+    : {};
   const isRedacted = chunkContent?.is_redacted || false;
 
   const language = detectLanguage(path);
   const isMarkdown = isMarkdownContent(path);
   const sourceType = getSourceTypeFromPath(path);
-  const sourceLink = buildSourceLink(path, startLine, endLine, { metadata });
+  const sourceLink = buildSourceLink(path, startLine, endLine, { metadata: metadata as Record<string, any> });
   const breadcrumbs = parsePathToBreadcrumbs(path);
   const fileName = getShortFileName(path);
 
@@ -69,7 +71,7 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const codeTheme = theme === "dark" ? themes.nightOwl : themes.github;
+  const codeTheme = resolvedMode === "dark" ? themes.nightOwl : themes.github;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -91,7 +93,7 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
                   {sourceType.icon} {sourceType.type}
                 </Badge>
                 {isRedacted && (
-                  <Badge variant="secondary" className="text-[10px] shrink-0 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400">
+                  <Badge variant="secondary" className="text-[10px] shrink-0">
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Redacted
                   </Badge>
