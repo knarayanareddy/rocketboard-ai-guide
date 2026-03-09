@@ -796,6 +796,9 @@ export default function ModuleView() {
                 <Dumbbell className="w-4 h-4" /> Exercises
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
               </TabsTrigger>
+              <TabsTrigger value="discussions" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
+                <MessageCircle className="w-4 h-4" /> Discussions
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="content">
