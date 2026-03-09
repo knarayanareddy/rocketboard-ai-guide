@@ -131,6 +131,7 @@ export function AppSidebar() {
     { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only" as const, end: false },
     { title: "Team", url: `${packPrefix}/team`, icon: Users, minLevel: "read_only" as const, end: false },
     { title: "Saved", url: `${packPrefix}/bookmarks`, icon: Bookmark, minLevel: "read_only" as const, end: false },
+    { title: "Discussions", url: `${packPrefix}/discussions`, icon: MessageCircle, minLevel: "read_only" as const, end: false },
     { title: "My Timeline", url: `${packPrefix}/timeline`, icon: Calendar, minLevel: "read_only" as const, end: false },
     { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author" as const, end: false },
     { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author" as const, end: false },
