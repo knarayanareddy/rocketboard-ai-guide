@@ -316,6 +316,7 @@ interface ResultSectionProps {
     primary: string;
     snippet: string;
     selected: boolean;
+    bookmarked?: boolean;
     onClick: () => void;
   }>;
   query: string;
@@ -339,7 +340,10 @@ function ResultSection({ title, icon: Icon, count, items, query }: ResultSection
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground truncate">{highlightSnippet(item.primary, query)}</span>
+              <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                {item.bookmarked && <Bookmark className="w-3 h-3 text-primary fill-primary shrink-0" />}
+                {highlightSnippet(item.primary, query)}
+              </span>
               <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
             </div>
             <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{highlightSnippet(item.snippet, query)}</div>
@@ -347,5 +351,7 @@ function ResultSection({ title, icon: Icon, count, items, query }: ResultSection
         ))}
       </div>
     </div>
+  );
+}
   );
 }
