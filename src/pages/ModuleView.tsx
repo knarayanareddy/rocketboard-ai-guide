@@ -14,8 +14,6 @@ import { SectionFeedback } from "@/components/SectionFeedback";
 import { ModuleRating } from "@/components/ModuleRating";
 import { useModuleDependencies } from "@/hooks/useModuleDependencies";
 import { useGeneratedModules as useGenModulesForTitleMap } from "@/hooks/useGeneratedModules";
-import { SectionFeedback } from "@/components/SectionFeedback";
-import { ModuleRating } from "@/components/ModuleRating";
 import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
