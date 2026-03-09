@@ -8,6 +8,7 @@ import { useGeneratedPaths } from "@/hooks/useGeneratedPaths";
 import { usePathProgress } from "@/hooks/usePathProgress";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
+import { useModuleDependencies } from "@/hooks/useModuleDependencies";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { ListChecks, GraduationCap, MessageSquareMore, PartyPopper, ArrowRight } from "lucide-react";
@@ -31,8 +32,10 @@ export function SuggestedNextAction() {
   const { askedQuestions } = useAskLeadProgress();
   const { paths: pathsRow } = useGeneratedPaths();
   const { checkedSteps: day1Checked } = usePathProgress("day1");
+  const { checkPrerequisitesMet } = useModuleDependencies();
 
   const modules = isAuthor ? allModules : allModules.filter(m => m.status === "published");
+  const unlockedModules = modules.filter(m => !checkPrerequisitesMet(m.module_key).hasHardBlock);
   const packId = currentPackId;
 
   const questions = askLead?.questions_data || [];
@@ -57,7 +60,7 @@ export function SuggestedNextAction() {
     }
 
     // 2. Quiz ready — all sections read in a module but no quiz score
-    for (const mod of modules) {
+    for (const mod of unlockedModules) {
       const sectionCount = (mod.module_data as any)?.sections?.length || 0;
       if (sectionCount === 0) continue;
       const readCount = progressData.filter(p => p.module_id === mod.module_key).length;
@@ -91,12 +94,12 @@ export function SuggestedNextAction() {
     }
 
     // 4. All complete celebration
-    const allModulesComplete = modules.every(mod => {
+    const allModulesComplete = unlockedModules.every(mod => {
       const sectionCount = (mod.module_data as any)?.sections?.length || 0;
       const readCount = progressData.filter(p => p.module_id === mod.module_key).length;
       return sectionCount > 0 && readCount >= sectionCount;
     });
-    if (allModulesComplete && modules.length > 0) {
+    if (allModulesComplete && unlockedModules.length > 0) {
       candidates.push({
         priority: 4,
         icon: <PartyPopper className="w-4 h-4" />,

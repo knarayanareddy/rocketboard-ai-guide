@@ -29,9 +29,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap,
-  ArrowRight, XCircle, RotateCcw, GripVertical, X, Plus, Pencil, Layout, Save,
+  ArrowRight, XCircle, RotateCcw, GripVertical, X, Plus, Pencil, Layout, Save, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useModuleDependencies } from "@/hooks/useModuleDependencies";
+import { DependencyGraph } from "@/components/DependencyGraph";
+import { wouldCreateCycle, buildDependencyGraph } from "@/lib/dependency-graph";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 /* ─── colour maps ─── */
 const confidenceColors: Record<string, string> = {
@@ -268,12 +272,16 @@ interface EditableCardProps {
   disabled: boolean;
   tracks: PackTrack[];
   templates: TemplateRow[];
+  allModules: ModulePlanEntry[];
+  dependencies: { module_key: string; requires_module_key: string; requirement_type: string; id: string }[];
   onUpdate: (key: string, patch: Partial<ModulePlanEntry>) => void;
   onRemove: (key: string) => void;
+  onAddDep: (moduleKey: string, reqKey: string, type: string) => void;
+  onRemoveDep: (depId: string) => void;
 }
 
 function SortableModuleCard(props: EditableCardProps) {
-  const { mod, index, generated, disabled, tracks, templates, onUpdate, onRemove } = props;
+  const { mod, index, generated, disabled, tracks, templates, allModules, dependencies, onUpdate, onRemove, onAddDep, onRemoveDep } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.module_key });
   const [confirmRemove, setConfirmRemove] = useState(false);
 
@@ -383,6 +391,53 @@ function SortableModuleCard(props: EditableCardProps) {
                   {mod.citations?.map(c => (
                     <span key={c.span_id} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{c.span_id}</span>
                   ))}
+                </div>
+
+                {/* Row 5: Prerequisites */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link2 className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground font-medium">Prereqs:</span>
+                  {dependencies
+                    .filter(d => d.module_key === mod.module_key)
+                    .map(dep => {
+                      const prereqMod = allModules.find(m => m.module_key === dep.requires_module_key);
+                      return (
+                        <span key={dep.id} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${
+                          dep.requirement_type === "hard"
+                            ? "bg-destructive/10 text-destructive border-destructive/30"
+                            : "bg-accent/50 text-accent-foreground border-border"
+                        }`}>
+                          {prereqMod?.title || dep.requires_module_key}
+                          <span className="text-[8px] opacity-60">({dep.requirement_type})</span>
+                          {!disabled && (
+                            <button onClick={() => onRemoveDep(dep.id)} className="ml-0.5 hover:text-destructive">
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  {!disabled && (
+                    <Select
+                      value=""
+                      onValueChange={v => {
+                        if (v) onAddDep(mod.module_key, v, "soft");
+                      }}
+                    >
+                      <SelectTrigger className="h-5 w-[120px] text-[10px] border-dashed">
+                        <Plus className="w-2.5 h-2.5 mr-0.5" />
+                        <span>Add prereq</span>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allModules
+                          .filter(m => m.module_key !== mod.module_key)
+                          .filter(m => !dependencies.some(d => d.module_key === mod.module_key && d.requires_module_key === m.module_key))
+                          .map(m => (
+                            <SelectItem key={m.module_key} value={m.module_key}>{m.title}</SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
             </div>
@@ -512,6 +567,7 @@ export default function PlanPage() {
   const { templates } = useTemplates();
   const { tracks } = usePackTracks();
   const cascade = useCascadeGeneration();
+  const { dependencies, addDependency, removeDependency } = useModuleDependencies();
 
   const [livePlan, setLivePlan] = useState<ModulePlanData | null>(null);
   const [planError, setPlanError] = useState<AIError | null>(null);
@@ -859,8 +915,42 @@ export default function PlanPage() {
                           disabled={editDisabled}
                           tracks={tracks}
                           templates={templates}
+                          allModules={displayPlan.module_plan}
+                          dependencies={dependencies.map(d => ({
+                            module_key: d.module_key,
+                            requires_module_key: d.requires_module_key,
+                            requirement_type: d.requirement_type,
+                            id: d.id,
+                          }))}
                           onUpdate={updateModule}
                           onRemove={removeModule}
+                          onAddDep={(moduleKey, reqKey, type) => {
+                            // Check for circular dependency
+                            const edges = dependencies.map(d => ({
+                              moduleKey: d.module_key,
+                              requiresModuleKey: d.requires_module_key,
+                              requirementType: d.requirement_type as "hard" | "soft",
+                              minCompletionPercentage: d.min_completion_percentage,
+                              minQuizScore: d.min_quiz_score,
+                            }));
+                            const graph = buildDependencyGraph(
+                              displayPlan.module_plan.map(m => m.module_key),
+                              edges
+                            );
+                            if (wouldCreateCycle(graph, moduleKey, reqKey)) {
+                              toast.error("Cannot add: this would create a circular dependency");
+                              return;
+                            }
+                            addDependency.mutate(
+                              { moduleKey, requiresModuleKey: reqKey, requirementType: type },
+                              { onSuccess: () => toast.success("Prerequisite added") }
+                            );
+                          }}
+                          onRemoveDep={(depId) => {
+                            removeDependency.mutate(depId, {
+                              onSuccess: () => toast.success("Prerequisite removed"),
+                            });
+                          }}
                         />
                       ))}
                     </div>
