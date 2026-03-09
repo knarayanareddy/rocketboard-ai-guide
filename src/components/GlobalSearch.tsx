@@ -182,6 +182,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                 primary: `${r.moduleTitle}${r.sectionHeading ? ` › ${r.sectionHeading}` : ""}`,
                 snippet: r.snippet,
                 selected: allResults[selectedIndex]?.id === `mod-${i}`,
+                bookmarked: r.sectionId ? isBookmarked("module_section", `${r.moduleKey}:${r.sectionId}`) : false,
                 onClick: () =>
                   handleNavigate({ type: "module", id: `mod-${i}`, moduleKey: r.moduleKey, sectionId: r.sectionId }),
               }))}
