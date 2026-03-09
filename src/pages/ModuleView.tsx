@@ -601,6 +601,13 @@ export default function ModuleView() {
                   </motion.div>
                 )}
 
+                {/* Module Rating */}
+                {readSections.size === moduleData.sections.length && moduleId && (
+                  <div className="mt-4">
+                    <ModuleRating moduleKey={moduleId} />
+                  </div>
+                )}
+
                 {/* Evidence Index */}
                 {moduleData.evidence_index && moduleData.evidence_index.length > 0 && (
                   <div className="mt-6">
