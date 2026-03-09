@@ -11,6 +11,7 @@ import {
   Clock, Lightbulb, Loader2, CheckCircle2, XCircle, AlertTriangle, Send,
   RotateCcw,
 } from "lucide-react";
+import { BookmarkButton } from "@/components/BookmarkButton";
 
 const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string; color: string }> = {
   code_find: { icon: Search, label: "Code Find", color: "bg-primary/10 text-primary" },
@@ -93,6 +94,13 @@ export function ExerciseCard({ exercise, submission, onSubmit, onVerify, isSubmi
           <h4 className="font-semibold text-foreground">{exercise.title}</h4>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <BookmarkButton
+            type="exercise"
+            referenceKey={`${exercise.module_key}:${exercise.exercise_key}`}
+            label={exercise.title}
+            subtitle={`Exercise · ${exercise.exercise_type}`}
+            previewText={exercise.description?.slice(0, 100)}
+          />
           <Badge variant="outline" className={`text-[10px] ${DIFF_COLORS[exercise.difficulty] || ""}`}>
             {exercise.difficulty}
           </Badge>

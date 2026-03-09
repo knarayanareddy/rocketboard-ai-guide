@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Highlight, themes } from "prism-react-renderer";
-import { X, Copy, ExternalLink, Check, FileCode, FileText, AlertTriangle } from "lucide-react";
+import { X, Copy, ExternalLink, Check, FileCode, FileText, AlertTriangle, Bookmark as BookmarkIcon } from "lucide-react";
+import { BookmarkButton } from "@/components/BookmarkButton";
 import { useEvidenceSpanContent } from "@/hooks/useEvidenceSpanContent";
 import { detectLanguage, isMarkdownContent, getSourceTypeFromPath } from "@/lib/language-detect";
 import { buildSourceLink, parsePathToBreadcrumbs, getShortFileName } from "@/lib/source-link-builder";
@@ -124,6 +125,13 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
 
             {/* Actions */}
             <div className="flex items-center gap-2 shrink-0">
+              <BookmarkButton
+                type="code_snippet"
+                referenceKey={`${span.chunk_id}:${startLine}-${endLine}`}
+                label={fileName}
+                subtitle={path}
+                previewText={content?.slice(0, 100)}
+              />
               {sourceLink && (
                 <Button
                   variant="outline"

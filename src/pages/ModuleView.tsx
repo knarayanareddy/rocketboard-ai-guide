@@ -46,6 +46,7 @@ import { KeyFilesSection } from "@/components/KeyFilesSection";
 import { CodeExplorer } from "@/components/CodeExplorer";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { useExercises } from "@/hooks/useExercises";
+import { BookmarkButton } from "@/components/BookmarkButton";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -127,6 +128,13 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           )}
         </div>
         <div className="flex items-center gap-2">
+          <BookmarkButton
+            type="module_section"
+            referenceKey={`${moduleKey}:${section.section_id}`}
+            label={section.heading}
+            subtitle={`Module: ${moduleKey}`}
+            previewText={section.markdown?.slice(0, 100)}
+          />
           {moduleKey && (
             <Tooltip>
               <TooltipTrigger asChild>

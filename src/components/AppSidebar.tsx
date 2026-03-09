@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit } from "lucide-react";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle, ThemeToggleCompact } from "@/components/ThemeToggle";
@@ -45,6 +46,53 @@ const LANG_OPTIONS = [
   { code: "ar", label: "العربية" },
   { code: "hi", label: "हिन्दी" },
 ];
+
+function QuickAccessBookmarks({ packPrefix }: { packPrefix: string }) {
+  const { bookmarks } = useBookmarks();
+  const navigate = useNavigate();
+  const recent = bookmarks.slice(0, 3);
+  if (recent.length === 0) return null;
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase text-xs tracking-widest">
+        🔖 Quick Access
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <div className="px-3 space-y-1">
+          {recent.map((b) => (
+            <button
+              key={b.id}
+              className="w-full text-left px-2 py-1.5 rounded text-xs text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors truncate"
+              onClick={() => {
+                switch (b.bookmark_type) {
+                  case "module_section":
+                  case "exercise": {
+                    const [modKey] = b.reference_key.split(":");
+                    navigate(`${packPrefix}/modules/${modKey}`);
+                    break;
+                  }
+                  case "glossary_term": navigate(`${packPrefix}/glossary`); break;
+                  case "path_step": navigate(`${packPrefix}/paths`); break;
+                  case "ask_lead_question": navigate(`${packPrefix}/ask-lead`); break;
+                  default: break;
+                }
+              }}
+            >
+              {b.label ?? b.reference_key}
+            </button>
+          ))}
+          <button
+            className="w-full text-left px-2 py-1 text-[10px] text-sidebar-foreground/50 hover:text-sidebar-accent-foreground transition-colors"
+            onClick={() => navigate(`${packPrefix}/bookmarks`)}
+          >
+            View all ({bookmarks.length}) →
+          </button>
+        </div>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
 
 export function AppSidebar() {
   const { state, setOpenMobile } = useSidebar();
@@ -182,6 +230,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Quick Access Bookmarks */}
+        {!collapsed && <QuickAccessBookmarks packPrefix={packPrefix} />}
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-3">
