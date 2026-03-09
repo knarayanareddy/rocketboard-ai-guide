@@ -5,6 +5,7 @@ import { ProtectedAction } from "@/components/ProtectedAction";
 import { IngestionStatus } from "@/components/IngestionStatus";
 import { ChunkBrowser } from "@/components/ChunkBrowser";
 import { BulkImportModal } from "@/components/BulkImportModal";
+import { SuggestedSources } from "@/components/SuggestedSources";
 import {
   SourceTypeSelector,
   SourceType,
@@ -28,6 +29,12 @@ import {
   PostmanConfig,
   FigmaForm,
   FigmaConfig,
+  SlackForm,
+  SlackConfig,
+  LoomForm,
+  LoomConfig,
+  PagerDutyForm,
+  PagerDutyConfig,
 } from "@/components/sources";
 import { useSources } from "@/hooks/useSources";
 import { useIngestion } from "@/hooks/useIngestion";
