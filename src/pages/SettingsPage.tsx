@@ -14,6 +14,8 @@ import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState, useMemo } from "react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { SlackSettingsSection } from "@/components/SlackSettingsSection";
+import { useRole } from "@/hooks/useRole";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
