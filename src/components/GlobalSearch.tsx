@@ -201,6 +201,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                 primary: r.term,
                 snippet: r.snippet,
                 selected: allResults[selectedIndex]?.id === `gls-${i}`,
+                bookmarked: isBookmarked("glossary_term", `term:${r.term}`),
                 onClick: () => handleNavigate({ type: "glossary", id: `gls-${i}` }),
               }))}
               query={query}
