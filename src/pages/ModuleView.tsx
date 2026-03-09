@@ -462,6 +462,7 @@ export default function ModuleView() {
   const [changeLogOpen, setChangeLogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [codeExplorerOpen, setCodeExplorerOpen] = useState(false);
+  const [selectedThread, setSelectedThread] = useState<DiscussionThread | null>(null);
 
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
@@ -654,7 +655,7 @@ export default function ModuleView() {
               animate={{ opacity: 1, height: "auto" }}
               className="mb-4 bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3"
             >
-              <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
               <div className="text-sm">
                 <p className="text-foreground font-medium">Recommended prerequisites</p>
                 <div className="text-xs text-muted-foreground mt-1 space-y-1">
@@ -795,6 +796,9 @@ export default function ModuleView() {
               <TabsTrigger value="exercises" className="gap-2 data-[state=active]:bg-card min-h-[44px]" disabled={!canInteract}>
                 <Dumbbell className="w-4 h-4" /> Exercises
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
+              </TabsTrigger>
+              <TabsTrigger value="discussions" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
+                <MessageCircle className="w-4 h-4" /> Discussions
               </TabsTrigger>
             </TabsList>
 
@@ -999,6 +1003,18 @@ export default function ModuleView() {
                 <ExercisesTab moduleKey={moduleId || ""} moduleTitle={moduleData?.title || generatedMod?.title || ""} moduleDescription={moduleData?.description || generatedMod?.description || ""} />
               </ProtectedAction>
             </TabsContent>
+
+            {/* Discussions Tab */}
+            <TabsContent value="discussions">
+              {selectedThread ? (
+                <ThreadDetail thread={selectedThread} onBack={() => setSelectedThread(null)} />
+              ) : (
+                <DiscussionList
+                  moduleKey={moduleId}
+                  onSelectThread={setSelectedThread}
+                />
+              )}
+            </TabsContent>
           </Tabs>
         ) : staticMod ? (
           /* Static module content */
@@ -1010,6 +1026,9 @@ export default function ModuleView() {
               <TabsTrigger value="quiz" className="gap-2 data-[state=active]:bg-card" disabled={!canInteract}>
                 <BrainCircuit className="w-4 h-4" /> Quiz ({staticMod.quiz.length})
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
+              </TabsTrigger>
+              <TabsTrigger value="discussions" className="gap-2 data-[state=active]:bg-card">
+                <MessageCircle className="w-4 h-4" /> Discussions
               </TabsTrigger>
             </TabsList>
 
@@ -1076,6 +1095,18 @@ export default function ModuleView() {
                   <QuizRunner questions={staticMod.quiz} onComplete={handleQuizComplete} />
                 </div>
               </ProtectedAction>
+            </TabsContent>
+
+            {/* Discussions Tab (static) */}
+            <TabsContent value="discussions">
+              {selectedThread ? (
+                <ThreadDetail thread={selectedThread} onBack={() => setSelectedThread(null)} />
+              ) : (
+                <DiscussionList
+                  moduleKey={moduleId}
+                  onSelectThread={setSelectedThread}
+                />
+              )}
             </TabsContent>
           </Tabs>
         ) : null}
