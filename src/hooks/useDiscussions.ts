@@ -303,11 +303,8 @@ export function useDiscussionReplies(threadId: string | null) {
         .single();
       if (error) throw error;
       // Increment reply_count
-      await supabase
-        .from("discussion_threads")
-        .update({ reply_count: (await supabase.from("discussion_replies").select("id", { count: "exact" }).eq("thread_id", threadId!)).count ?? 0 } as any)
-        .eq("id", threadId!)
-        .catch(() => {});
+      const { data: tc } = await supabase.from("discussion_threads").select("reply_count").eq("id", threadId!).single();
+      await supabase.from("discussion_threads").update({ reply_count: ((tc as any)?.reply_count ?? 0) + 1 } as any).eq("id", threadId!);
       return data;
     },
     onSuccess: () => {
