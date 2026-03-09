@@ -10,7 +10,7 @@ import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode, Dumbbell } from "lucide-react";
 import { SectionFeedback } from "@/components/SectionFeedback";
 import { ModuleRating } from "@/components/ModuleRating";
 import { useModuleDependencies } from "@/hooks/useModuleDependencies";
@@ -44,6 +44,8 @@ import { validateAIOutput } from "@/lib/schema-validator";
 import { validateCitations } from "@/lib/citation-validator";
 import { KeyFilesSection } from "@/components/KeyFilesSection";
 import { CodeExplorer } from "@/components/CodeExplorer";
+import { ExerciseCard } from "@/components/ExerciseCard";
+import { useExercises } from "@/hooks/useExercises";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -320,6 +322,97 @@ function QuizRunnerWithTracking({ moduleKey, sectionTitles, ...props }: {
       onQuestionFeedback={handleQuestionFeedback}
       attemptNumber={attemptNum.current}
     />
+  );
+}
+
+/** Exercises Tab */
+function ExercisesTab({ moduleKey, moduleTitle, moduleDescription }: { moduleKey: string; moduleTitle: string; moduleDescription: string }) {
+  const { exercises, exercisesLoading, mySubmissions, submitExercise, verifyExercise, generateExercises, deleteExercise } = useExercises(moduleKey);
+  const { hasPackPermission } = useRole();
+  const [verifyingKey, setVerifyingKey] = useState<string | null>(null);
+
+  const submissionMap = new Map(mySubmissions.map((s) => [s.exercise_key, s]));
+  const completedCount = mySubmissions.filter((s) => s.status === "verified").length;
+
+  const handleSubmit = (exerciseKey: string, content: string, submissionType: string, hintsUsed: number, timeSpent: number) => {
+    submitExercise.mutate({ exerciseKey, content, submissionType, hintsUsed, timeSpentSeconds: timeSpent });
+  };
+
+  const handleVerify = async (exercise: any) => {
+    const sub = submissionMap.get(exercise.exercise_key);
+    if (!sub) return;
+    setVerifyingKey(exercise.exercise_key);
+    try {
+      await verifyExercise.mutateAsync({
+        exerciseKey: exercise.exercise_key,
+        exerciseDescription: exercise.description,
+        exerciseType: exercise.exercise_type,
+        verification: exercise.verification || {},
+        submission: sub.content,
+      });
+    } finally {
+      setVerifyingKey(null);
+    }
+  };
+
+  const handleGenerate = () => {
+    generateExercises.mutate({ moduleTitle, moduleDescription });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="text-sm text-muted-foreground">
+            Exercises: {completedCount}/{exercises.length} completed
+          </span>
+          {exercises.length > 0 && (
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden w-32 mt-1">
+              <div className="h-full bg-primary transition-all" style={{ width: `${exercises.length > 0 ? (completedCount / exercises.length) * 100 : 0}%` }} />
+            </div>
+          )}
+        </div>
+        {hasPackPermission("author") && (
+          <Button size="sm" variant="outline" className="gap-2 text-xs" onClick={handleGenerate} disabled={generateExercises.isPending}>
+            {generateExercises.isPending ? (
+              <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+            ) : (
+              <><Sparkles className="w-3 h-3" /> {exercises.length > 0 ? "Regenerate" : "Generate"} Exercises</>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {exercisesLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Loading exercises...</div>
+      ) : exercises.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl p-8 text-center">
+          <Dumbbell className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="font-medium mb-2 text-foreground">No exercises yet</h3>
+          <p className="text-sm text-muted-foreground mb-4">Hands-on exercises help apply what you've learned.</p>
+          {hasPackPermission("author") && (
+            <Button size="sm" className="gap-2" onClick={handleGenerate} disabled={generateExercises.isPending}>
+              <Sparkles className="w-3 h-3" /> Generate Exercises
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {exercises.map((ex) => (
+            <ExerciseCard
+              key={ex.exercise_key}
+              exercise={ex}
+              submission={submissionMap.get(ex.exercise_key)}
+              onSubmit={(content, type, hints, time) => handleSubmit(ex.exercise_key, content, type, hints, time)}
+              onVerify={() => handleVerify(ex)}
+              isSubmitting={submitExercise.isPending}
+              isVerifying={verifyingKey === ex.exercise_key}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -664,6 +757,10 @@ export default function ModuleView() {
                   <FolderCode className="w-4 h-4" /> Code
                 </TabsTrigger>
               )}
+              <TabsTrigger value="exercises" className="gap-2 data-[state=active]:bg-card min-h-[44px]" disabled={!canInteract}>
+                <Dumbbell className="w-4 h-4" /> Exercises
+                {!canInteract && <Lock className="w-3 h-3 ml-1" />}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="content">
@@ -855,6 +952,18 @@ export default function ModuleView() {
                 </div>
               </TabsContent>
             )}
+
+            {/* Exercises Tab */}
+            <TabsContent value="exercises">
+              <ProtectedAction requiredLevel="learner" fallback={
+                <div className="bg-card border border-border rounded-xl p-8 text-center">
+                  <Lock className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">You need learner access or higher for exercises.</p>
+                </div>
+              }>
+                <ExercisesTab moduleKey={moduleId || ""} moduleTitle={moduleData?.title || generatedMod?.title || ""} moduleDescription={moduleData?.description || generatedMod?.description || ""} />
+              </ProtectedAction>
+            </TabsContent>
           </Tabs>
         ) : staticMod ? (
           /* Static module content */
