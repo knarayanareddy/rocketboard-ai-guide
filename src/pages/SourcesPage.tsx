@@ -192,31 +192,76 @@ export default function SourcesPage() {
     }
   };
 
-  const handleAddDocument = async () => {
-    if (!docContent.trim()) {
-      toast.error("Please enter document content");
-      return;
-    }
-
+  const handleAddDocument = async (content: string, lbl: string) => {
     try {
       const source = await addSource.mutateAsync({
         sourceType: "document",
-        sourceUri: label || "Untitled Document",
-        label: label || undefined,
+        sourceUri: lbl || "Untitled Document",
+        label: lbl || undefined,
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "document",
-        sourceUri: label || "Untitled Document",
-        documentContent: docContent,
-        label: label || undefined,
+        sourceUri: lbl || "Untitled Document",
+        documentContent: content,
+        label: lbl || undefined,
       });
 
       setAddOpen(false);
       toast.success("Document added and ingestion started");
     } catch (err: any) {
       toast.error(err.message || "Failed to add source");
+    }
+  };
+
+  const handleAddUrl = async (config: UrlImportConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "document",
+        sourceUri: config.url,
+        label: config.label || undefined,
+        sourceConfig: {
+          import_type: "url",
+          crawl_mode: config.crawlMode,
+          max_depth: config.maxDepth,
+          max_pages: config.maxPages,
+          follow_internal_only: config.followInternalOnly,
+          include_pdfs: config.includePdfs,
+        },
+      });
+
+      // Call the ingest-url edge function
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ingest-url`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            pack_id: currentPackId,
+            source_id: source.id,
+            url: config.url,
+            crawl_mode: config.crawlMode,
+            max_depth: config.maxDepth,
+            max_pages: config.maxPages,
+            follow_internal_only: config.followInternalOnly,
+            include_pdfs: config.includePdfs,
+            label: config.label,
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Failed" }));
+        throw new Error(err.error || "URL ingestion failed");
+      }
+
+      setAddOpen(false);
+      toast.success("URL import started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to import URL");
     }
   };
 
