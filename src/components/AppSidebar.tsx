@@ -57,6 +57,7 @@ export function AppSidebar() {
   const { outputLanguage, audience, depth, glossaryDensity, learnerRole, experienceLevel, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { currentPackId, currentPack } = usePack();
   const [langOpen, setLangOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
