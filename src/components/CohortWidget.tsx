@@ -16,7 +16,27 @@ export function CohortWidget() {
   const navigate = useNavigate();
 
   if (myCohortLoading || cohortMembersLoading) return null;
-  if (!myCohort) return null;
+  if (!myCohort) return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card border border-border rounded-xl p-5"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <Users className="w-5 h-5 text-muted-foreground" />
+        <h3 className="font-semibold text-card-foreground">Peer Learning</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-3">
+        Join a cohort to see how your peers are progressing and stay motivated together.
+      </p>
+      <button
+        onClick={() => navigate(`/packs/${currentPackId}/cohort`)}
+        className="text-xs text-primary hover:underline flex items-center gap-1"
+      >
+        View Cohorts <ChevronRight className="w-3 h-3" />
+      </button>
+    </motion.div>
+  );
 
   // Filter members with privacy enabled, sort by progress
   const visibleMembers = cohortMembers

@@ -655,7 +655,7 @@ export default function ModuleView() {
               animate={{ opacity: 1, height: "auto" }}
               className="mb-4 bg-accent/10 border border-accent/20 rounded-xl p-4 flex items-start gap-3"
             >
-              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
               <div className="text-sm">
                 <p className="text-foreground font-medium">Recommended prerequisites</p>
                 <div className="text-xs text-muted-foreground mt-1 space-y-1">
@@ -780,7 +780,7 @@ export default function ModuleView() {
         {/* Generated module content */}
         {isGenerated && moduleData ? (
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="bg-muted border border-border mb-6">
+            <TabsList className="bg-muted border border-border mb-6 overflow-x-auto w-full flex-wrap sm:flex-nowrap">
               <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>
@@ -1019,7 +1019,7 @@ export default function ModuleView() {
         ) : staticMod ? (
           /* Static module content */
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="bg-muted border border-border mb-6">
+            <TabsList className="bg-muted border border-border mb-6 overflow-x-auto w-full flex-wrap sm:flex-nowrap">
               <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>

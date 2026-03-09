@@ -34,7 +34,7 @@ export default function CohortPage() {
     cohorts, cohortsLoading,
     myCohort, myCohortLoading,
     cohortMembers, cohortMembersLoading,
-    createCohort, deleteCohort,
+    createCohort, deleteCohort, addMembers,
   } = useCohort();
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -44,6 +44,9 @@ export default function CohortPage() {
   const [encourageTarget, setEncourageTarget] = useState<CohortMemberProgress | null>(null);
   const [encourageMsg, setEncourageMsg] = useState("");
   const [sendingEncourage, setSendingEncourage] = useState(false);
+  const [addMemberEmail, setAddMemberEmail] = useState("");
+  const [addMemberCohortId, setAddMemberCohortId] = useState<string | null>(null);
+  const [addingMember, setAddingMember] = useState(false);
 
   const handleCreate = () => {
     if (!newName.trim()) return;
@@ -83,6 +86,34 @@ export default function CohortPage() {
     : 0;
 
   const myProgress = visibleMembers.find((m) => m.user_id === user?.id)?.progress_pct ?? 0;
+
+  const handleAddMemberByEmail = async () => {
+    if (!addMemberEmail.trim() || !addMemberCohortId) return;
+    setAddingMember(true);
+    try {
+      const { data, error } = await supabase.rpc("lookup_user_by_email", { _email: addMemberEmail.trim() });
+      if (error) throw error;
+      const rows = data as any[];
+      if (!rows || rows.length === 0) {
+        toast.error("No user found with that email");
+        return;
+      }
+      const userId = rows[0].user_id;
+      addMembers.mutate(
+        { cohortId: addMemberCohortId, userIds: [userId] },
+        {
+          onSuccess: () => {
+            setAddMemberEmail("");
+            setAddMemberCohortId(null);
+          },
+        }
+      );
+    } catch {
+      toast.error("Failed to look up user");
+    } finally {
+      setAddingMember(false);
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -242,25 +273,56 @@ export default function CohortPage() {
               ) : (
                 <div className="space-y-3">
                   {cohorts.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                      <div>
-                        <span className="font-medium text-sm text-foreground">{c.name}</span>
-                        {c.start_date && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Started {format(new Date(c.start_date), "MMM d, yyyy")}
-                          </p>
-                        )}
+                    <div key={c.id} className="p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-sm text-foreground">{c.name}</span>
+                          {c.start_date && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Started {format(new Date(c.start_date), "MMM d, yyyy")}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs gap-1"
+                            onClick={() => setAddMemberCohortId(addMemberCohortId === c.id ? null : c.id)}
+                          >
+                            <UserPlus className="w-3 h-3" /> Add Member
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:bg-destructive/10 h-7"
+                            onClick={() => {
+                              if (confirm(`Delete cohort "${c.name}"?`)) deleteCohort.mutate(c.id);
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:bg-destructive/10 h-7"
-                        onClick={() => {
-                          if (confirm(`Delete cohort "${c.name}"?`)) deleteCohort.mutate(c.id);
-                        }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      {addMemberCohortId === c.id && (
+                        <div className="flex items-center gap-2 pt-1">
+                          <Input
+                            placeholder="Enter member email…"
+                            value={addMemberEmail}
+                            onChange={(e) => setAddMemberEmail(e.target.value)}
+                            className="h-8 text-sm"
+                            onKeyDown={(e) => { if (e.key === "Enter") handleAddMemberByEmail(); }}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 px-3"
+                            onClick={handleAddMemberByEmail}
+                            disabled={addingMember || !addMemberEmail.trim()}
+                          >
+                            {addingMember ? "Adding…" : "Add"}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

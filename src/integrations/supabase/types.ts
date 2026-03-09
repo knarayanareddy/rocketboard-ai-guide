@@ -2402,6 +2402,11 @@ export type Database = {
         Args: { _email: string; _user_id: string }
         Returns: number
       }
+      decrement_reply_upvote: { Args: { reply_id: string }; Returns: undefined }
+      decrement_thread_upvote: {
+        Args: { thread_id: string }
+        Returns: undefined
+      }
       get_cohort_pack_id: { Args: { _cohort_id: string }; Returns: string }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }
@@ -2416,6 +2421,15 @@ export type Database = {
         Args: { _min_level: string; _pack_id: string; _user_id: string }
         Returns: boolean
       }
+      increment_reply_upvote: { Args: { reply_id: string }; Returns: undefined }
+      increment_thread_reply_count: {
+        Args: { thread_id: string }
+        Returns: undefined
+      }
+      increment_thread_upvote: {
+        Args: { thread_id: string }
+        Returns: undefined
+      }
       is_cohort_member: {
         Args: { _cohort_id: string; _user_id: string }
         Returns: boolean
@@ -2427,6 +2441,14 @@ export type Database = {
       is_pack_member: {
         Args: { _pack_id: string; _user_id: string }
         Returns: boolean
+      }
+      lookup_user_by_email: {
+        Args: { _email: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          user_id: string
+        }[]
       }
     }
     Enums: {

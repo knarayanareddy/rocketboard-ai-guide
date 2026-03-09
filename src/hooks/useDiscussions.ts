@@ -194,13 +194,11 @@ export function useDiscussions(filters?: ThreadFilters) {
           .eq("target_type", targetType)
           .eq("target_id", targetId);
         if (error) throw error;
-        // Decrement count inline
+        // Atomic decrement via RPC
         if (targetType === "thread") {
-          const { data: t } = await supabase.from("discussion_threads").select("upvote_count").eq("id", targetId).single();
-          await supabase.from("discussion_threads").update({ upvote_count: Math.max(0, ((t as any)?.upvote_count ?? 1) - 1) } as any).eq("id", targetId);
+          await supabase.rpc("decrement_thread_upvote", { thread_id: targetId });
         } else {
-          const { data: r } = await supabase.from("discussion_replies").select("upvote_count").eq("id", targetId).single();
-          await supabase.from("discussion_replies").update({ upvote_count: Math.max(0, ((r as any)?.upvote_count ?? 1) - 1) } as any).eq("id", targetId);
+          await supabase.rpc("decrement_reply_upvote", { reply_id: targetId });
         }
         return { action: "removed" as const };
       } else {
@@ -208,12 +206,11 @@ export function useDiscussions(filters?: ThreadFilters) {
           .from("discussion_upvotes")
           .insert({ user_id: user!.id, target_type: targetType, target_id: targetId } as any);
         if (error) throw error;
+        // Atomic increment via RPC
         if (targetType === "thread") {
-          const { data: t } = await supabase.from("discussion_threads").select("upvote_count").eq("id", targetId).single();
-          await supabase.from("discussion_threads").update({ upvote_count: ((t as any)?.upvote_count ?? 0) + 1 } as any).eq("id", targetId);
+          await supabase.rpc("increment_thread_upvote", { thread_id: targetId });
         } else {
-          const { data: r } = await supabase.from("discussion_replies").select("upvote_count").eq("id", targetId).single();
-          await supabase.from("discussion_replies").update({ upvote_count: ((r as any)?.upvote_count ?? 0) + 1 } as any).eq("id", targetId);
+          await supabase.rpc("increment_reply_upvote", { reply_id: targetId });
         }
         return { action: "added" as const };
       }
@@ -302,9 +299,8 @@ export function useDiscussionReplies(threadId: string | null, threadAuthorId?: s
         .select()
         .single();
       if (error) throw error;
-      // Increment reply_count
-      const { data: tc } = await supabase.from("discussion_threads").select("reply_count").eq("id", threadId!).single();
-      await supabase.from("discussion_threads").update({ reply_count: ((tc as any)?.reply_count ?? 0) + 1 } as any).eq("id", threadId!);
+      // Atomic increment via RPC
+      await supabase.rpc("increment_thread_reply_count", { thread_id: threadId! });
       return data;
     },
     onSuccess: () => {
