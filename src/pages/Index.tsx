@@ -10,7 +10,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
 import { useLearnerState } from "@/hooks/useLearnerState";
-import { usePackFromUrl } from "@/hooks/usePack";
+import { usePackFromUrl, usePack } from "@/hooks/usePack";
 import { IngestionStatus } from "@/components/IngestionStatus";
 import { useGeneratedModules, GeneratedModuleRow } from "@/hooks/useGeneratedModules";
 import { useSources } from "@/hooks/useSources";
