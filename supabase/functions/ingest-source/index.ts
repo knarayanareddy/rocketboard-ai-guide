@@ -194,14 +194,18 @@ Deno.serve(async (req) => {
             console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${redactionCount} secret(s) redacted`);
           }
           const hash = await sha256(content);
+          const repoName = repo.replace(/\.git$/, "");
+          const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
+          const ext = filepath.split(".").pop() || "";
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
-            path: `repo:${owner}/${repo.replace(/\.git$/, "")}/${filepath}`,
+            path: `repo:${owner}/${repoName}/${filepath}`,
             start_line: chunk.start,
             end_line: chunk.end,
             content,
             content_hash: hash,
             is_redacted: isRedacted,
+            metadata: { source_url: sourceUrl, file_type: ext },
           });
         }
 
