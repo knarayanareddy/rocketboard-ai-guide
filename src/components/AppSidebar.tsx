@@ -128,6 +128,23 @@ export function AppSidebar() {
         <PackSelector collapsed={collapsed} />
       </div>
 
+      {/* Search button */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Search className="w-4 h-4 shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left">Search…</span>
+              <kbd className="hidden sm:inline text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">⌘K</kbd>
+            </>
+          )}
+        </button>
+      </div>
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase text-xs tracking-widest">

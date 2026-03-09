@@ -79,6 +79,23 @@ function InviteAcceptor({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function GlobalSearchShortcut() {
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  return <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -88,6 +105,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <OfflineIndicator />
+          <GlobalSearchShortcut />
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
