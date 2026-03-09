@@ -99,7 +99,7 @@ export function SuggestedNextAction() {
       const readCount = progressData.filter(p => p.module_id === mod.module_key).length;
       return sectionCount > 0 && readCount >= sectionCount;
     });
-    if (allModulesComplete && modules.length > 0) {
+    if (allModulesComplete && unlockedModules.length > 0) {
       candidates.push({
         priority: 4,
         icon: <PartyPopper className="w-4 h-4" />,
