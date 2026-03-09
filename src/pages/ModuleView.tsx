@@ -44,6 +44,8 @@ import { validateAIOutput } from "@/lib/schema-validator";
 import { validateCitations } from "@/lib/citation-validator";
 import { KeyFilesSection } from "@/components/KeyFilesSection";
 import { CodeExplorer } from "@/components/CodeExplorer";
+import { ExerciseCard } from "@/components/ExerciseCard";
+import { useExercises } from "@/hooks/useExercises";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
