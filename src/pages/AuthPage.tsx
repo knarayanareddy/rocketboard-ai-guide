@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { motion } from "framer-motion";
-import { Rocket, Mail, Lock, User, ArrowRight, Loader2, Github } from "lucide-react";
+import { Rocket, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -43,18 +44,15 @@ export default function AuthPage() {
     }
   };
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
-    setOauthLoading(provider);
+  const handleGoogleSignIn = async () => {
+    setOauthLoading("google");
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.origin,
-        },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
-      if (error) throw error;
+      if (result?.error) throw result.error;
     } catch (err: any) {
-      toast.error(`${provider} sign in failed: ${err.message}`);
+      toast.error(`Google sign in failed: ${err.message}`);
       setOauthLoading(null);
     }
   };
