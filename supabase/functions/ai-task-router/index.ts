@@ -1528,6 +1528,138 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
   }
 }
 
+// ─── GENERATE EXERCISES HANDLER ───
+async function handleGenerateExercises(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const pack = envelope.pack || {};
+  const retrieval = envelope.retrieval || {};
+  const inputs = envelope.inputs || {};
+  const spansBlock = buildSpansBlock(retrieval.evidence_spans || []);
+  const packBlock = buildPackBlock(pack);
+
+  const systemPrompt = `You are RocketBoard AI, generating hands-on exercises for developer onboarding.
+${SECURITY_RULES_BLOCK}
+${packBlock}${spansBlock}
+
+Generate 2-4 hands-on exercises for the module "${inputs.module_title || inputs.module_key}".
+${inputs.module_description ? `Module description: ${inputs.module_description}` : ""}
+
+Each exercise should test PRACTICAL APPLICATION of the concepts. Mix exercise types:
+- At least 1 code_find or explore_and_answer (navigation)
+- At least 1 code_explain or debug_challenge (comprehension)
+- Optionally 1 terminal_task, config_task, or free_response
+
+Exercise types: code_find, code_explain, config_task, debug_challenge, explore_and_answer, terminal_task, free_response
+Difficulties: beginner, intermediate, advanced
+
+IMPORTANT: Use ACTUAL file paths, function names, and code from the evidence spans. Reference the REAL codebase, not hypothetical examples.
+
+For each exercise, include:
+- exercise_key: unique key like "mod-key-ex-1"
+- title: clear title
+- description: markdown with full exercise prompt (include code blocks where relevant)
+- exercise_type: one of the types above
+- difficulty: beginner/intermediate/advanced
+- estimated_minutes: 5-15
+- hints: array of 2-3 progressive hints (each more specific)
+- verification: object with criteria for correct answer
+- evidence_citations: array of {span_id, path} referenced
+
+You MUST respond with VALID JSON:
+{
+  "type": "generate_exercises",
+  "request_id": "${requestId}",
+  "exercises": [
+    {
+      "exercise_key": "string",
+      "title": "string",
+      "description": "markdown string",
+      "exercise_type": "string",
+      "difficulty": "string",
+      "estimated_minutes": number,
+      "hints": ["string"],
+      "verification": {},
+      "evidence_citations": []
+    }
+  ],
+  "warnings": []
+}
+
+Return ONLY the JSON object.`;
+
+  const userPrompt = `Generate exercises for module: "${inputs.module_title || inputs.module_key}"`;
+
+  try {
+    const parsed = await callAIWithRetry(systemPrompt, userPrompt, {
+      type: "generate_exercises", request_id: requestId, exercises: [], warnings: ["Could not generate exercises"],
+    }, ["exercises"]);
+    parsed.type = "generate_exercises";
+    parsed.request_id = requestId;
+    if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
+// ─── VERIFY EXERCISE HANDLER ───
+async function handleVerifyExercise(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+  const requestId = envelope.task?.request_id || crypto.randomUUID();
+  const retrieval = envelope.retrieval || {};
+  const inputs = envelope.inputs || {};
+  const spansBlock = buildSpansBlock(retrieval.evidence_spans || []);
+
+  const systemPrompt = `You are RocketBoard AI, evaluating a learner's exercise submission.
+${SECURITY_RULES_BLOCK}
+${spansBlock}
+
+Exercise description:
+${inputs.exercise_description}
+
+Exercise type: ${inputs.exercise_type}
+Verification criteria: ${JSON.stringify(inputs.verification_criteria || {})}
+
+Evaluate the learner's submission for accuracy and completeness.
+Be encouraging but point out anything they missed or got wrong.
+Keep feedback under 150 words.
+
+For code_find: check if submitted path matches or contains the expected path (be flexible with leading slashes/directories).
+For code_explain: evaluate explanation accuracy against the actual code in evidence.
+For config_task: check required keys exist with non-empty values. Redact secrets.
+For debug_challenge: check if they identified the correct issue and proposed a valid fix.
+For terminal_task: check output looks like expected results.
+For free_response: evaluate thoughtfulness and accuracy.
+
+You MUST respond with VALID JSON:
+{
+  "type": "verify_exercise",
+  "request_id": "${requestId}",
+  "status": "correct" | "partially_correct" | "incorrect",
+  "feedback_markdown": "your markdown feedback",
+  "score": 0-100,
+  "suggestions": ["suggestion1", "suggestion2"],
+  "warnings": []
+}
+
+Return ONLY the JSON object.`;
+
+  const userPrompt = `Learner's submission:\n\n${inputs.learner_submission}`;
+
+  try {
+    const parsed = await callAIWithRetry(systemPrompt, userPrompt, {
+      type: "verify_exercise", request_id: requestId, status: "incorrect", feedback_markdown: "Could not evaluate submission.", score: 0, suggestions: [], warnings: [],
+    }, ["status", "feedback_markdown"]);
+    parsed.type = "verify_exercise";
+    parsed.request_id = requestId;
+    if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
+    return jsonResponse(parsed);
+  } catch (e: any) {
+    if (e.status) return errorResponse(e.status, { error: e.message });
+    throw e;
+  }
+}
+
 // ─── MAIN HANDLER ───
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -1585,6 +1717,10 @@ serve(async (req) => {
         return await handleRefineTemplate(safeEnvelope, extraWarnings);
       case "refine_module":
         return await handleRefineModule(safeEnvelope, extraWarnings);
+      case "generate_exercises":
+        return await handleGenerateExercises(safeEnvelope, extraWarnings);
+      case "verify_exercise":
+        return await handleVerifyExercise(safeEnvelope, extraWarnings);
       default:
         return structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`);
     }
