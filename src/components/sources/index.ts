@@ -1,5 +1,7 @@
 export { SourceTypeSelector, getSourceTypeIcon, getSourceTypeLabel } from "./SourceTypeSelector";
 export type { SourceType } from "./SourceTypeSelector";
+export { DocumentForm } from "./DocumentForm";
+export type { UrlImportConfig } from "./DocumentForm";
 export { ConfluenceForm } from "./ConfluenceForm";
 export type { ConfluenceConfig } from "./ConfluenceForm";
 export { NotionForm } from "./NotionForm";
