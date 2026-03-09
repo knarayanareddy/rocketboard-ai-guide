@@ -476,6 +476,14 @@ export default function ModuleView() {
             </div>
           )}
 
+          {/* Key Files section */}
+          {isGenerated && moduleData?.evidence_index && currentPackId && (
+            <KeyFilesSection
+              evidenceIndex={moduleData.evidence_index}
+              packId={currentPackId}
+            />
+          )}
+
           {/* Progress bar */}
           <div className="mt-4 mb-8">
             <div className="flex items-center justify-between mb-2">
