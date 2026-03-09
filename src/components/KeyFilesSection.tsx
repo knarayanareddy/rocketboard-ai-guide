@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { FileCode, ExternalLink, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { EvidenceSpanViewer, type EvidenceSpan } from "@/components/EvidenceSpanViewer";
 import { buildSourceLink, getShortFileName } from "@/lib/source-link-builder";
 import { getSourceTypeFromPath } from "@/lib/language-detect";
