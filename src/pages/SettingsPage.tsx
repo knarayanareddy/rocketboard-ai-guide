@@ -2,7 +2,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2, AlertTriangle, Palette, Info } from "lucide-react";
+import { Trash2, User, Layers, BookText, GraduationCap, Globe, GitBranch, Settings2, ShieldCheck, CheckCircle2, AlertTriangle, Palette, Info, Users, Eye, EyeOff, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAudiencePrefs, GlossaryDensity, ExperienceLevel } from "@/hooks/useAudiencePrefs";
 import { useGenerationPrefs, TargetReadingLevel } from "@/hooks/useGenerationPrefs";
+import { usePeerVisibility } from "@/hooks/usePeerVisibility";
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState, useMemo } from "react";
@@ -88,6 +89,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { targetReadingLevel, maxSectionsHint, packLimits, isAuthorPlus, updatePrefs: updateGenPrefs, updatePackLimits } = useGenerationPrefs();
+  const { prefs: peerPrefs, updatePrefs: updatePeerPrefs } = usePeerVisibility();
   const { hasPackPermission } = useRole();
   const { currentPackId, currentPack } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
@@ -538,6 +540,66 @@ export default function SettingsPage() {
             >
               Reset & Re-run Setup
             </Button>
+          </div>
+
+          {/* Peer Privacy Settings */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold text-card-foreground">Peer Learning Privacy</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Control what your cohort peers can see about your activity and progress.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {peerPrefs.show_my_progress ? (
+                    <Eye className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <EyeOff className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-card-foreground">Show my progress</p>
+                    <p className="text-xs text-muted-foreground">Allow peers to see your completion percentage</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={peerPrefs.show_my_progress}
+                  onCheckedChange={(val) => updatePeerPrefs.mutate({ show_my_progress: val })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {peerPrefs.show_my_activity ? (
+                    <Eye className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <EyeOff className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-card-foreground">Show my activity</p>
+                    <p className="text-xs text-muted-foreground">Allow peers to see when you're active on modules</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={peerPrefs.show_my_activity}
+                  onCheckedChange={(val) => updatePeerPrefs.mutate({ show_my_activity: val })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-card-foreground">Allow direct messages</p>
+                    <p className="text-xs text-muted-foreground">Let peers send you encouragement messages</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={peerPrefs.allow_direct_messages}
+                  onCheckedChange={(val) => updatePeerPrefs.mutate({ allow_direct_messages: val })}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Slack Integration - Admin only */}

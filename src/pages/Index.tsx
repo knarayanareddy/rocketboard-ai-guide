@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { SourcesUpdatedBanner } from "@/components/SourcesUpdatedBanner";
 import { ExportProgressButton } from "@/components/ExportProgressButton";
 import { SuggestedNextAction } from "@/components/SuggestedNextAction";
+import { CohortWidget } from "@/components/CohortWidget";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLearnerOnboardingCheck } from "@/hooks/useLearnerOnboardingCheck";
@@ -476,6 +477,11 @@ const Index = () => {
             />
           </motion.div>
         )}
+
+        {/* Cohort Widget */}
+        <div className="mb-8">
+          <CohortWidget />
+        </div>
 
         {/* Progress bar + chart row */}
         {(useGenerated || staticModules.length > 0) && (
