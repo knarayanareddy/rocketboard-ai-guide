@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MissionControlChat } from "@/components/MissionControlChat";
 import { MobileTopBar } from "@/components/MobileTopBar";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { usePackFromUrl } from "@/hooks/usePack";
 import { useIsMobile } from "@/hooks/use-mobile";
 
