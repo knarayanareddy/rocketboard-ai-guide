@@ -45,6 +45,10 @@ export default function CohortPage() {
   const [encourageTarget, setEncourageTarget] = useState<CohortMemberProgress | null>(null);
   const [encourageMsg, setEncourageMsg] = useState("");
   const [sendingEncourage, setSendingEncourage] = useState(false);
+  const [addMemberEmail, setAddMemberEmail] = useState("");
+  const [addMemberCohortId, setAddMemberCohortId] = useState<string | null>(null);
+  const [addingMember, setAddingMember] = useState(false);
+  const [sendingEncourage, setSendingEncourage] = useState(false);
 
   const handleCreate = () => {
     if (!newName.trim()) return;
