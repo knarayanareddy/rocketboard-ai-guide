@@ -82,7 +82,7 @@ export function DependencyGraph({ modules, compact = false }: DependencyGraphPro
         </h3>
       )}
       <div className="overflow-x-auto">
-        <MermaidDiagram chart={mermaidCode} />
+        <MermaidDiagram code={mermaidCode} />
       </div>
       <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Completed</span>
