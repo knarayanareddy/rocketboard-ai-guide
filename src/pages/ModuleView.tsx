@@ -353,6 +353,68 @@ export default function ModuleView() {
     );
   }
 
+  // Build title map for prerequisite display
+  const moduleTitleMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allGenModules.forEach((m) => { map[m.module_key] = m.title; });
+    staticModules.forEach((m) => { map[m.id] = m.title; });
+    return map;
+  }, [allGenModules]);
+
+  const prereqCheck = checkPrerequisitesMet(moduleId || "", moduleTitleMap);
+
+  // Lock screen for hard-blocked modules
+  if (prereqCheck.hasHardBlock && !hasPackPermission("author")) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-lg mx-auto mt-20 text-center">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h1 className="text-xl font-bold text-foreground mb-2">This module is locked</h1>
+          <p className="text-muted-foreground text-sm mb-8">
+            Complete the following prerequisites to unlock this module.
+          </p>
+          <div className="space-y-3 text-left max-w-sm mx-auto mb-8">
+            {prereqCheck.hardUnmet.map((u) => (
+              <div key={u.moduleKey} className="border border-border rounded-lg p-4 bg-card">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">{u.title || u.moduleKey}</span>
+                  {u.met ? (
+                    <Badge variant="outline" className="text-[10px] text-primary border-primary/30">✓ Done</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground">{u.currentProgress}% / {u.requiredProgress}%</Badge>
+                  )}
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mb-2">
+                  <div className="h-full gradient-primary" style={{ width: `${Math.min(100, (u.currentProgress / u.requiredProgress) * 100)}%` }} />
+                </div>
+                {u.requiredQuizScore > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Quiz score: {u.currentQuizScore ?? 0}% / {u.requiredQuizScore}% required
+                  </p>
+                )}
+                {!u.met && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    onClick={() => navigate(`/packs/${currentPackId}/modules/${u.moduleKey}`)}
+                  >
+                    Go to {u.title || u.moduleKey} →
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+          <Button variant="ghost" onClick={() => navigate(`/packs/${currentPackId}/modules`)}>
+            ← Back to Modules
+          </Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const canInteract = hasPackPermission("learner");
 
   const handleToggleRead = (sectionId: string) => {
