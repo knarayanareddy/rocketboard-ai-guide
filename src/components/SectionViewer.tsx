@@ -1,20 +1,35 @@
 import { Section } from "@/data/onboarding-data";
 import { TrackBadge } from "./TrackBadge";
 import { NotesPanel } from "./NotesPanel";
-import { StickyNote, CheckCircle2, Target } from "lucide-react";
+import { StickyNote, CheckCircle2, Target, MessageCircle, ThumbsUp } from "lucide-react";
 import { motion } from "framer-motion";
+import { useDiscussions } from "@/hooks/useDiscussions";
+import { useContentFeedback } from "@/hooks/useContentFeedback";
+import { usePack } from "@/hooks/usePack";
 
 interface SectionViewerProps {
   section: Section;
   index: number;
   isRead: boolean;
+  moduleKey?: string;
   onMarkRead?: () => void;
   savedNote?: string;
   onSaveNote?: (content: string) => void;
   onDeleteNote?: () => void;
 }
 
-export function SectionViewer({ section, index, isRead, onMarkRead, savedNote = "", onSaveNote, onDeleteNote }: SectionViewerProps) {
+export function SectionViewer({ section, index, isRead, moduleKey, onMarkRead, savedNote = "", onSaveNote, onDeleteNote }: SectionViewerProps) {
+  const { currentPackId } = usePack();
+  
+  // Fetch discussions for this section
+  const { threads } = useDiscussions({ moduleKey, sectionId: section.id });
+  
+  // Fetch helpful ratings for this section
+  const { feedbackStats } = useContentFeedback(moduleKey || "", section.id);
+  
+  const discussionCount = threads.length;
+  const helpfulCount = feedbackStats?.thumbsUp || 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -72,6 +87,24 @@ export function SectionViewer({ section, index, isRead, onMarkRead, savedNote = 
         <div className="mt-4 flex items-start gap-2 bg-accent/10 border border-accent/20 rounded-lg p-3">
           <StickyNote className="w-4 h-4 text-accent shrink-0 mt-0.5" />
           <p className="text-xs text-accent font-medium">{section.notes}</p>
+        </div>
+      )}
+
+      {/* Social indicators */}
+      {(discussionCount > 0 || helpfulCount > 0) && (
+        <div className="mt-4 pt-3 border-t border-border flex items-center gap-4 text-xs text-muted-foreground">
+          {discussionCount > 0 && (
+            <span className="flex items-center gap-1.5">
+              <MessageCircle className="w-3.5 h-3.5" />
+              {discussionCount} {discussionCount === 1 ? "discussion" : "discussions"}
+            </span>
+          )}
+          {helpfulCount > 0 && (
+            <span className="flex items-center gap-1.5">
+              <ThumbsUp className="w-3.5 h-3.5" />
+              {helpfulCount} found helpful
+            </span>
+          )}
         </div>
       )}
 
