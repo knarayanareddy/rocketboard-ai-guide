@@ -925,6 +925,17 @@ export default function ModuleView() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Code Explorer */}
+        {isGenerated && moduleData && currentPackId && (
+          <CodeExplorer
+            packId={currentPackId}
+            moduleTitle={title || "Module"}
+            moduleData={moduleData}
+            isOpen={codeExplorerOpen}
+            onClose={() => setCodeExplorerOpen(false)}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
