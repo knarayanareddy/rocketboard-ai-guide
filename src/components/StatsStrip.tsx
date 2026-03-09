@@ -13,7 +13,7 @@ export function StatsStrip({ completedModules, totalSectionsRead, totalSections,
   const moduleCount = totalModules ?? 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
