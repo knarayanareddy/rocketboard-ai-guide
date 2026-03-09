@@ -146,13 +146,13 @@ export default function AuthPage() {
             <Separator className="flex-1" />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div>
             <Button
               type="button"
               variant="outline"
-              className="gap-2"
+              className="w-full gap-2"
               disabled={oauthLoading !== null}
-              onClick={() => handleOAuth("google")}
+              onClick={handleGoogleSignIn}
             >
               {oauthLoading === "google" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -164,22 +164,7 @@ export default function AuthPage() {
                   <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
               )}
-              Google
-            </Button>
-            
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              disabled={oauthLoading !== null}
-              onClick={() => handleOAuth("github")}
-            >
-              {oauthLoading === "github" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Github className="w-4 h-4" />
-              )}
-              GitHub
+              Continue with Google
             </Button>
           </div>
 
