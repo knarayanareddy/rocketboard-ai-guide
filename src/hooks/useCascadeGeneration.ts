@@ -115,6 +115,7 @@ export function useCascadeGeneration() {
       title: m.title,
       moduleStatus: existingModuleKeys.has(m.module_key) ? "completed" : "queued",
       quizStatus: "queued",
+      exerciseStatus: "queued",
     })));
     setSupportStatus({ glossary: "queued", paths: "queued", askLead: "queued" });
 
