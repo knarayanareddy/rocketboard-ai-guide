@@ -304,6 +304,7 @@ export default function QuizAnalyticsPage() {
                                   </TableRow>
                                 )}
                               </Fragment>
+                            ))}
                           </TableBody>
                         </Table>
                       </div>
