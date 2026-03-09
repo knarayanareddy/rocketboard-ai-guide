@@ -32,6 +32,7 @@ import ReviewPage from "./pages/ReviewPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import FeedbackPage from "./pages/FeedbackPage";
 import TeamPage from "./pages/TeamPage";
+import BookmarksPage from "./pages/BookmarksPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
