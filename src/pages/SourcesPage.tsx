@@ -671,9 +671,107 @@ export default function SourcesPage() {
           />
         );
 
+      case "slack_channel":
+        return (
+          <SlackForm
+            onSubmit={async (config) => {
+              const source = await addSource.mutateAsync({
+                sourceType: "slack_channel",
+                sourceUri: `slack:${config.channelIds.join(",")}`,
+                label: label || "Slack Channels",
+                sourceConfig: {
+                  bot_token: config.botToken,
+                  channel_ids: config.channelIds,
+                  days_back: config.daysBack,
+                  threaded_only: config.threadedOnly,
+                  pinned_only: config.pinnedOnly,
+                  min_reactions: config.minReactions,
+                },
+              });
+              await triggerIngestion.mutateAsync({
+                sourceId: source.id,
+                sourceType: "slack_channel",
+                sourceUri: source.source_uri,
+                sourceConfig: source.source_config as Record<string, any>,
+              });
+              setAddOpen(false);
+              toast.success("Slack channels added and ingestion started");
+            }}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "loom_video":
+        return (
+          <LoomForm
+            onSubmit={async (config) => {
+              const source = await addSource.mutateAsync({
+                sourceType: "loom_video",
+                sourceUri: config.apiKey ? "loom:workspace" : `loom:${config.videoTitle}`,
+                label: label || config.videoTitle || "Loom Videos",
+                sourceConfig: {
+                  api_key: config.apiKey,
+                  workspace_id: config.workspaceId,
+                  video_title: config.videoTitle,
+                  video_url: config.videoUrl,
+                  transcript_content: config.transcriptContent,
+                },
+              });
+              await triggerIngestion.mutateAsync({
+                sourceId: source.id,
+                sourceType: "loom_video",
+                sourceUri: source.source_uri,
+                sourceConfig: source.source_config as Record<string, any>,
+              });
+              setAddOpen(false);
+              toast.success("Video transcript added and ingestion started");
+            }}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "pagerduty":
+        return (
+          <PagerDutyForm
+            onSubmit={async (config) => {
+              const source = await addSource.mutateAsync({
+                sourceType: "pagerduty",
+                sourceUri: "pagerduty:services",
+                label: label || "PagerDuty",
+                sourceConfig: {
+                  api_key: config.apiKey,
+                  service_ids: config.serviceIds,
+                  include_services: config.includeServices,
+                  include_oncall: config.includeOncall,
+                  include_incidents: config.includeIncidents,
+                  fetch_runbooks: config.fetchRunbooks,
+                },
+              });
+              await triggerIngestion.mutateAsync({
+                sourceId: source.id,
+                sourceType: "pagerduty",
+                sourceUri: source.source_uri,
+                sourceConfig: source.source_config as Record<string, any>,
+              });
+              setAddOpen(false);
+              toast.success("PagerDuty source added and ingestion started");
+            }}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
       default:
         return null;
     }
+  };
+
+  const handleSuggestedSource = (type: string) => {
+    setSelectedType(type as SourceType);
+    setAddStep("form");
+    setAddOpen(true);
   };
 
   return (
