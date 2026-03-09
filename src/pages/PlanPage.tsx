@@ -29,9 +29,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Loader2, Sparkles, CheckCircle2, AlertTriangle, Clock, BookOpen, Zap,
-  ArrowRight, XCircle, RotateCcw, GripVertical, X, Plus, Pencil, Layout, Save,
+  ArrowRight, XCircle, RotateCcw, GripVertical, X, Plus, Pencil, Layout, Save, Link2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useModuleDependencies } from "@/hooks/useModuleDependencies";
+import { DependencyGraph } from "@/components/DependencyGraph";
+import { wouldCreateCycle, buildDependencyGraph } from "@/lib/dependency-graph";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 /* ─── colour maps ─── */
 const confidenceColors: Record<string, string> = {
