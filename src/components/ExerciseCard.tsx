@@ -11,6 +11,7 @@ import {
   Clock, Lightbulb, Loader2, CheckCircle2, XCircle, AlertTriangle, Send,
   RotateCcw,
 } from "lucide-react";
+import { BookmarkButton } from "@/components/BookmarkButton";
 
 const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string; color: string }> = {
   code_find: { icon: Search, label: "Code Find", color: "bg-primary/10 text-primary" },
