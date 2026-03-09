@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
@@ -77,6 +79,23 @@ function InviteAcceptor({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function GlobalSearchShortcut() {
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
+  return <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -86,6 +105,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <OfflineIndicator />
+          <GlobalSearchShortcut />
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />

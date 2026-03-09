@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.send-email]
 verify_jwt = false
+
+[functions.search-content]
+verify_jwt = false

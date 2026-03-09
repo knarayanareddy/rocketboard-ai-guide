@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2 } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle, ThemeToggleCompact } from "@/components/ThemeToggle";
 import { NavLink } from "@/components/NavLink";
@@ -56,6 +57,7 @@ export function AppSidebar() {
   const { outputLanguage, audience, depth, glossaryDensity, learnerRole, experienceLevel, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { currentPackId, currentPack } = usePack();
   const [langOpen, setLangOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -125,6 +127,23 @@ export function AppSidebar() {
       <div className="px-3 pb-3">
         <PackSelector collapsed={collapsed} />
       </div>
+
+      {/* Search button */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Search className="w-4 h-4 shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left">Search…</span>
+              <kbd className="hidden sm:inline text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">⌘K</kbd>
+            </>
+          )}
+        </button>
+      </div>
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
       <SidebarContent>
         <SidebarGroup>

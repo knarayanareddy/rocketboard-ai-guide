@@ -1,4 +1,6 @@
-import { Menu, Settings, LogOut, User } from "lucide-react";
+import { useState } from "react";
+import { Menu, Settings, LogOut, User, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -45,6 +47,7 @@ export function MobileTopBar() {
   const { currentPack } = usePack();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   if (!isMobile) return null;
 
@@ -71,7 +74,11 @@ export function MobileTopBar() {
 
       {/* Notifications & Avatar */}
       <div className="flex items-center gap-2">
+        <button onClick={() => setSearchOpen(true)} className="flex items-center justify-center w-9 h-9 rounded-lg text-foreground hover:bg-muted transition-colors touch-manipulation" aria-label="Search">
+          <Search className="w-4.5 h-4.5" />
+        </button>
         <NotificationBell compact />
+        <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
         
         {/* Avatar dropdown */}
       <DropdownMenu>
