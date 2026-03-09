@@ -306,20 +306,25 @@ const Index = () => {
     }));
   }, [useGenerated, generatedModules, genStats, progressData]);
 
+  const { checkPrerequisitesMet } = useModuleDependencies();
+
   const resumeTarget = useMemo(() => {
+    const isUnlocked = (key: string) => !checkPrerequisitesMet(key).hasHardBlock;
+
     if (useGenerated) {
       const last = lastOpenedModuleId ? generatedModules.find((m) => m.module_key === lastOpenedModuleId) : null;
-      if (last && getGenModuleProgress(last.module_key) < 100) return { id: last.module_key, title: last.title, progress: getGenModuleProgress(last.module_key) };
-      const next = generatedModules.find((m) => getGenModuleProgress(m.module_key) < 100);
+      if (last && getGenModuleProgress(last.module_key) < 100 && isUnlocked(last.module_key))
+        return { id: last.module_key, title: last.title, progress: getGenModuleProgress(last.module_key) };
+      const next = generatedModules.find((m) => getGenModuleProgress(m.module_key) < 100 && isUnlocked(m.module_key));
       if (next) return { id: next.module_key, title: next.title, progress: getGenModuleProgress(next.module_key) };
       return null;
     }
     const lastModule = lastOpenedModuleId ? staticModules.find((m) => m.id === lastOpenedModuleId) : null;
-    const nextIncomplete = staticModules.find((m) => getModuleProgress(m.id) < 100);
-    const resumeModule = lastModule && getModuleProgress(lastModule.id) < 100 ? lastModule : nextIncomplete;
+    const nextIncomplete = staticModules.find((m) => getModuleProgress(m.id) < 100 && isUnlocked(m.id));
+    const resumeModule = lastModule && getModuleProgress(lastModule.id) < 100 && isUnlocked(lastModule.id) ? lastModule : nextIncomplete;
     if (resumeModule) return { id: resumeModule.id, title: resumeModule.title, progress: getModuleProgress(resumeModule.id) };
     return null;
-  }, [useGenerated, generatedModules, lastOpenedModuleId, genStats, progressData]);
+  }, [useGenerated, generatedModules, lastOpenedModuleId, genStats, progressData, checkPrerequisitesMet]);
 
   const hasContent = useGenerated || staticModules.length > 0;
   const showEmptyState = !useGenerated && !modulesLoading;
