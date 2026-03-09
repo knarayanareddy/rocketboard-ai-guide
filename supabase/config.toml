@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.ai-task-router]
 verify_jwt = false
+
+[functions.send-slack-message]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
