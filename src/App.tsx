@@ -36,6 +36,7 @@ import BookmarksPage from "./pages/BookmarksPage";
 import TimelinePage from "./pages/TimelinePage";
 import ContentHealthPage from "./pages/ContentHealthPage";
 import QuizAnalyticsPage from "./pages/QuizAnalyticsPage";
+import DiscussionsPage from "./pages/DiscussionsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
