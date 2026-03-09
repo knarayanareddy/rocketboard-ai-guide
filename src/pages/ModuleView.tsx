@@ -1003,6 +1003,18 @@ export default function ModuleView() {
                 <ExercisesTab moduleKey={moduleId || ""} moduleTitle={moduleData?.title || generatedMod?.title || ""} moduleDescription={moduleData?.description || generatedMod?.description || ""} />
               </ProtectedAction>
             </TabsContent>
+
+            {/* Discussions Tab */}
+            <TabsContent value="discussions">
+              {selectedThread ? (
+                <ThreadDetail thread={selectedThread} onBack={() => setSelectedThread(null)} />
+              ) : (
+                <DiscussionList
+                  moduleKey={moduleId}
+                  onSelectThread={setSelectedThread}
+                />
+              )}
+            </TabsContent>
           </Tabs>
         ) : staticMod ? (
           /* Static module content */
