@@ -525,6 +525,11 @@ export default function ModuleView() {
                 <BrainCircuit className="w-4 h-4" /> Quiz
                 {!canInteract && <Lock className="w-3 h-3 ml-1" />}
               </TabsTrigger>
+              {moduleData?.evidence_index && moduleData.evidence_index.length > 0 && (
+                <TabsTrigger value="code" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
+                  <FolderCode className="w-4 h-4" /> Code
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="content">
