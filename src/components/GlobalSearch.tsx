@@ -23,6 +23,7 @@ interface GlobalSearchProps {
 export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const { query, setQuery, filters, setFilters, results, isLoading, totalResults, getRecentSearches, saveRecentSearch, clearRecentSearches } = useGlobalSearch();
   const { currentPackId } = usePack();
+  const { isBookmarked } = useBookmarks();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
