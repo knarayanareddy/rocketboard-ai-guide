@@ -95,7 +95,7 @@ export function ThreadDetail({ thread, onBack }: ThreadDetailProps) {
         </div>
 
         <div className="mt-4 prose prose-sm max-w-none dark:prose-invert">
-          <MarkdownRenderer content={thread.content} />
+          <MarkdownRenderer>{thread.content}</MarkdownRenderer>
         </div>
 
         {(isAuthor || hasPackPermission("admin")) && (
