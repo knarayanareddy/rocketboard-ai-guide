@@ -780,7 +780,7 @@ export default function ModuleView() {
         {/* Generated module content */}
         {isGenerated && moduleData ? (
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="bg-muted border border-border mb-6">
+            <TabsList className="bg-muted border border-border mb-6 overflow-x-auto w-full flex-wrap sm:flex-nowrap">
               <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>
