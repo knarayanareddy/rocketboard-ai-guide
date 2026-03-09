@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.search-content]
 verify_jwt = false
+
+[functions.check-staleness]
+verify_jwt = false
