@@ -146,6 +146,94 @@ export type Database = {
           },
         ]
       }
+      content_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          is_resolved: boolean
+          module_key: string
+          pack_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          section_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          feedback_type: string
+          id?: string
+          is_resolved?: boolean
+          module_key: string
+          pack_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          is_resolved?: boolean
+          module_key?: string
+          pack_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_feedback_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          module_key: string
+          pack_id: string
+          rating: number
+          section_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module_key: string
+          pack_id: string
+          rating: number
+          section_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module_key?: string
+          pack_id?: string
+          rating?: number
+          section_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_ratings_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_ask_lead: {
         Row: {
           created_at: string
