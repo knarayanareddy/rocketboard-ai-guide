@@ -74,7 +74,11 @@ export function MobileTopBar() {
 
       {/* Notifications & Avatar */}
       <div className="flex items-center gap-2">
+        <button onClick={() => setSearchOpen(true)} className="flex items-center justify-center w-9 h-9 rounded-lg text-foreground hover:bg-muted transition-colors touch-manipulation" aria-label="Search">
+          <Search className="w-4.5 h-4.5" />
+        </button>
         <NotificationBell compact />
+        <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
         
         {/* Avatar dropdown */}
       <DropdownMenu>
