@@ -131,7 +131,7 @@ async function extractDOCX(file: File): Promise<ExtractionResult> {
   const arrayBuffer = await readAsArrayBuffer(file);
 
   const mammoth = await import("mammoth");
-  const result = await mammoth.convertToMarkdown({ arrayBuffer });
+  const result = await mammoth.extractRawText({ arrayBuffer });
 
   if (result.messages?.length) {
     result.messages.forEach((msg: any) => {

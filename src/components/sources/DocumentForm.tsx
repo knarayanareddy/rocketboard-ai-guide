@@ -239,9 +239,9 @@ export function DocumentForm({ onSubmitDocument, onSubmitUrl, onBack, isSubmitti
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
-                    className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3"
+                    className="bg-accent/50 border border-accent rounded-lg p-3"
                   >
-                    <p className="text-xs font-medium text-yellow-600 dark:text-yellow-400 flex items-center gap-1.5 mb-1">
+                    <p className="text-xs font-medium text-accent-foreground flex items-center gap-1.5 mb-1">
                       <AlertTriangle className="w-3.5 h-3.5" />
                       Warnings
                     </p>
