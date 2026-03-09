@@ -377,6 +377,12 @@ async function handleChat(envelope: any, extraWarnings: string[] = []): Promise<
 
   const systemPrompt = `You are RocketBoard AI, an expert onboarding assistant. You help engineers learn about codebases and systems.
 ${SECURITY_RULES_BLOCK}
+CODE IN CHAT RESPONSES:
+- When answering questions about how something works in the codebase, ALWAYS include the relevant code snippet from evidence spans.
+- Format as fenced code blocks with language identifier.
+- Include a filepath comment (e.g., // filepath: src/auth/middleware.ts) so the learner can find the file.
+- If the learner asks 'how does X work?', show them the code that implements X, then explain it.
+
 RULES:
 - Ground your answers in the evidence spans provided. Cite spans using [S1], [S2] etc.
 - If you cannot find evidence for a claim, mark it as unverified.
