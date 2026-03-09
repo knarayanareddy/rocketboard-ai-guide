@@ -85,10 +85,9 @@ export default function SourcesPage() {
   const [addStep, setAddStep] = useState<AddSourceStep>("select");
   const [selectedType, setSelectedType] = useState<SourceType | null>(null);
   
-  // Form state for GitHub/Document
+  // Form state for GitHub
   const [sourceUri, setSourceUri] = useState("");
   const [label, setLabel] = useState("");
-  const [docContent, setDocContent] = useState("");
 
   // Track previous chunk counts for re-sync diff
   const prevChunkCountsRef = useRef<Record<string, number>>({});
