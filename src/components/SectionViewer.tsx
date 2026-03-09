@@ -5,7 +5,6 @@ import { StickyNote, CheckCircle2, Target, MessageCircle, ThumbsUp } from "lucid
 import { motion } from "framer-motion";
 import { useDiscussions } from "@/hooks/useDiscussions";
 import { useContentFeedback } from "@/hooks/useContentFeedback";
-import { usePack } from "@/hooks/usePack";
 
 interface SectionViewerProps {
   section: Section;
