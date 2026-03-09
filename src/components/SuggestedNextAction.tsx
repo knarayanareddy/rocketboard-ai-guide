@@ -32,8 +32,10 @@ export function SuggestedNextAction() {
   const { askedQuestions } = useAskLeadProgress();
   const { paths: pathsRow } = useGeneratedPaths();
   const { checkedSteps: day1Checked } = usePathProgress("day1");
+  const { checkPrerequisitesMet } = useModuleDependencies();
 
   const modules = isAuthor ? allModules : allModules.filter(m => m.status === "published");
+  const unlockedModules = modules.filter(m => !checkPrerequisitesMet(m.module_key).hasHardBlock);
   const packId = currentPackId;
 
   const questions = askLead?.questions_data || [];
