@@ -65,11 +65,15 @@ export function MobileTopBar() {
       </button>
 
       {/* Title */}
-      <span className="text-sm font-semibold text-foreground truncate max-w-[50vw]">
+      <span className="text-sm font-semibold text-foreground truncate max-w-[40vw]">
         {pageTitle}
       </span>
 
-      {/* Avatar dropdown */}
+      {/* Notifications & Avatar */}
+      <div className="flex items-center gap-2">
+        <NotificationBell compact />
+        
+        {/* Avatar dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary text-xs font-bold touch-manipulation">
