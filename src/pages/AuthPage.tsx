@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Rocket, Mail, Lock, User, ArrowRight, Loader2, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 export default function AuthPage() {
