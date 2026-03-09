@@ -819,7 +819,7 @@ export default function SourcesPage() {
                     Add Source
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className={selectedType === "document" ? "sm:max-w-2xl" : "sm:max-w-lg"}>
                   <DialogHeader>
                     <DialogTitle>
                       {addStep === "select" ? "Choose Source Type" : "Configure Source"}
