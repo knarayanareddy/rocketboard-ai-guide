@@ -89,6 +89,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { targetReadingLevel, maxSectionsHint, packLimits, isAuthorPlus, updatePrefs: updateGenPrefs, updatePackLimits } = useGenerationPrefs();
+  const { prefs: peerPrefs, updatePrefs: updatePeerPrefs } = usePeerVisibility();
   const { hasPackPermission } = useRole();
   const { currentPackId, currentPack } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
