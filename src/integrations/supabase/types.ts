@@ -431,6 +431,47 @@ export type Database = {
           },
         ]
       }
+      integration_credentials: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credentials_encrypted: string
+          id: string
+          label: string | null
+          org_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credentials_encrypted: string
+          id?: string
+          label?: string | null
+          org_id: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credentials_encrypted?: string
+          id?: string
+          label?: string | null
+          org_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_credentials_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_chunks: {
         Row: {
           chunk_id: string
@@ -964,6 +1005,7 @@ export type Database = {
           label: string | null
           last_synced_at: string | null
           pack_id: string
+          source_config: Json | null
           source_type: string
           source_uri: string
         }
@@ -973,6 +1015,7 @@ export type Database = {
           label?: string | null
           last_synced_at?: string | null
           pack_id: string
+          source_config?: Json | null
           source_type: string
           source_uri: string
         }
@@ -982,6 +1025,7 @@ export type Database = {
           label?: string | null
           last_synced_at?: string | null
           pack_id?: string
+          source_config?: Json | null
           source_type?: string
           source_uri?: string
         }
