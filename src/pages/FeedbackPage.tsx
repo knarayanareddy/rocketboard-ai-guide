@@ -20,7 +20,7 @@ const feedbackTypeLabels: Record<string, { label: string; icon: string }> = {
 
 export default function FeedbackPage() {
   const { packFeedback, packRatings, resolveFeedback } = useContentFeedback();
-  const { generated } = useGeneratedModules();
+  const { modules: generated } = useGeneratedModules();
   const { hasPackPermission } = useRole();
   const [filterResolved, setFilterResolved] = useState(false);
 
