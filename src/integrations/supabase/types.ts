@@ -2442,6 +2442,14 @@ export type Database = {
         Args: { _pack_id: string; _user_id: string }
         Returns: boolean
       }
+      lookup_user_by_email: {
+        Args: { _email: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
