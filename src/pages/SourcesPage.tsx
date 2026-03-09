@@ -18,6 +18,16 @@ import {
   GoogleDriveConfig,
   SharePointForm,
   SharePointConfig,
+  JiraForm,
+  JiraConfig,
+  LinearForm,
+  LinearConfig,
+  OpenAPIForm,
+  OpenAPIConfig,
+  PostmanForm,
+  PostmanConfig,
+  FigmaForm,
+  FigmaConfig,
 } from "@/components/sources";
 import { useSources } from "@/hooks/useSources";
 import { useIngestion } from "@/hooks/useIngestion";
@@ -312,6 +322,149 @@ export default function SourcesPage() {
     }
   };
 
+  const handleAddJira = async (config: JiraConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "jira",
+        sourceUri: `${config.baseUrl}/projects/${config.projectKey}`,
+        label: label || `Jira: ${config.projectKey}`,
+        sourceConfig: {
+          base_url: config.baseUrl,
+          project_key: config.projectKey,
+          auth_email: config.authEmail,
+          api_token: config.apiToken,
+          max_issues: config.maxIssues,
+          include_epics: config.includeEpics,
+          include_recent: config.includeRecent,
+          include_comments: config.includeComments,
+          include_resolved: config.includeResolved,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "jira",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config as Record<string, any> | undefined,
+      });
+
+      setAddOpen(false);
+      toast.success("Jira source added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add Jira source");
+    }
+  };
+
+  const handleAddLinear = async (config: LinearConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "linear",
+        sourceUri: `linear:${config.teamId}`,
+        label: label || "Linear Team",
+        sourceConfig: {
+          api_key: config.apiKey,
+          team_id: config.teamId,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "linear",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config as Record<string, any> | undefined,
+      });
+
+      setAddOpen(false);
+      toast.success("Linear source added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add Linear source");
+    }
+  };
+
+  const handleAddOpenAPI = async (config: OpenAPIConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "openapi_spec",
+        sourceUri: config.specUrl || `openapi:${config.label}`,
+        label: label || config.label,
+        sourceConfig: {
+          spec_url: config.specUrl,
+          spec_content: config.specContent,
+          label: config.label,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "openapi_spec",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config as Record<string, any> | undefined,
+      });
+
+      setAddOpen(false);
+      toast.success("OpenAPI spec added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add OpenAPI spec");
+    }
+  };
+
+  const handleAddPostman = async (config: PostmanConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "postman_collection",
+        sourceUri: config.collectionUrl || `postman:${config.label}`,
+        label: label || config.label,
+        sourceConfig: {
+          collection_json: config.collectionJson,
+          collection_url: config.collectionUrl,
+          postman_api_key: config.postmanApiKey,
+          label: config.label,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "postman_collection",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config as Record<string, any> | undefined,
+      });
+
+      setAddOpen(false);
+      toast.success("Postman collection added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add Postman collection");
+    }
+  };
+
+  const handleAddFigma = async (config: FigmaConfig) => {
+    try {
+      const source = await addSource.mutateAsync({
+        sourceType: "figma",
+        sourceUri: `figma:${config.fileKey}`,
+        label: label || `Figma: ${config.fileKey}`,
+        sourceConfig: {
+          file_key: config.fileKey,
+          personal_access_token: config.personalAccessToken,
+          include_components: config.includeComponents,
+          include_comments: config.includeComments,
+          include_layer_structure: config.includeLayerStructure,
+        },
+      });
+
+      await triggerIngestion.mutateAsync({
+        sourceId: source.id,
+        sourceType: "figma",
+        sourceUri: source.source_uri,
+        sourceConfig: source.source_config as Record<string, any> | undefined,
+      });
+
+      setAddOpen(false);
+      toast.success("Figma file added and ingestion started");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add Figma file");
+    }
+  };
+
   const handleSync = async (source: any) => {
     try {
       await triggerIngestion.mutateAsync({
@@ -460,7 +613,7 @@ export default function SourcesPage() {
             onSubmit={handleAddGoogleDrive}
             onBack={handleBackToSelect}
             isSubmitting={addSource.isPending || triggerIngestion.isPending}
-            hasConnector={false} // TODO: Check for Google Drive connector
+            hasConnector={false}
           />
         );
 
@@ -468,6 +621,51 @@ export default function SourcesPage() {
         return (
           <SharePointForm
             onSubmit={handleAddSharePoint}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "jira":
+        return (
+          <JiraForm
+            onSubmit={handleAddJira}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "linear":
+        return (
+          <LinearForm
+            onSubmit={handleAddLinear}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "openapi_spec":
+        return (
+          <OpenAPIForm
+            onSubmit={handleAddOpenAPI}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "postman_collection":
+        return (
+          <PostmanForm
+            onSubmit={handleAddPostman}
+            onBack={handleBackToSelect}
+            isSubmitting={addSource.isPending || triggerIngestion.isPending}
+          />
+        );
+
+      case "figma":
+        return (
+          <FigmaForm
+            onSubmit={handleAddFigma}
             onBack={handleBackToSelect}
             isSubmitting={addSource.isPending || triggerIngestion.isPending}
           />
