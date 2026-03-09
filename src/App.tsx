@@ -33,6 +33,7 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import FeedbackPage from "./pages/FeedbackPage";
 import TeamPage from "./pages/TeamPage";
 import BookmarksPage from "./pages/BookmarksPage";
+import TimelinePage from "./pages/TimelinePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
