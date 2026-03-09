@@ -240,7 +240,7 @@ export function useDiscussions(filters?: ThreadFilters) {
 }
 
 // Separate hook for replies to a specific thread
-export function useDiscussionReplies(threadId: string | null) {
+export function useDiscussionReplies(threadId: string | null, threadAuthorId?: string, threadTitle?: string) {
   const { user } = useAuth();
   const { currentPackId } = usePack();
   const qc = useQueryClient();

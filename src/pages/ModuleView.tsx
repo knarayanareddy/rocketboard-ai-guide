@@ -48,6 +48,9 @@ import { ExerciseCard } from "@/components/ExerciseCard";
 import { useExercises } from "@/hooks/useExercises";
 import { BookmarkButton } from "@/components/BookmarkButton";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { DiscussionList } from "@/components/DiscussionList";
+import { ThreadDetail } from "@/components/ThreadDetail";
+import type { DiscussionThread } from "@/hooks/useDiscussions";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
