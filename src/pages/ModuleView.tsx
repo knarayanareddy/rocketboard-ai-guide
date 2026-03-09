@@ -311,6 +311,7 @@ export default function ModuleView() {
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
   const [changeLogOpen, setChangeLogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [codeExplorerOpen, setCodeExplorerOpen] = useState(false);
 
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
