@@ -364,6 +364,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Globe className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Output Language</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.languagePreference} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Choose the language for AI-generated content and chat responses.
