@@ -415,7 +415,7 @@ export default function SettingsPage() {
             <div className="space-y-5">
               {/* Target Reading Level */}
               <div>
-                <label className="text-sm font-medium text-card-foreground mb-2 block">Target Reading Level</label>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Target Reading Level <HelpTooltip content={HELP_TOOLTIPS.settings.targetReadingLevel} /></label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {READING_LEVEL_OPTIONS.map((opt) => (
                     <button
