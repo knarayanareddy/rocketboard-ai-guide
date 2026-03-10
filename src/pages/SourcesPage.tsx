@@ -574,7 +574,7 @@ export default function SourcesPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Repository URL</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">Repository URL <HelpTooltip content={HELP_TOOLTIPS.sources.githubRepo} /></label>
               <Input
                 placeholder="https://github.com/org/repo"
                 value={sourceUri}
