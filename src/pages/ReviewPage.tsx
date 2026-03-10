@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 const statusColor: Record<string, string> = {
   draft: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
