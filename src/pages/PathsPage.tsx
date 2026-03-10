@@ -18,6 +18,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BookmarkButton } from "@/components/BookmarkButton";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 function PathCard({ step, index, checked, onToggle, citations, checkedSteps, onToggleCommand }: {
   step: PathStep | GeneratedPathStep;
