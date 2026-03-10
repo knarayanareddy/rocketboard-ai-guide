@@ -61,6 +61,7 @@ function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount }:
           <Badge variant="outline" className={`text-[10px] ${statusColor[mod.status] || ""}`}>
             {mod.status}
           </Badge>
+          {mod.status === "draft" && <HelpTooltip content={HELP_TOOLTIPS.generation.draftStatus} />}
         </div>
 
         <div className="flex flex-wrap gap-2 mb-3 text-xs text-muted-foreground">
