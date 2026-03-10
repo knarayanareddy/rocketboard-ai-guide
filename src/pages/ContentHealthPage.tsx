@@ -30,8 +30,9 @@ export default function ContentHealthPage() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Activity className="w-6 h-6 text-primary" /> Content Health
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
               {freshPct}% fresh • {staleCount} stale section{staleCount !== 1 ? "s" : ""} of {totalSections}
+              <HelpTooltip content={HELP_TOOLTIPS.contentHealth.freshnessScore} />
             </p>
           </div>
           <Button size="sm" onClick={() => checkStaleness.mutate(undefined, { onSuccess: () => toast.success("Staleness check complete") })}
