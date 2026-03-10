@@ -161,6 +161,7 @@ export default function PackMembersPage() {
               <div className="flex items-center gap-2 mb-4">
                 <UserPlus className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-foreground">Invite by Email</h2>
+                <HelpTooltip content={HELP_TOOLTIPS.members.emailInvite} />
               </div>
               <div className="flex gap-3">
                 <Input
