@@ -227,6 +227,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <User className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Audience Profile</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.audienceProfile} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Choose your audience type to customize content tone and detail level.
