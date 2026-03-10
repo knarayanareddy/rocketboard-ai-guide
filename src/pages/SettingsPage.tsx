@@ -283,6 +283,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <BookText className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Glossary Density</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.glossaryDensity} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               How many glossary terms should be generated?
