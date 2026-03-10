@@ -255,6 +255,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Layers className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Content Depth</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.contentDepth} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               How much detail do you want in module content?
