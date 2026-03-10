@@ -466,7 +466,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <GitBranch className="w-4 h-4 text-primary" />
                   <div>
-                    <span className="text-sm font-medium text-card-foreground">Enable Mermaid Diagrams</span>
+                    <span className="text-sm font-medium text-card-foreground flex items-center gap-1.5">Enable Mermaid Diagrams <HelpTooltip content={HELP_TOOLTIPS.settings.mermaidEnabled} /></span>
                     <p className="text-xs text-muted-foreground">Allow AI to include diagrams in content</p>
                   </div>
                 </div>
