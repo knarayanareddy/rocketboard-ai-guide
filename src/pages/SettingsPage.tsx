@@ -485,6 +485,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-card-foreground">Generation Limits</h2>
+                <HelpTooltip content={HELP_TOOLTIPS.settings.generationLimits} />
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Author+</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
