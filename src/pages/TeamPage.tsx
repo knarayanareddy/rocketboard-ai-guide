@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Users, Plus, Search, CheckCircle2, Circle, Mail, Github, MessageSquare, Trash2, Pencil, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 export default function TeamPage() {
   const { members, membersLoading, addTeamMember, updateTeamMember, deleteTeamMember, toggleMet, isMet, metCount, totalMembers } = useTeamDirectory();
