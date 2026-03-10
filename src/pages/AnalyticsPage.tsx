@@ -14,8 +14,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
-function MetricCard({ icon: Icon, label, value, sub }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string;
+function MetricCard({ icon: Icon, label, value, sub, helpContent }: {
+  icon: React.ElementType; label: string; value: string | number; sub?: string; helpContent?: string;
 }) {
   return (
     <Card className="bg-card/50 border-border/50">
@@ -25,7 +25,10 @@ function MetricCard({ icon: Icon, label, value, sub }: {
         </div>
         <div>
           <p className="text-2xl font-bold text-foreground">{value}</p>
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            {label}
+            {helpContent && <HelpTooltip content={helpContent} />}
+          </p>
           {sub && <p className="text-[10px] text-muted-foreground/70">{sub}</p>}
         </div>
       </CardContent>
