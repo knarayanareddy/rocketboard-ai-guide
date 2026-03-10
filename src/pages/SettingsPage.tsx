@@ -318,7 +318,7 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-card-foreground mb-2 block">Your Role</label>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Your Role <HelpTooltip content={HELP_TOOLTIPS.settings.learnerRole} /></label>
                 <div className="flex items-center gap-2">
                   <Input
                     value={roleInput}
