@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Activity, RefreshCw, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 export default function ContentHealthPage() {
   const { freshness, staleCount, freshPct, totalSections, checkStaleness, isLoading } = useContentFreshness();
