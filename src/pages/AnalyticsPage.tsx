@@ -8,6 +8,8 @@ import {
   BarChart3, Users, BookOpen, CheckCircle2, Trophy, Zap, Target, Award,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
