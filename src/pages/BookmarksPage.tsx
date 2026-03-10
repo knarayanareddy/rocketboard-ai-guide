@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 const TYPE_META: Record<string, { label: string; icon: typeof BookOpen; color: string }> = {
   module_section: { label: "Section", icon: BookOpen, color: "text-primary" },
@@ -230,6 +232,7 @@ export default function BookmarksPage() {
           <div className="lg:col-span-1 space-y-2">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
               <Folder className="w-3.5 h-3.5" /> Collections
+              <HelpTooltip content={HELP_TOOLTIPS.bookmarks.collections} />
             </h3>
             <button
               className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${

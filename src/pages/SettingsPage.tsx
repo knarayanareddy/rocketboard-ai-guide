@@ -20,6 +20,8 @@ import { useRole } from "@/hooks/useRole";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -213,6 +215,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Palette className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Theme</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.themeToggle} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Choose a color scheme for the interface.
@@ -225,6 +228,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <User className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Audience Profile</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.audienceProfile} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Choose your audience type to customize content tone and detail level.
@@ -252,6 +256,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Layers className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Content Depth</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.contentDepth} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               How much detail do you want in module content?
@@ -279,6 +284,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <BookText className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Glossary Density</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.glossaryDensity} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               How many glossary terms should be generated?
@@ -313,7 +319,7 @@ export default function SettingsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-card-foreground mb-2 block">Your Role</label>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Your Role <HelpTooltip content={HELP_TOOLTIPS.settings.learnerRole} /></label>
                 <div className="flex items-center gap-2">
                   <Input
                     value={roleInput}
@@ -333,7 +339,7 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-card-foreground mb-2 block">Experience Level</label>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Experience Level <HelpTooltip content={HELP_TOOLTIPS.settings.experienceLevel} /></label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {EXPERIENCE_OPTIONS.map((opt) => (
                     <button
@@ -359,6 +365,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Globe className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Output Language</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.languagePreference} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Choose the language for AI-generated content and chat responses.
@@ -408,7 +415,7 @@ export default function SettingsPage() {
             <div className="space-y-5">
               {/* Target Reading Level */}
               <div>
-                <label className="text-sm font-medium text-card-foreground mb-2 block">Target Reading Level</label>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Target Reading Level <HelpTooltip content={HELP_TOOLTIPS.settings.targetReadingLevel} /></label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {READING_LEVEL_OPTIONS.map((opt) => (
                     <button
@@ -459,7 +466,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <GitBranch className="w-4 h-4 text-primary" />
                   <div>
-                    <span className="text-sm font-medium text-card-foreground">Enable Mermaid Diagrams</span>
+                    <span className="text-sm font-medium text-card-foreground flex items-center gap-1.5">Enable Mermaid Diagrams <HelpTooltip content={HELP_TOOLTIPS.settings.mermaidEnabled} /></span>
                     <p className="text-xs text-muted-foreground">Allow AI to include diagrams in content</p>
                   </div>
                 </div>
@@ -478,6 +485,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-card-foreground">Generation Limits</h2>
+                <HelpTooltip content={HELP_TOOLTIPS.settings.generationLimits} />
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Author+</span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
@@ -547,6 +555,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Users className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Peer Learning Privacy</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.peerPrivacy} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Control what your cohort peers can see about your activity and progress.
@@ -612,6 +621,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="w-4 h-4 text-destructive" />
               <h2 className="font-semibold text-card-foreground">Reset All Progress</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.resetProgress} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Clear all your progress for this pack. This cannot be undone.

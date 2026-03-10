@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Calendar, CheckCircle2, Circle, Clock, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 const STATUS_ICON: Record<MilestoneStatus, typeof CheckCircle2> = {
   pending: Circle,
@@ -70,8 +72,9 @@ export default function TimelinePage() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Calendar className="w-6 h-6 text-primary" /> My Timeline
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
               {completedCount}/{totalCount} milestones completed ({pct}%)
+              <HelpTooltip content={HELP_TOOLTIPS.timeline.milestoneStatus} />
             </p>
           </div>
           {isAdmin && (

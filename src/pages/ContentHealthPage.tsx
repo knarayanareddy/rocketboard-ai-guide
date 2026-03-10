@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Activity, RefreshCw, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 export default function ContentHealthPage() {
   const { freshness, staleCount, freshPct, totalSections, checkStaleness, isLoading } = useContentFreshness();
@@ -28,8 +30,9 @@ export default function ContentHealthPage() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Activity className="w-6 h-6 text-primary" /> Content Health
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
               {freshPct}% fresh • {staleCount} stale section{staleCount !== 1 ? "s" : ""} of {totalSections}
+              <HelpTooltip content={HELP_TOOLTIPS.contentHealth.freshnessScore} />
             </p>
           </div>
           <Button size="sm" onClick={() => checkStaleness.mutate(undefined, { onSuccess: () => toast.success("Staleness check complete") })}
@@ -80,6 +83,7 @@ export default function ContentHealthPage() {
                 return (
                   <div key={f.id} className="bg-card border border-destructive/20 rounded-lg p-4 flex items-center gap-3">
                     <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                    <HelpTooltip content={HELP_TOOLTIPS.contentHealth.staleContent} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-card-foreground">{mod?.title ?? f.module_key} › {f.section_id}</p>
                       <p className="text-xs text-muted-foreground">

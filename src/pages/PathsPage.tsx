@@ -18,6 +18,8 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BookmarkButton } from "@/components/BookmarkButton";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 function PathCard({ step, index, checked, onToggle, citations, checkedSteps, onToggleCommand }: {
   step: PathStep | GeneratedPathStep;
@@ -292,10 +294,12 @@ export default function PathsPage() {
               <TabsTrigger value="day1" className="gap-2 data-[state=active]:bg-card">
                 <Calendar className="w-4 h-4" />
                 Day 1 ({day1Progress}%)
+                <HelpTooltip content={HELP_TOOLTIPS.paths.day1Tab} />
               </TabsTrigger>
               <TabsTrigger value="week1" className="gap-2 data-[state=active]:bg-card">
                 <Rocket className="w-4 h-4" />
                 Week 1 ({week1Progress}%)
+                <HelpTooltip content={HELP_TOOLTIPS.paths.week1Tab} />
               </TabsTrigger>
             </TabsList>
 

@@ -19,6 +19,8 @@ import {
 import { ArrowLeft, Users, UserPlus, Shield, Trash2, Crown, ShieldCheck, Pen, BookOpen, Eye, Clock, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 const ACCESS_LEVELS: { value: PackAccessLevel; label: string; icon: typeof Crown }[] = [
   { value: "owner", label: "Owner", icon: Crown },
@@ -159,6 +161,7 @@ export default function PackMembersPage() {
               <div className="flex items-center gap-2 mb-4">
                 <UserPlus className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-foreground">Invite by Email</h2>
+                <HelpTooltip content={HELP_TOOLTIPS.members.emailInvite} />
               </div>
               <div className="flex gap-3">
                 <Input
@@ -229,6 +232,7 @@ export default function PackMembersPage() {
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <Users className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-foreground">Members ({members.length})</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.members.accessLevels} title="Access Levels" />
             </div>
 
             {isLoading ? (

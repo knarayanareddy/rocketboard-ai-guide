@@ -8,12 +8,14 @@ import {
   BarChart3, Users, BookOpen, CheckCircle2, Trophy, Zap, Target, Award,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 
-function MetricCard({ icon: Icon, label, value, sub }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string;
+function MetricCard({ icon: Icon, label, value, sub, helpContent }: {
+  icon: React.ElementType; label: string; value: string | number; sub?: string; helpContent?: string;
 }) {
   return (
     <Card className="bg-card/50 border-border/50">
@@ -23,7 +25,10 @@ function MetricCard({ icon: Icon, label, value, sub }: {
         </div>
         <div>
           <p className="text-2xl font-bold text-foreground">{value}</p>
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            {label}
+            {helpContent && <HelpTooltip content={helpContent} />}
+          </p>
           {sub && <p className="text-[10px] text-muted-foreground/70">{sub}</p>}
         </div>
       </CardContent>
@@ -77,9 +82,9 @@ export default function AnalyticsPage() {
           <MetricCard icon={Users} label="Members" value={metrics.totalMembers} />
           <MetricCard icon={BookOpen} label="Published Modules" value={metrics.totalModules} />
           <MetricCard icon={CheckCircle2} label="Sections Read" value={metrics.totalSectionsRead} />
-          <MetricCard icon={Target} label="Quizzes Taken" value={metrics.totalQuizzesTaken} sub={`Avg: ${metrics.avgQuizScore}%`} />
+          <MetricCard icon={Target} label="Quizzes Taken" value={metrics.totalQuizzesTaken} sub={`Avg: ${metrics.avgQuizScore}%`} helpContent={HELP_TOOLTIPS.analytics.avgQuizScore} />
           <MetricCard icon={Zap} label="Total XP Earned" value={metrics.totalXpEarned} />
-          <MetricCard icon={Users} label="Active Learners" value={metrics.activeLearners} />
+          <MetricCard icon={Users} label="Active Learners" value={metrics.activeLearners} helpContent={HELP_TOOLTIPS.analytics.activeUsers} />
         </div>
 
         {/* Module Engagement Chart */}
@@ -115,6 +120,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Trophy className="w-4 h-4 text-primary" /> Leaderboard
+              <HelpTooltip content={HELP_TOOLTIPS.gamification.leaderboard} />
             </CardTitle>
           </CardHeader>
           <CardContent>

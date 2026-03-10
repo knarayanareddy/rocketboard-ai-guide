@@ -69,6 +69,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 type AddSourceStep = "select" | "form";
 
@@ -572,7 +574,7 @@ export default function SourcesPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Repository URL</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">Repository URL <HelpTooltip content={HELP_TOOLTIPS.sources.githubRepo} /></label>
               <Input
                 placeholder="https://github.com/org/repo"
                 value={sourceUri}
@@ -818,6 +820,7 @@ export default function SourcesPage() {
                     <Plus className="w-4 h-4" />
                     Add Source
                   </Button>
+                  <HelpTooltip content={HELP_TOOLTIPS.sources.sourceTypes} title="Source Types" side="bottom" />
                 </DialogTrigger>
                 <DialogContent className={selectedType === "document" ? "sm:max-w-2xl" : "sm:max-w-lg"}>
                   <DialogHeader>
@@ -913,6 +916,7 @@ export default function SourcesPage() {
                           <span className="flex items-center gap-1">
                             <Database className="w-3 h-3" />
                             {chunkCounts[source.id] || 0} chunks
+                            <HelpTooltip content={HELP_TOOLTIPS.sources.chunkCount} />
                           </span>
                           {source.last_synced_at && (
                             <span className="flex items-center gap-1">

@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 const statusColor: Record<string, string> = {
   draft: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
@@ -59,6 +61,7 @@ function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount }:
           <Badge variant="outline" className={`text-[10px] ${statusColor[mod.status] || ""}`}>
             {mod.status}
           </Badge>
+          {mod.status === "draft" && <HelpTooltip content={HELP_TOOLTIPS.generation.draftStatus} />}
         </div>
 
         <div className="flex flex-wrap gap-2 mb-3 text-xs text-muted-foreground">
@@ -276,6 +279,7 @@ export default function ReviewPage() {
                   {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
                   Publish Pack
                 </Button>
+                <HelpTooltip content={HELP_TOOLTIPS.generation.publishPack} />
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>

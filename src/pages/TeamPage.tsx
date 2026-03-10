@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Users, Plus, Search, CheckCircle2, Circle, Mail, Github, MessageSquare, Trash2, Pencil, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 export default function TeamPage() {
   const { members, membersLoading, addTeamMember, updateTeamMember, deleteTeamMember, toggleMet, isMet, metCount, totalMembers } = useTeamDirectory();
@@ -88,8 +90,9 @@ export default function TeamPage() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Users className="w-6 h-6 text-primary" /> Team Directory
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
               People to meet: {metCount}/{totalMembers}
+              <HelpTooltip content={HELP_TOOLTIPS.team.meetingProgress} />
             </p>
           </div>
           {hasPackPermission("author") && (
