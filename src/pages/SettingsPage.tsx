@@ -338,7 +338,7 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-card-foreground mb-2 block">Experience Level</label>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Experience Level <HelpTooltip content={HELP_TOOLTIPS.settings.experienceLevel} /></label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {EXPERIENCE_OPTIONS.map((opt) => (
                     <button
