@@ -621,6 +621,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="w-4 h-4 text-destructive" />
               <h2 className="font-semibold text-card-foreground">Reset All Progress</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.resetProgress} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Clear all your progress for this pack. This cannot be undone.

@@ -81,7 +81,9 @@ export default function AnalyticsPage() {
           <MetricCard icon={CheckCircle2} label="Sections Read" value={metrics.totalSectionsRead} />
           <MetricCard icon={Target} label="Quizzes Taken" value={metrics.totalQuizzesTaken} sub={`Avg: ${metrics.avgQuizScore}%`} />
           <MetricCard icon={Zap} label="Total XP Earned" value={metrics.totalXpEarned} />
-          <MetricCard icon={Users} label="Active Learners" value={metrics.activeLearners} />
+          <MetricCard icon={Users} label="Active Learners" value={metrics.activeLearners}>
+            <HelpTooltip content={HELP_TOOLTIPS.analytics.activeUsers} />
+          </MetricCard>
         </div>
 
         {/* Module Engagement Chart */}

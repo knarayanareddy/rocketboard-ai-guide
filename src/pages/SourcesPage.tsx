@@ -916,6 +916,7 @@ export default function SourcesPage() {
                           <span className="flex items-center gap-1">
                             <Database className="w-3 h-3" />
                             {chunkCounts[source.id] || 0} chunks
+                            <HelpTooltip content={HELP_TOOLTIPS.sources.chunkCount} />
                           </span>
                           {source.last_synced_at && (
                             <span className="flex items-center gap-1">
