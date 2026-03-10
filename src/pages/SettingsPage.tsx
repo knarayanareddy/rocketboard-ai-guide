@@ -555,6 +555,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Users className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Peer Learning Privacy</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.peerPrivacy} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Control what your cohort peers can see about your activity and progress.
