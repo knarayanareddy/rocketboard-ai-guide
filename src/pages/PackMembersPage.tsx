@@ -19,6 +19,8 @@ import {
 import { ArrowLeft, Users, UserPlus, Shield, Trash2, Crown, ShieldCheck, Pen, BookOpen, Eye, Clock, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { HelpTooltip } from "@/components/HelpTooltip";
+import { HELP_TOOLTIPS } from "@/data/help-tooltips";
 
 const ACCESS_LEVELS: { value: PackAccessLevel; label: string; icon: typeof Crown }[] = [
   { value: "owner", label: "Owner", icon: Crown },
