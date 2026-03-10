@@ -83,6 +83,7 @@ export default function ContentHealthPage() {
                 return (
                   <div key={f.id} className="bg-card border border-destructive/20 rounded-lg p-4 flex items-center gap-3">
                     <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                    <HelpTooltip content={HELP_TOOLTIPS.contentHealth.staleContent} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-card-foreground">{mod?.title ?? f.module_key} › {f.section_id}</p>
                       <p className="text-xs text-muted-foreground">

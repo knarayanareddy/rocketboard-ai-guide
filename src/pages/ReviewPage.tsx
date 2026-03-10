@@ -279,6 +279,7 @@ export default function ReviewPage() {
                   {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
                   Publish Pack
                 </Button>
+                <HelpTooltip content={HELP_TOOLTIPS.generation.publishPack} />
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>

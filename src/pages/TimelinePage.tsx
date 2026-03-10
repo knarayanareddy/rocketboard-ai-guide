@@ -72,8 +72,9 @@ export default function TimelinePage() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Calendar className="w-6 h-6 text-primary" /> My Timeline
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
               {completedCount}/{totalCount} milestones completed ({pct}%)
+              <HelpTooltip content={HELP_TOOLTIPS.timeline.milestoneStatus} />
             </p>
           </div>
           {isAdmin && (

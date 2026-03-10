@@ -120,6 +120,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Trophy className="w-4 h-4 text-primary" /> Leaderboard
+              <HelpTooltip content={HELP_TOOLTIPS.gamification.leaderboard} />
             </CardTitle>
           </CardHeader>
           <CardContent>
