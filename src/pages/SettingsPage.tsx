@@ -215,6 +215,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mb-4">
               <Palette className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Theme</h2>
+              <HelpTooltip content={HELP_TOOLTIPS.settings.themeToggle} />
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Choose a color scheme for the interface.
