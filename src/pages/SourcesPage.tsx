@@ -820,6 +820,7 @@ export default function SourcesPage() {
                     <Plus className="w-4 h-4" />
                     Add Source
                   </Button>
+                  <HelpTooltip content={HELP_TOOLTIPS.sources.sourceTypes} title="Source Types" side="bottom" />
                 </DialogTrigger>
                 <DialogContent className={selectedType === "document" ? "sm:max-w-2xl" : "sm:max-w-lg"}>
                   <DialogHeader>
