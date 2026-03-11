@@ -257,7 +257,7 @@ function ArticleFeedback({ articleId, userId }: { articleId: string; userId?: st
   const submit = async (isHelpful: boolean) => {
     if (!userId) return;
     try {
-      await supabase.from("help_feedback").insert({ user_id: userId, article_id: articleId, is_helpful: isHelpful });
+      await supabase.from("help_feedback" as any).insert({ user_id: userId, article_id: articleId, is_helpful: isHelpful } as any);
       setSubmitted(true);
       toast.success("Thanks for your feedback!");
     } catch {

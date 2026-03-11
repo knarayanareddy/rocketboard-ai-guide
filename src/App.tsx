@@ -155,6 +155,9 @@ const App = () => (
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/templates" element={<ProtectedRoute><InviteAcceptor><TemplatesPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/templates/:templateId" element={<ProtectedRoute><InviteAcceptor><TemplateDetailPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/help" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/help/:category" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/help/:category/:slug" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Legacy flat routes — redirect to current pack */}
               <Route path="/modules" element={<ProtectedRoute><LegacyRedirect path="modules" /></ProtectedRoute>} />

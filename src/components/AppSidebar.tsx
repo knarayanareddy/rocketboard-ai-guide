@@ -241,9 +241,11 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-3">
-        {/* Notifications - always visible */}
-        <div className="flex items-center justify-center">
+        {/* Notifications */}
+        <div className="flex items-center justify-center gap-2">
           <NotificationBell />
+          {/* Help menu */}
+          <HelpMenu collapsed={collapsed} />
         </div>
         
         {!collapsed && user && (
