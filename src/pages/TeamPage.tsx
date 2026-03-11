@@ -112,6 +112,7 @@ export default function TeamPage() {
           />
         </div>
 
+        <div data-tour="team-member">
         {membersLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading team...</div>
         ) : filtered.length === 0 ? (
@@ -119,7 +120,7 @@ export default function TeamPage() {
             {members.length === 0 ? "No team members added yet." : "No results found."}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2" data-tour="team-member">
+          <div className="grid gap-4 md:grid-cols-2">
             {filtered.map((m, i) => {
               const met = isMet(m.id);
               return (
@@ -187,6 +188,7 @@ export default function TeamPage() {
             })}
           </div>
         )}
+        </div>
 
         {/* Add/Edit Dialog */}
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
