@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -14,6 +15,10 @@ import { useRole } from "@/hooks/useRole";
 import { sendAITask, AIError } from "@/lib/ai-client";
 import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
+import { PLATFORM_KNOWLEDGE, CONTEXTUAL_SUGGESTIONS, getPageContext } from "@/data/platform-knowledge";
+import { HELP_ARTICLES } from "@/data/help-content";
+import { useTour } from "@/hooks/useTour";
+import { TourOverlay } from "@/components/TourOverlay";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
