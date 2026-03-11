@@ -13,13 +13,13 @@ interface TourOverlayProps {
 export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const targetElementRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const targetElementRef = useRef<HTMLElement | null>(null);
+
   const step = tour.steps[stepIndex];
   const isLast = stepIndex === tour.steps.length - 1;
 
   useEffect(() => {
-    // Local cleanup function safely clears the element from the current effect scope
     const cleanupElevatedElement = () => {
       if (targetElementRef.current) {
         targetElementRef.current.style.removeProperty("z-index");
@@ -39,8 +39,8 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
     const el = document.querySelector(step.target) as HTMLElement;
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      
-      // Elevate the element safely via ref tracking
+
+      // Elevate the element
       const computedStyle = window.getComputedStyle(el);
       if (computedStyle.position === 'static') {
         el.style.setProperty("position", "relative", "important");
@@ -49,10 +49,23 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
       el.style.setProperty("pointer-events", "auto", "important");
       targetElementRef.current = el;
 
-      // Continuous tracking loop handles user scrolling or smooth-scroll animations
       let animationFrameId: number;
+      let lastRectStr = "";
+
       const trackPosition = () => {
-        setTargetRect(el.getBoundingClientRect());
+        // Double check element is still in DOM
+        if (!el || !document.contains(el)) return;
+        
+        const rect = el.getBoundingClientRect();
+        
+        // We ensure we don't trigger infinite React re-renders
+        // by only updating state if the rect actually changed size/position.
+        const currentRectStr = `${rect.x},${rect.y},${rect.width},${rect.height}`;
+        if (currentRectStr !== lastRectStr && rect.width > 0 && rect.height > 0) {
+          lastRectStr = currentRectStr;
+          setTargetRect(rect);
+        }
+        
         animationFrameId = requestAnimationFrame(trackPosition);
       };
       trackPosition();
@@ -81,7 +94,6 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
 
   const padding = step?.spotlightPadding ?? 8;
 
-  // Calculate tooltip position
   const getTooltipStyle = (): React.CSSProperties => {
     if (!targetRect) return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
 
@@ -115,6 +127,12 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
     return style;
   };
 
+  // SVG Cutout values
+  const x = targetRect ? targetRect.left - padding : 0;
+  const y = targetRect ? targetRect.top - padding : 0;
+  const w = targetRect ? targetRect.width + padding * 2 : 0;
+  const h = targetRect ? targetRect.height + padding * 2 : 0;
+
   return (
     <AnimatePresence>
       <motion.div
@@ -122,59 +140,46 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[10000] pointer-events-none"
+        className="fixed inset-0 z-[10000]"
+        style={{ pointerEvents: "none" }}
       >
-        {/* 4-pane masking system to simulate spotlight without overlapping blur */}
-        {targetRect ? (
-          <>
-            {/* Top mask */}
-            <div
-              className="absolute top-0 left-0 right-0 bg-background/80 pointer-events-auto"
-              style={{ height: targetRect.top - padding }}
-              onClick={onSkip}
+        {/*
+          SVG-based masking system.
+          We use fillRule="evenodd" to punch a hole exactly where the target is.
+          Since SVG <path> elements only capture clicks on painted areas,
+          the "hole" remains transparent to clicks (pass-through),
+          while the dark mask captures clicks and triggers onSkip.
+        */}
+        <svg
+          className="absolute inset-0 w-full h-full"
+          style={{ pointerEvents: "auto" }}
+          onClick={onSkip}
+        >
+          {targetRect ? (
+            <path
+              d={`M-10000,-10000 H20000 V20000 H-10000 Z M${x},${y} V${y + h} H${x + w} V${y} Z`}
+              fill="rgba(0, 0, 0, 0.75)"
+              fillRule="evenodd"
             />
-            {/* Bottom mask */}
-            <div
-              className="absolute bottom-0 left-0 right-0 bg-background/80 pointer-events-auto"
-              style={{ top: targetRect.bottom + padding }}
-              onClick={onSkip}
-            />
-            {/* Left mask */}
-            <div
-              className="absolute left-0 bg-background/80 pointer-events-auto"
-              style={{
-                top: targetRect.top - padding,
-                bottom: window.innerHeight - (targetRect.bottom + padding),
-                width: targetRect.left - padding,
-              }}
-              onClick={onSkip}
-            />
-            {/* Right mask */}
-            <div
-              className="absolute right-0 bg-background/80 pointer-events-auto"
-              style={{
-                top: targetRect.top - padding,
-                bottom: window.innerHeight - (targetRect.bottom + padding),
-                width: window.innerWidth - (targetRect.right + padding),
-              }}
-              onClick={onSkip}
-            />
+          ) : (
+            <rect width="100%" height="100%" fill="rgba(0, 0, 0, 0.75)" />
+          )}
 
-            {/* Spotlight border */}
-            <div
-              className="absolute border-2 border-primary rounded-lg shadow-[0_0_0_4px_hsl(var(--primary)/0.15)] pointer-events-none"
-              style={{
-                top: targetRect.top - padding,
-                left: targetRect.left - padding,
-                width: targetRect.width + padding * 2,
-                height: targetRect.height + padding * 2,
-                zIndex: 10004,
-              }}
+          {/* Spotlight glowing border */}
+          {targetRect && (
+            <rect
+              x={x}
+              y={y}
+              width={w}
+              height={h}
+              rx={8}
+              fill="none"
+              stroke="hsl(var(--primary))"
+              strokeWidth={3}
+              style={{ pointerEvents: "none" }}
             />
-          </>
-        ) : (
-          <div className="absolute inset-0 bg-background/80 pointer-events-auto" onClick={onSkip} />
-        )}
+          )}
+        </svg>
 
         {/* Tooltip card */}
         <motion.div
@@ -183,8 +188,8 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
-          style={getTooltipStyle()}
-          className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[340px] pointer-events-auto"
+          style={{ ...getTooltipStyle(), pointerEvents: "auto" }}
+          className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[340px]"
         >
           {/* Step indicator */}
           <div className="flex items-center justify-between mb-2">

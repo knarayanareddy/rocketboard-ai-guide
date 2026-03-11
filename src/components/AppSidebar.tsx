@@ -209,7 +209,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase text-xs tracking-widest">
             Navigation
           </SidebarGroupLabel>
-          <SidebarGroupContent>
+          <SidebarGroupContent data-tour="sidebar-nav">
             <SidebarMenu>
               {navItems
                 .filter((item) => hasPackPermission(item.minLevel))

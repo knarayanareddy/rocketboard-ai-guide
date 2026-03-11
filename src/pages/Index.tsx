@@ -403,6 +403,7 @@ const Index = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring" as const, stiffness: 200, damping: 18 }}
           className="mb-8"
+          data-tour="dashboard-hero"
         >
           <div className="flex items-center gap-3 mb-2">
             <motion.div animate={{ rotate: [0, -10, 10, -5, 0] }} transition={{ duration: 1.5, delay: 0.5, ease: "easeInOut" }}>
@@ -438,12 +439,15 @@ const Index = () => {
               transition={{ delay: 0.3 }}
               onClick={() => navigate(`/packs/${effectivePackId}/modules/${resumeTarget.id}`)}
               className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity w-full sm:w-auto justify-center sm:justify-start"
+              data-tour="continue-learning"
             >
               <Play className="w-4 h-4" />
               Continue: {resumeTarget.title} ({resumeTarget.progress}%)
             </motion.button>
           )}
-          <SuggestedNextAction />
+          <div data-tour="suggested-action">
+            <SuggestedNextAction />
+          </div>
         </motion.div>
 
         {/* Sources updated banner */}
@@ -464,7 +468,7 @@ const Index = () => {
 
         {/* Stats strip */}
         {(useGenerated || staticModules.length > 0) && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-8">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-8" data-tour="stats-strip">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-muted-foreground">Stats</span>
               <ExportProgressButton />
@@ -508,7 +512,7 @@ const Index = () => {
         {modulesLoading ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground">Loading modules...</div>
         ) : (
-          <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+          <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5" data-tour="module-grid">
             {useGenerated
               ? generatedModules.map((mod, i) => (
                   <GeneratedModuleCard
