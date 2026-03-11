@@ -36,11 +36,12 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
       return;
     }
 
-    let animationFrameId: number;
+    const selector = step.target;
+    let animationFrameId: number | null = null;
+    let pollIntervalId: ReturnType<typeof setInterval> | null = null;
     let lastRectStr = "";
     let hasScrolled = false;
-    const startTime = Date.now();
-    const MAX_POLL_MS = 5000; // give up after 5 seconds
+    let disposed = false;
 
     const elevateElement = (el: HTMLElement) => {
       const computedStyle = window.getComputedStyle(el);
@@ -52,28 +53,12 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
       targetElementRef.current = el;
     };
 
-    const poll = () => {
-      // Try to find the target element (it may not exist yet if the page is still mounting)
-      let el = targetElementRef.current;
-
+    const trackPosition = () => {
+      if (disposed) return;
+      const el = targetElementRef.current;
       if (!el || !document.contains(el)) {
-        // Element not found yet or removed from DOM — keep looking
-        el = document.querySelector(step.target) as HTMLElement;
-        if (el) {
-          elevateElement(el);
-        } else {
-          // Element still not in DOM — retry unless timed out
-          if (Date.now() - startTime < MAX_POLL_MS) {
-            animationFrameId = requestAnimationFrame(poll);
-          }
-          return;
-        }
-      }
-
-      // Scroll into view once when first discovered
-      if (!hasScrolled) {
-        hasScrolled = true;
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        // Element disappeared — stop tracking, rect stays at last known position
+        return;
       }
 
       const rect = el.getBoundingClientRect();
@@ -83,17 +68,58 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         setTargetRect(rect);
       }
 
-      animationFrameId = requestAnimationFrame(poll);
+      animationFrameId = requestAnimationFrame(trackPosition);
     };
 
-    // Start polling on the next frame to let React finish rendering
-    animationFrameId = requestAnimationFrame(poll);
+    // Phase 1: Poll for the element using setInterval (more reliable than rAF for discovery)
+    let pollAttempts = 0;
+    const MAX_POLL_ATTEMPTS = 50; // 50 * 100ms = 5 seconds
+
+    const tryFindElement = () => {
+      if (disposed) return;
+      pollAttempts++;
+
+      const el = document.querySelector(selector) as HTMLElement;
+      if (el) {
+        // Found it! Stop polling, start tracking
+        if (pollIntervalId) {
+          clearInterval(pollIntervalId);
+          pollIntervalId = null;
+        }
+
+        elevateElement(el);
+
+        // Scroll into view
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Start continuous position tracking
+        trackPosition();
+        return;
+      }
+
+      if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+        // Give up — element never appeared
+        console.warn(`[TourOverlay] Could not find element: ${selector} after ${MAX_POLL_ATTEMPTS * 100}ms`);
+        if (pollIntervalId) {
+          clearInterval(pollIntervalId);
+          pollIntervalId = null;
+        }
+      }
+    };
+
+    // Try immediately, then every 100ms
+    tryFindElement();
+    if (!targetElementRef.current) {
+      pollIntervalId = setInterval(tryFindElement, 100);
+    }
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      disposed = true;
+      if (pollIntervalId) clearInterval(pollIntervalId);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       cleanupElevatedElement();
     };
-  }, [step?.target]);
+  }, [step?.target, stepIndex]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
