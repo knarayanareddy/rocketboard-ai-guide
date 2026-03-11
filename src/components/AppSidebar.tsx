@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit, HelpCircle, MapPin, RotateCcw } from "lucide-react";
+import { useTour } from "@/hooks/useTour";
+import { TourOverlay } from "@/components/TourOverlay";
+import { useState as useStateSidebar } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -237,9 +241,11 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-3">
-        {/* Notifications - always visible */}
-        <div className="flex items-center justify-center">
+        {/* Notifications */}
+        <div className="flex items-center justify-center gap-2">
           <NotificationBell />
+          {/* Help menu */}
+          <HelpMenu collapsed={collapsed} />
         </div>
         
         {!collapsed && user && (
@@ -295,5 +301,70 @@ export function AppSidebar() {
         )}
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+function HelpMenu({ collapsed }: { collapsed: boolean }) {
+  const navigate = useNavigate();
+  const { getCurrentPageTour, startTour, resetAllTours } = useTour();
+  const pageTour = getCurrentPageTour();
+  const [shortcutsOpen, setShortcutsOpen] = useStateSidebar(false);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Help"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="start" className="w-56">
+          {pageTour && (
+            <DropdownMenuItem onClick={() => startTour(pageTour.id)}>
+              <MapPin className="w-4 h-4 mr-2" /> Retake Page Tour
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => navigate("/help")}>
+            <BookOpen className="w-4 h-4 mr-2" /> Help Center
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+            ⌨️ <span className="ml-2">Keyboard Shortcuts</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => { resetAllTours(); toast.success("All tours reset. They'll show again on next visit."); }}>
+            <RotateCcw className="w-4 h-4 mr-2" /> Reset All Tours
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Keyboard shortcuts modal */}
+      {shortcutsOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/70 backdrop-blur-sm" onClick={() => setShortcutsOpen(false)}>
+          <div className="bg-card border border-border rounded-xl shadow-2xl p-6 w-[380px] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-foreground mb-4">⌨️ Keyboard Shortcuts</h3>
+            <div className="space-y-2 text-sm">
+              {[
+                ["Cmd/Ctrl + K", "Search"],
+                ["Cmd/Ctrl + D", "Bookmark current content"],
+                ["Escape", "Close overlay/modal"],
+                ["Arrow keys", "Navigate tour steps"],
+                ["?", "Show keyboard shortcuts"],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex justify-between">
+                  <kbd className="text-xs font-mono bg-muted px-2 py-0.5 rounded border border-border text-muted-foreground">{key}</kbd>
+                  <span className="text-muted-foreground">{desc}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShortcutsOpen(false)} className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

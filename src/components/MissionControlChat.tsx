@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -14,6 +15,10 @@ import { useRole } from "@/hooks/useRole";
 import { sendAITask, AIError } from "@/lib/ai-client";
 import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
+import { PLATFORM_KNOWLEDGE, CONTEXTUAL_SUGGESTIONS, getPageContext } from "@/data/platform-knowledge";
+import { HELP_ARTICLES } from "@/data/help-content";
+import { useTour } from "@/hooks/useTour";
+import { TourOverlay } from "@/components/TourOverlay";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -26,18 +31,19 @@ interface ChatResponse {
   warnings?: string[];
 }
 
-const SUGGESTED_QUESTIONS = [
-  "What features does this platform have?",
-  "How do I get started with onboarding?",
-  "What modules are available?",
-  "How does the AI generation work?",
-];
+function getSuggestedQuestions(pathname: string): string[] {
+  const ctx = getPageContext(pathname);
+  const suggestions = CONTEXTUAL_SUGGESTIONS[ctx] || CONTEXTUAL_SUGGESTIONS.default;
+  return suggestions.questions;
+}
 
 export function MissionControlChat() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const location = useLocation();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
+  const { activeTour, completeTour, setActiveTourId } = useTour();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
@@ -45,7 +51,13 @@ export function MissionControlChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [contextBubbleDismissed, setContextBubbleDismissed] = useState(false);
+  const [showContextBubble, setShowContextBubble] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const pageContext = getPageContext(location.pathname);
+  const contextSuggestion = CONTEXTUAL_SUGGESTIONS[pageContext];
+  const suggestedQuestions = getSuggestedQuestions(location.pathname);
 
   // Load chat history
   useEffect(() => {
@@ -117,6 +129,14 @@ export function MissionControlChat() {
     try {
       const spans = currentPackId ? await fetchEvidenceSpans(currentPackId, text) : [];
 
+      const platformContext = {
+        platform_knowledge: PLATFORM_KNOWLEDGE,
+        help_articles_summary: HELP_ARTICLES.map(a => `- ${a.title}: ${a.summary}`).join('\n'),
+        current_page: location.pathname,
+        current_page_context: pageContext,
+        user_role: packAccessLevel,
+      };
+
       const envelope = buildGlobalChatEnvelope({
         auth: {
           user_id: user?.id || null,
@@ -134,6 +154,7 @@ export function MissionControlChat() {
         messages: allMessages,
         evidenceSpans: spans,
         query: text,
+        platformContext,
       });
 
       const result = await sendAITask(envelope);
@@ -167,7 +188,16 @@ export function MissionControlChat() {
 
   return (
     <>
-      {/* FAB — bottom-left to avoid collision with module-level Rocket */}
+      {/* Tour overlay */}
+      {activeTour && (
+        <TourOverlay
+          tour={activeTour}
+          onComplete={() => completeTour(activeTour.id)}
+          onSkip={() => completeTour(activeTour.id)}
+        />
+      )}
+
+      {/* FAB — bottom-left */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className={`fixed z-50 ${isMobile ? "bottom-4 left-4" : "bottom-6 left-20"}`}>
@@ -226,7 +256,7 @@ export function MissionControlChat() {
                     <strong className="text-foreground">{currentPack?.title || "your pack"}</strong>
                   </p>
                   <div className="space-y-2">
-                    {SUGGESTED_QUESTIONS.map((q) => (
+                    {suggestedQuestions.map((q) => (
                       <button
                         key={q}
                         onClick={() => setInput(q)}

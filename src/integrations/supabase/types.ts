@@ -910,6 +910,30 @@ export type Database = {
           },
         ]
       }
+      help_feedback: {
+        Row: {
+          article_id: string
+          created_at: string
+          id: string
+          is_helpful: boolean
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          id?: string
+          is_helpful: boolean
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          id?: string
+          is_helpful?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       ingestion_jobs: {
         Row: {
           completed_at: string | null
