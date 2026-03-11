@@ -145,7 +145,7 @@ export default function GlossaryPage() {
             />
           </div>
           {!isGenerated && packTracks.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap" data-tour="glossary-track-filter">
               <button
                 onClick={() => setTrackFilter("all")}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${

@@ -291,7 +291,7 @@ function SortableModuleCard(props: EditableCardProps) {
   return (
     <>
       <div ref={setNodeRef} style={style} {...attributes}>
-        <Card className={`bg-card/50 border-border/50 transition-shadow ${isDragging ? "shadow-lg ring-2 ring-primary/30" : ""}`}>
+        <Card className={`bg-card/50 border-border/50 transition-shadow ${isDragging ? "shadow-lg ring-2 ring-primary/30" : ""}`} data-tour="module-card-edit">
           <CardContent className="p-4">
             <div className="flex items-start gap-2">
               {/* Drag handle */}
@@ -394,7 +394,7 @@ function SortableModuleCard(props: EditableCardProps) {
                 </div>
 
                 {/* Row 5: Prerequisites */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap" data-tour="prerequisites">
                   <Link2 className="w-3 h-3 text-muted-foreground" />
                   <span className="text-[10px] text-muted-foreground font-medium">Prereqs:</span>
                   {dependencies
@@ -879,7 +879,7 @@ export default function PlanPage() {
             )}
 
             {displayPlan.detected_signals?.length > 0 && (
-              <div>
+              <div data-tour="detected-signals">
                 <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
                   <Zap className="w-5 h-5 text-primary" /> Detected Signals
                 </h2>

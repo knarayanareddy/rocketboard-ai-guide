@@ -172,7 +172,7 @@ export default function TeamPage() {
                     {m.github_handle && <span className="flex items-center gap-1"><Github className="w-3 h-3" /> {m.github_handle}</span>}
                   </div>
 
-                  <div className="mt-3 pt-3 border-t border-border/50">
+                  <div className="mt-3 pt-3 border-t border-border/50" data-tour="meeting-checkbox">
                     <Button
                       variant={met ? "default" : "outline"}
                       size="sm"

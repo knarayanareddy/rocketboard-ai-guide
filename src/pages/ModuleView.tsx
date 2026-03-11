@@ -112,6 +112,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
       className={`border rounded-xl p-6 transition-all duration-300 ${
         isRead ? "bg-card/50 border-primary/20" : "bg-card border-border hover:border-primary/30"
       }`}
+      data-tour="module-section"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -138,6 +139,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
             label={section.heading}
             subtitle={`Module: ${moduleKey}`}
             previewText={section.markdown?.slice(0, 100)}
+            data-tour="bookmark-button"
           />
           {moduleKey && (
             <Tooltip>
@@ -174,6 +176,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
               className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
                 isRead ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary"
               }`}
+              data-tour="mark-read"
             >
               <BookOpen className="w-3.5 h-3.5" />
               {isRead ? "Read" : "Mark as read"}
@@ -216,7 +219,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
         const citationValidation = validateCitations(displayCitations, []);
         const citationMap = new Map(citationValidation.citations.map(c => [c.spanId, c]));
         return (
-          <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50">
+          <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-border/50" data-tour="citation-badge">
             {displayCitations.map((c) => {
               const v = citationMap.get(c.span_id);
               return (
@@ -241,6 +244,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
           savedNote={savedNote || ""}
           onSave={onSaveNote}
           onDelete={onDeleteNote}
+          data-tour="notes-button"
         />
       )}
 
@@ -675,7 +679,7 @@ export default function ModuleView() {
             </motion.div>
           )}
 
-          <div className="flex items-start gap-4 mb-2">
+          <div className="flex items-start gap-4 mb-2" data-tour="module-header">
             {!isGenerated && staticMod && <span className="text-4xl">{staticMod.icon}</span>}
             {isGenerated && (
               <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -780,7 +784,7 @@ export default function ModuleView() {
         {/* Generated module content */}
         {isGenerated && moduleData ? (
           <Tabs defaultValue="content" className="w-full">
-            <TabsList className="bg-muted border border-border mb-6 overflow-x-auto w-full flex-wrap sm:flex-nowrap">
+            <TabsList className="bg-muted border border-border mb-6 overflow-x-auto w-full flex-wrap sm:flex-nowrap" data-tour="module-tabs">
               <TabsTrigger value="content" className="gap-2 data-[state=active]:bg-card min-h-[44px]">
                 <BookOpen className="w-4 h-4" /> Content
               </TabsTrigger>

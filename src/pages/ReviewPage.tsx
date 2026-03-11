@@ -88,10 +88,10 @@ function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount }:
         )}
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onPreview}>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onPreview} data-tour="preview-button">
             <Eye className="w-3 h-3" /> Preview
           </Button>
-          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onRefine}>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onRefine} data-tour="refine-button">
             <Pencil className="w-3 h-3" /> Refine
           </Button>
           <AlertDialog>
