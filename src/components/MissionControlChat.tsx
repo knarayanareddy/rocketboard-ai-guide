@@ -188,7 +188,16 @@ export function MissionControlChat() {
 
   return (
     <>
-      {/* FAB — bottom-left to avoid collision with module-level Rocket */}
+      {/* Tour overlay */}
+      {activeTour && (
+        <TourOverlay
+          tour={activeTour}
+          onComplete={() => completeTour(activeTour.id)}
+          onSkip={() => completeTour(activeTour.id)}
+        />
+      )}
+
+      {/* FAB — bottom-left */}
       <AnimatePresence>
         {!isOpen && (
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className={`fixed z-50 ${isMobile ? "bottom-4 left-4" : "bottom-6 left-20"}`}>

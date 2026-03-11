@@ -148,6 +148,7 @@ export function buildChatEnvelope(opts: CommonOpts & {
 export function buildGlobalChatEnvelope(opts: CommonOpts & {
   messages: ConversationMessage[];
   query?: string;
+  platformContext?: Record<string, any>;
 }) {
   const env = baseEnvelope("global_chat", opts.auth, opts.pack, opts.generationPrefs, opts.limitsOverrides, opts.learnerProfile);
   applyCommon(env, opts);
@@ -155,6 +156,9 @@ export function buildGlobalChatEnvelope(opts: CommonOpts & {
   env.context.current_module_key = null;
   env.context.current_track_key = null;
   env.retrieval.query = opts.query || null;
+  if (opts.platformContext) {
+    (env as any).platform_context = opts.platformContext;
+  }
   return env;
 }
 
