@@ -238,7 +238,7 @@ export function MissionControlChat() {
                     <strong className="text-foreground">{currentPack?.title || "your pack"}</strong>
                   </p>
                   <div className="space-y-2">
-                    {SUGGESTED_QUESTIONS.map((q) => (
+                    {suggestedQuestions.map((q) => (
                       <button
                         key={q}
                         onClick={() => setInput(q)}
