@@ -129,6 +129,14 @@ export function MissionControlChat() {
     try {
       const spans = currentPackId ? await fetchEvidenceSpans(currentPackId, text) : [];
 
+      const platformContext = {
+        platform_knowledge: PLATFORM_KNOWLEDGE,
+        help_articles_summary: HELP_ARTICLES.map(a => `- ${a.title}: ${a.summary}`).join('\n'),
+        current_page: location.pathname,
+        current_page_context: pageContext,
+        user_role: packAccessLevel,
+      };
+
       const envelope = buildGlobalChatEnvelope({
         auth: {
           user_id: user?.id || null,
@@ -146,6 +154,7 @@ export function MissionControlChat() {
         messages: allMessages,
         evidenceSpans: spans,
         query: text,
+        platformContext,
       });
 
       const result = await sendAITask(envelope);
