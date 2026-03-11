@@ -801,7 +801,7 @@ export default function SourcesPage() {
             Back to Dashboard
           </button>
 
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6" data-tour="sources-heading">
             <div className="flex items-center gap-3">
               <Database className="w-6 h-6 text-primary" />
               <div>
@@ -815,13 +815,15 @@ export default function SourcesPage() {
             <div className="flex items-center gap-2">
               <BulkImportModal existingUris={sources.map(s => s.source_uri)} />
               <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add Source
-                  </Button>
+                <div className="flex items-center gap-2" data-tour="add-source">
+                  <DialogTrigger asChild>
+                    <Button className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Source
+                    </Button>
+                  </DialogTrigger>
                   <HelpTooltip content={HELP_TOOLTIPS.sources.sourceTypes} title="Source Types" side="bottom" />
-                </DialogTrigger>
+                </div>
                 <DialogContent className={selectedType === "document" ? "sm:max-w-2xl" : "sm:max-w-lg"}>
                   <DialogHeader>
                     <DialogTitle>
@@ -878,10 +880,11 @@ export default function SourcesPage() {
           </div>
 
           {/* Sources List */}
-          {isLoading ? (
-            <div className="flex justify-center py-16">
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
-            </div>
+          <div data-tour="source-list">
+            {isLoading ? (
+              <div className="flex justify-center py-16">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
+              </div>
           ) : sources.length === 0 ? (
             <div className="text-center py-16 bg-card border border-border rounded-xl">
               <Database className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
@@ -963,6 +966,7 @@ export default function SourcesPage() {
               ))}
             </div>
           )}
+          </div>
         </motion.div>
       </div>
     </DashboardLayout>

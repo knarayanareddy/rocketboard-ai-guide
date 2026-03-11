@@ -13,23 +13,24 @@ interface TourOverlayProps {
 export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
+  const targetElementRef = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const step = tour.steps[stepIndex];
   const isLast = stepIndex === tour.steps.length - 1;
 
-  // Cleanup elevated z-index on unmount or step change
-  const cleanupElevatedElement = useCallback(() => {
-    if (targetElement) {
-      targetElement.style.removeProperty("z-index");
-      targetElement.style.removeProperty("position");
-      targetElement.style.removeProperty("pointer-events");
-      setTargetElement(null);
-    }
-  }, [targetElement]);
+  useEffect(() => {
+    // Local cleanup function safely clears the element from the current effect scope
+    const cleanupElevatedElement = () => {
+      if (targetElementRef.current) {
+        targetElementRef.current.style.removeProperty("z-index");
+        targetElementRef.current.style.removeProperty("position");
+        targetElementRef.current.style.removeProperty("pointer-events");
+        targetElementRef.current = null;
+      }
+    };
 
-  const updateTargetRect = useCallback(() => {
     cleanupElevatedElement();
+
     if (!step?.target) {
       setTargetRect(null);
       return;
@@ -39,31 +40,31 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       
-      setTimeout(() => {
-        // Elevate the element above the overlay
-        const computedStyle = window.getComputedStyle(el);
-        if (computedStyle.position === 'static') {
-          el.style.setProperty("position", "relative", "important");
-        }
-        el.style.setProperty("z-index", "10005", "important");
-        el.style.setProperty("pointer-events", "auto", "important");
-        
-        setTargetElement(el);
+      // Elevate the element safely via ref tracking
+      const computedStyle = window.getComputedStyle(el);
+      if (computedStyle.position === 'static') {
+        el.style.setProperty("position", "relative", "important");
+      }
+      el.style.setProperty("z-index", "10005", "important");
+      el.style.setProperty("pointer-events", "auto", "important");
+      targetElementRef.current = el;
+
+      // Continuous tracking loop handles user scrolling or smooth-scroll animations
+      let animationFrameId: number;
+      const trackPosition = () => {
         setTargetRect(el.getBoundingClientRect());
-      }, 350);
+        animationFrameId = requestAnimationFrame(trackPosition);
+      };
+      trackPosition();
+
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        cleanupElevatedElement();
+      };
     } else {
       setTargetRect(null);
     }
-  }, [step?.target, cleanupElevatedElement]);
-
-  useEffect(() => {
-    updateTargetRect();
-    window.addEventListener("resize", updateTargetRect);
-    return () => {
-      window.removeEventListener("resize", updateTargetRect);
-      cleanupElevatedElement();
-    };
-  }, [updateTargetRect, cleanupElevatedElement]);
+  }, [step?.target]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -128,19 +129,19 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
           <>
             {/* Top mask */}
             <div
-              className="absolute top-0 left-0 right-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              className="absolute top-0 left-0 right-0 bg-background/80 pointer-events-auto"
               style={{ height: targetRect.top - padding }}
               onClick={onSkip}
             />
             {/* Bottom mask */}
             <div
-              className="absolute bottom-0 left-0 right-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              className="absolute bottom-0 left-0 right-0 bg-background/80 pointer-events-auto"
               style={{ top: targetRect.bottom + padding }}
               onClick={onSkip}
             />
             {/* Left mask */}
             <div
-              className="absolute left-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              className="absolute left-0 bg-background/80 pointer-events-auto"
               style={{
                 top: targetRect.top - padding,
                 bottom: window.innerHeight - (targetRect.bottom + padding),
@@ -150,7 +151,7 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
             />
             {/* Right mask */}
             <div
-              className="absolute right-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              className="absolute right-0 bg-background/80 pointer-events-auto"
               style={{
                 top: targetRect.top - padding,
                 bottom: window.innerHeight - (targetRect.bottom + padding),
@@ -172,7 +173,7 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
             />
           </>
         ) : (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto" onClick={onSkip} />
+          <div className="absolute inset-0 bg-background/80 pointer-events-auto" onClick={onSkip} />
         )}
 
         {/* Tooltip card */}
