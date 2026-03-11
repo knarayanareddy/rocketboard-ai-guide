@@ -13,6 +13,7 @@ interface TourOverlayProps {
 export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [debugInfo, setDebugInfo] = useState("initializing...");
   const overlayRef = useRef<HTMLDivElement>(null);
   const targetElementRef = useRef<HTMLElement | null>(null);
 
@@ -31,6 +32,7 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
 
     cleanupElevatedElement();
     setTargetRect(null);
+    setDebugInfo(`looking for: ${step?.target || 'none'}`);
 
     if (!step?.target) {
       return;
@@ -87,6 +89,9 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
           pollIntervalId = null;
         }
 
+        const rect = el.getBoundingClientRect();
+        setDebugInfo(`FOUND: ${selector} (${Math.round(rect.width)}x${Math.round(rect.height)} at ${Math.round(rect.x)},${Math.round(rect.y)}) attempt #${pollAttempts}`);
+
         elevateElement(el);
 
         // Scroll into view
@@ -97,8 +102,11 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         return;
       }
 
+      setDebugInfo(`polling #${pollAttempts}/${MAX_POLL_ATTEMPTS} for: ${selector}`);
+
       if (pollAttempts >= MAX_POLL_ATTEMPTS) {
         // Give up — element never appeared
+        setDebugInfo(`GIVE UP: ${selector} not found after ${MAX_POLL_ATTEMPTS} attempts`);
         console.warn(`[TourOverlay] Could not find element: ${selector} after ${MAX_POLL_ATTEMPTS * 100}ms`);
         if (pollIntervalId) {
           clearInterval(pollIntervalId);
@@ -185,6 +193,16 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         className="fixed inset-0 z-[10000]"
         style={{ pointerEvents: "none" }}
       >
+        {/* Temporary debug banner - remove after fixing */}
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, 
+          background: targetRect ? "green" : "red", color: "white",
+          padding: "4px 8px", fontSize: "11px", fontFamily: "monospace",
+          zIndex: 99999, pointerEvents: "none", opacity: 0.9,
+        }}>
+          DEBUG: {debugInfo} | targetRect: {targetRect ? `${Math.round(targetRect.width)}x${Math.round(targetRect.height)}` : "NULL"}
+        </div>
+
         {/*
           SVG-based masking system.
           We use fillRule="evenodd" to punch a hole exactly where the target is.
