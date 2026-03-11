@@ -31,18 +31,19 @@ interface ChatResponse {
   warnings?: string[];
 }
 
-const SUGGESTED_QUESTIONS = [
-  "What features does this platform have?",
-  "How do I get started with onboarding?",
-  "What modules are available?",
-  "How does the AI generation work?",
-];
+function getSuggestedQuestions(pathname: string): string[] {
+  const ctx = getPageContext(pathname);
+  const suggestions = CONTEXTUAL_SUGGESTIONS[ctx] || CONTEXTUAL_SUGGESTIONS.default;
+  return suggestions.questions;
+}
 
 export function MissionControlChat() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const location = useLocation();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
+  const { activeTour, completeTour, setActiveTourId } = useTour();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
@@ -50,7 +51,13 @@ export function MissionControlChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [contextBubbleDismissed, setContextBubbleDismissed] = useState(false);
+  const [showContextBubble, setShowContextBubble] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const pageContext = getPageContext(location.pathname);
+  const contextSuggestion = CONTEXTUAL_SUGGESTIONS[pageContext];
+  const suggestedQuestions = getSuggestedQuestions(location.pathname);
 
   // Load chat history
   useEffect(() => {
