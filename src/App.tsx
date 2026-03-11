@@ -38,6 +38,7 @@ import ContentHealthPage from "./pages/ContentHealthPage";
 import QuizAnalyticsPage from "./pages/QuizAnalyticsPage";
 import DiscussionsPage from "./pages/DiscussionsPage";
 import NotFound from "./pages/NotFound";
+import HelpPage from "./pages/HelpPage";
 
 const queryClient = new QueryClient();
 
