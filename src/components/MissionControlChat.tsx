@@ -17,8 +17,6 @@ import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 import { PLATFORM_KNOWLEDGE, CONTEXTUAL_SUGGESTIONS, getPageContext } from "@/data/platform-knowledge";
 import { HELP_ARTICLES } from "@/data/help-content";
-import { useTour } from "@/hooks/useTour";
-import { TourOverlay } from "@/components/TourOverlay";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -43,7 +41,6 @@ export function MissionControlChat() {
   const location = useLocation();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
-  const { activeTour, completeTour, setActiveTourId } = useTour();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
@@ -188,15 +185,6 @@ export function MissionControlChat() {
 
   return (
     <>
-      {/* Tour overlay */}
-      {activeTour && (
-        <TourOverlay
-          tour={activeTour}
-          onComplete={() => completeTour(activeTour.id)}
-          onSkip={() => completeTour(activeTour.id)}
-        />
-      )}
-
       {/* FAB — bottom-left */}
       <AnimatePresence>
         {!isOpen && (

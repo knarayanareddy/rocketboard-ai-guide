@@ -13,28 +13,57 @@ interface TourOverlayProps {
 export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const step = tour.steps[stepIndex];
   const isLast = stepIndex === tour.steps.length - 1;
 
+  // Cleanup elevated z-index on unmount or step change
+  const cleanupElevatedElement = useCallback(() => {
+    if (targetElement) {
+      targetElement.style.removeProperty("z-index");
+      targetElement.style.removeProperty("position");
+      targetElement.style.removeProperty("pointer-events");
+      setTargetElement(null);
+    }
+  }, [targetElement]);
+
   const updateTargetRect = useCallback(() => {
-    if (!step?.target) return;
-    const el = document.querySelector(step.target);
+    cleanupElevatedElement();
+    if (!step?.target) {
+      setTargetRect(null);
+      return;
+    }
+
+    const el = document.querySelector(step.target) as HTMLElement;
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
+      
       setTimeout(() => {
+        // Elevate the element above the overlay
+        const computedStyle = window.getComputedStyle(el);
+        if (computedStyle.position === 'static') {
+          el.style.setProperty("position", "relative", "important");
+        }
+        el.style.setProperty("z-index", "10005", "important");
+        el.style.setProperty("pointer-events", "auto", "important");
+        
+        setTargetElement(el);
         setTargetRect(el.getBoundingClientRect());
       }, 350);
     } else {
       setTargetRect(null);
     }
-  }, [step?.target]);
+  }, [step?.target, cleanupElevatedElement]);
 
   useEffect(() => {
     updateTargetRect();
     window.addEventListener("resize", updateTargetRect);
-    return () => window.removeEventListener("resize", updateTargetRect);
-  }, [updateTargetRect]);
+    return () => {
+      window.removeEventListener("resize", updateTargetRect);
+      cleanupElevatedElement();
+    };
+  }, [updateTargetRect, cleanupElevatedElement]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -57,7 +86,7 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
 
     const pos = step?.position || "bottom";
     const gap = 12;
-    const style: React.CSSProperties = { position: "fixed", zIndex: 10002, maxWidth: 360 };
+    const style: React.CSSProperties = { position: "fixed", zIndex: 10006, maxWidth: 360 };
 
     switch (pos) {
       case "top":
@@ -92,44 +121,58 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[10000]"
-        onClick={(e) => {
-          if (e.target === overlayRef.current) onSkip();
-        }}
+        className="fixed inset-0 z-[10000] pointer-events-none"
       >
-        {/* Backdrop with spotlight cutout using CSS clip-path */}
-        <div
-          className="absolute inset-0 bg-background/70 backdrop-blur-[2px]"
-          style={
-            targetRect
-              ? {
-                  clipPath: `polygon(
-                    0% 0%, 0% 100%, 
-                    ${targetRect.left - padding}px 100%, 
-                    ${targetRect.left - padding}px ${targetRect.top - padding}px, 
-                    ${targetRect.right + padding}px ${targetRect.top - padding}px, 
-                    ${targetRect.right + padding}px ${targetRect.bottom + padding}px, 
-                    ${targetRect.left - padding}px ${targetRect.bottom + padding}px, 
-                    ${targetRect.left - padding}px 100%, 
-                    100% 100%, 100% 0%
-                  )`,
-                }
-              : {}
-          }
-        />
+        {/* 4-pane masking system to simulate spotlight without overlapping blur */}
+        {targetRect ? (
+          <>
+            {/* Top mask */}
+            <div
+              className="absolute top-0 left-0 right-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              style={{ height: targetRect.top - padding }}
+              onClick={onSkip}
+            />
+            {/* Bottom mask */}
+            <div
+              className="absolute bottom-0 left-0 right-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              style={{ top: targetRect.bottom + padding }}
+              onClick={onSkip}
+            />
+            {/* Left mask */}
+            <div
+              className="absolute left-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              style={{
+                top: targetRect.top - padding,
+                bottom: window.innerHeight - (targetRect.bottom + padding),
+                width: targetRect.left - padding,
+              }}
+              onClick={onSkip}
+            />
+            {/* Right mask */}
+            <div
+              className="absolute right-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto"
+              style={{
+                top: targetRect.top - padding,
+                bottom: window.innerHeight - (targetRect.bottom + padding),
+                width: window.innerWidth - (targetRect.right + padding),
+              }}
+              onClick={onSkip}
+            />
 
-        {/* Spotlight border */}
-        {targetRect && (
-          <div
-            className="absolute border-2 border-primary rounded-lg shadow-[0_0_0_4px_hsl(var(--primary)/0.15)] pointer-events-none"
-            style={{
-              top: targetRect.top - padding,
-              left: targetRect.left - padding,
-              width: targetRect.width + padding * 2,
-              height: targetRect.height + padding * 2,
-              zIndex: 10001,
-            }}
-          />
+            {/* Spotlight border */}
+            <div
+              className="absolute border-2 border-primary rounded-lg shadow-[0_0_0_4px_hsl(var(--primary)/0.15)] pointer-events-none"
+              style={{
+                top: targetRect.top - padding,
+                left: targetRect.left - padding,
+                width: targetRect.width + padding * 2,
+                height: targetRect.height + padding * 2,
+                zIndex: 10004,
+              }}
+            />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-[2px] pointer-events-auto" onClick={onSkip} />
         )}
 
         {/* Tooltip card */}

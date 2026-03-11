@@ -12,6 +12,8 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { useUserOrgs } from "@/hooks/useUserOrgs";
 import { usePacks } from "@/hooks/usePacks";
 import { useAcceptInvites } from "@/hooks/useAcceptInvites";
+import { useTour } from "@/hooks/useTour";
+import { TourOverlay } from "@/components/TourOverlay";
 import Index from "./pages/Index";
 import Modules from "./pages/Modules";
 import ModuleView from "./pages/ModuleView";
@@ -109,6 +111,21 @@ function GlobalSearchShortcut() {
   return <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />;
 }
 
+function TourManager() {
+  const { activeTour, completeTour } = useTour();
+  return (
+    <>
+      {activeTour && (
+        <TourOverlay
+          tour={activeTour}
+          onComplete={() => completeTour(activeTour.id)}
+          onSkip={() => completeTour(activeTour.id)}
+        />
+      )}
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -120,6 +137,7 @@ const App = () => (
           <OfflineIndicator />
           <BrowserRouter>
             <GlobalSearchShortcut />
+            <TourManager />
             <Routes>
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><InviteAcceptor><OnboardingWizard /></InviteAcceptor></ProtectedRoute>} />
