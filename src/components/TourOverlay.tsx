@@ -30,17 +30,19 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
     };
 
     cleanupElevatedElement();
+    setTargetRect(null);
 
     if (!step?.target) {
-      setTargetRect(null);
       return;
     }
 
-    const el = document.querySelector(step.target) as HTMLElement;
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    let animationFrameId: number;
+    let lastRectStr = "";
+    let hasScrolled = false;
+    const startTime = Date.now();
+    const MAX_POLL_MS = 5000; // give up after 5 seconds
 
-      // Elevate the element
+    const elevateElement = (el: HTMLElement) => {
       const computedStyle = window.getComputedStyle(el);
       if (computedStyle.position === 'static') {
         el.style.setProperty("position", "relative", "important");
@@ -48,35 +50,49 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
       el.style.setProperty("z-index", "10005", "important");
       el.style.setProperty("pointer-events", "auto", "important");
       targetElementRef.current = el;
+    };
 
-      let animationFrameId: number;
-      let lastRectStr = "";
+    const poll = () => {
+      // Try to find the target element (it may not exist yet if the page is still mounting)
+      let el = targetElementRef.current;
 
-      const trackPosition = () => {
-        // Double check element is still in DOM
-        if (!el || !document.contains(el)) return;
-        
-        const rect = el.getBoundingClientRect();
-        
-        // We ensure we don't trigger infinite React re-renders
-        // by only updating state if the rect actually changed size/position.
-        const currentRectStr = `${rect.x},${rect.y},${rect.width},${rect.height}`;
-        if (currentRectStr !== lastRectStr && rect.width > 0 && rect.height > 0) {
-          lastRectStr = currentRectStr;
-          setTargetRect(rect);
+      if (!el || !document.contains(el)) {
+        // Element not found yet or removed from DOM — keep looking
+        el = document.querySelector(step.target) as HTMLElement;
+        if (el) {
+          elevateElement(el);
+        } else {
+          // Element still not in DOM — retry unless timed out
+          if (Date.now() - startTime < MAX_POLL_MS) {
+            animationFrameId = requestAnimationFrame(poll);
+          }
+          return;
         }
-        
-        animationFrameId = requestAnimationFrame(trackPosition);
-      };
-      trackPosition();
+      }
 
-      return () => {
-        cancelAnimationFrame(animationFrameId);
-        cleanupElevatedElement();
-      };
-    } else {
-      setTargetRect(null);
-    }
+      // Scroll into view once when first discovered
+      if (!hasScrolled) {
+        hasScrolled = true;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      const rect = el.getBoundingClientRect();
+      const currentRectStr = `${rect.x},${rect.y},${rect.width},${rect.height}`;
+      if (currentRectStr !== lastRectStr && rect.width > 0 && rect.height > 0) {
+        lastRectStr = currentRectStr;
+        setTargetRect(rect);
+      }
+
+      animationFrameId = requestAnimationFrame(poll);
+    };
+
+    // Start polling on the next frame to let React finish rendering
+    animationFrameId = requestAnimationFrame(poll);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      cleanupElevatedElement();
+    };
   }, [step?.target]);
 
   useEffect(() => {
