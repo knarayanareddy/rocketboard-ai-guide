@@ -190,7 +190,7 @@ function PathTabContent({ steps, pathType, isGenerated }: {
           })}
         </div>
       )}
-      <div className="space-y-3">
+      <div className="space-y-3" data-tour="paths-step">
         {filtered.map((step, i) => (
           <PathCard
             key={step.id}
@@ -290,7 +290,7 @@ export default function PathsPage() {
           <div className="text-center py-12 text-muted-foreground">Loading paths...</div>
         ) : (
           <Tabs defaultValue="day1" className="w-full">
-            <TabsList className="bg-muted border border-border mb-6">
+            <TabsList className="bg-muted border border-border mb-6" data-tour="paths-tabs">
               <TabsTrigger value="day1" className="gap-2 data-[state=active]:bg-card">
                 <Calendar className="w-4 h-4" />
                 Day 1 ({day1Progress}%)

@@ -265,7 +265,7 @@ export default function ReviewPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">📋 Content Review</h1>
+            <h1 className="text-2xl font-bold text-foreground" data-tour="review-heading">📋 Content Review</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {hasUnpublished
                 ? `${draftModules.length} draft module(s) ready for review.`
@@ -275,12 +275,14 @@ export default function ReviewPage() {
           {hasUnpublished && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button className="gap-2 gradient-primary text-primary-foreground border-0" disabled={publishing}>
-                  {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                  Publish Pack
-                </Button>
-                <HelpTooltip content={HELP_TOOLTIPS.generation.publishPack} />
+                <div data-tour="publish-button" className="inline-block">
+                  <Button className="gap-2 gradient-primary text-primary-foreground border-0" disabled={publishing}>
+                    {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                    Publish Pack
+                  </Button>
+                </div>
               </AlertDialogTrigger>
+              <HelpTooltip content={HELP_TOOLTIPS.generation.publishPack} />
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Publish Pack</AlertDialogTitle>
@@ -321,7 +323,7 @@ export default function ReviewPage() {
           <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-primary" /> Modules ({allModulesForReview.length})
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="review-module-card">
             {allModulesForReview.map(mod => (
               <ModuleReviewCard
                 key={mod.id}

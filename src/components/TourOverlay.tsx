@@ -184,7 +184,7 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
           style={getTooltipStyle()}
-          className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[340px]"
+          className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[340px] pointer-events-auto"
         >
           {/* Step indicator */}
           <div className="flex items-center justify-between mb-2">

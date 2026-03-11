@@ -769,7 +769,7 @@ export default function PlanPage() {
               </Button>
             )}
             {displayPlan && !isApproved && (
-              <Button onClick={handleApprove} disabled={approvePlan.isPending} variant="outline" size="sm">
+              <Button onClick={handleApprove} disabled={approvePlan.isPending} variant="outline" size="sm" data-tour="approve-plan">
                 {approvePlan.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
                 Approve Plan
               </Button>
@@ -854,7 +854,7 @@ export default function PlanPage() {
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
                 Generate an AI-powered plan that analyzes your pack's sources and proposes a structured set of onboarding modules.
               </p>
-              <Button onClick={handleGenerate} disabled={generatePlan.isPending}>
+              <Button onClick={handleGenerate} disabled={generatePlan.isPending} data-tour="generate-plan">
                 <Sparkles className="w-4 h-4 mr-2" /> Generate Module Plan
               </Button>
             </CardContent>
@@ -903,8 +903,9 @@ export default function PlanPage() {
                 <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-primary" /> Module Plan ({displayPlan.module_plan.length} modules)
                 </h2>
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={displayPlan.module_plan.map(m => m.module_key)} strategy={verticalListSortingStrategy}>
+                <div data-tour="module-plan-list">
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={displayPlan.module_plan.map(m => m.module_key)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
                       {displayPlan.module_plan.map((mod, i) => (
                         <SortableModuleCard
@@ -956,6 +957,7 @@ export default function PlanPage() {
                     </div>
                   </SortableContext>
                 </DndContext>
+                </div>
                 <div className="mt-4">
                   <AddModuleForm tracks={tracks} onAdd={addModule} disabled={editDisabled} />
                 </div>

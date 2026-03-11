@@ -133,7 +133,7 @@ export default function GlossaryPage() {
           </p>
         </motion.div>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6" data-tour="glossary-search">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
@@ -172,7 +172,7 @@ export default function GlossaryPage() {
         {glossaryLoading ? (
           <div className="text-center py-12 text-muted-foreground">Loading glossary...</div>
         ) : isGenerated ? (
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="glossary-term">
             {filteredGenerated.map((term, i) => (
               <motion.div
                 key={term.term}
@@ -219,7 +219,7 @@ export default function GlossaryPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="glossary-term">
             {filteredStatic.map((term, i) => (
               <motion.div
                 key={term.term}

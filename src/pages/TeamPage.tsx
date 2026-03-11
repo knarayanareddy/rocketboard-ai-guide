@@ -90,7 +90,7 @@ export default function TeamPage() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Users className="w-6 h-6 text-primary" /> Team Directory
             </h1>
-            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+            <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5" data-tour="meeting-progress">
               People to meet: {metCount}/{totalMembers}
               <HelpTooltip content={HELP_TOOLTIPS.team.meetingProgress} />
             </p>
@@ -119,7 +119,7 @@ export default function TeamPage() {
             {members.length === 0 ? "No team members added yet." : "No results found."}
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2" data-tour="team-member">
             {filtered.map((m, i) => {
               const met = isMet(m.id);
               return (
