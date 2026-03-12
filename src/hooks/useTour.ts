@@ -8,14 +8,14 @@ const STORAGE_KEY = "rocketboard-tours-completed";
 
 function getCompletedTours(): Record<string, number> {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
   } catch {
     return {};
   }
 }
 
 function saveCompletedTours(completed: Record<string, number>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
 }
 
 const ACCESS_HIERARCHY = ["read_only", "learner", "author", "admin", "owner"];
@@ -64,7 +64,7 @@ export function useTour() {
   }, []);
 
   const resetAllTours = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   }, []);
 
   const getCurrentPageTour = useCallback(() => {
