@@ -41,6 +41,7 @@ import QuizAnalyticsPage from "./pages/QuizAnalyticsPage";
 import DiscussionsPage from "./pages/DiscussionsPage";
 import NotFound from "./pages/NotFound";
 import HelpPage from "./pages/HelpPage";
+import SandboxModulePage from "./pages/SandboxModulePage";
 
 const queryClient = new QueryClient();
 
@@ -168,6 +169,7 @@ const App = () => (
               <Route path="/packs/:packId/health" element={<ProtectedRoute><InviteAcceptor><ContentHealthPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/quiz-analytics" element={<ProtectedRoute><InviteAcceptor><QuizAnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/discussions" element={<ProtectedRoute><InviteAcceptor><DiscussionsPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/sandbox" element={<ProtectedRoute><InviteAcceptor><SandboxModulePage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />

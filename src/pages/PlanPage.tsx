@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import { useModulePlan, ModulePlanData, DetectedSignal, ModulePlanEntry, PlanTrack } from "@/hooks/useModulePlan";
 import { useGeneratedModules } from "@/hooks/useGeneratedModules";
 import { useTemplates, TemplateRow } from "@/hooks/useTemplates";
@@ -11,6 +12,7 @@ import { usePackTracks, PackTrack } from "@/hooks/usePackTracks";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { useCascadeGeneration, CascadeModuleStatus, CascadeSupportStatus } from "@/hooks/useCascadeGeneration";
+import { useGenerationPrefs } from "@/hooks/useGenerationPrefs";
 import { AIError } from "@/lib/ai-errors";
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -314,9 +316,15 @@ function SortableModuleCard(props: EditableCardProps) {
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {generated && (
-                      <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-400 border-green-500/30">
-                        <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> Generated
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-400 border-green-500/30">
+                          <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> Generated
+                        </Badge>
+                        <HelpTooltip 
+                          title="Why was this proposed?" 
+                          content={mod.rationale || "Proposed based on detected codebase patterns. No explicit rationale provided by the AI."}
+                        />
+                      </div>
                     )}
                     {/* Difficulty select */}
                     {disabled ? (
@@ -348,11 +356,9 @@ function SortableModuleCard(props: EditableCardProps) {
                 {/* Row 2: description */}
                 <InlineDescription value={mod.description} onChange={v => onUpdate(mod.module_key, { description: v })} disabled={disabled} />
 
-                {/* Row 3: rationale */}
-                {mod.rationale && <p className="text-xs text-muted-foreground/70 italic">{mod.rationale}</p>}
+                {/* Row 3: tracks, templates, citations */}
 
-                {/* Row 4: track, template, citations */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap mt-0.5">
                   {/* Track select */}
                   {disabled ? (
                     mod.track_key && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">{mod.track_key}</Badge>
@@ -562,6 +568,8 @@ export default function PlanPage() {
   const queryClient = useQueryClient();
   const { currentPack, currentPackId } = usePack();
   const { hasPackPermission } = useRole();
+  const { packLimits } = useGenerationPrefs();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { plan, planLoading, generatePlan, savePlan, updatePlan, approvePlan } = useModulePlan();
   const { modules: generatedModules } = useGeneratedModules();
   const { templates } = useTemplates();
@@ -575,6 +583,22 @@ export default function PlanPage() {
   const undoRef = useRef<{ mod: ModulePlanEntry; idx: number; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Handle actionable deep links from Help Center
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action === "start_generation") {
+      // Small delay to ensure everything is loaded
+      const timer = setTimeout(() => {
+        generatePlan.mutate();
+        // Clear the param
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete("action");
+        setSearchParams(newParams, { replace: true });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams, generatePlan]);
 
   // Sync DB plan into local state on first load
   useEffect(() => {

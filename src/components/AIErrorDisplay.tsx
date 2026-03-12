@@ -3,6 +3,7 @@ import { AlertTriangle, AlertCircle, WifiOff, CreditCard, Clock, HelpCircle, Che
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import type { AIError, AIErrorCode } from "@/lib/ai-errors";
+import { useTour } from "@/hooks/useTour";
 
 interface AIErrorDisplayProps {
   error: AIError;
@@ -114,6 +115,17 @@ export function AIErrorDisplay({ error, compact = false, onRetry, onSearchQuery 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [error.code]);
 
+  // Programmatically trigger tour for retryable errors
+  const { startTour, shouldShowTour } = useTour();
+  useEffect(() => {
+    if (!compact && isRetryable && shouldShowTour("ai-error-recovery")) {
+      const t = setTimeout(() => {
+        startTour("ai-error-recovery");
+      }, 600); // Wait for animation
+      return () => clearTimeout(t);
+    }
+  }, [compact, isRetryable, shouldShowTour, startTour]);
+
   const handleRetry = useCallback(() => {
     if (retryDisabled || !onRetry) return;
     onRetry();
@@ -122,6 +134,7 @@ export function AIErrorDisplay({ error, compact = false, onRetry, onSearchQuery 
   return (
     <AnimatePresence>
       <motion.div
+        data-tour="ai-error-display"
         initial={{ opacity: 0, y: 8, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -8 }}
@@ -156,7 +169,7 @@ export function AIErrorDisplay({ error, compact = false, onRetry, onSearchQuery 
 
             {/* Retry button */}
             {isRetryable && (
-              <div className="mt-2">
+              <div className="mt-2" data-tour="ai-error-retry">
                 <Button
                   size="sm"
                   variant="outline"

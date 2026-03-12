@@ -84,6 +84,7 @@ function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount }:
           <div className="flex items-center gap-1.5 mb-3 text-xs text-yellow-400">
             <AlertTriangle className="w-3 h-3" />
             <span>{contradictions} contradiction(s)</span>
+            <HelpTooltip content={HELP_TOOLTIPS.generation.contradictions} />
           </div>
         )}
 

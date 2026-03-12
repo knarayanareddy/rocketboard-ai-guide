@@ -24,6 +24,7 @@ import { useLearnerState } from "@/hooks/useLearnerState";
 import { useRole } from "@/hooks/useRole";
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 import { usePackTracks } from "@/hooks/usePackTracks";
+import { useTour } from "@/hooks/useTour";
 import { ModuleChatPanel } from "@/components/ModuleChatPanel";
 import { useGeneratedModules, GeneratedModuleRow, GeneratedSection, ChangeLogEntry } from "@/hooks/useGeneratedModules";
 import { useGeneratedQuiz } from "@/hooks/useGeneratedQuiz";
@@ -494,6 +495,38 @@ export default function ModuleView() {
     window.addEventListener("bookmark-current", handler);
     return () => window.removeEventListener("bookmark-current", handler);
   }, [moduleId, isGenerated, generatedMod, staticMod, moduleData]);
+
+  const { startTour, shouldShowTour } = useTour();
+
+  // Trigger chat micro-tour after 20 seconds
+  useEffect(() => {
+    if (!moduleId) return;
+    const timer = setTimeout(() => {
+      // Trigger if we haven't completed it yet
+      if (shouldShowTour("module-reading-chat")) {
+        startTour("module-reading-chat");
+      }
+    }, 20000); // 20 seconds
+    return () => clearTimeout(timer);
+  }, [moduleId, startTour, shouldShowTour]);
+
+  // Trigger notes micro-tour on text selection
+  useEffect(() => {
+    if (!moduleId) return;
+    const handleSelection = () => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim().length > 20) {
+        if (shouldShowTour("module-reading-notes")) {
+          // Small delay so it feels natural
+          setTimeout(() => {
+            startTour("module-reading-notes");
+          }, 300);
+        }
+      }
+    };
+    document.addEventListener("mouseup", handleSelection);
+    return () => document.removeEventListener("mouseup", handleSelection);
+  }, [moduleId, startTour, shouldShowTour]);
 
   const readSections = getReadSectionsForModule(moduleId || "");
 

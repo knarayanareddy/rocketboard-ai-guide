@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ProtectedAction } from "@/components/ProtectedAction";
 import { IngestionStatus } from "@/components/IngestionStatus";
@@ -82,6 +82,7 @@ export default function SourcesPage() {
   const { sources, isLoading, addSource, deleteSource, chunkCounts } = useSources();
   const { triggerIngestion, hasActiveJob, jobs } = useIngestion();
   const { plan } = useModulePlan();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [addOpen, setAddOpen] = useState(false);
   const [addStep, setAddStep] = useState<AddSourceStep>("select");
@@ -104,6 +105,20 @@ export default function SourcesPage() {
       setLabel("");
     }
   }, [addOpen]);
+
+  // Handle actionable deep links from Help Center
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action === "open_github_modal" && !addOpen) {
+      setSelectedType("github_repo");
+      setAddStep("form");
+      setAddOpen(true);
+      // Clear the param so it doesn't reopen on every mount/render if not intended
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("action");
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, addOpen, setSearchParams]);
 
   // Celebration: detect when a job completes
   useEffect(() => {

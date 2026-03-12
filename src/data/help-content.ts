@@ -186,6 +186,8 @@ Welcome! Here's how to get started:
 4. Click **Add Source**
 5. Click **Sync** on the source card to start ingestion
 
+[ACTION: connect_github(Add a GitHub Repo Now)]
+
 ### What gets ingested
 Supported file types: \`.ts\`, \`.tsx\`, \`.js\`, \`.jsx\`, \`.md\`, \`.json\`, \`.yaml\`, \`.yml\`, \`.py\`, \`.go\`, \`.rs\`, \`.java\`, \`.rb\`, \`.sh\`, \`.css\`, \`.html\`, \`.sql\`, \`.tf\`, Dockerfile, Makefile, and more.
 
@@ -293,6 +295,8 @@ Secrets (API keys, tokens, passwords) are automatically replaced with \`***REDAC
 2. Click **Generate Plan**
 3. The AI analyzes your sources and proposes modules
 
+[ACTION: generate_plan(Generate Plan from Sources)]
+
 ## What You Can Do
 - **Edit** titles and descriptions inline
 - **Reorder** modules by dragging
@@ -345,7 +349,9 @@ All content starts as **draft**. If one item fails, others continue.`,
 - View generation stats
 
 ## Refining
-Click **Refine** and describe changes in natural language. The AI updates the module and shows what changed.
+Click **Refine** and describe changes in natural language3. Profit! The AI updates the module and shows what changed.
+
+[ACTION: open_sandbox(Try it in the Sandbox)]
 
 ## Publishing
 Click **Publish Pack** to make all draft content visible to learners. You can continue editing and re-publishing after.`,

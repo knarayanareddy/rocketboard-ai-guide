@@ -129,7 +129,24 @@ export const ALL_TOURS: Tour[] = [
     ],
   },
   {
-    id: "module-reading",
+    id: "ai-error-recovery",
+    pagePattern: ".*",
+    steps: [
+      {
+        target: "[data-tour='ai-error-display']",
+        title: "AI Generation Failed",
+        content: "Don't worry, AI generation occasionally fails. The system caught the error and gracefully halted.",
+      },
+      {
+        target: "[data-tour='ai-error-retry']",
+        title: "Retry Generation",
+        content: "Click 'Retry' to attempt the process again. The AI will often succeed on a second attempt.",
+        waitForClick: true,
+      },
+    ],
+  },
+  {
+    id: "module-reading-intro",
     pagePattern: "^/packs/[^/]+/modules/[^/]+$",
     steps: [
       {
@@ -151,11 +168,18 @@ export const ALL_TOURS: Tour[] = [
         target: "[data-tour='mark-read']",
         title: "Track Your Progress",
         content: "Click to mark a section as completed. Your progress is saved automatically and you can resume anytime.",
+        waitForClick: true,
       },
+    ],
+  },
+  {
+    id: "module-reading-notes",
+    pagePattern: "^/packs/[^/]+/modules/[^/]+$",
+    steps: [
       {
         target: "[data-tour='notes-button']",
         title: "Take Personal Notes",
-        content: "Click to open a notes panel for this section. Your notes are private and saved automatically. Use the suggested prompts for guided reflection.",
+        content: "Use the notes panel to write down key takeaways. Try highlighting text to quickly save it as a note!",
       },
       {
         target: "[data-tour='citation-badge']",
@@ -167,10 +191,17 @@ export const ALL_TOURS: Tour[] = [
         title: "Save for Later",
         content: "Bookmark any section for quick reference. Access all saved items from the 🔖 Saved page in the sidebar.",
       },
+    ],
+  },
+  {
+    id: "module-reading-chat",
+    pagePattern: "^/packs/[^/]+/modules/[^/]+$",
+    steps: [
       {
         target: "[data-tour='rocket-fab']",
         title: "Ask the AI",
         content: "Click to open Rocket — your module-specific AI assistant. Ask questions about anything in this module and get answers grounded in your actual codebase.",
+        waitForClick: true,
       },
     ],
   },

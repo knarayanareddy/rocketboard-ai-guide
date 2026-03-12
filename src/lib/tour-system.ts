@@ -5,6 +5,7 @@ export type TourStep = {
   position?: 'top' | 'right' | 'bottom' | 'left';
   action?: 'click' | 'scroll' | null;
   spotlightPadding?: number;
+  waitForClick?: boolean;
 };
 
 export type Tour = {

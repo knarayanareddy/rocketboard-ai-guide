@@ -5,7 +5,8 @@ import { ModuleCard } from "@/components/ModuleCard";
 import { ProgressChart } from "@/components/ProgressChart";
 import { StatsStrip } from "@/components/StatsStrip";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Rocket, Play, Package, Sparkles, ChevronRight, CheckCircle2, Database, Map, BookOpen, FileText, ArrowRight, Pin, Bookmark } from "lucide-react";
+import { Rocket, Play, Package, Sparkles, ChevronRight, CheckCircle2, Database, Map, BookOpen, FileText, ArrowRight, Pin, Bookmark, Lock, Loader2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { motion } from "framer-motion";
 import { useProgress } from "@/hooks/useProgress";
@@ -28,6 +29,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLearnerOnboardingCheck } from "@/hooks/useLearnerOnboardingCheck";
 import { LearnerOnboardingWizard } from "@/components/LearnerOnboardingWizard";
+import { useDemoPack } from "@/hooks/useDemoPack";
 
 const container = {
   hidden: { opacity: 0 },
@@ -102,26 +104,42 @@ function PinnedBookmarksWidget() {
   );
 }
 
-function GeneratedModuleCard({ mod, index, progress, onClick }: {
+function GeneratedModuleCard({ mod, index, progress, onClick, prereqCheck }: {
   mod: GeneratedModuleRow;
   index: number;
   progress: number;
   onClick: () => void;
+  prereqCheck?: ReturnType<typeof useModuleDependencies>["checkPrerequisitesMet"] extends (k: string) => infer R ? R : any;
 }) {
   const isComplete = progress === 100;
+  const isHardLocked = prereqCheck?.hasHardBlock;
+
+  const handleClick = () => {
+    if (isHardLocked) return;
+    onClick();
+  };
+
   return (
-    <motion.div variants={item} className="cursor-pointer group" onClick={onClick}>
-      <div className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-all relative overflow-hidden">
+    <motion.div variants={item} className={`group relative overflow-hidden transition-all duration-300 ${
+      isHardLocked ? "cursor-not-allowed opacity-80" : "cursor-pointer"
+    }`} onClick={handleClick}>
+      <div className={`bg-card border rounded-xl p-5 transition-all relative overflow-hidden ${
+        isHardLocked ? "bg-muted/30 border-border" : "border-border hover:border-primary/30"
+      }`}>
         <div className="absolute top-0 left-0 h-1 bg-muted w-full">
           <div className="h-full gradient-primary transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
         <div className="flex items-start justify-between mt-1">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-primary" />
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+              isHardLocked ? "bg-muted" : "bg-primary/10"
+            }`}>
+              {isHardLocked ? <Lock className="w-5 h-5 text-muted-foreground" /> : <Sparkles className="w-5 h-5 text-primary" />}
             </div>
             <div>
-              <h3 className="font-semibold text-card-foreground group-hover:text-primary transition-colors text-sm">{mod.title}</h3>
+              <h3 className={`font-semibold transition-colors text-sm ${
+                isHardLocked ? "text-muted-foreground" : "text-card-foreground group-hover:text-primary"
+              }`}>{mod.title}</h3>
               {mod.difficulty && (
                 <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full capitalize ${difficultyColor[mod.difficulty] || ""}`}>{mod.difficulty}</span>
               )}
@@ -129,13 +147,28 @@ function GeneratedModuleCard({ mod, index, progress, onClick }: {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-muted-foreground">{progress}%</span>
-            {isComplete ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />}
+            {isComplete ? (
+              <CheckCircle2 className="w-4 h-4 text-primary" />
+            ) : isHardLocked ? (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help"><Lock className="w-4 h-4 text-muted-foreground shrink-0" /></div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[250px]">
+                    <p className="text-xs font-medium">Locked. You must complete "{prereqCheck.hardUnmet[0]?.title || prereqCheck.hardUnmet[0]?.moduleKey}" first.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            )}
           </div>
         </div>
         {mod.description && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{mod.description}</p>}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           {mod.estimated_minutes && <span className="text-[10px] text-muted-foreground">~{mod.estimated_minutes} min</span>}
-          {mod.track_key && <TrackBadge track={mod.track_key} />}
+          {mod.track_key && <TrackBadge track={mod.track_key as any} />}
           <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary/70 border-primary/20">
             <Sparkles className="w-2 h-2 mr-0.5" /> AI Generated
           </Badge>
@@ -179,6 +212,7 @@ function SetupEmptyState({ packId }: { packId: string }) {
   const navigate = useNavigate();
   const { hasPackPermission } = useRole();
   const isAuthor = hasPackPermission("author");
+  const { loadDemo } = useDemoPack();
   
   const { data: sourceCount = 0 } = useQuery({
     queryKey: ["source_count", packId],
@@ -241,9 +275,20 @@ function SetupEmptyState({ packId }: { packId: string }) {
               <p className="text-sm text-muted-foreground">Connect your GitHub repos and documents to get started.</p>
             </div>
           </div>
-          <Button onClick={() => navigate(`/packs/${packId}/sources`)} className="gradient-primary text-primary-foreground border-0 gap-2 mt-2">
-            Add Sources <ArrowRight className="w-4 h-4" />
-          </Button>
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Button onClick={() => navigate(`/packs/${packId}/sources`)} className="gradient-primary text-primary-foreground border-0 gap-2">
+              Add Sources <ArrowRight className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => loadDemo.mutate()} 
+              disabled={loadDemo.isPending}
+              className="gap-2 border-primary/20 hover:bg-primary/5"
+            >
+              {loadDemo.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+              Load Demo Pack
+            </Button>
+          </div>
         </motion.div>
       ) : planCount === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-primary/20 rounded-xl p-8">
@@ -520,6 +565,7 @@ const Index = () => {
                     mod={mod}
                     index={i}
                     progress={getGenModuleProgress(mod.module_key)}
+                    prereqCheck={checkPrerequisitesMet(mod.module_key)}
                     onClick={() => navigate(`/packs/${effectivePackId}/modules/${mod.module_key}`)}
                   />
                 ))

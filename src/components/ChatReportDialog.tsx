@@ -18,6 +18,11 @@ interface ChatReportDialogProps {
   onClose: () => void;
   messageContent: string;
   moduleId?: string;
+  context?: {
+    pathname: string;
+    pack_id: string | null;
+    transcript: string;
+  };
 }
 
 const REASONS = Object.entries(CHAT_FEEDBACK_REASON_LABELS) as [
@@ -25,7 +30,7 @@ const REASONS = Object.entries(CHAT_FEEDBACK_REASON_LABELS) as [
   { label: string; icon: string }
 ][];
 
-export function ChatReportDialog({ open, onClose, messageContent, moduleId }: ChatReportDialogProps) {
+export function ChatReportDialog({ open, onClose, messageContent, moduleId, context }: ChatReportDialogProps) {
   const { submitChatFeedback } = useChatFeedback();
   const [reason, setReason] = useState<ChatFeedbackReason>("incorrect");
   const [comment, setComment] = useState("");
@@ -37,7 +42,9 @@ export function ChatReportDialog({ open, onClose, messageContent, moduleId }: Ch
       await submitChatFeedback.mutateAsync({
         messageContent,
         reason,
-        comment: comment.trim() || undefined,
+        comment: context 
+          ? `${comment.trim()}\n\n--- CHAT CONTEXT ---\nPath: ${context.pathname}\nPack: ${context.pack_id}\n\nTranscript:\n${context.transcript}`
+          : comment.trim() || undefined,
         createTask,
         moduleId,
       });

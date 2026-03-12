@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
+import { useTheme } from "@/hooks/useTheme";
+import { useTour } from "@/hooks/useTour";
 import { sendAITask, AIError } from "@/lib/ai-client";
 import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
@@ -32,9 +34,11 @@ function getSuggestedQuestions(pathname: string): string[] {
 function MessageSources({
   response,
   packId,
+  messages,
 }: {
   response: ChatResponse;
   packId: string | null;
+  messages: Msg[];
 }) {
   const navigate = useNavigate();
   const hasSpans = (response.referenced_spans?.length ?? 0) > 0;
@@ -178,6 +182,11 @@ function MessageSources({
           open={reportOpen}
           onClose={() => setReportOpen(false)}
           messageContent={response.response_markdown}
+          context={{
+            pathname: location.pathname,
+            pack_id: packId,
+            transcript: messages.map(m => `${m.role}: ${m.content}`).join('\n\n')
+          }}
         />
       </div>
     </div>
@@ -190,6 +199,8 @@ export function MissionControlChat() {
   const location = useLocation();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
+  const { setMode } = useTheme();
+  const { startTour } = useTour();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastError, setLastError] = useState<AIError | null>(null);
@@ -423,7 +434,14 @@ export function MissionControlChat() {
                     >
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
-                          <MarkdownRenderer>{msg.content}</MarkdownRenderer>
+                          <MarkdownRenderer onAction={(slug) => {
+                            if (slug === 'theme_dark') { setMode('dark'); return true; }
+                            if (slug === 'theme_light') { setMode('light'); return true; }
+                            if (slug === 'start_tour') { startTour('platform-overview'); return true; }
+                            return false;
+                          }}>
+                            {msg.content}
+                          </MarkdownRenderer>
                         </div>
                       ) : (
                         msg.content
@@ -435,6 +453,7 @@ export function MissionControlChat() {
                         <MessageSources
                           response={msg.response}
                           packId={currentPackId ?? null}
+                          messages={messages}
                         />
                       </div>
                     )}

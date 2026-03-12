@@ -25,6 +25,10 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         targetElementRef.current.style.removeProperty("z-index");
         targetElementRef.current.style.removeProperty("position");
         targetElementRef.current.style.removeProperty("pointer-events");
+        if ((targetElementRef.current as any)._tourClickHandler) {
+          targetElementRef.current.removeEventListener('click', (targetElementRef.current as any)._tourClickHandler);
+          delete (targetElementRef.current as any)._tourClickHandler;
+        }
         targetElementRef.current = null;
       }
     };
@@ -94,6 +98,21 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         // Scroll into view
         el.scrollIntoView({ behavior: "smooth", block: "center" });
 
+        // Attach click listener if waitForClick is true
+        if (step.waitForClick) {
+          const clickHandler = () => {
+             // Let the click happen natively, but also advance the tour
+             setTimeout(() => {
+               if (!disposed) {
+                 if (isLast) onComplete();
+                 else setStepIndex((i) => i + 1);
+               }
+             }, 50);
+          };
+          el.addEventListener('click', clickHandler);
+          (el as any)._tourClickHandler = clickHandler;
+        }
+
         // Start continuous position tracking
         trackPosition();
         return;
@@ -127,7 +146,7 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onSkip();
-      if (e.key === "ArrowRight" || e.key === "Enter") {
+      if ((e.key === "ArrowRight" || e.key === "Enter") && !step?.waitForClick) {
         if (isLast) onComplete();
         else setStepIndex((i) => i + 1);
       }
@@ -135,7 +154,7 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [isLast, onComplete, onSkip, stepIndex]);
+  }, [isLast, onComplete, onSkip, stepIndex, step?.waitForClick]);
 
   const padding = step?.spotlightPadding ?? 8;
 
@@ -258,6 +277,11 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
               i % 2 === 1 ? <strong key={i} className="text-foreground">{part}</strong> : part
             )}
           </p>
+          {step.waitForClick && (
+            <div className="mt-3 text-[10px] font-semibold text-primary animate-pulse flex items-center gap-1.5">
+              <span>👉</span> Click the highlighted element to continue
+            </div>
+          )}
 
           {/* Progress dots & buttons */}
           <div className="flex items-center justify-between mt-4">
@@ -282,16 +306,18 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
                   <ChevronLeft className="w-3 h-3" /> Back
                 </Button>
               )}
-              <Button
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => {
-                  if (isLast) onComplete();
-                  else setStepIndex((i) => i + 1);
-                }}
-              >
-                {isLast ? "Done" : "Next"} {!isLast && <ChevronRight className="w-3 h-3" />}
-              </Button>
+              {!step.waitForClick && (
+                <Button
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => {
+                    if (isLast) onComplete();
+                    else setStepIndex((i) => i + 1);
+                  }}
+                >
+                  {isLast ? "Done" : "Next"} {!isLast && <ChevronRight className="w-3 h-3" />}
+                </Button>
+              )}
             </div>
           </div>
         </motion.div>

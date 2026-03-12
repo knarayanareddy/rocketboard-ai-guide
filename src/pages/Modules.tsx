@@ -14,6 +14,7 @@ import { buildDependencyGraph, getAllModuleDepths } from "@/lib/dependency-graph
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, ChevronRight, CheckCircle2, Sparkles, BookOpen, Filter, Lock, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TrackBadge } from "@/components/TrackBadge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -81,7 +82,16 @@ function GeneratedModuleCard({ mod, index, progress, onClick, prereqCheck, modul
           {isComplete ? (
             <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
           ) : isHardLocked ? (
-            <Lock className="w-5 h-5 text-muted-foreground shrink-0" />
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-help"><Lock className="w-5 h-5 text-muted-foreground shrink-0" /></div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[250px]">
+                  <p className="text-xs font-medium">Locked. You must complete "{prereqCheck.hardUnmet[0]?.title || prereqCheck.hardUnmet[0]?.moduleKey}" first.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : (
             <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
           )}
