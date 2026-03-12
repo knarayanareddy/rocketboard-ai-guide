@@ -437,8 +437,10 @@ export function MissionControlChat() {
                           <MarkdownRenderer onAction={(slug) => {
                             if (slug === 'theme_dark') { setMode('dark'); return true; }
                             if (slug === 'theme_light') { setMode('light'); return true; }
-                            if (slug === 'start_tour') { startTour('platform-overview'); return true; }
-                            return false;
+                            if (slug === 'start_tour') {
+        startTour('dashboard-welcome');
+        return true;
+      }                      return false;
                           }}>
                             {msg.content}
                           </MarkdownRenderer>
