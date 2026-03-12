@@ -97,9 +97,11 @@ Deno.serve(async (req) => {
 
     if (activeFilters.includes("sourceChunks")) {
       promises.push(
-        serviceClient
-          .rpc("search_chunks_fts", undefined, { count: "exact" })
-          .then(() => undefined, () => undefined)
+        Promise.resolve(
+          serviceClient
+            .rpc("search_chunks_fts", undefined, { count: "exact" })
+            .then(() => undefined, () => undefined)
+        )
       );
       // Direct query approach
       promises.push(
