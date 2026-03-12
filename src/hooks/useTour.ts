@@ -20,12 +20,32 @@ function saveCompletedTours(completed: Record<string, number>) {
 
 const ACCESS_HIERARCHY = ["read_only", "learner", "author", "admin", "owner"];
 
+// --- Shared module-level store so all useTour() instances share one activeTourId ---
+// This is the same pattern used by Zustand: module-level state + subscriber notifications.
+// It avoids React Context entirely, so no provider tree changes are needed.
+let _activeTourId: string | null = null;
+const _subscribers = new Set<() => void>();
+
+function setSharedTourId(id: string | null) {
+  _activeTourId = id;
+  _subscribers.forEach((fn) => fn());
+}
+// -----------------------------------------------------------------------------------
+
 export function useTour() {
   const location = useLocation();
   const { packAccessLevel } = useRole();
-  const [activeTourId, setActiveTourId] = useState<string | null>(null);
+  // forceUpdate subscribes this instance to shared store changes
+  const [, forceUpdate] = useState(0);
   const lastTourTime = useRef(0);
   const mountTime = useRef(Date.now());
+
+  // Subscribe/unsubscribe on mount/unmount
+  useEffect(() => {
+    const notify = () => forceUpdate((n) => n + 1);
+    _subscribers.add(notify);
+    return () => { _subscribers.delete(notify); };
+  }, []);
 
   const shouldShowTour = useCallback((tourId: string): boolean => {
     const completed = getCompletedTours();
@@ -37,7 +57,7 @@ export function useTour() {
     completed[tourId] = Date.now();
     saveCompletedTours(completed);
     lastTourTime.current = Date.now();
-    setActiveTourId(null);
+    setSharedTourId(null);
   }, []);
 
   const resetTour = useCallback((tourId: string) => {
@@ -63,7 +83,7 @@ export function useTour() {
   }, [location.pathname, packAccessLevel]);
 
   const startTour = useCallback((tourId: string) => {
-    setActiveTourId(tourId);
+    setSharedTourId(tourId);
   }, []);
 
   // Auto-trigger tour on page visit
@@ -80,15 +100,19 @@ export function useTour() {
       // Don't show during onboarding wizard
       if (location.pathname.includes("/onboarding")) return;
 
+      // Don't override a manually started tour
+      if (_activeTourId) return;
+
       const tour = getCurrentPageTour();
       if (tour && shouldShowTour(tour.id)) {
-        setActiveTourId(tour.id);
+        setSharedTourId(tour.id);
       }
     }, 2000);
 
     return () => clearTimeout(timer);
   }, [location.pathname, getCurrentPageTour, shouldShowTour]);
 
+  const activeTourId = _activeTourId;
   const activeTour = activeTourId
     ? ALL_TOURS.find((t) => t.id === activeTourId) || null
     : null;
@@ -102,6 +126,6 @@ export function useTour() {
     resetAllTours,
     startTour,
     getCurrentPageTour,
-    setActiveTourId,
+    setActiveTourId: setSharedTourId,
   };
 }
