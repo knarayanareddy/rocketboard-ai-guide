@@ -359,6 +359,40 @@ function preprocessEnvelope(envelope: any): { envelope: any; warnings: string[] 
   return { envelope, warnings };
 }
 
+// ─── SECTION INDEX BUILDER ───
+async function buildSectionIndex(packId: string, moduleKey: string | null, maxEntries: number): Promise<string> {
+  if (!packId) return "";
+  try {
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    let q = sb
+      .from("generated_modules")
+      .select("module_key, content_json")
+      .eq("pack_id", packId)
+      .eq("is_published", true);
+    if (moduleKey) q = q.eq("module_key", moduleKey);
+    const { data } = await q.limit(20);
+    if (!data || data.length === 0) return "";
+    const lines: string[] = [];
+    for (const row of data) {
+      const sections: any[] = row.content_json?.module?.sections || [];
+      for (const sec of sections.slice(0, Math.ceil(maxEntries / (data.length || 1)))) {
+        const summary = (sec.markdown || "").replace(/[#\n]/g, " ").slice(0, 180).trim();
+        lines.push(`- module_key: ${row.module_key} | section_id: ${sec.section_id} | heading: "${sec.heading}" | summary: ${summary}`);
+        if (lines.length >= maxEntries) break;
+      }
+      if (lines.length >= maxEntries) break;
+    }
+    if (lines.length === 0) return "";
+    return `\n## Module Section Index (use for referenced_sections)\nWhen your answer maps to one of these sections, include it in referenced_sections.\n${lines.join("\n")}\n`;
+  } catch (e) {
+    console.warn("[buildSectionIndex] failed:", e);
+    return "";
+  }
+}
+
 // ─── CHAT HANDLER ───
 async function handleChat(envelope: any, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
@@ -376,6 +410,11 @@ async function handleChat(envelope: any, extraWarnings: string[] = []): Promise<
     : "";
   const audienceBlock = audience.audience ? `\nAudience: ${audience.audience}, depth: ${audience.depth || "standard"}` : "";
 
+  // Fetch a lightweight section index for the current module (up to 30 entries)
+  const sectionIndexBlock = pack.pack_id
+    ? await buildSectionIndex(pack.pack_id, context.current_module_key || null, 30)
+    : "";
+
   const systemPrompt = `You are RocketBoard AI, an expert onboarding assistant. You help engineers learn about codebases and systems.
 ${SECURITY_RULES_BLOCK}
 CODE IN CHAT RESPONSES:
@@ -386,15 +425,17 @@ CODE IN CHAT RESPONSES:
 
 RULES:
 - Ground your answers in the evidence spans provided. Cite spans using [S1], [S2] etc.
-- If you cannot find evidence for a claim, mark it as unverified.
+- If you cannot find sufficient evidence for a claim, you MUST say "I don't know from the sources I have" and populate unverified_claims. Do NOT guess.
 - If evidence contradicts itself, note the contradiction.
 - Keep responses under ${limits.max_chat_words || 350} words.
 ${buildLimitsConstraintBlock(limits)}
 - Use markdown formatting.
 - Suggest relevant follow-up search queries.
 
-CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides. For each contradiction provide topic, side_a (claim + citations), side_b (claim + citations), and how_to_resolve suggestions.
-${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${packBlock}${moduleBlock}${audienceBlock}${spansBlock}
+SECTION REFERENCES: When your answer is explained by a specific module section from the Section Index below, add that section to referenced_sections. Only include sections that are genuinely relevant. If no section matches, leave the array empty.
+
+CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides.
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${packBlock}${moduleBlock}${audienceBlock}${sectionIndexBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
 {
@@ -405,6 +446,7 @@ You MUST respond with VALID JSON matching this schema:
   "generation_meta": { "timestamp_iso": "<now>", "request_id": "${requestId}" },
   "response_markdown": "<your markdown response>",
   "referenced_spans": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }],
+  "referenced_sections": [{ "module_key": "...", "section_id": "sec-1", "section_heading": "...", "reason": "..." }],
   "unverified_claims": [{ "claim": "...", "reason": "..." }],
   "contradictions": [],
   "suggested_search_queries": ["query1", "query2"],
@@ -451,6 +493,7 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
     generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
     response_markdown: rawContent,
     referenced_spans: [],
+    referenced_sections: [],
     unverified_claims: [],
     contradictions: [],
     suggested_search_queries: [],
@@ -478,6 +521,11 @@ async function handleGlobalChat(envelope: any, extraWarnings: string[] = []): Pr
   const packBlock = buildPackBlock(pack);
   const audienceBlock = audience.audience ? `\nAudience: ${audience.audience}, depth: ${audience.depth || "standard"}` : "";
 
+  // Fetch section index across all published modules (top 50 headings)
+  const sectionIndexBlock = pack.pack_id
+    ? await buildSectionIndex(pack.pack_id, null, 50)
+    : "";
+
   const systemPrompt = `You are Mission Control, a helpful AI assistant for the RocketBoard onboarding platform. You help users understand:
 - The overall platform features and capabilities
 - How onboarding packs, modules, tracks, and paths work
@@ -495,13 +543,15 @@ CODE IN CHAT RESPONSES:
 RULES:
 - Be friendly, concise, and helpful.
 - If evidence spans are provided, ground your answers in them and cite using [S1], [S2] etc.
-- If you cannot find evidence for a claim, say so honestly.
+- If you cannot find sufficient evidence for a claim, you MUST say "I don't know from the sources I have" and list it in unverified_claims. Suggest a search query or asking a lead.
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up questions.
 
-CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides. For each contradiction provide topic, side_a (claim + citations), side_b (claim + citations), and how_to_resolve suggestions.
-${buildLanguageBlock(context, pack)}${packBlock}${audienceBlock}${spansBlock}
+SECTION REFERENCES: When your answer maps to a specific module section from the Section Index below, include it in referenced_sections. Only include genuinely relevant sections.
+
+CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides.
+${buildLanguageBlock(context, pack)}${packBlock}${audienceBlock}${sectionIndexBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
 {
@@ -512,6 +562,7 @@ You MUST respond with VALID JSON matching this schema:
   "generation_meta": { "timestamp_iso": "<now>", "request_id": "${requestId}" },
   "response_markdown": "<your markdown response>",
   "referenced_spans": [{ "span_id": "S1", "path": "...", "chunk_id": "..." }],
+  "referenced_sections": [{ "module_key": "...", "section_id": "sec-1", "section_heading": "...", "reason": "..." }],
   "unverified_claims": [{ "claim": "...", "reason": "..." }],
   "contradictions": [],
   "suggested_search_queries": ["query1", "query2"],
@@ -557,6 +608,7 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
     generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
     response_markdown: rawContent,
     referenced_spans: [],
+    referenced_sections: [],
     unverified_claims: [],
     contradictions: [],
     suggested_search_queries: [],

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Compass, Send, X, Bot, User, Loader2, Trash2, AlertTriangle, ExternalLink } from "lucide-react";
+import { Compass, Send, X, User, Loader2, Trash2, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Flag, BookOpen } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -17,22 +17,171 @@ import { buildGlobalChatEnvelope } from "@/lib/envelope-builder";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 import { PLATFORM_KNOWLEDGE, CONTEXTUAL_SUGGESTIONS, getPageContext } from "@/data/platform-knowledge";
 import { HELP_ARTICLES } from "@/data/help-content";
+import { ChatReportDialog } from "@/components/ChatReportDialog";
+import type { ReferencedSection, ChatResponse } from "@/components/ModuleChatPanel";
 
-type Msg = { role: "user" | "assistant"; content: string };
-
-interface ChatResponse {
-  response_markdown: string;
-  referenced_spans?: { span_id: string; path: string; chunk_id: string }[];
-  unverified_claims?: { claim: string; reason: string }[];
-  contradictions?: any[];
-  suggested_search_queries?: string[];
-  warnings?: string[];
-}
+type Msg = { role: "user" | "assistant"; content: string; response?: ChatResponse };
 
 function getSuggestedQuestions(pathname: string): string[] {
   const ctx = getPageContext(pathname);
   const suggestions = CONTEXTUAL_SUGGESTIONS[ctx] || CONTEXTUAL_SUGGESTIONS.default;
   return suggestions.questions;
+}
+
+// ─── Sub-component: sources panel shown per-message ───
+function MessageSources({
+  response,
+  packId,
+}: {
+  response: ChatResponse;
+  packId: string | null;
+}) {
+  const navigate = useNavigate();
+  const hasSpans = (response.referenced_spans?.length ?? 0) > 0;
+  const hasSections = (response.referenced_sections?.length ?? 0) > 0;
+  const hasUnverified = (response.unverified_claims?.length ?? 0) > 0;
+
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+
+  const openSection = (sec: ReferencedSection) => {
+    if (packId) {
+      navigate(`/packs/${packId}/modules/${sec.module_key}#section=${sec.section_id}`);
+    }
+  };
+
+  const topSection = response.referenced_sections?.[0];
+
+  if (!hasSpans && !hasSections && !hasUnverified && !response.contradictions?.length) return null;
+
+  return (
+    <div className="mt-2 space-y-2">
+      {/* ── Not Fully Verified ── */}
+      {hasUnverified && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs space-y-1.5">
+          <div className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Not fully verified
+          </div>
+          <ul className="list-disc list-inside space-y-0.5 text-amber-800 dark:text-amber-200">
+            {response.unverified_claims!.map((c, i) => (
+              <li key={i}>{c.claim} — <span className="opacity-75">{c.reason}</span></li>
+            ))}
+          </ul>
+          {response.suggested_search_queries && response.suggested_search_queries.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {response.suggested_search_queries.map((q) => (
+                <span key={q} className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 dark:text-amber-200 text-[10px] cursor-default">
+                  🔍 {q}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Contradictions ── */}
+      {response.contradictions && response.contradictions.length > 0 && (
+        <ContradictionInline contradictions={response.contradictions} />
+      )}
+
+      {/* ── Top section shortcut ── */}
+      {topSection && !sourcesOpen && (
+        <div>
+          <button
+            onClick={() => openSection(topSection)}
+            className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+          >
+            <BookOpen className="w-2.5 h-2.5" />
+            Open in module: {topSection.section_heading}
+          </button>
+        </div>
+      )}
+
+      {/* ── Show sources toggle ── */}
+      {(hasSpans || hasSections) && (
+        <div>
+          <button
+            onClick={() => setSourcesOpen((prev) => !prev)}
+            className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {sourcesOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {sourcesOpen ? "Hide sources" : "Show sources"}
+            {!sourcesOpen && (
+              <span className="ml-1 text-primary">
+                ({(response.referenced_spans?.length ?? 0) + (response.referenced_sections?.length ?? 0)})
+              </span>
+            )}
+          </button>
+
+          <AnimatePresence>
+            {sourcesOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.15 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 space-y-2">
+                  {hasSpans && (
+                    <div className="flex flex-wrap gap-1">
+                      {response.referenced_spans!.map((span) => (
+                        <span
+                          key={span.span_id}
+                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
+                          title={span.path}
+                        >
+                          <ExternalLink className="w-2.5 h-2.5" />
+                          {span.span_id}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {hasSections && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground font-medium">Related sections:</p>
+                      {response.referenced_sections!.map((sec) => (
+                        <button
+                          key={sec.section_id}
+                          onClick={() => openSection(sec)}
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-primary/5 text-primary border border-primary/15 hover:bg-primary/15 transition-colors"
+                        >
+                          <BookOpen className="w-2.5 h-2.5" />
+                          {sec.module_key !== "__mission_control__" && (
+                            <span className="text-muted-foreground">{sec.module_key} →</span>
+                          )}
+                          {sec.section_heading}
+                          <ExternalLink className="w-2 h-2 ml-0.5 opacity-60" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* ── Report button ── */}
+      <div>
+        <button
+          onClick={() => setReportOpen(true)}
+          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-amber-500 transition-colors"
+        >
+          <Flag className="w-2.5 h-2.5" />
+          Report
+        </button>
+        <ChatReportDialog
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          messageContent={response.response_markdown}
+        />
+      </div>
+    </div>
+  );
 }
 
 export function MissionControlChat() {
@@ -43,17 +192,13 @@ export function MissionControlChat() {
   const { packAccessLevel } = useRole();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const [lastError, setLastError] = useState<AIError | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [contextBubbleDismissed, setContextBubbleDismissed] = useState(false);
-  const [showContextBubble, setShowContextBubble] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const pageContext = getPageContext(location.pathname);
-  const contextSuggestion = CONTEXTUAL_SUGGESTIONS[pageContext];
   const suggestedQuestions = getSuggestedQuestions(location.pathname);
 
   // Load chat history
@@ -82,7 +227,6 @@ export function MissionControlChat() {
   useEffect(() => {
     setMessages([]);
     setHistoryLoaded(false);
-    setLastResponse(null);
     setLastError(null);
   }, [currentPackId]);
 
@@ -96,7 +240,6 @@ export function MissionControlChat() {
     if (!user) return;
     await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", "__mission_control__");
     setMessages([]);
-    setLastResponse(null);
     setLastError(null);
     toast.success("Mission Control history cleared");
   };
@@ -110,7 +253,6 @@ export function MissionControlChat() {
     const allMessages = [...messages, userMsg];
     setMessages(allMessages);
     setIsLoading(true);
-    setLastResponse(null);
     setLastError(null);
 
     if (user) {
@@ -156,9 +298,12 @@ export function MissionControlChat() {
 
       const result = await sendAITask(envelope);
       const responseMarkdown = result.response_markdown || "No response received.";
+      const typedResult = result as ChatResponse;
 
-      setMessages((prev) => [...prev, { role: "assistant", content: responseMarkdown }]);
-      setLastResponse(result as ChatResponse);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: responseMarkdown, response: typedResult },
+      ]);
 
       if (user) {
         await supabase.from("chat_messages").insert({
@@ -212,7 +357,7 @@ export function MissionControlChat() {
             className={`fixed z-50 bg-card border border-border shadow-2xl flex flex-col overflow-hidden ${
               isMobile
                 ? "inset-0 rounded-none"
-                : "bottom-6 left-20 w-[380px] h-[560px] rounded-2xl"
+                : "bottom-6 left-20 w-[400px] h-[580px] rounded-2xl"
             }`}
           >
             {/* Header */}
@@ -270,17 +415,28 @@ export function MissionControlChat() {
                       <Compass className="w-3.5 h-3.5 text-primary" />
                     </div>
                   )}
-                  <div
-                    className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
-                      msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
-                        <MarkdownRenderer>{msg.content}</MarkdownRenderer>
+                  <div className="flex flex-col max-w-[85%]">
+                    <div
+                      className={`rounded-xl px-3 py-2 text-sm ${
+                        msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                      }`}
+                    >
+                      {msg.role === "assistant" ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
+                          <MarkdownRenderer>{msg.content}</MarkdownRenderer>
+                        </div>
+                      ) : (
+                        msg.content
+                      )}
+                    </div>
+                    {/* Per-message sources, sections, report */}
+                    {msg.role === "assistant" && msg.response && (
+                      <div className="ml-1 mt-1">
+                        <MessageSources
+                          response={msg.response}
+                          packId={currentPackId ?? null}
+                        />
                       </div>
-                    ) : (
-                      msg.content
                     )}
                   </div>
                   {msg.role === "user" && (
@@ -305,30 +461,6 @@ export function MissionControlChat() {
               {lastError && !isLoading && (
                 <div className="ml-8">
                   <AIErrorDisplay error={lastError} compact onRetry={send} onSearchQuery={(q) => setInput(q)} />
-                </div>
-              )}
-
-              {/* Structured response extras */}
-              {lastResponse && !isLoading && !lastError && (
-                <div className="space-y-2 ml-8">
-                  {lastResponse.referenced_spans && lastResponse.referenced_spans.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {lastResponse.referenced_spans.map((span) => (
-                        <span
-                          key={span.span_id}
-                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
-                          title={span.path}
-                        >
-                          <ExternalLink className="w-2.5 h-2.5" />
-                          {span.span_id}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {lastResponse.contradictions && lastResponse.contradictions.length > 0 && (
-                    <ContradictionInline contradictions={lastResponse.contradictions} />
-                  )}
                 </div>
               )}
             </div>
