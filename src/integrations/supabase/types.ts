@@ -206,6 +206,59 @@ export type Database = {
           },
         ]
       }
+      chat_feedback: {
+        Row: {
+          comment: string | null
+          create_task: boolean | null
+          created_at: string
+          id: string
+          is_resolved: boolean | null
+          message_content: string
+          module_id: string | null
+          pack_id: string | null
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          create_task?: boolean | null
+          created_at?: string
+          id?: string
+          is_resolved?: boolean | null
+          message_content: string
+          module_id?: string | null
+          pack_id?: string | null
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          create_task?: boolean | null
+          created_at?: string
+          id?: string
+          is_resolved?: boolean | null
+          message_content?: string
+          module_id?: string | null
+          pack_id?: string | null
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_feedback_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
