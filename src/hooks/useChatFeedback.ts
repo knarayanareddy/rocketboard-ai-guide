@@ -48,7 +48,7 @@ export function useChatFeedback() {
         .eq("pack_id", currentPackId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as ChatFeedbackRow[];
+      return (data ?? []) as ChatFeedbackRow[];
     },
     enabled: !!currentPackId,
   });
@@ -84,7 +84,7 @@ export function useChatFeedback() {
         .single();
 
       if (error) throw error;
-      return data as unknown as ChatFeedbackRow;
+      return data as ChatFeedbackRow;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["chat_feedback"] });

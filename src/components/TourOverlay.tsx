@@ -158,18 +158,8 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
 
   const padding = step?.spotlightPadding ?? 8;
 
-  const getTooltipStyle = (): any => {
-    if (!targetRect) {
-      return { 
-        position: "fixed",
-        top: "50%", 
-        left: "50%", 
-        x: "-50%", 
-        y: "-50%",
-        zIndex: 10006, 
-        maxWidth: 360 
-      };
-    }
+  const getTooltipStyle = (): React.CSSProperties => {
+    if (!targetRect) return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
 
     const pos = step?.position || "bottom";
     const gap = 12;
@@ -259,9 +249,9 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
         {/* Tooltip card */}
         <motion.div
           key={stepIndex}
-          initial={{ opacity: 0, y: targetRect ? 10 : "-45%" }}
-          animate={{ opacity: 1, y: targetRect ? 0 : "-50%" }}
-          exit={{ opacity: 0, y: targetRect ? -10 : "-55%" }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.2 }}
           style={{ ...getTooltipStyle(), pointerEvents: "auto" }}
           className="bg-card border border-border rounded-xl shadow-2xl p-4 w-[340px]"

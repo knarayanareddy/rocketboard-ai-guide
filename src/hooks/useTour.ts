@@ -90,7 +90,7 @@ export function useTour() {
   }, [location.pathname, getCurrentPageTour, shouldShowTour]);
 
   const activeTour = activeTourId
-    ? ALL_TOURS.find((t) => t.id === activeTourId) || (console.warn(`[useTour] Tour not found: ${activeTourId}`), null)
+    ? ALL_TOURS.find((t) => t.id === activeTourId) || null
     : null;
 
   return {
