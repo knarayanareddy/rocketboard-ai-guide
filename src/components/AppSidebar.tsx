@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit, HelpCircle, MapPin, RotateCcw } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit, HelpCircle, Lightbulb, MapPin, RotateCcw } from "lucide-react";
 import { useTour } from "@/hooks/useTour";
 import { TourOverlay } from "@/components/TourOverlay";
+import { useFaqSuggestions } from "@/hooks/useFaqSuggestions";
 import { useState as useStateSidebar } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -108,6 +109,7 @@ export function AppSidebar() {
   const { packAccessLevel, accessLevelLabel, hasPackPermission } = useRole();
   const { outputLanguage, audience, depth, glossaryDensity, learnerRole, experienceLevel, mermaidEnabled, updatePrefs } = useAudiencePrefs();
   const { currentPackId, currentPack } = usePack();
+  const { suggestions } = useFaqSuggestions();
   const [langOpen, setLangOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
@@ -134,6 +136,15 @@ export function AppSidebar() {
     { title: "Paths", url: `${packPrefix}/paths`, icon: Route, minLevel: "read_only" as const, end: false },
     { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only" as const, end: false },
     { title: "Team", url: `${packPrefix}/team`, icon: Users, minLevel: "read_only" as const, end: false },
+    { title: "FAQ", url: `${packPrefix}/faq`, icon: HelpCircle, minLevel: "read_only" as const, end: false },
+    {
+      title: "FAQ Suggestions",
+      url: `${packPrefix}/faq-suggestions`,
+      icon: Lightbulb,
+      minLevel: "author" as const,
+      end: false,
+      badge: suggestions.length > 0 ? suggestions.length : undefined
+    },
     { title: "Saved", url: `${packPrefix}/bookmarks`, icon: Bookmark, minLevel: "read_only" as const, end: false },
     { title: "Discussions", url: `${packPrefix}/discussions`, icon: MessageCircle, minLevel: "read_only" as const, end: false },
     { title: "My Timeline", url: `${packPrefix}/timeline`, icon: Calendar, minLevel: "read_only" as const, end: false },

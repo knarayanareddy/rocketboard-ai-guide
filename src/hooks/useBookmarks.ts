@@ -12,6 +12,7 @@ export type BookmarkType =
   | "exercise"
   | "code_snippet"
   | "chat_message"
+  | "faq"
   | "custom";
 
 export interface Bookmark {

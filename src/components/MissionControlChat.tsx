@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Compass, Send, X, User, Loader2, Trash2, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Flag, BookOpen } from "lucide-react";
+import { Compass, Send, X, User, Loader2, Trash2, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Flag, BookOpen, MoreVertical, MessageSquarePlus, BookText } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,6 +19,10 @@ import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 import { PLATFORM_KNOWLEDGE, CONTEXTUAL_SUGGESTIONS, getPageContext } from "@/data/platform-knowledge";
 import { HELP_ARTICLES } from "@/data/help-content";
 import { ChatReportDialog } from "@/components/ChatReportDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { SaveAsFaqDialog } from "@/components/SaveAsFaqDialog";
+import { SaveAsGlossaryDialog } from "@/components/SaveAsGlossaryDialog";
+import { trackQuestionSuggestion } from "@/hooks/useFaqSuggestions";
 import type { ReferencedSection, ChatResponse } from "@/components/ModuleChatPanel";
 
 type Msg = { role: "user" | "assistant"; content: string; response?: ChatResponse };
@@ -47,6 +50,13 @@ function MessageSources({
 
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [faqDialogOpen, setFaqDialogOpen] = useState(false);
+  const [glossaryDialogOpen, setGlossaryDialogOpen] = useState(false);
+
+  // Find the previous user message for FAQ Question context
+  const assistantMsgIndex = messages.findIndex(m => m.response === response);
+  const previousUserMsg = assistantMsgIndex > 0 ? messages[assistantMsgIndex - 1] : null;
+  const initialFaqQuestion = previousUserMsg?.role === "user" ? previousUserMsg.content : "";
 
   const openSection = (sec: ReferencedSection) => {
     if (packId) {
@@ -169,26 +179,56 @@ function MessageSources({
         </div>
       )}
 
-      {/* ── Report button ── */}
-      <div>
+      {/* ── Action Menu ── */}
+      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/40">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+              <MoreVertical className="w-3 h-3" /> Actions
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48 text-xs">
+            <DropdownMenuItem onClick={() => setFaqDialogOpen(true)} className="gap-2">
+              <MessageSquarePlus className="w-3.5 h-3.5 text-blue-500" /> Save as FAQ
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setGlossaryDialogOpen(true)} className="gap-2">
+              <BookText className="w-3.5 h-3.5 text-amber-500" /> Save as Glossary Term
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <button
           onClick={() => setReportOpen(true)}
-          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-amber-500 transition-colors"
+          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-amber-500 transition-colors ml-auto"
         >
           <Flag className="w-2.5 h-2.5" />
           Report
         </button>
-        <ChatReportDialog
-          open={reportOpen}
-          onClose={() => setReportOpen(false)}
-          messageContent={response.response_markdown}
-          context={{
-            pathname: location.pathname,
-            pack_id: packId,
-            transcript: messages.map(m => `${m.role}: ${m.content}`).join('\n\n')
-          }}
-        />
       </div>
+
+      <ChatReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        messageContent={response.response_markdown}
+        context={{
+          pathname: location.pathname,
+          pack_id: packId,
+          transcript: messages.map(m => `${m.role}: ${m.content}`).join('\n\n')
+        }}
+      />
+
+      <SaveAsFaqDialog
+        open={faqDialogOpen}
+        onClose={() => setFaqDialogOpen(false)}
+        initialQuestion={initialFaqQuestion}
+        initialAnswer={messages[assistantMsgIndex]?.content || ""}
+        source="chat"
+      />
+      <SaveAsGlossaryDialog
+        open={glossaryDialogOpen}
+        onClose={() => setGlossaryDialogOpen(false)}
+        source="chat"
+      />
     </div>
   );
 }
@@ -274,6 +314,8 @@ export function MissionControlChat() {
         content: text,
         pack_id: currentPackId || null,
       });
+    if (user && currentPackId) {
+      trackQuestionSuggestion(currentPackId, text);
     }
 
     try {

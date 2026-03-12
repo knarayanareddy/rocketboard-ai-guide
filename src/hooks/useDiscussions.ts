@@ -135,9 +135,14 @@ export function useDiscussions(filters?: ThreadFilters) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ["discussion_threads"] });
       toast.success("Discussion posted");
+      if (variables.threadType === "question") {
+        import("@/hooks/useFaqSuggestions").then(({ trackQuestionSuggestion }) => {
+          trackQuestionSuggestion(currentPackId!, variables.title);
+        });
+      }
     },
   });
 

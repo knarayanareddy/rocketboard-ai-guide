@@ -6,13 +6,15 @@ import { CitationBadge } from "@/components/CitationBadge";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { useGeneratedGlossary, GlossaryTerm } from "@/hooks/useGeneratedGlossary";
+import { useManualGlossary } from "@/hooks/useManualGlossary";
 import { useRole } from "@/hooks/useRole";
 import { usePackTracks } from "@/hooks/usePackTracks";
 import { AIError } from "@/lib/ai-errors";
-import { Search, BookText, Sparkles, RotateCcw, Loader2, Code } from "lucide-react";
-import { motion } from "framer-motion";
+import { Search, BookText, Sparkles, RotateCcw, Loader2, Code, Plus, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BookmarkButton } from "@/components/BookmarkButton";
+import { SaveAsGlossaryDialog } from "@/components/SaveAsGlossaryDialog";
 import { toast } from "sonner";
 
 const DENSITY_OPTIONS = [
@@ -26,8 +28,10 @@ export default function GlossaryPage() {
   const [trackFilter, setTrackFilter] = useState<string>("all");
   const [density, setDensity] = useState<string>("standard");
   const [genError, setGenError] = useState<AIError | null>(null);
+  const [addTermOpen, setAddTermOpen] = useState(false);
 
   const { glossary: generatedGlossary, glossaryLoading, generateGlossary } = useGeneratedGlossary();
+  const { manualTerms, manualTermsLoading, deleteTerm } = useManualGlossary();
   const { hasPackPermission } = useRole();
   const { tracks: packTracks } = usePackTracks();
 
@@ -61,6 +65,16 @@ export default function GlossaryPage() {
       .sort((a, b) => a.term.localeCompare(b.term));
   }, [search, trackFilter, isGenerated]);
 
+  const filteredManual = useMemo(() => {
+    return manualTerms
+      .filter((t) => {
+        return !search ||
+          t.term.toLowerCase().includes(search.toLowerCase()) ||
+          t.definition.toLowerCase().includes(search.toLowerCase());
+      })
+      .sort((a, b) => a.term.localeCompare(b.term));
+  }, [search, manualTerms]);
+
   const handleGenerate = () => {
     setGenError(null);
     generateGlossary.mutate(
@@ -90,7 +104,16 @@ export default function GlossaryPage() {
               )}
             </div>
             {hasPackPermission("author") && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAddTermOpen(true)}
+                  className="gap-1.5 text-xs h-8"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Term
+                </Button>
+                <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
                 <div className="flex items-center bg-muted rounded-lg border border-border p-0.5">
                   {DENSITY_OPTIONS.map((opt) => (
                     <button
@@ -247,7 +270,81 @@ export default function GlossaryPage() {
             )}
           </div>
         )}
+
+        {/* ── Manual Terms Section ── */}
+        {(filteredManual.length > 0 || (search === "" && hasPackPermission("author"))) && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+              <BookText className="w-5 h-5 text-primary" /> Team Definitions
+            </h2>
+            <div className="space-y-3">
+              <AnimatePresence>
+                {filteredManual.map((term, i) => (
+                  <motion.div
+                    key={term.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="bg-card border border-primary/20 rounded-xl p-5 hover:border-primary/40 transition-colors group relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {hasPackPermission("author") && (
+                        <button
+                          onClick={() => deleteTerm.mutate(term.id)}
+                          className="p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-md transition-colors"
+                          title="Delete term"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex-1 pr-8">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-card-foreground font-mono text-sm">{term.term}</h3>
+                        <BookmarkButton
+                          type="glossary_term"
+                          referenceKey={`manual_term:${term.id}`}
+                          label={term.term}
+                          previewText={term.definition?.slice(0, 100)}
+                        />
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{term.definition}</p>
+                      {term.context && (
+                        <div className="text-xs text-muted-foreground/70 mt-2 italic">
+                          {term.context.includes("```") ? (
+                            <MarkdownRenderer className="prose-xs">{term.context}</MarkdownRenderer>
+                          ) : (
+                            <p>{term.context}</p>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1 mt-3">
+                        <span className="text-[10px] font-mono text-muted-foreground/60">added manually</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {filteredManual.length === 0 && search === "" && hasPackPermission("author") && (
+                <div className="text-center py-6 border border-dashed border-border rounded-xl">
+                  <p className="text-sm text-muted-foreground mb-3">No manual terms added yet.</p>
+                  <Button size="sm" variant="outline" onClick={() => setAddTermOpen(true)} className="gap-1.5">
+                    <Plus className="w-3.5 h-3.5" /> Add Term
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
+
+      <SaveAsGlossaryDialog
+        open={addTermOpen}
+        onClose={() => setAddTermOpen(false)}
+        source="manual"
+      />
     </DashboardLayout>
   );
 }

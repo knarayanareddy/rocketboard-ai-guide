@@ -42,6 +42,8 @@ import DiscussionsPage from "./pages/DiscussionsPage";
 import NotFound from "./pages/NotFound";
 import HelpPage from "./pages/HelpPage";
 import SandboxModulePage from "./pages/SandboxModulePage";
+import FaqPage from "./pages/FaqPage";
+import FaqSuggestionsPage from "./pages/FaqSuggestionsPage";
 
 const queryClient = new QueryClient();
 

@@ -10,6 +10,8 @@ import { ArrowLeft, ThumbsUp, CheckCircle2, HelpCircle, Lightbulb, AlertCircle, 
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
+import { SaveAsFaqDialog } from "@/components/SaveAsFaqDialog";
+import { trackQuestionSuggestion } from "@/hooks/useFaqSuggestions";
 
 const TYPE_META: Record<ThreadType, { icon: typeof MessageCircle; label: string; color: string }> = {
   discussion: { icon: MessageCircle, label: "Discussion", color: "text-muted-foreground" },
@@ -29,6 +31,7 @@ export function ThreadDetail({ thread, onBack }: ThreadDetailProps) {
   const { toggleUpvote, hasUpvoted, updateThread, deleteThread } = useDiscussions();
   const { replies, repliesLoading, createReply, markAccepted } = useDiscussionReplies(thread.id);
   const [replyContent, setReplyContent] = useState("");
+  const [faqDialogOpen, setFaqDialogOpen] = useState(false);
 
   const TypeIcon = TYPE_META[thread.thread_type].icon;
   const threadUpvoted = hasUpvoted("thread", thread.id);
@@ -115,6 +118,22 @@ export function ThreadDetail({ thread, onBack }: ThreadDetailProps) {
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
               </Button>
             )}
+          </div>
+        )}
+
+        {/* FAQ Conversion (Resolved Questions) */}
+        {thread.thread_type === "question" && thread.is_resolved && canResolve && (
+          <div className="mt-4 pt-4 border-t border-border flex items-center justify-between bg-muted/40 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-500" />
+              <div className="text-sm">
+                <span className="font-medium text-foreground">Good answer?</span>
+                <span className="text-muted-foreground ml-1">Convert this to a reusable FAQ entry.</span>
+              </div>
+            </div>
+            <Button size="sm" className="gradient-primary border-0 shadow-sm" onClick={() => setFaqDialogOpen(true)}>
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Convert to FAQ
+            </Button>
           </div>
         )}
       </div>
@@ -207,6 +226,14 @@ export function ThreadDetail({ thread, onBack }: ThreadDetailProps) {
           </div>
         </div>
       </div>
+
+      <SaveAsFaqDialog
+        open={faqDialogOpen}
+        onClose={() => setFaqDialogOpen(false)}
+        initialQuestion={thread.title}
+        initialAnswer={replies.find((r) => r.is_accepted_answer)?.content ?? ""}
+        source="discussion"
+      />
     </div>
   );
 }
