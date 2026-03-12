@@ -112,7 +112,7 @@ async function listFilesRecursive(driveId: string, folderId: string, accessToken
   let nextLink: string | null = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${folderId}/children?$select=id,name,file,folder,@microsoft.graph.downloadUrl`;
 
   while (nextLink) {
-    const resp = await fetch(nextLink, {
+    const resp: Response = await fetch(nextLink, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -128,7 +128,7 @@ async function listFilesRecursive(driveId: string, folderId: string, accessToken
       throw new Error(`Graph API error: ${resp.status} ${err}`);
     }
 
-    const data = await resp.json();
+    const data: { value?: any[]; "@odata.nextLink"?: string } = await resp.json();
 
     for (const item of (data.value || [])) {
       const itemPath = parentPath ? `${parentPath}/${item.name}` : item.name;

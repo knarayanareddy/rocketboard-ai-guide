@@ -941,11 +941,12 @@ async function handleGenerateGlossary(envelope: any, extraWarnings: string[] = [
   const packBlock = buildPackBlock(pack);
   const density = audience.glossary_density || "standard";
 
-  const densityInstruction = {
+  const densityMap: Record<string, string> = {
     low: "Only include essential/critical terms that are absolutely necessary to understand the codebase. Aim for 8-12 terms.",
     standard: "Include common terms that most engineers would need. Aim for 15-25 terms.",
     high: "Be comprehensive — include niche terms, internal jargon, and less obvious concepts. Aim for 25-40 terms.",
-  }[density] || "Include common terms. Aim for 15-25 terms.";
+  };
+  const densityInstruction = densityMap[density] || "Include common terms. Aim for 15-25 terms.";
 
   const systemPrompt = `You are RocketBoard AI Glossary Generator. Generate a pack-specific glossary of technical terms found in the evidence spans.
 ${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
