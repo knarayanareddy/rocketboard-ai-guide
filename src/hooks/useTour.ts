@@ -20,29 +20,12 @@ function saveCompletedTours(completed: Record<string, number>) {
 
 const ACCESS_HIERARCHY = ["read_only", "learner", "author", "admin", "owner"];
 
-// Shared mutable store so all hook instances share the same activeTourId
-// This avoids needing React Context while still achieving cross-component coordination
-let _activeTourId: string | null = null;
-const _listeners = new Set<() => void>();
-
-function setSharedTourId(id: string | null) {
-  _activeTourId = id;
-  _listeners.forEach((fn) => fn());
-}
-
 export function useTour() {
   const location = useLocation();
   const { packAccessLevel } = useRole();
-  const [, forceUpdate] = useState(0);
+  const [activeTourId, setActiveTourId] = useState<string | null>(null);
   const lastTourTime = useRef(0);
   const mountTime = useRef(Date.now());
-
-  // Subscribe to shared store changes
-  useEffect(() => {
-    const listener = () => forceUpdate((n) => n + 1);
-    _listeners.add(listener);
-    return () => { _listeners.delete(listener); };
-  }, []);
 
   const shouldShowTour = useCallback((tourId: string): boolean => {
     const completed = getCompletedTours();
@@ -54,7 +37,7 @@ export function useTour() {
     completed[tourId] = Date.now();
     saveCompletedTours(completed);
     lastTourTime.current = Date.now();
-    setSharedTourId(null);
+    setActiveTourId(null);
   }, []);
 
   const resetTour = useCallback((tourId: string) => {
@@ -80,31 +63,34 @@ export function useTour() {
   }, [location.pathname, packAccessLevel]);
 
   const startTour = useCallback((tourId: string) => {
-    setSharedTourId(tourId);
+    setActiveTourId(tourId);
   }, []);
 
   // Auto-trigger tour on page visit
   useEffect(() => {
     mountTime.current = Date.now();
     const timer = setTimeout(() => {
+      // Don't show if user navigated away quickly
       const elapsed = Date.now() - mountTime.current;
       if (elapsed < 1800) return;
+
+      // Don't show back-to-back tours
       if (Date.now() - lastTourTime.current < 5000) return;
+
+      // Don't show during onboarding wizard
       if (location.pathname.includes("/onboarding")) return;
-      if (_activeTourId) return; // don't clobber a manually started tour
 
       const tour = getCurrentPageTour();
       if (tour && shouldShowTour(tour.id)) {
-        setSharedTourId(tour.id);
+        setActiveTourId(tour.id);
       }
     }, 2000);
 
     return () => clearTimeout(timer);
   }, [location.pathname, getCurrentPageTour, shouldShowTour]);
 
-  const activeTourId = _activeTourId;
   const activeTour = activeTourId
-    ? ALL_TOURS.find((t) => t.id === activeTourId) || null
+    ? ALL_TOURS.find((t) => t.id === activeTourId) || (console.warn(`[useTour] Tour not found: ${activeTourId}`), null)
     : null;
 
   return {
@@ -116,6 +102,6 @@ export function useTour() {
     resetAllTours,
     startTour,
     getCurrentPageTour,
-    setActiveTourId: setSharedTourId,
+    setActiveTourId,
   };
 }

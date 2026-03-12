@@ -114,13 +114,17 @@ function GlobalSearchShortcut() {
 
 function TourManager() {
   const { activeTour, completeTour } = useTour();
-  return activeTour ? (
-    <TourOverlay
-      tour={activeTour}
-      onComplete={() => completeTour(activeTour.id)}
-      onSkip={() => completeTour(activeTour.id)}
-    />
-  ) : null;
+  return (
+    <>
+      {activeTour && (
+        <TourOverlay
+          tour={activeTour}
+          onComplete={() => completeTour(activeTour.id)}
+          onSkip={() => completeTour(activeTour.id)}
+        />
+      )}
+    </>
+  );
 }
 
 const App = () => (
