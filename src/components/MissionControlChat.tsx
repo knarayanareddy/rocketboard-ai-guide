@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Compass, Send, X, User, Loader2, Trash2, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, Flag, BookOpen, MoreVertical, MessageSquarePlus, BookText } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -314,6 +315,8 @@ export function MissionControlChat() {
         content: text,
         pack_id: currentPackId || null,
       });
+    }
+
     if (user && currentPackId) {
       trackQuestionSuggestion(currentPackId, text);
     }

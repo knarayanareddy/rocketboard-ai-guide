@@ -172,6 +172,8 @@ const App = () => (
               <Route path="/packs/:packId/quiz-analytics" element={<ProtectedRoute><InviteAcceptor><QuizAnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/discussions" element={<ProtectedRoute><InviteAcceptor><DiscussionsPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/sandbox" element={<ProtectedRoute><InviteAcceptor><SandboxModulePage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/faq" element={<ProtectedRoute><InviteAcceptor><FaqPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/faq-suggestions" element={<ProtectedRoute><InviteAcceptor><FaqSuggestionsPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />
@@ -189,6 +191,8 @@ const App = () => (
               <Route path="/ask-lead" element={<ProtectedRoute><LegacyRedirect path="ask-lead" /></ProtectedRoute>} />
               <Route path="/sources" element={<ProtectedRoute><LegacyRedirect path="sources" /></ProtectedRoute>} />
               <Route path="/plan" element={<ProtectedRoute><LegacyRedirect path="plan" /></ProtectedRoute>} />
+              <Route path="/faq" element={<ProtectedRoute><LegacyRedirect path="faq" /></ProtectedRoute>} />
+              <Route path="/faq-suggestions" element={<ProtectedRoute><LegacyRedirect path="faq-suggestions" /></ProtectedRoute>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
