@@ -99,9 +99,7 @@ Deno.serve(async (req) => {
       promises.push(
         serviceClient
           .rpc("search_chunks_fts", undefined, { count: "exact" })
-          // Fallback: use raw SQL via .from
-          .then(() => {})
-          .catch(() => {})
+          .then(() => undefined, () => undefined)
       );
       // Direct query approach
       promises.push(
