@@ -21,8 +21,6 @@ function saveCompletedTours(completed: Record<string, number>) {
 const ACCESS_HIERARCHY = ["read_only", "learner", "author", "admin", "owner"];
 
 // --- Shared module-level store so all useTour() instances share one activeTourId ---
-// This is the same pattern used by Zustand: module-level state + subscriber notifications.
-// It avoids React Context entirely, so no provider tree changes are needed.
 let _activeTourId: string | null = null;
 const _subscribers = new Set<() => void>();
 
@@ -30,12 +28,11 @@ function setSharedTourId(id: string | null) {
   _activeTourId = id;
   _subscribers.forEach((fn) => fn());
 }
-// -----------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------
 
 export function useTour() {
   const location = useLocation();
   const { packAccessLevel } = useRole();
-  // forceUpdate subscribes this instance to shared store changes
   const [, forceUpdate] = useState(0);
   const lastTourTime = useRef(0);
   const mountTime = useRef(Date.now());
@@ -86,7 +83,12 @@ export function useTour() {
     setSharedTourId(tourId);
   }, []);
 
-  // Auto-trigger tour on page visit
+  // Clear the active tour whenever the route changes so it doesn't bleed into the next page
+  useEffect(() => {
+    setSharedTourId(null);
+  }, [location.pathname]);
+
+  // Auto-trigger tour on page visit (2s delay)
   useEffect(() => {
     mountTime.current = Date.now();
     const timer = setTimeout(() => {

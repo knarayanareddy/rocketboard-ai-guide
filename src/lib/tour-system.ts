@@ -10,12 +10,13 @@ export type TourStep = {
 
 export type Tour = {
   id: string;
-  pagePattern: string;
+  pagePattern?: string; // Optional: if omitted, tour can only be started programmatically
   requiredRole?: string;
   steps: TourStep[];
 };
 
 export function matchesTourRoute(tour: Tour, pathname: string): boolean {
+  if (!tour.pagePattern) return false; // no pattern = never auto-triggered
   const regex = new RegExp(tour.pagePattern);
   return regex.test(pathname);
 }

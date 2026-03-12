@@ -159,7 +159,17 @@ export function TourOverlay({ tour, onComplete, onSkip }: TourOverlayProps) {
   const padding = step?.spotlightPadding ?? 8;
 
   const getTooltipStyle = (): React.CSSProperties => {
-    if (!targetRect) return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    if (!targetRect) {
+      return {
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        marginLeft: "-170px",  // half of w-[340px]
+        marginTop: "-100px",   // approximate half-height
+        zIndex: 10006,
+        maxWidth: 360,
+      };
+    }
 
     const pos = step?.position || "bottom";
     const gap = 12;

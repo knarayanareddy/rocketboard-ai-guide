@@ -130,7 +130,8 @@ export const ALL_TOURS: Tour[] = [
   },
   {
     id: "ai-error-recovery",
-    pagePattern: ".*",
+    // No pagePattern: this tour is triggered programmatically when AI generation fails,
+    // not auto-triggered on any page visit.
     steps: [
       {
         target: "[data-tour='ai-error-display']",
