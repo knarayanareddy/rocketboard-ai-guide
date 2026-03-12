@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, createContext, useContext } from "react";
 import { useLocation } from "react-router-dom";
 import { ALL_TOURS } from "@/data/tours";
 import { matchesTourRoute } from "@/lib/tour-system";
@@ -20,7 +20,23 @@ function saveCompletedTours(completed: Record<string, number>) {
 
 const ACCESS_HIERARCHY = ["read_only", "learner", "author", "admin", "owner"];
 
-export function useTour() {
+// ─── Shared tour context ───────────────────────────────────────────────────
+interface TourContextValue {
+  activeTour: (typeof ALL_TOURS)[0] | null;
+  activeTourId: string | null;
+  shouldShowTour: (tourId: string) => boolean;
+  completeTour: (tourId: string) => void;
+  resetTour: (tourId: string) => void;
+  resetAllTours: () => void;
+  startTour: (tourId: string) => void;
+  getCurrentPageTour: () => (typeof ALL_TOURS)[0] | null;
+  setActiveTourId: (id: string | null) => void;
+}
+
+export const TourContext = createContext<TourContextValue | null>(null);
+
+// ─── Provider — add this once inside BrowserRouter ────────────────────────
+export function TourProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const location = useLocation();
   const { packAccessLevel } = useRole();
   const [activeTourId, setActiveTourId] = useState<string | null>(null);
@@ -70,14 +86,9 @@ export function useTour() {
   useEffect(() => {
     mountTime.current = Date.now();
     const timer = setTimeout(() => {
-      // Don't show if user navigated away quickly
       const elapsed = Date.now() - mountTime.current;
       if (elapsed < 1800) return;
-
-      // Don't show back-to-back tours
       if (Date.now() - lastTourTime.current < 5000) return;
-
-      // Don't show during onboarding wizard
       if (location.pathname.includes("/onboarding")) return;
 
       const tour = getCurrentPageTour();
@@ -93,15 +104,26 @@ export function useTour() {
     ? ALL_TOURS.find((t) => t.id === activeTourId) || (console.warn(`[useTour] Tour not found: ${activeTourId}`), null)
     : null;
 
-  return {
-    activeTour,
-    activeTourId,
-    shouldShowTour,
-    completeTour,
-    resetTour,
-    resetAllTours,
-    startTour,
-    getCurrentPageTour,
-    setActiveTourId,
-  };
+  return (
+    <TourContext.Provider value={{
+      activeTour,
+      activeTourId,
+      shouldShowTour,
+      completeTour,
+      resetTour,
+      resetAllTours,
+      startTour,
+      getCurrentPageTour,
+      setActiveTourId,
+    }}>
+      {children}
+    </TourContext.Provider>
+  );
+}
+
+// ─── Hook — all components call this; they all share the same state ────────
+export function useTour(): TourContextValue {
+  const ctx = useContext(TourContext);
+  if (!ctx) throw new Error("useTour must be used inside <TourProvider>");
+  return ctx;
 }
