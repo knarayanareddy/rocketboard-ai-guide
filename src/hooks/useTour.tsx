@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, createContext, useContext } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { ALL_TOURS } from "@/data/tours";
 import { matchesTourRoute } from "@/lib/tour-system";
@@ -20,28 +20,29 @@ function saveCompletedTours(completed: Record<string, number>) {
 
 const ACCESS_HIERARCHY = ["read_only", "learner", "author", "admin", "owner"];
 
-// ─── Shared tour context ───────────────────────────────────────────────────
-interface TourContextValue {
-  activeTour: (typeof ALL_TOURS)[0] | null;
-  activeTourId: string | null;
-  shouldShowTour: (tourId: string) => boolean;
-  completeTour: (tourId: string) => void;
-  resetTour: (tourId: string) => void;
-  resetAllTours: () => void;
-  startTour: (tourId: string) => void;
-  getCurrentPageTour: () => (typeof ALL_TOURS)[0] | null;
-  setActiveTourId: (id: string | null) => void;
+// Shared mutable store so all hook instances share the same activeTourId
+// This avoids needing React Context while still achieving cross-component coordination
+let _activeTourId: string | null = null;
+const _listeners = new Set<() => void>();
+
+function setSharedTourId(id: string | null) {
+  _activeTourId = id;
+  _listeners.forEach((fn) => fn());
 }
 
-export const TourContext = createContext<TourContextValue | null>(null);
-
-// ─── Provider — add this once inside BrowserRouter ────────────────────────
-export function TourProvider({ children }: { children: React.ReactNode }): JSX.Element {
+export function useTour() {
   const location = useLocation();
   const { packAccessLevel } = useRole();
-  const [activeTourId, setActiveTourId] = useState<string | null>(null);
+  const [, forceUpdate] = useState(0);
   const lastTourTime = useRef(0);
   const mountTime = useRef(Date.now());
+
+  // Subscribe to shared store changes
+  useEffect(() => {
+    const listener = () => forceUpdate((n) => n + 1);
+    _listeners.add(listener);
+    return () => { _listeners.delete(listener); };
+  }, []);
 
   const shouldShowTour = useCallback((tourId: string): boolean => {
     const completed = getCompletedTours();
@@ -53,7 +54,7 @@ export function TourProvider({ children }: { children: React.ReactNode }): JSX.E
     completed[tourId] = Date.now();
     saveCompletedTours(completed);
     lastTourTime.current = Date.now();
-    setActiveTourId(null);
+    setSharedTourId(null);
   }, []);
 
   const resetTour = useCallback((tourId: string) => {
@@ -79,7 +80,7 @@ export function TourProvider({ children }: { children: React.ReactNode }): JSX.E
   }, [location.pathname, packAccessLevel]);
 
   const startTour = useCallback((tourId: string) => {
-    setActiveTourId(tourId);
+    setSharedTourId(tourId);
   }, []);
 
   // Auto-trigger tour on page visit
@@ -90,54 +91,31 @@ export function TourProvider({ children }: { children: React.ReactNode }): JSX.E
       if (elapsed < 1800) return;
       if (Date.now() - lastTourTime.current < 5000) return;
       if (location.pathname.includes("/onboarding")) return;
+      if (_activeTourId) return; // don't clobber a manually started tour
 
       const tour = getCurrentPageTour();
       if (tour && shouldShowTour(tour.id)) {
-        setActiveTourId(tour.id);
+        setSharedTourId(tour.id);
       }
     }, 2000);
 
     return () => clearTimeout(timer);
   }, [location.pathname, getCurrentPageTour, shouldShowTour]);
 
+  const activeTourId = _activeTourId;
   const activeTour = activeTourId
-    ? ALL_TOURS.find((t) => t.id === activeTourId) || (console.warn(`[useTour] Tour not found: ${activeTourId}`), null)
+    ? ALL_TOURS.find((t) => t.id === activeTourId) || null
     : null;
 
-  return (
-    <TourContext.Provider value={{
-      activeTour,
-      activeTourId,
-      shouldShowTour,
-      completeTour,
-      resetTour,
-      resetAllTours,
-      startTour,
-      getCurrentPageTour,
-      setActiveTourId,
-    }}>
-      {children}
-    </TourContext.Provider>
-  );
-}
-
-// ─── Hook — all components call this; they all share the same state ────────
-export function useTour(): TourContextValue {
-  const ctx = useContext(TourContext);
-  // Fallback: return safe no-ops if used outside TourProvider (prevents blank screens)
-  if (!ctx) {
-    console.warn("[useTour] Called outside <TourProvider>. Tour features disabled.");
-    return {
-      activeTour: null,
-      activeTourId: null,
-      shouldShowTour: () => false,
-      completeTour: () => {},
-      resetTour: () => {},
-      resetAllTours: () => {},
-      startTour: () => {},
-      getCurrentPageTour: () => null,
-      setActiveTourId: () => {},
-    };
-  }
-  return ctx;
+  return {
+    activeTour,
+    activeTourId,
+    shouldShowTour,
+    completeTour,
+    resetTour,
+    resetAllTours,
+    startTour,
+    getCurrentPageTour,
+    setActiveTourId: setSharedTourId,
+  };
 }
