@@ -124,6 +124,20 @@ export function TourProvider({ children }: { children: React.ReactNode }): JSX.E
 // ─── Hook — all components call this; they all share the same state ────────
 export function useTour(): TourContextValue {
   const ctx = useContext(TourContext);
-  if (!ctx) throw new Error("useTour must be used inside <TourProvider>");
+  // Fallback: return safe no-ops if used outside TourProvider (prevents blank screens)
+  if (!ctx) {
+    console.warn("[useTour] Called outside <TourProvider>. Tour features disabled.");
+    return {
+      activeTour: null,
+      activeTourId: null,
+      shouldShowTour: () => false,
+      completeTour: () => {},
+      resetTour: () => {},
+      resetAllTours: () => {},
+      startTour: () => {},
+      getCurrentPageTour: () => null,
+      setActiveTourId: () => {},
+    };
+  }
   return ctx;
 }

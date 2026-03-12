@@ -136,57 +136,57 @@ const App = () => (
             <TourProvider>
               <GlobalSearchShortcut />
               <TourManager />
-            <Routes>
-              <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
-              <Route path="/onboarding" element={<ProtectedRoute><InviteAcceptor><OnboardingWizard /></InviteAcceptor></ProtectedRoute>} />
+              <Routes>
+                <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
+                <Route path="/onboarding" element={<ProtectedRoute><InviteAcceptor><OnboardingWizard /></InviteAcceptor></ProtectedRoute>} />
 
-              {/* Root redirect */}
-              <Route path="/" element={<ProtectedRoute><InviteAcceptor><RootRedirect /></InviteAcceptor></ProtectedRoute>} />
+                {/* Root redirect */}
+                <Route path="/" element={<ProtectedRoute><InviteAcceptor><RootRedirect /></InviteAcceptor></ProtectedRoute>} />
 
-              {/* Pack list & creation */}
-              <Route path="/packs" element={<ProtectedRoute><InviteAcceptor><PacksPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/new" element={<ProtectedRoute><InviteAcceptor><CreatePackPage /></InviteAcceptor></ProtectedRoute>} />
+                {/* Pack list & creation */}
+                <Route path="/packs" element={<ProtectedRoute><InviteAcceptor><PacksPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/new" element={<ProtectedRoute><InviteAcceptor><CreatePackPage /></InviteAcceptor></ProtectedRoute>} />
 
-              {/* Pack-scoped routes */}
-              <Route path="/packs/:packId" element={<ProtectedRoute><InviteAcceptor><Index /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/modules" element={<ProtectedRoute><InviteAcceptor><Modules /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/modules/:moduleId" element={<ProtectedRoute><InviteAcceptor><ModuleView /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/glossary" element={<ProtectedRoute><InviteAcceptor><GlossaryPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/paths" element={<ProtectedRoute><InviteAcceptor><PathsPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/ask-lead" element={<ProtectedRoute><InviteAcceptor><AskLeadPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/sources" element={<ProtectedRoute><InviteAcceptor><SourcesPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/plan" element={<ProtectedRoute><InviteAcceptor><PlanPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/members" element={<ProtectedRoute><InviteAcceptor><PackMembersPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/review" element={<ProtectedRoute><InviteAcceptor><ReviewPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/analytics" element={<ProtectedRoute><InviteAcceptor><AnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/feedback" element={<ProtectedRoute><InviteAcceptor><FeedbackPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/team" element={<ProtectedRoute><InviteAcceptor><TeamPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/bookmarks" element={<ProtectedRoute><InviteAcceptor><BookmarksPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/timeline" element={<ProtectedRoute><InviteAcceptor><TimelinePage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/health" element={<ProtectedRoute><InviteAcceptor><ContentHealthPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/quiz-analytics" element={<ProtectedRoute><InviteAcceptor><QuizAnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/discussions" element={<ProtectedRoute><InviteAcceptor><DiscussionsPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/packs/:packId/sandbox" element={<ProtectedRoute><InviteAcceptor><SandboxModulePage /></InviteAcceptor></ProtectedRoute>} />
+                {/* Pack-scoped routes */}
+                <Route path="/packs/:packId" element={<ProtectedRoute><InviteAcceptor><Index /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/modules" element={<ProtectedRoute><InviteAcceptor><Modules /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/modules/:moduleId" element={<ProtectedRoute><InviteAcceptor><ModuleView /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/glossary" element={<ProtectedRoute><InviteAcceptor><GlossaryPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/paths" element={<ProtectedRoute><InviteAcceptor><PathsPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/ask-lead" element={<ProtectedRoute><InviteAcceptor><AskLeadPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/sources" element={<ProtectedRoute><InviteAcceptor><SourcesPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/plan" element={<ProtectedRoute><InviteAcceptor><PlanPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/members" element={<ProtectedRoute><InviteAcceptor><PackMembersPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/review" element={<ProtectedRoute><InviteAcceptor><ReviewPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/analytics" element={<ProtectedRoute><InviteAcceptor><AnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/feedback" element={<ProtectedRoute><InviteAcceptor><FeedbackPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/team" element={<ProtectedRoute><InviteAcceptor><TeamPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/bookmarks" element={<ProtectedRoute><InviteAcceptor><BookmarksPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/timeline" element={<ProtectedRoute><InviteAcceptor><TimelinePage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/health" element={<ProtectedRoute><InviteAcceptor><ContentHealthPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/quiz-analytics" element={<ProtectedRoute><InviteAcceptor><QuizAnalyticsPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/discussions" element={<ProtectedRoute><InviteAcceptor><DiscussionsPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/packs/:packId/sandbox" element={<ProtectedRoute><InviteAcceptor><SandboxModulePage /></InviteAcceptor></ProtectedRoute>} />
 
-              {/* Global routes */}
-              <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/templates" element={<ProtectedRoute><InviteAcceptor><TemplatesPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/templates/:templateId" element={<ProtectedRoute><InviteAcceptor><TemplateDetailPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/help" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/help/:category" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
-              <Route path="/help/:category/:slug" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
+                {/* Global routes */}
+                <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/templates" element={<ProtectedRoute><InviteAcceptor><TemplatesPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/templates/:templateId" element={<ProtectedRoute><InviteAcceptor><TemplateDetailPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/help" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/help/:category" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
+                <Route path="/help/:category/:slug" element={<ProtectedRoute><InviteAcceptor><HelpPage /></InviteAcceptor></ProtectedRoute>} />
 
-              {/* Legacy flat routes — redirect to current pack */}
-              <Route path="/modules" element={<ProtectedRoute><LegacyRedirect path="modules" /></ProtectedRoute>} />
-              <Route path="/modules/:moduleId" element={<ProtectedRoute><LegacyRedirect path="modules" /></ProtectedRoute>} />
-              <Route path="/glossary" element={<ProtectedRoute><LegacyRedirect path="glossary" /></ProtectedRoute>} />
-              <Route path="/paths" element={<ProtectedRoute><LegacyRedirect path="paths" /></ProtectedRoute>} />
-              <Route path="/ask-lead" element={<ProtectedRoute><LegacyRedirect path="ask-lead" /></ProtectedRoute>} />
-              <Route path="/sources" element={<ProtectedRoute><LegacyRedirect path="sources" /></ProtectedRoute>} />
-              <Route path="/plan" element={<ProtectedRoute><LegacyRedirect path="plan" /></ProtectedRoute>} />
+                {/* Legacy flat routes — redirect to current pack */}
+                <Route path="/modules" element={<ProtectedRoute><LegacyRedirect path="modules" /></ProtectedRoute>} />
+                <Route path="/modules/:moduleId" element={<ProtectedRoute><LegacyRedirect path="modules" /></ProtectedRoute>} />
+                <Route path="/glossary" element={<ProtectedRoute><LegacyRedirect path="glossary" /></ProtectedRoute>} />
+                <Route path="/paths" element={<ProtectedRoute><LegacyRedirect path="paths" /></ProtectedRoute>} />
+                <Route path="/ask-lead" element={<ProtectedRoute><LegacyRedirect path="ask-lead" /></ProtectedRoute>} />
+                <Route path="/sources" element={<ProtectedRoute><LegacyRedirect path="sources" /></ProtectedRoute>} />
+                <Route path="/plan" element={<ProtectedRoute><LegacyRedirect path="plan" /></ProtectedRoute>} />
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
             </TourProvider>
           </BrowserRouter>
         </TooltipProvider>
