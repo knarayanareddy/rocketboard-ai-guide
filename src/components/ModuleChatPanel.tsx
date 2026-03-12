@@ -373,7 +373,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
             </div>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
               {messages.length === 0 && historyLoaded && !lastError && (
                 <div className="text-center py-8">
                   <Rocket className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
@@ -407,14 +407,14 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                       <Bot className="w-3.5 h-3.5 text-primary" />
                     </div>
                   )}
-                  <div className="flex flex-col max-w-[85%]">
+                  <div className="flex flex-col min-w-0 max-w-[85%]">
                     <div
-                      className={`rounded-xl px-3 py-2 text-sm ${
+                      className={`rounded-xl px-3 py-2 text-sm overflow-hidden ${
                         msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
                       }`}
                     >
                       {msg.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
+                        <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
                           <MarkdownRenderer>{msg.content}</MarkdownRenderer>
                         </div>
                       ) : (
