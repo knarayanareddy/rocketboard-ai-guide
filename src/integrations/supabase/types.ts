@@ -297,6 +297,51 @@ export type Database = {
           },
         ]
       }
+      chat_transcripts_flagged: {
+        Row: {
+          created_at: string | null
+          feedback_id: string
+          id: string
+          metadata: Json | null
+          pack_id: string | null
+          pathname: string | null
+          transcript: string
+        }
+        Insert: {
+          created_at?: string | null
+          feedback_id: string
+          id?: string
+          metadata?: Json | null
+          pack_id?: string | null
+          pathname?: string | null
+          transcript: string
+        }
+        Update: {
+          created_at?: string | null
+          feedback_id?: string
+          id?: string
+          metadata?: Json | null
+          pack_id?: string | null
+          pathname?: string | null
+          transcript?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_transcripts_flagged_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "chat_feedback"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_transcripts_flagged_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cohort_members: {
         Row: {
           cohort_id: string
