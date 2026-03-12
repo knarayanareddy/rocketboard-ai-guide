@@ -53,14 +53,7 @@ export function useSources() {
 
   const deleteSource = useMutation({
     mutationFn: async (sourceId: string) => {
-      // Delete related ingestion_jobs first (FK has no ON DELETE CASCADE)
-      const { error: jobsError } = await supabase
-        .from("ingestion_jobs")
-        .delete()
-        .eq("source_id", sourceId);
-      if (jobsError) throw jobsError;
-
-      // Now delete the source (knowledge_chunks has ON DELETE CASCADE, so auto-cleaned)
+      // CASCADE handles ingestion_jobs and knowledge_chunks cleanup automatically
       const { error } = await supabase
         .from("pack_sources")
         .delete()
