@@ -28,7 +28,7 @@ export function useManualGlossary() {
         .eq("pack_id", currentPackId!)
         .order("term", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as ManualGlossaryTerm[];
+      return (data ?? []) as unknown as ManualGlossaryTerm[];
     },
     enabled: !!currentPackId,
   });
@@ -48,7 +48,7 @@ export function useManualGlossary() {
         .select()
         .single();
       if (error) throw error;
-      return data as ManualGlossaryTerm;
+      return data as unknown as ManualGlossaryTerm;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["manual_glossary", currentPackId] });

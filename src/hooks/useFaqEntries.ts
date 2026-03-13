@@ -33,7 +33,7 @@ export function useFaqEntries() {
         .neq("status", "archived")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as FaqEntry[];
+      return (data ?? []) as unknown as FaqEntry[];
     },
     enabled: !!currentPackId,
   });
@@ -62,7 +62,7 @@ export function useFaqEntries() {
         .select()
         .single();
       if (error) throw error;
-      return data as FaqEntry;
+      return data as unknown as FaqEntry;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["faq_entries", currentPackId] });
