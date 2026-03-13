@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info, HelpCircle, ExternalLink } from "lucide-react";
 
 const STORAGE_KEY = "rocketboard_onboarding_step";
 const STORAGE_ORG_KEY = "rocketboard_onboarding_org";
@@ -126,7 +128,11 @@ export default function OnboardingWizard() {
       localStorage.setItem(STORAGE_ORG_KEY, org.id);
       next();
     } catch (err: any) {
-      toast.error(err.message || "Failed to create organization");
+      if (err.code === "23505" && err.message.includes("organizations_slug_key")) {
+        toast.error("This slug is already taken. Please try a different one.");
+      } else {
+        toast.error(err.message || "Failed to create organization");
+      }
     } finally {
       setLoading(false);
     }
@@ -315,7 +321,21 @@ export default function OnboardingWizard() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-1">Organization Name</label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium text-foreground">Organization Name</label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="w-64 text-xs">
+                            This is your primary workspace top-level entity (e.g., your company or department name).
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
@@ -324,7 +344,21 @@ export default function OnboardingWizard() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-1">Slug</label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium text-foreground">Slug</label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="w-64 text-xs">
+                            The unique identifier used in your organization's URL. Must be lowercase, numbers, and hyphens only.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     value={orgSlug}
                     onChange={(e) => setOrgSlug(e.target.value)}
@@ -334,6 +368,13 @@ export default function OnboardingWizard() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">Auto-generated from name</p>
                 </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-primary/5 border border-primary/10 rounded-lg">
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-primary" />
+                  <span>Confused? Check our <a href="/help/gs-1" target="_blank" className="text-primary hover:underline font-medium inline-flex items-center gap-0.5">Getting Started guide <ExternalLink className="w-2.5 h-2.5" /></a></span>
+                </p>
               </div>
 
               <div className="flex justify-between mt-6">
@@ -372,7 +413,21 @@ export default function OnboardingWizard() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-1">Pack Title</label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium text-foreground">Pack Title</label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="w-64 text-xs">
+                            A Pack is a curated learning context (e.g., 'React Frontend Onboarding' or 'SRE Handbook').
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     value={packTitle}
                     onChange={(e) => setPackTitle(e.target.value)}
@@ -522,6 +577,19 @@ export default function OnboardingWizard() {
       <p className="text-xs text-muted-foreground mt-6">
         Step {step + 1} of {stepsMeta.length}
       </p>
+
+      {/* Persistent Help Access */}
+      <div className="fixed bottom-6 right-6">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="rounded-full shadow-lg border border-border gap-2"
+          onClick={() => window.open("/help", "_blank")}
+        >
+          <HelpCircle className="w-4 h-4" />
+          Need Help?
+        </Button>
+      </div>
     </div>
   );
 }
