@@ -15,15 +15,15 @@ export function useKnowledgeOwners(packId: string | null) {
       if (!packId) return [];
 
       // 1. Fetch owners linked to this pack's sources
-      const { data: ownersData, error: ownersError } = await supabase
-        .from('knowledge_owners')
+      const { data: ownersData, error: ownersError } = await (supabase
+        .from('knowledge_owners' as any)
         .select(`
           user_email,
           ownership_score,
           pack_sources!inner(pack_id)
         `)
         .eq('pack_sources.pack_id', packId)
-        .order('ownership_score', { ascending: false });
+        .order('ownership_score', { ascending: false }) as any);
 
       if (ownersError) throw ownersError;
 
