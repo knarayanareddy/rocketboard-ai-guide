@@ -209,6 +209,21 @@ export const ALL_TOURS: Tour[] = [
         content: "Click to open Rocket — your module-specific AI assistant. Ask questions about anything in this module and get answers grounded in your actual codebase.",
         waitForClick: true,
       },
+      {
+        target: "[data-tour='chat-message']",
+        title: "Interactive Source Citations",
+        content: "Look for **[S1]**, **[S2]** badges in the AI's responses. **Hover** for a code preview, or **click** to open the full source file in the Source Explorer.",
+      },
+      {
+        target: "[data-tour='chat-sources']",
+        title: "Source Badges",
+        content: "The bottom of each response shows all referenced source files as interactive badges. Click any badge to explore the evidence that grounded the answer.",
+      },
+      {
+        target: "[data-tour='chat-report']",
+        title: "Report Incorrect Answers",
+        content: "If an answer seems wrong, click the **flag** icon. Your feedback is tagged with a trace ID and routed to authors for review.",
+      },
     ],
   },
   {

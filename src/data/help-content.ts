@@ -678,19 +678,43 @@ Submit your answer for AI feedback with a score and suggestions.`,
     audience: ["all"],
     tags: ["chat", "ai", "rocket", "mission control"],
     summary: "Two AI assistants — module-specific and platform-wide.",
-    lastUpdated: "2026-03-01",
+    lastUpdated: "2026-03-13",
     content: `# Using AI Chat
 
+RocketBoard has two AI assistants, each grounded in your actual codebase and documentation.
+
 ## 🚀 Rocket (Module Chat)
-- Available on module pages (bottom-right)
-- Answers questions about the current module's content
-- Responses include citations to source code
-- Best for: "How does the auth flow work?" or "Explain this code"
+
+:::card[Module-Specific Intelligence]{🧠}
+Rocket is available on every module page (bottom-right FAB). It answers questions about the current module's content, grounded in evidence from your connected sources.
+:::
+
+:::step[1. Ask a Question]
+Type any question about the module — e.g., "How does the auth flow work?" or "Explain this middleware."
+:::
+
+:::step[2. Read Citations]
+The AI response includes inline citation badges like **[S1]**, **[S2]**, etc. These are interactive:
+- **Hover** over a badge to see a preview of the source code snippet.
+- **Click** the badge to open the full file in the Source Explorer with syntax highlighting.
+:::
+
+:::step[3. Explore Sources]
+At the bottom of each response, you'll see interactive source badges showing the files referenced. Click any badge to dive into the evidence that grounded the AI's answer.
+:::
+
+:::step[4. Report Issues]
+If an answer seems incorrect or misleading, click the **🚩 Report** button. Your feedback is tagged with a trace ID and routed to pack authors for review.
+:::
 
 ## 🧭 Mission Control (Global Chat)
-- Available on all pages (bottom-left)
-- Answers questions about RocketBoard's features
-- Best for: "How do I bookmark something?" or "What keyboard shortcuts are available?"`,
+
+:::card[Platform Assistant]{🗺️}
+Mission Control is available on all pages (bottom-left). It answers questions about RocketBoard's features, settings, and navigation.
+:::
+
+- Ask: "How do I bookmark something?" or "What keyboard shortcuts are available?"
+- It can trigger UI actions — e.g., switching themes or navigating to specific pages.`,
     relatedArticles: ["learn-1", "gs-3"],
   },
   {
@@ -1089,15 +1113,18 @@ Admins can view correct/incorrect rates for every question. Any question with an
     audience: ["all"],
     tags: ["changelog", "updates", "new features"],
     summary: "Recent updates and new features.",
-    lastUpdated: "2026-03-11",
+    lastUpdated: "2026-03-13",
     content: `# What's New in RocketBoard
 
-## March 2026
+## March 2026 (Latest)
+- **Interactive Chat Citations** — Click \`[S1]\`, \`[S2]\` badges in AI responses to open source code with syntax highlighting. Hover for instant previews.
+- **AI Observability** — Full telemetry tracing for all AI tasks (token usage, latency, cost). Trace IDs link user feedback to specific AI interactions.
+- **Automated Remediation** — AI-drafted module updates when source code changes are detected via GitHub webhooks
+- **Content Health Dashboard** — Track when source code changes affect generated content
 - **Guided Tours** — Interactive walkthroughs for first-time users on every major page
 - **Help Center** — Searchable in-app help with articles for every feature
 - **Platform-Aware Mission Control** — Ask about RocketBoard features and get accurate answers
 - **Help Tooltips** — Contextual ⓘ tooltips across the entire platform
-- **Content Health Dashboard** — Track when source code changes affect generated content
 
 ## February 2026
 - **Exercises** — Hands-on coding challenges with AI review
