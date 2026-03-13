@@ -33,7 +33,7 @@ export function useFaqEntries() {
         .neq("status", "archived")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as FaqEntry[];
+      return (data ?? []) as unknown as FaqEntry[];
     },
     enabled: !!currentPackId,
   });
