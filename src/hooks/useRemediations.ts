@@ -28,12 +28,12 @@ export function useRemediations(packId: string | null) {
       const keys = (modules || []).map(m => m.module_key);
       if (keys.length === 0) return [];
 
-      const { data, error } = await supabase
-        .from("module_remediations")
+      const { data, error } = await (supabase
+        .from("module_remediations" as any)
         .select("*")
         .in("module_key", keys)
         .eq("status", "pending")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }) as any);
 
       if (error) throw error;
       return (data || []) as RemediationRow[];
