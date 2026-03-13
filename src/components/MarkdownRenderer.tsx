@@ -14,20 +14,20 @@ interface MarkdownRendererProps {
 
 // Parse custom callout syntax :::type[title]\n...\n::: and [ACTION: slug(label)]
 type Part = { 
-  type: "text" | "callout" | "action" | "ui_action"; 
+  type: "text" | "callout" | "action" | "ui_action" | "step" | "card"; 
   content: string; 
   calloutType?: CalloutType; 
   title?: string;
   actionSlug?: string;
+  icon?: string;
 };
 
 function parseMarkdown(markdown: string): Part[] {
   const parts: Part[] = [];
   
-  // Combined regex for callouts and actions
-  // Callouts: :::type[title]\n...\n:::
-  // Actions: [ACTION: slug(label)] or [UI_ACTION: slug(label)]
-  const combinedRegex = /(?::::(setup|pattern|config|warning)\[([^\]]*)\]\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])/g;
+  // Regex for blocks: :::type[title]{icon}\n...\n:::
+  // Regex for actions: [ACTION: slug(label)] or [UI_ACTION: slug(label)]
+  const combinedRegex = /(?::::(setup|pattern|config|warning|step|card)(?:\[([^\]]*)\])?(?:{([^}]*)})?\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])/g;
   
   let lastIndex = 0;
   let match;
@@ -38,19 +38,29 @@ function parseMarkdown(markdown: string): Part[] {
     }
     
     if (match[1]) {
-      // Callout match
-      parts.push({
-        type: "callout",
-        calloutType: match[1] as CalloutType,
-        title: match[2],
-        content: match[3].trim(),
-      });
-    } else if (match[4]) {
+      // Block match (callout, step, or card)
+      const type = match[1];
+      if (type === "step" || type === "card") {
+        parts.push({
+          type: type as "step" | "card",
+          title: match[2],
+          icon: match[3],
+          content: match[4].trim(),
+        });
+      } else {
+        parts.push({
+          type: "callout",
+          calloutType: type as CalloutType,
+          title: match[2],
+          content: match[4].trim(),
+        });
+      }
+    } else if (match[5]) {
       // Action or UI_ACTION match
       parts.push({
-        type: match[4] === "UI_ACTION" ? "ui_action" : "action",
-        actionSlug: match[5],
-        content: match[6] || "Take Action",
+        type: match[5] === "UI_ACTION" ? "ui_action" : "action",
+        actionSlug: match[6],
+        content: match[7] || "Take Action",
       });
     }
     
@@ -130,6 +140,40 @@ export function MarkdownRenderer({ children, className, onAction }: MarkdownRend
   return (
     <div className={className}>
       {parts.map((part, i) => {
+        if (part.type === "step") {
+          return (
+            <div key={i} className="flex gap-4 mb-6 relative group">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-sm font-bold text-primary group-hover:scale-110 transition-transform bg-background">
+                  {part.icon || (i + 1)}
+                </div>
+                <div className="w-0.5 h-full bg-gradient-to-b from-primary/20 to-transparent mt-2" />
+              </div>
+              <div className="flex-1 pt-0.5">
+                {part.title && <h4 className="text-base font-bold text-foreground mb-1 leading-none">{part.title}</h4>}
+                <div className="text-sm text-muted-foreground leading-relaxed">
+                  <ReactMarkdown components={components}>{part.content}</ReactMarkdown>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        if (part.type === "card") {
+          return (
+            <div key={i} className="p-5 rounded-xl border border-border bg-card/40 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-primary/20 transition-all mb-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 text-3xl opacity-10 group-hover:opacity-20 transition-opacity grayscale group-hover:grayscale-0">
+                {part.icon}
+              </div>
+              {part.title && <h4 className="text-base font-bold text-foreground mb-2 flex items-center gap-2">
+                {part.icon && <span className="text-lg">{part.icon}</span>}
+                {part.title}
+              </h4>}
+              <div className="text-sm text-muted-foreground leading-relaxed">
+                <ReactMarkdown components={components}>{part.content}</ReactMarkdown>
+              </div>
+            </div>
+          );
+        }
         if (part.type === "callout" && part.calloutType) {
           return (
             <CodeCallout key={i} type={part.calloutType} title={part.title || ""}>

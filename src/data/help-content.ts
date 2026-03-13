@@ -51,18 +51,43 @@ RocketBoard is an **AI-powered developer onboarding platform** that transforms y
 
 ## Who is it for?
 
-- **Pack Owners/Admins** — create and manage onboarding packs
-- **Authors** — curate sources, review generated content, and publish modules
-- **Learners** — read modules, take quizzes, complete exercises, and ramp up faster
+:::card[Pack Owners/Admins]{🛡️}
+Create and manage the high-level onboarding strategy for your organization.
+:::
+
+:::card[Authors]{✍️}
+Curate sources, review AI-generated content drafts, and publish educational modules.
+:::
+
+:::card[Learners]{🎓}
+Read modules, take quizzes, complete exercises, and ramp up on new repos in record time.
+:::
 
 ## The 6-Phase Flow
 
-1. **Setup** — Create an organization and pack, invite team members
-2. **Ingestion** — Connect sources (GitHub, Confluence, Notion, etc.)
-3. **Planning** — AI generates a module plan; you curate and approve
-4. **Generation** — AI creates modules, quizzes, exercises, glossary, paths, and ask-lead questions
-5. **Learning** — Learners read, quiz, discuss, and track progress
-6. **Iteration** — Re-sync sources, refresh stale content, refine modules`,
+:::step[Setup]{1}
+Create an organization and pack, then invite your engineering team.
+:::
+
+:::step[Ingestion]{2}
+Connect sources like GitHub, Confluence, and Notion to ground your AI.
+:::
+
+:::step[Planning]{3}
+AI generates a module plan; you curate the structure and approve the roadmap.
+:::
+
+:::step[Generation]{4}
+AI creates modules, quizzes, exercises, and glossary terms automatically.
+:::
+
+:::step[Learning]{5}
+Learners consume content, quiz themselves, and track their ramp-up progress.
+:::
+
+:::step[Iteration]{6}
+Re-sync sources to detect staleness and approve AI-drafted content repairs.
+:::`,
     relatedArticles: ["gs-2", "gs-3"],
   },
   {
@@ -131,15 +156,33 @@ Welcome! Here's how to get started:
     tags: ["quickstart", "admin", "author"],
     summary: "Set up your first pack and generate content.",
     lastUpdated: "2026-03-01",
-    content: `# Quick Start for Admins & Authors
+    content: `# The RocketBoard Workflow
 
-1. **Create a Pack** — Name it after your team or project
-2. **Add Sources** — Connect your GitHub repo or upload documents
-3. **Generate a Plan** — Let the AI propose modules based on your sources
-4. **Curate the Plan** — Edit, reorder, set prerequisites
-5. **Generate Content** — Click "Generate All" to create modules, quizzes, glossary, etc.
-6. **Review & Publish** — Check each module, refine if needed, then publish
-7. **Invite Learners** — Add team members via email from the Members page`,
+Getting the most out of RocketBoard follows a six-phase journey from raw code to a published onboarding experience.
+
+:::step[1. Connect & Ingest]
+Connect your GitHub repos or documentation wikis. RocketBoard's AI Agent parses the files and creates a semantic knowledge map.
+:::
+
+:::step[2. Curate the Plan]
+Review the AI-generated module list. You can add sections, reorder topics, and set prerequisites to ensure a logical learning path.
+:::
+
+:::step[3. AI Content Generation]
+Hit "Generate" and watch as the AI drafts deep-dives, code walkthroughs, and technical exercises based on your actual codebase.
+:::
+
+:::step[4. Review & Refine]
+Review citations to ensure accuracy. If a section needs more detail, use the **Refine** button to chat with the AI and tweak the content.
+:::
+
+:::step[5. Publish & Onboard]
+Publish your pack to make it visible to your team. Invite new hires and track their progress through the "Learner Insights" dashboard.
+:::
+
+:::step[6. Automated Maintenance]
+As your code changes, RocketBoard detects staleness and drafts automated remediations for you to review and accept.
+:::`,
     relatedArticles: ["gs-2", "src-1"],
   },
   {
