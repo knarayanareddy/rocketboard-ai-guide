@@ -29,12 +29,19 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
     // Generate a fresh ID for each render to avoid mermaid caching issues
     idRef.current = `mermaid-${++idCounter}-${Date.now()}`;
     try {
+      // Clear out the previous HTML so mermaid doesn't complain about existing elements
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
+      
       const { svg: rendered } = await mermaid.render(idRef.current, code.trim());
       setSvg(rendered);
       setError(null);
     } catch (e: any) {
+      console.warn("Mermaid rendering error:", e);
       setError(e?.message || "Failed to render diagram");
       setSvg(null);
+      // Clean up the error container mermaid sometimes leaves behind in the DOM tree
       const temp = document.getElementById(idRef.current);
       temp?.remove();
     }

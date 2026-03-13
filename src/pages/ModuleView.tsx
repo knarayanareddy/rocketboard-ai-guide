@@ -26,7 +26,7 @@ import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 import { usePackTracks } from "@/hooks/usePackTracks";
 import { useTour } from "@/hooks/useTour";
 import { ModuleChatPanel } from "@/components/ModuleChatPanel";
-import { useGeneratedModules, GeneratedModuleRow, GeneratedSection, ChangeLogEntry } from "@/hooks/useGeneratedModules";
+import { useGeneratedModules, GeneratedModuleRow, GeneratedModuleData, GeneratedSection, ChangeLogEntry } from "@/hooks/useGeneratedModules";
 import { useGeneratedQuiz } from "@/hooks/useGeneratedQuiz";
 import { useSimplifySection, SimplifiedSection } from "@/hooks/useSimplifySection";
 import { usePack } from "@/hooks/usePack";
@@ -1059,7 +1059,18 @@ export default function ModuleView() {
                     )}
                     validationResult={(() => {
                       const raw = generatedMod?.module_data;
-                      return raw ? validateAIOutput("generate_module", raw) : null;
+                      if (!raw) return null;
+                      // The schema validator expects the full envelope structure sent by the AI,
+                      // not just the inner module_data. We construct a synthetic one here for validation.
+                      const syntheticEnvelope = {
+                        type: "generate_module",
+                        request_id: "validation-check",
+                        pack_id: currentPackId,
+                        pack_version: 1,
+                        generation_meta: { total_spans_used: 0, model_name: "unknown" },
+                        module: raw
+                      };
+                      return validateAIOutput("generate_module", syntheticEnvelope);
                     })()}
                     className="mt-4"
                   />
