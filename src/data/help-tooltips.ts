@@ -37,6 +37,7 @@ export const HELP_TOOLTIPS = {
     refineModule: "Tell the AI what to change in natural language. The AI will update the module and provide a change log explaining what was modified and why.",
     regenerateModule: "Completely regenerates the module from scratch using current evidence spans. This replaces all content. Use 'Refine' for targeted changes instead.",
     contradictions: "The AI detected conflicting information in your source files. Both sides are shown with their evidence. Review and resolve by checking which source is current.",
+    aiRemediation: "The AI Agent has drafted an automatic update for this module because the underlying source code changed. Review the draft to accept the fix.",
     generationStats: "Shows how the generated content compares to the configured limits: word count, section count, citation count, and schema validation status.",
   },
 
@@ -123,7 +124,7 @@ export const HELP_TOOLTIPS = {
   // ─── CONTENT HEALTH ─────────────────────────────────
   contentHealth: {
     freshnessScore: "Percentage of cited evidence chunks that still match their content at the time the module was generated. 100% means all source code is unchanged. Lower means sources have changed.",
-    staleContent: "This section references source files that have been modified since the content was generated. The teaching material may no longer match the current codebase.",
+    staleContent: "This section references source files that have been modified since the content was generated. For GitHub integrations, the AI will automatically draft an update to reflect the changes.",
     viewDiff: "Compare the source code as it was when the module was generated versus how it looks now. Helps you judge whether the changes are significant enough to regenerate.",
   },
 
@@ -151,8 +152,8 @@ export const HELP_TOOLTIPS = {
 
   // ─── GLOBAL ─────────────────────────────────────────
   global: {
-    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K.",
-    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses are grounded in your codebase with citations.",
+    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by Semantic Vector Search.",
+    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses are retrieved instantly using pgvector hybrid search and grounded in your codebase.",
     missionControl: "Platform-wide AI assistant. Ask about RocketBoard features, navigation help, onboarding tips, or anything not specific to a single module.",
     packSelector: "Switch between different packs. Each pack has its own sources, content, progress, and team. Your progress is saved separately per pack.",
   },

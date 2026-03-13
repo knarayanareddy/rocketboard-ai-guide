@@ -346,10 +346,10 @@ All content starts as **draft**. If one item fails, others continue.`,
 ## Review Page
 - Preview each module as learners will see it
 - Check for contradictions and warnings
-- View generation stats
+- **Review AI Drafts:** If source code changed, review and accept automatically drafted updates.
 
 ## Refining
-Click **Refine** and describe changes in natural language3. Profit! The AI updates the module and shows what changed.
+Click **Refine** and describe changes in natural language. The AI updates the module and shows what changed.
 
 [ACTION: open_sandbox(Try it in the Sandbox)]
 
@@ -386,16 +386,18 @@ On the Plan page, select a template from the dropdown on each module card.`,
     tags: ["citations", "evidence", "source code", "spans"],
     summary: "How AI content is grounded in your actual source code.",
     lastUpdated: "2026-03-01",
-    content: `# Understanding Citations and Evidence
+    content: `# Understanding Citations and Semantic Search
 
-Generated content includes **citation badges** (e.g., [S1], [S2]) linking to actual source files.
+Generated content includes **citation badges** (e.g., [S1], [S2]) linking to actual source files, ensuring absolute accuracy and traceability to your codebase.
 
-## How to Use
+## Semantic Hybrid Search
+    RocketBoard uses an advanced **AI Semantic Vector Search** (powered by \`pgvector\`) combined with full-text search.
+When generating content or answering questions in Chat, the AI doesn't just look for exact keyword matches. It understands the *meaning* of the code and prioritizes the most authoritative files.
+
+## Browsing Evidence
 - **Click** a badge to view the original source with syntax highlighting
 - **Hover** for a quick preview
-- Open **Code Explorer** to browse all referenced files
-
-Citations ensure generated content is accurate and traceable.`,
+- Open **Code Explorer** to browse all referenced files`,
     relatedArticles: ["cc-3", "src-7"],
   },
   {
@@ -431,17 +433,21 @@ View the **Dependency Graph** to visualize all prerequisite relationships.`,
     tags: ["freshness", "stale", "content health"],
     summary: "How to keep generated content up-to-date.",
     lastUpdated: "2026-03-01",
-    content: `# Content Health and Freshness
+    content: `# Content Health and Automated Remediation
 
 The Content Health page shows which modules reference **changed source files**.
 
 ## Freshness Score
 Percentage of cited chunks that still match their original content. 100% = all sources unchanged.
 
-## Fixing Stale Content
-1. Re-sync the source to update chunks
-2. Regenerate or refine affected modules
-3. Check the diff to see what changed`,
+## Automated AI Remediation ✨
+When RocketBoard detects a pushed change in GitHub that makes a module stale:
+1. An AI Agent reads the raw git diff.
+2. It drafts a precise update to the module text to reflect the code changes.
+3. You will see a blue "Draft Update Available" badge on the **Review** page.
+4. Review the Side-by-Side Diff and click **Accept Update** to instantly repair the module.
+
+*(For sources without webhook integrations, you can fix stale content by clicking Re-Sync and refining the module manually).*`,
     relatedArticles: ["cc-3", "src-1"],
   },
 

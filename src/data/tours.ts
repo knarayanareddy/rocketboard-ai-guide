@@ -112,6 +112,11 @@ export const ALL_TOURS: Tour[] = [
         content: "Preview each module, refine it with AI assistance, or regenerate from scratch. Check for warnings and contradictions.",
       },
       {
+        target: "[data-tour='review-module-card']",
+        title: "AI Draft Updates ✨",
+        content: "If source code changes make a module stale, RocketBoard automatically drafts a content fix. Click 'Review AI Draft' to see a side-by-side diff and accept the fix without writing a word.",
+      },
+      {
         target: "[data-tour='preview-button']",
         title: "Preview as Learner",
         content: "See exactly what learners will see. Check that code snippets are relevant, explanations are clear, and citations are accurate.",
@@ -481,6 +486,11 @@ export const ALL_TOURS: Tour[] = [
         target: "[data-tour='health-card']",
         title: "Module Health Overview",
         content: "Each card shows the freshness status for a module. Green means all sections are up-to-date; amber/red means stale sections need attention. Click **Check Now** to run a fresh staleness scan.",
+      },
+      {
+        target: "[data-tour='health-card']",
+        title: "Automated Remediation",
+        content: "When significant staleness is detected, the AI Agent automatically kicks in, reads the raw git diffs, and drafts an updated module section. Head to the Review page to accept these drafts!",
       },
     ],
   },
