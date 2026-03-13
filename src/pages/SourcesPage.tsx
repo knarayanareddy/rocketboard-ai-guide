@@ -932,7 +932,7 @@ export default function SourcesPage() {
                           {source.source_type === "github_repo" && ` • ${source.source_uri}`}
                         </p>
                         <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-                          <SourceWeightEditor sourceId={source.id} currentWeight={source.weight} />
+                          <SourceWeightEditor sourceId={source.id} currentWeight={(source as any).weight} />
                           <span className="flex items-center gap-1">
                             <Database className="w-3 h-3" />
                             {chunkCounts[source.id] || 0} chunks

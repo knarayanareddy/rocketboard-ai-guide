@@ -71,7 +71,7 @@ export function useSources() {
     mutationFn: async ({ sourceId, weight }: { sourceId: string; weight: number }) => {
       const { error } = await supabase
         .from("pack_sources")
-        .update({ weight })
+        .update({ weight } as any)
         .eq("id", sourceId);
       if (error) throw error;
     },

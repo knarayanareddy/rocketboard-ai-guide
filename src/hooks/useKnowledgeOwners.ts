@@ -32,10 +32,10 @@ export function useKnowledgeOwners(packId: string | null) {
       const uniqueEmails = Array.from(new Set(ownersData.map(o => o.user_email)));
 
       // 2. Fetch profiles for these emails to get Slack/Teams handles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('author_profiles')
+      const { data: profilesData, error: profilesError } = await (supabase
+        .from('author_profiles' as any)
         .select('email, slack_handle, teams_handle')
-        .in('email', uniqueEmails);
+        .in('email', uniqueEmails) as any);
 
       if (profilesError) throw profilesError;
 
