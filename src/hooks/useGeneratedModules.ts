@@ -301,6 +301,50 @@ export function useGeneratedModules() {
     },
   });
 
+  // Save manual edits directly
+  const saveManualEdit = useMutation({
+    mutationFn: async (opts: {
+      moduleKey: string;
+      moduleData: GeneratedModuleData;
+      currentRevision: number;
+    }): Promise<{ row: GeneratedModuleRow; changeLog: ChangeLogEntry[] }> => {
+      if (!currentPackId || !user) throw new Error("Missing pack or user");
+
+      const newRevision = opts.currentRevision + 1;
+      const changeLog: ChangeLogEntry[] = [
+        { change: "Manual author edits", reason: "Direct modification of module content" }
+      ];
+
+      const { data, error } = await supabase
+        .from("generated_modules")
+        .insert({
+          pack_id: currentPackId,
+          module_key: opts.moduleKey,
+          module_revision: newRevision,
+          title: opts.moduleData.title,
+          description: opts.moduleData.description || null,
+          estimated_minutes: opts.moduleData.estimated_minutes || null,
+          difficulty: opts.moduleData.difficulty || null,
+          track_key: opts.moduleData.track_key || null,
+          audience: opts.moduleData.audience || null,
+          depth: opts.moduleData.depth || null,
+          module_data: opts.moduleData as any,
+          contradictions: [],
+          status: "draft",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { row: data as unknown as GeneratedModuleRow, changeLog };
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["generated_modules", currentPackId] });
+      queryClient.invalidateQueries({ queryKey: ["generated_module", currentPackId, vars.moduleKey] });
+      queryClient.invalidateQueries({ queryKey: ["module_revisions", currentPackId, vars.moduleKey] });
+    },
+  });
+
   return {
     modules: modulesQuery.data || [],
     modulesLoading: modulesQuery.isLoading,
@@ -309,5 +353,6 @@ export function useGeneratedModules() {
     fetchSpecificRevision,
     generateModule,
     refineModule,
+    saveManualEdit,
   };
 }

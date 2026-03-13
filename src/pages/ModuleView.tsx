@@ -10,7 +10,7 @@ import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode, Dumbbell, MessageCircle } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode, Dumbbell, MessageCircle, Save, Bot } from "lucide-react";
 import { SectionFeedback } from "@/components/SectionFeedback";
 import { ModuleRating } from "@/components/ModuleRating";
 import { useModuleDependencies } from "@/hooks/useModuleDependencies";
@@ -52,6 +52,7 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { DiscussionList } from "@/components/DiscussionList";
 import { ThreadDetail } from "@/components/ThreadDetail";
 import type { DiscussionThread } from "@/hooks/useDiscussions";
+import { EditableSection } from "@/components/EditableSection";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -441,7 +442,7 @@ export default function ModuleView() {
 
   const staticMod = staticModules.find((m) => m.id === moduleId);
 
-  const { fetchModule, fetchRevisionHistory, refineModule } = useGeneratedModules();
+  const { fetchModule, fetchRevisionHistory, refineModule, saveManualEdit } = useGeneratedModules();
   const { data: generatedMod, isLoading: genLoading } = fetchModule(moduleId || "");
   const { data: revisionHistory } = fetchRevisionHistory(moduleId || "");
 
@@ -461,7 +462,8 @@ export default function ModuleView() {
 
   const [activeTrack, setActiveTrack] = useState<string>("all");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [refineOpen, setRefineOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editableModuleData, setEditableModuleData] = useState<GeneratedModuleData | null>(null);
   const [refineInstruction, setRefineInstruction] = useState("");
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
   const [changeLogOpen, setChangeLogOpen] = useState(false);
@@ -472,6 +474,13 @@ export default function ModuleView() {
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
   }, [moduleId]);
+
+  // Sync edits when raw data loads
+  useEffect(() => {
+    if (moduleData && !editMode) {
+      setEditableModuleData(JSON.parse(JSON.stringify(moduleData)));
+    }
+  }, [moduleData, editMode]);
 
   // Cmd+D bookmark shortcut — bookmark the current module's first section
   const { toggleBookmark: bmToggle } = useBookmarks();
@@ -640,22 +649,39 @@ export default function ModuleView() {
   };
 
   const handleRefine = () => {
-    if (!moduleId || !moduleData || !generatedMod) return;
+    if (!moduleId || !editableModuleData || !generatedMod) return;
     refineModule.mutate(
       {
         moduleKey: moduleId,
         authorInstruction: refineInstruction,
-        existingModuleData: moduleData,
+        existingModuleData: editableModuleData,
         currentRevision: generatedMod.module_revision,
-        trackKey: moduleData.track_key,
+        trackKey: editableModuleData.track_key,
       },
       {
         onSuccess: (result) => {
-          setRefineOpen(false);
           setRefineInstruction("");
           setChangeLog(result.changeLog);
           setChangeLogOpen(true);
-          toast.success(`Module refined to Rev. ${result.row.module_revision}`);
+          toast.success(`Module refined by AI (Rev ${result.row.module_revision})`);
+        },
+        onError: (e) => toast.error(e.message),
+      }
+    );
+  };
+
+  const handleSaveManual = () => {
+    if (!moduleId || !editableModuleData || !generatedMod) return;
+    saveManualEdit.mutate(
+      {
+        moduleKey: moduleId,
+        moduleData: editableModuleData,
+        currentRevision: generatedMod.module_revision,
+      },
+      {
+        onSuccess: (result) => {
+          setEditMode(false);
+          toast.success(`Module saved (Rev ${result.row.module_revision})`);
         },
         onError: (e) => toast.error(e.message),
       }
@@ -746,10 +772,10 @@ export default function ModuleView() {
               <p className="text-muted-foreground mt-1">{description}</p>
 
               {/* Author actions for generated modules */}
-              {isGenerated && hasPackPermission("author") && (
+              {isGenerated && hasPackPermission("author") && !editMode && (
                 <div className="flex items-center gap-2 mt-3">
-                  <Button size="sm" variant="outline" className="gap-2 text-xs" onClick={() => setRefineOpen(true)}>
-                    <Pencil className="w-3 h-3" /> Refine Module
+                  <Button size="sm" variant="outline" className="gap-2 text-xs" onClick={() => setEditMode(true)}>
+                    <Pencil className="w-3 h-3" /> Edit / Refine
                   </Button>
                   {(revisionHistory?.length || 0) > 1 && (
                     <Button size="sm" variant="ghost" className="gap-2 text-xs" onClick={() => setHistoryOpen(true)}>
@@ -851,20 +877,105 @@ export default function ModuleView() {
                 </div>
               )}
               <div className="space-y-4">
-                {moduleData.sections.map((section, i) => (
-                  <GeneratedSectionViewer
-                    key={section.section_id}
-                    section={section}
-                    index={i}
-                    isRead={readSections.has(section.section_id)}
-                    onMarkRead={canInteract ? () => handleToggleRead(section.section_id) : undefined}
-                    savedNote={getNoteForSection(section.section_id)}
-                    onSaveNote={canInteract ? (content) => saveNote.mutate({ sectionId: section.section_id, content }) : undefined}
-                    onDeleteNote={canInteract ? () => deleteNote.mutate({ sectionId: section.section_id }) : undefined}
-                    moduleKey={moduleId}
-                    trackKey={moduleData.track_key}
-                  />
-                ))}
+                {editMode && editableModuleData ? (
+                  // EDIT MODE VIEW
+                  <div className="space-y-6">
+                    <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 mb-8">
+                      <div className="flex items-start gap-3">
+                        <Bot className="w-5 h-5 text-primary mt-1 shrink-0" />
+                        <div className="flex-1">
+                          <label className="text-sm font-semibold text-foreground mb-1 block">AI Refinement</label>
+                          <p className="text-xs text-muted-foreground mb-3">Ask the AI to rewrite sections, expand on topics, or change the tone. It will use your manual edits below as the starting point.</p>
+                          <div className="flex gap-2">
+                            <Textarea
+                              value={refineInstruction}
+                              onChange={(e) => setRefineInstruction(e.target.value)}
+                              placeholder="e.g., Make section 2 simpler, add a conclusion..."
+                              className="min-h-[40px] h-[40px] resize-y py-2 text-sm"
+                            />
+                            <Button
+                              onClick={handleRefine}
+                              disabled={!refineInstruction.trim() || refineModule.isPending}
+                              className="gap-2 shrink-0 h-auto"
+                            >
+                              {refineModule.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                              Ask AI
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border py-3 flex items-center justify-between shadow-sm -mx-4 px-4 sm:mx-0 sm:px-0">
+                      <div>
+                        <h3 className="font-semibold text-foreground flex items-center gap-2">
+                          <Pencil className="w-4 h-4 text-primary" /> Edit Mode
+                        </h3>
+                        <p className="text-xs text-muted-foreground">Changes are stored locally until you save.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setEditMode(false);
+                          setEditableModuleData(JSON.parse(JSON.stringify(moduleData))); // revert
+                        }}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleSaveManual} disabled={saveManualEdit.isPending} className="gap-2">
+                          {saveManualEdit.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          Save Revision
+                        </Button>
+                      </div>
+                    </div>
+
+                    {editableModuleData.sections.map((section, i) => (
+                      <EditableSection
+                        key={section.section_id || i}
+                        section={section}
+                        index={i}
+                        onUpdate={(updated) => {
+                          const newSections = [...editableModuleData.sections];
+                          newSections[i] = updated;
+                          setEditableModuleData({ ...editableModuleData, sections: newSections });
+                        }}
+                        onDelete={() => {
+                          const newSections = editableModuleData.sections.filter((_, idx) => idx !== i);
+                          setEditableModuleData({ ...editableModuleData, sections: newSections });
+                        }}
+                      />
+                    ))}
+                    
+                    <Button
+                      variant="outline"
+                      className="w-full py-6 border-dashed"
+                      onClick={() => {
+                        const newSections = [...editableModuleData.sections, {
+                          section_id: crypto.randomUUID(),
+                          heading: "New Section",
+                          markdown: "",
+                        }];
+                        setEditableModuleData({ ...editableModuleData, sections: newSections });
+                      }}
+                    >
+                      + Add Section
+                    </Button>
+                  </div>
+                ) : (
+                  // READ-ONLY VIEW
+                  moduleData.sections.map((section, i) => (
+                    <GeneratedSectionViewer
+                      key={section.section_id}
+                      section={section}
+                      index={i}
+                      isRead={readSections.has(section.section_id)}
+                      onMarkRead={canInteract ? () => handleToggleRead(section.section_id) : undefined}
+                      savedNote={getNoteForSection(section.section_id)}
+                      onSaveNote={canInteract ? (content) => saveNote.mutate({ sectionId: section.section_id, content }) : undefined}
+                      onDeleteNote={canInteract ? () => deleteNote.mutate({ sectionId: section.section_id }) : undefined}
+                      moduleKey={moduleId}
+                      trackKey={moduleData.track_key}
+                    />
+                  ))
+                )}
 
                 {/* Endcap */}
                 {readSections.size === moduleData.sections.length && moduleData.endcap && (
@@ -1163,51 +1274,7 @@ export default function ModuleView() {
           />
         </ProtectedAction>
 
-        {/* Refine Module Dialog */}
-        <Dialog open={refineOpen} onOpenChange={setRefineOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Pencil className="w-4 h-4" /> Refine Module
-              </DialogTitle>
-              <DialogDescription>
-                Describe what you'd like to change. The AI will update the module and document all changes.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">What would you like to change?</label>
-                <Textarea
-                  value={refineInstruction}
-                  onChange={(e) => setRefineInstruction(e.target.value)}
-                  placeholder="e.g., Add more detail to the deployment section, simplify the authentication explanation, add a section about error handling..."
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
-              {generatedMod && (
-                <p className="text-xs text-muted-foreground">
-                  Current revision: <span className="font-mono font-medium">Rev. {generatedMod.module_revision}</span> • Next will be Rev. {generatedMod.module_revision + 1}
-                </p>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setRefineOpen(false)}>Cancel</Button>
-                <Button
-                  size="sm"
-                  onClick={handleRefine}
-                  disabled={!refineInstruction.trim() || refineModule.isPending}
-                  className="gap-2"
-                >
-                  {refineModule.isPending ? (
-                    <><Loader2 className="w-3 h-3 animate-spin" /> Refining...</>
-                  ) : (
-                    <><Sparkles className="w-3 h-3" /> Refine</>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+
 
         {/* Change Log Dialog */}
         <Dialog open={changeLogOpen} onOpenChange={setChangeLogOpen}>
