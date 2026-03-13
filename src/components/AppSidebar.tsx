@@ -129,35 +129,74 @@ export function AppSidebar() {
   // Build pack-scoped nav items dynamically
   const packPrefix = `/packs/${currentPackId}`;
 
-  const navItems = [
-    { title: "Dashboard", url: packPrefix, icon: BarChart3, minLevel: "read_only" as const, end: true },
-    { title: "Modules", url: `${packPrefix}/modules`, icon: BookOpen, minLevel: "read_only" as const, end: false },
-    { title: "Glossary", url: `${packPrefix}/glossary`, icon: BookText, minLevel: "read_only" as const, end: false },
-    { title: "Paths", url: `${packPrefix}/paths`, icon: Route, minLevel: "read_only" as const, end: false },
-    { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only" as const, end: false },
-    { title: "Team", url: `${packPrefix}/team`, icon: Users, minLevel: "read_only" as const, end: false },
-    { title: "FAQ", url: `${packPrefix}/faq`, icon: HelpCircle, minLevel: "read_only" as const, end: false },
+  type NavItem = {
+    title: string;
+    url: string;
+    icon: typeof BarChart3;
+    minLevel: "read_only" | "learner" | "author" | "admin" | "owner";
+    end: boolean;
+    badge?: number;
+  };
+
+  type NavSection = {
+    label: string;
+    items: NavItem[];
+  };
+
+  const navSections: NavSection[] = [
     {
-      title: "FAQ Suggestions",
-      url: `${packPrefix}/faq-suggestions`,
-      icon: Lightbulb,
-      minLevel: "author" as const,
-      end: false,
-      badge: suggestions.length > 0 ? suggestions.length : undefined
+      label: "Your Onboarding",
+      items: [
+        { title: "Dashboard", url: packPrefix, icon: BarChart3, minLevel: "read_only", end: true },
+        { title: "My Timeline", url: `${packPrefix}/timeline`, icon: Calendar, minLevel: "read_only", end: false },
+        { title: "Paths", url: `${packPrefix}/paths`, icon: Route, minLevel: "read_only", end: false },
+        { title: "Modules", url: `${packPrefix}/modules`, icon: BookOpen, minLevel: "read_only", end: false },
+      ],
     },
-    { title: "Saved", url: `${packPrefix}/bookmarks`, icon: Bookmark, minLevel: "read_only" as const, end: false },
-    { title: "Discussions", url: `${packPrefix}/discussions`, icon: MessageCircle, minLevel: "read_only" as const, end: false },
-    { title: "My Timeline", url: `${packPrefix}/timeline`, icon: Calendar, minLevel: "read_only" as const, end: false },
-    { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author" as const, end: false },
-    { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author" as const, end: false },
-    { title: "Review", url: `${packPrefix}/review`, icon: CheckCircle2, minLevel: "author" as const, end: false },
-    { title: "Analytics", url: `${packPrefix}/analytics`, icon: BarChart3, minLevel: "admin" as const, end: false },
-    { title: "Members", url: `${packPrefix}/members`, icon: Shield, minLevel: "admin" as const, end: false },
-    { title: "Feedback", url: `${packPrefix}/feedback`, icon: MessageCircle, minLevel: "author" as const, end: false },
-    { title: "Content Health", url: `${packPrefix}/health`, icon: Activity, minLevel: "author" as const, end: false },
-    { title: "Quiz Analytics", url: `${packPrefix}/quiz-analytics`, icon: BrainCircuit, minLevel: "author" as const, end: false },
-    { title: "Templates", url: "/templates", icon: Layout, minLevel: "admin" as const, end: false },
-    { title: "Settings", url: "/settings", icon: Settings, minLevel: "read_only" as const, end: false },
+    {
+      label: "Explore",
+      items: [
+        { title: "Glossary", url: `${packPrefix}/glossary`, icon: BookText, minLevel: "read_only", end: false },
+        { title: "FAQ", url: `${packPrefix}/faq`, icon: HelpCircle, minLevel: "read_only", end: false },
+        { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only", end: false },
+        { title: "Team", url: `${packPrefix}/team`, icon: Users, minLevel: "read_only", end: false },
+        { title: "Discussions", url: `${packPrefix}/discussions`, icon: MessageCircle, minLevel: "read_only", end: false },
+        { title: "Saved", url: `${packPrefix}/bookmarks`, icon: Bookmark, minLevel: "read_only", end: false },
+      ],
+    },
+    {
+      label: "Content Studio",
+      items: [
+        { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author", end: false },
+        { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author", end: false },
+        { title: "Review", url: `${packPrefix}/review`, icon: CheckCircle2, minLevel: "author", end: false },
+        { title: "Content Health", url: `${packPrefix}/health`, icon: Activity, minLevel: "author", end: false },
+        { title: "Templates", url: "/templates", icon: Layout, minLevel: "admin", end: false },
+      ],
+    },
+    {
+      label: "Insights",
+      items: [
+        { title: "Analytics", url: `${packPrefix}/analytics`, icon: BarChart3, minLevel: "admin", end: false },
+        { title: "Quiz Analytics", url: `${packPrefix}/quiz-analytics`, icon: BrainCircuit, minLevel: "author", end: false },
+        { title: "Feedback", url: `${packPrefix}/feedback`, icon: MessageCircle, minLevel: "author", end: false },
+        {
+          title: "FAQ Suggestions",
+          url: `${packPrefix}/faq-suggestions`,
+          icon: Lightbulb,
+          minLevel: "author",
+          end: false,
+          badge: suggestions.length > 0 ? suggestions.length : undefined,
+        },
+        { title: "Members", url: `${packPrefix}/members`, icon: Shield, minLevel: "admin", end: false },
+      ],
+    },
+    {
+      label: "System",
+      items: [
+        { title: "Settings", url: "/settings", icon: Settings, minLevel: "read_only", end: false },
+      ],
+    },
   ];
 
   const handleLanguageChange = (code: string) => {
@@ -215,37 +254,47 @@ export function AppSidebar() {
       </div>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase text-xs tracking-widest">
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent data-tour="sidebar-nav">
-            <SidebarMenu>
-              {navItems
-                .filter((item) => hasPackPermission(item.minLevel))
-                .map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.end}
-                      onClick={() => { if (isMobile) setOpenMobile(false); }}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent min-h-[44px]"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
-                    >
-                      <item.icon className="w-4 h-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                      {!collapsed && location.pathname === item.url && (
-                        <ChevronRight className="w-3 h-3 ml-auto text-sidebar-primary" />
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent data-tour="sidebar-nav">
+        {navSections.map((section) => {
+          const visibleItems = section.items.filter((item) => hasPackPermission(item.minLevel));
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <SidebarGroup key={section.label}>
+              <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase text-xs tracking-widest">
+                {section.label}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          end={item.end}
+                          onClick={() => { if (isMobile) setOpenMobile(false); }}
+                          className="flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent min-h-[44px]"
+                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                        >
+                          <item.icon className="w-4 h-4 shrink-0" />
+                          {!collapsed && <span className="flex-1">{item.title}</span>}
+                          {!collapsed && item.badge && (
+                            <span className="ml-auto inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold rounded-full bg-primary text-primary-foreground">
+                              {item.badge}
+                            </span>
+                          )}
+                          {!collapsed && !item.badge && location.pathname === item.url && (
+                            <ChevronRight className="w-3 h-3 ml-auto text-sidebar-primary" />
+                          )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
 
         {/* Quick Access Bookmarks */}
         {!collapsed && <QuickAccessBookmarks packPrefix={packPrefix} />}
