@@ -48,7 +48,7 @@ export function useChatFeedback() {
         .eq("pack_id", currentPackId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as ChatFeedbackRow[];
+      return (data ?? []) as unknown as ChatFeedbackRow[];
     },
     enabled: !!currentPackId,
   });
