@@ -27,7 +27,7 @@ export function useFaqSuggestions() {
         .eq("status", "open")
         .order("count", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as FaqSuggestion[];
+      return (data ?? []) as unknown as FaqSuggestion[];
     },
     enabled: !!currentPackId,
   });

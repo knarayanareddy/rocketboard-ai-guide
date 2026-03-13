@@ -84,7 +84,7 @@ export function useChatFeedback() {
         .single();
 
       if (error) throw error;
-      return data as ChatFeedbackRow;
+      return data as unknown as ChatFeedbackRow;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["chat_feedback"] });

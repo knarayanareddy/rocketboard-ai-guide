@@ -1177,6 +1177,7 @@ export type Database = {
           content: string
           content_hash: string
           created_at: string
+          embedding: string | null
           end_line: number
           fts: unknown
           id: string
@@ -1192,6 +1193,7 @@ export type Database = {
           content: string
           content_hash: string
           created_at?: string
+          embedding?: string | null
           end_line: number
           fts?: unknown
           id?: string
@@ -1207,6 +1209,7 @@ export type Database = {
           content?: string
           content_hash?: string
           created_at?: string
+          embedding?: string | null
           end_line?: number
           fts?: unknown
           id?: string
@@ -1628,6 +1631,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      module_remediations: {
+        Row: {
+          created_at: string
+          diff_summary: string | null
+          id: string
+          module_key: string
+          original_content: string
+          proposed_content: string
+          section_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          diff_summary?: string | null
+          id?: string
+          module_key: string
+          original_content: string
+          proposed_content: string
+          section_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          diff_summary?: string | null
+          id?: string
+          module_key?: string
+          original_content?: string
+          proposed_content?: string
+          section_id?: string
+          status?: string
+        }
+        Relationships: []
       }
       module_templates: {
         Row: {
@@ -2570,6 +2606,25 @@ export type Database = {
           avatar_url: string
           display_name: string
           user_id: string
+        }[]
+      }
+      match_chunks_hybrid: {
+        Args: {
+          match_count?: number
+          path_filter?: string
+          query_embedding: string
+          query_text: string
+          target_pack_id?: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          end_line: number
+          fts_rank: number
+          path: string
+          rrf_score: number
+          similarity: number
+          start_line: number
         }[]
       }
     }

@@ -44,10 +44,10 @@ export function useRemediations(packId: string | null) {
   const resolveRemediation = useMutation({
     mutationFn: async ({ id, status, updated_content }: { id: string, status: "accepted" | "rejected", module_key: string, section_id: string, updated_content?: string }) => {
       // 1. Mark remediation as resolved
-      const { error: rrErr } = await supabase
-        .from("module_remediations")
-        .update({ status })
-        .eq("id", id);
+      const { error: rrErr } = await (supabase
+        .from("module_remediations" as any)
+        .update({ status } as any)
+        .eq("id", id) as any);
       
       if (rrErr) throw rrErr;
 
