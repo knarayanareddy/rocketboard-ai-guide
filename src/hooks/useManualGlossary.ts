@@ -28,7 +28,7 @@ export function useManualGlossary() {
         .eq("pack_id", currentPackId!)
         .order("term", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as ManualGlossaryTerm[];
+      return (data ?? []) as unknown as ManualGlossaryTerm[];
     },
     enabled: !!currentPackId,
   });
