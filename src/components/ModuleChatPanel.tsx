@@ -33,6 +33,7 @@ export interface ChatResponse {
   contradictions?: { description: string }[];
   suggested_search_queries?: string[];
   warnings?: string[];
+  trace_id?: string;
 }
 
 type Msg = { role: "user" | "assistant"; content: string; response?: ChatResponse };
@@ -205,6 +206,7 @@ function MessageSources({
           onClose={() => setReportOpen(false)}
           messageContent={response.response_markdown}
           moduleId={moduleId}
+          traceId={response.trace_id}
         />
       </div>
     </div>

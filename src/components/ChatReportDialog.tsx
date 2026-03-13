@@ -18,6 +18,7 @@ interface ChatReportDialogProps {
   onClose: () => void;
   messageContent: string;
   moduleId?: string;
+  traceId?: string;
   context?: {
     pathname: string;
     pack_id: string | null;

@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createTrace, calculateCost } from "../_shared/telemetry.ts";
+import type { TraceBuilder } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -190,9 +192,19 @@ function buildLimitsConstraintBlock(limits: any): string {
   return `\nBINDING CONSTRAINT: Your total module output must not exceed ${limits.max_module_words || 1400} words. Distribute across sections proportionally. Each section should aim for ~${limits.max_section_words_hint || 200} words. Chat responses must not exceed ${limits.max_chat_words || 350} words. Include at most ${limits.max_key_takeaways || 7} key takeaways and ${limits.max_quiz_questions || 5} quiz questions. These are hard limits — do not exceed them.\n`;
 }
 
-async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+// Shared model constant
+const AI_MODEL = "google/gemini-3-flash-preview";
+
+async function callAI(systemPrompt: string, userPrompt: string, trace?: TraceBuilder): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw { status: 500, error_code: "network_error", message: "AI service not configured" };
+
+  const llmSpan = trace?.startSpan("llm-call", {
+    model: AI_MODEL,
+    systemPromptLength: systemPrompt.length,
+    userPromptLength: userPrompt.length,
+  });
+  const startTime = Date.now();
 
   let response: Response;
   try {
@@ -203,7 +215,7 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: AI_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -213,6 +225,7 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
     });
   } catch (e) {
     console.error("AI gateway network error:", e);
+    llmSpan?.error("Network error reaching AI gateway");
     throw { status: 503, error_code: "network_error", message: "Could not reach AI service. Please try again." };
   }
 
@@ -220,13 +233,41 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
     const status = response.status;
     const t = await response.text();
     console.error("AI gateway error:", status, t);
+    llmSpan?.error(`AI gateway returned ${status}`);
     if (status === 429) throw { status: 429, error_code: "rate_limited", message: "Too many requests. Please wait a moment and try again." };
     if (status === 402) throw { status: 402, error_code: "credit_exhausted", message: "AI credits exhausted. Contact your admin to add more credits." };
     throw { status: 500, error_code: "network_error", message: "AI service unavailable" };
   }
 
   const aiResult = await response.json();
-  return aiResult.choices?.[0]?.message?.content || "";
+  const latencyMs = Date.now() - startTime;
+  const content = aiResult.choices?.[0]?.message?.content || "";
+  const usage = aiResult.usage;
+
+  // Record generation metrics on the trace
+  if (trace && usage) {
+    const inputTokens = usage.prompt_tokens || 0;
+    const outputTokens = usage.completion_tokens || 0;
+    trace.setGeneration({
+      model: AI_MODEL,
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+      latencyMs,
+      costUsd: calculateCost(AI_MODEL, inputTokens, outputTokens),
+      input: [{ role: "system", content: "[redacted]" }, { role: "user", content: userPrompt.slice(0, 500) }],
+      output: content.slice(0, 500),
+    });
+  }
+
+  llmSpan?.end({
+    contentLength: content.length,
+    latencyMs,
+    inputTokens: usage?.prompt_tokens,
+    outputTokens: usage?.completion_tokens,
+  });
+
+  return content;
 }
 
 function tryParseJson(raw: string): any | null {
@@ -1730,6 +1771,8 @@ Return ONLY the JSON object.`;
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let trace: TraceBuilder | undefined;
+
   try {
     // JWT Authentication
     const authResult = await authenticateRequest(req);
@@ -1749,49 +1792,115 @@ serve(async (req) => {
       return errorResponse(400, { error: "Missing task.type in envelope" });
     }
 
+    // ─── Telemetry: create trace ───
+    trace = createTrace({
+      taskType,
+      requestId,
+      userId,
+      packId: envelope.pack?.pack_id,
+      orgId: envelope.pack?.org_id,
+      moduleKey: envelope.context?.current_module_key || envelope.inputs?.module?.module_key,
+      trackKey: envelope.context?.current_track_key,
+      environment: Deno.env.get("LANGFUSE_ENVIRONMENT") || "production",
+    });
+
     // Pack access authorization
+    const authSpan = trace.startSpan("pack-authorization");
     const accessDenied = await checkPackAccess(userId, envelope);
-    if (accessDenied) return accessDenied;
+    if (accessDenied) {
+      authSpan.error("Access denied");
+      trace.setError("Pack access denied");
+      await trace.flush();
+      return accessDenied;
+    }
+    authSpan.end({ authorized: true });
 
     // Preprocess: sanitize inputs + redact spans
+    const preprocessSpan = trace.startSpan("preprocessing", {
+      spanCount: envelope.retrieval?.evidence_spans?.length || 0,
+    });
     const preprocessed = preprocessEnvelope(envelope);
-    if (preprocessed instanceof Response) return preprocessed;
+    if (preprocessed instanceof Response) {
+      preprocessSpan.error("Preprocessing rejected input");
+      trace.setError("Input validation failed");
+      await trace.flush();
+      return preprocessed;
+    }
     const { envelope: safeEnvelope, warnings: extraWarnings } = preprocessed;
+    preprocessSpan.end({
+      warningCount: extraWarnings.length,
+      finalSpanCount: safeEnvelope.retrieval?.evidence_spans?.length || 0,
+    });
 
+    // ─── Dispatch to handler ───
+    let result: Response;
     switch (taskType) {
       case "chat":
-        return await handleChat(safeEnvelope, extraWarnings);
+        result = await handleChat(safeEnvelope, extraWarnings);
+        break;
       case "global_chat":
-        return await handleGlobalChat(safeEnvelope, extraWarnings);
+        result = await handleGlobalChat(safeEnvelope, extraWarnings);
+        break;
       case "module_planner":
-        return await handleModulePlanner(safeEnvelope, extraWarnings);
+        result = await handleModulePlanner(safeEnvelope, extraWarnings);
+        break;
       case "generate_module":
-        return await handleGenerateModule(safeEnvelope, extraWarnings);
+        result = await handleGenerateModule(safeEnvelope, extraWarnings);
+        break;
       case "generate_quiz":
-        return await handleGenerateQuiz(safeEnvelope, extraWarnings);
+        result = await handleGenerateQuiz(safeEnvelope, extraWarnings);
+        break;
       case "generate_glossary":
-        return await handleGenerateGlossary(safeEnvelope, extraWarnings);
+        result = await handleGenerateGlossary(safeEnvelope, extraWarnings);
+        break;
       case "generate_paths":
-        return await handleGeneratePaths(safeEnvelope, extraWarnings);
+        result = await handleGeneratePaths(safeEnvelope, extraWarnings);
+        break;
       case "generate_ask_lead":
-        return await handleGenerateAskLead(safeEnvelope, extraWarnings);
+        result = await handleGenerateAskLead(safeEnvelope, extraWarnings);
+        break;
       case "simplify_section":
-        return await handleSimplifySection(safeEnvelope, extraWarnings);
+        result = await handleSimplifySection(safeEnvelope, extraWarnings);
+        break;
       case "create_template":
-        return await handleCreateTemplate(safeEnvelope, extraWarnings);
+        result = await handleCreateTemplate(safeEnvelope, extraWarnings);
+        break;
       case "refine_template":
-        return await handleRefineTemplate(safeEnvelope, extraWarnings);
+        result = await handleRefineTemplate(safeEnvelope, extraWarnings);
+        break;
       case "refine_module":
-        return await handleRefineModule(safeEnvelope, extraWarnings);
+        result = await handleRefineModule(safeEnvelope, extraWarnings);
+        break;
       case "generate_exercises":
-        return await handleGenerateExercises(safeEnvelope, extraWarnings);
+        result = await handleGenerateExercises(safeEnvelope, extraWarnings);
+        break;
       case "verify_exercise":
-        return await handleVerifyExercise(safeEnvelope, extraWarnings);
+        result = await handleVerifyExercise(safeEnvelope, extraWarnings);
+        break;
       default:
-        return structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`);
+        result = structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`);
     }
+
+    // ─── Inject traceId into the response body ───
+    try {
+      const body = await result.clone().json();
+      body.trace_id = trace.getTraceId();
+      result = new Response(JSON.stringify(body), {
+        status: result.status,
+        headers: result.headers,
+      });
+    } catch { /* non-JSON response, skip injection */ }
+
+    // ─── Flush telemetry ───
+    await trace.flush();
+    return result;
+
   } catch (e: any) {
     console.error("ai-task-router error:", e);
+    if (trace) {
+      trace.setError(e.message || "Unknown error");
+      await trace.flush();
+    }
     const requestId = "unknown";
     if (e.error_code) {
       return structuredError(requestId, e.error_code, e.message || "An error occurred");
