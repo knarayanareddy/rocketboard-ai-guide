@@ -45,6 +45,7 @@ import { usePack } from "@/hooks/usePack";
 import { useModulePlan } from "@/hooks/useModulePlan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SourceWeightEditor } from "@/components/SourceWeightEditor";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -930,7 +931,8 @@ export default function SourcesPage() {
                           {getSourceTypeLabel(source.source_type)}
                           {source.source_type === "github_repo" && ` • ${source.source_uri}`}
                         </p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <SourceWeightEditor sourceId={source.id} currentWeight={source.weight} />
                           <span className="flex items-center gap-1">
                             <Database className="w-3 h-3" />
                             {chunkCounts[source.id] || 0} chunks

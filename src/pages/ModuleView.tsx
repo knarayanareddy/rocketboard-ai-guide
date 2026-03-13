@@ -10,7 +10,7 @@ import { ProtectedAction } from "@/components/ProtectedAction";
 import { CitationBadge } from "@/components/CitationBadge";
 import { NotesPanel } from "@/components/NotesPanel";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
-import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode, Dumbbell, MessageCircle, Save, Bot } from "lucide-react";
+import { ArrowLeft, Filter, BookOpen, BrainCircuit, Lightbulb, Star, Lock, Sparkles, ChevronDown, ChevronUp, RotateCcw, Loader2, Pencil, History, FileText, Wand2, Eye, EyeOff, AlertTriangle, Info, GitBranch, FolderCode, Dumbbell, MessageCircle, Save, Bot, RefreshCw } from "lucide-react";
 import { SectionFeedback } from "@/components/SectionFeedback";
 import { ModuleRating } from "@/components/ModuleRating";
 import { useModuleDependencies } from "@/hooks/useModuleDependencies";
@@ -44,6 +44,7 @@ import { useGenerationPrefs } from "@/hooks/useGenerationPrefs";
 import { validateAIOutput } from "@/lib/schema-validator";
 import { validateCitations } from "@/lib/citation-validator";
 import { KeyFilesSection } from "@/components/KeyFilesSection";
+import { AskAnExpertWidget } from "@/components/AskAnExpertWidget";
 import { CodeExplorer } from "@/components/CodeExplorer";
 import { ExerciseCard } from "@/components/ExerciseCard";
 import { useExercises } from "@/hooks/useExercises";
@@ -53,6 +54,10 @@ import { DiscussionList } from "@/components/DiscussionList";
 import { ThreadDetail } from "@/components/ThreadDetail";
 import type { DiscussionThread } from "@/hooks/useDiscussions";
 import { EditableSection } from "@/components/EditableSection";
+import { useContentFreshness } from "@/hooks/useContentFreshness";
+import { useTelemetry } from "@/hooks/useTelemetry";
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote, onSaveNote, onDeleteNote, moduleKey, trackKey }: {
   section: GeneratedSection;
@@ -464,6 +469,8 @@ export default function ModuleView() {
   const initEditMode = searchParams.get("edit") === "1";
 
   const [activeTrack, setActiveTrack] = useState<string>("all");
+  const { freshness } = useContentFreshness();
+
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [editMode, setEditMode] = useState(initEditMode);
   const [editableModuleData, setEditableModuleData] = useState<GeneratedModuleData | null>(null);
@@ -473,6 +480,8 @@ export default function ModuleView() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [codeExplorerOpen, setCodeExplorerOpen] = useState(false);
   const [selectedThread, setSelectedThread] = useState<DiscussionThread | null>(null);
+
+  const { logHelpRequest } = useTelemetry(moduleId || "");
 
   useEffect(() => {
     if (moduleId) updateLastOpened.mutate({ moduleId });
@@ -741,6 +750,36 @@ export default function ModuleView() {
             </motion.div>
           )}
 
+          {/* Stale Content Warning */}
+          {freshness.some(f => f.module_key === moduleId && f.is_stale) && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="mb-6 bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3"
+            >
+              <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm">
+                <p className="text-foreground font-semibold">Content Staleness Warning</p>
+                <p className="text-muted-foreground mt-1">
+                  The underlying source code truth for this module has changed since it was generated. Some sections may be outdated or incorrect.
+                </p>
+                {hasPackPermission("author") && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 gap-2 border-destructive/30 hover:bg-destructive/10"
+                    onClick={() => {
+                      setEditMode(true);
+                      setRefineInstruction("The underlying source has changed. Please review the updated code and regenerate this module to ensure accuracy.");
+                    }}
+                  >
+                    <RefreshCw className="w-4 h-4" /> Resolve Inconsistencies
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           <div className="flex items-start gap-4 mb-2" data-tour="module-header">
             {!isGenerated && staticMod && <span className="text-4xl">{staticMod.icon}</span>}
             {isGenerated && (
@@ -827,6 +866,11 @@ export default function ModuleView() {
               evidenceIndex={moduleData.evidence_index}
               packId={currentPackId}
             />
+          )}
+
+          {/* Ask an Expert Widget */}
+          {isGenerated && currentPackId && (
+            <AskAnExpertWidget packId={currentPackId} moduleTitle={title} onHelpRequested={logHelpRequest} />
           )}
 
           {/* Progress bar */}

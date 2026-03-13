@@ -178,6 +178,20 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function parseCodeowners(content: string): { pattern: string; owners: string[] }[] {
+  const lines = content.split("\n");
+  const rules: { pattern: string; owners: string[] }[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const parts = trimmed.split(/\s+/);
+    if (parts.length >= 2) {
+      rules.push({ pattern: parts[0], owners: parts.slice(1) });
+    }
+  }
+  return rules;
+}
+
 async function fetchGitHubTree(owner: string, repo: string, token?: string): Promise<string[]> {
   const headers: Record<string, string> = { Accept: "application/vnd.github.v3+json" };
   if (token) headers.Authorization = `token ${token}`;
@@ -239,6 +253,25 @@ Deno.serve(async (req) => {
 
       const githubToken = Deno.env.get("GITHUB_TOKEN");
       const files = await fetchGitHubTree(owner, repo.replace(/\.git$/, ""), githubToken);
+
+      // Check for CODEOWNERS
+      const codeownersPath = files.find(f => f.endsWith("CODEOWNERS") || f === ".github/CODEOWNERS" || f === "docs/CODEOWNERS");
+      if (codeownersPath) {
+        const coContent = await fetchGitHubFile(owner, repo.replace(/\.git$/, ""), codeownersPath, githubToken);
+        if (coContent) {
+          const rules = parseCodeowners(coContent);
+          if (rules.length > 0) {
+            const ownersToInsert = rules.map(r => ({
+              pack_id,
+              path_pattern: r.pattern,
+              owner_ids: r.owners,
+              metadata: { source: codeownersPath }
+            }));
+            await supabase.from("knowledge_owners").upsert(ownersToInsert, { onConflict: "pack_id,path_pattern" });
+            console.log(`[CODEOWNERS] Parsed ${rules.length} rules from ${codeownersPath}`);
+          }
+        }
+      }
 
       await supabase.from("ingestion_jobs").update({ total_chunks: files.length * 2 }).eq("id", jobId);
 

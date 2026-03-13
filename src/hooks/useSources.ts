@@ -67,6 +67,19 @@ export function useSources() {
     },
   });
 
+  const updateSourceWeight = useMutation({
+    mutationFn: async ({ sourceId, weight }: { sourceId: string; weight: number }) => {
+      const { error } = await supabase
+        .from("pack_sources")
+        .update({ weight })
+        .eq("id", sourceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pack_sources", currentPackId] });
+    },
+  });
+
   // Get chunk count per source
   const { data: chunkCounts = {} } = useQuery({
     queryKey: ["chunk_counts", currentPackId],
@@ -85,5 +98,5 @@ export function useSources() {
     enabled: !!currentPackId,
   });
 
-  return { sources, isLoading, addSource, deleteSource, chunkCounts };
+  return { sources, isLoading, addSource, deleteSource, updateSourceWeight, chunkCounts };
 }

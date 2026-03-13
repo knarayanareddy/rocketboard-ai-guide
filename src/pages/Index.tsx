@@ -30,6 +30,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLearnerOnboardingCheck } from "@/hooks/useLearnerOnboardingCheck";
 import { LearnerOnboardingWizard } from "@/components/LearnerOnboardingWizard";
 import { useDemoPack } from "@/hooks/useDemoPack";
+import { GraduationModal } from "@/components/GraduationModal";
+import { useEffect } from "react";
 
 const container = {
   hidden: { opacity: 0 },
@@ -352,6 +354,8 @@ const Index = () => {
   const isAuthor = hasPackPermission("author");
   const { hasCompletedOnboarding, isChecking: onboardingChecking } = useLearnerOnboardingCheck();
   const [showLearnerWizard, setShowLearnerWizard] = useState(false);
+  const [showGraduation, setShowGraduation] = useState(false);
+  const [hasGraduated, setHasGraduated] = useState(false);
 
   // Show wizard for non-author learners who haven't completed onboarding
   const shouldShowWizard = !isAuthor && !hasCompletedOnboarding && !onboardingChecking;
@@ -429,6 +433,13 @@ const Index = () => {
 
   const hasContent = useGenerated || staticModules.length > 0;
   const showEmptyState = !useGenerated && !modulesLoading;
+
+  useEffect(() => {
+    if (effectiveModuleCount > 0 && effectiveCompleted === effectiveModuleCount && !hasGraduated) {
+      setShowGraduation(true);
+      setHasGraduated(true);
+    }
+  }, [effectiveCompleted, effectiveModuleCount, hasGraduated]);
 
   return (
     <>
@@ -583,6 +594,12 @@ const Index = () => {
         )}
       </div>
     </DashboardLayout>
+      <GraduationModal 
+        isOpen={showGraduation} 
+        onClose={() => setShowGraduation(false)} 
+        packTitle={currentPack?.title || "Onboarding Pack"}
+        packId={effectivePackId}
+      />
     </>
   );
 };

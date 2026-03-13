@@ -66,13 +66,21 @@ Deno.serve(async (req) => {
     if (module_key) pathFilter = `%${module_key}%`;
     if (track_key) pathFilter = `%${track_key}%`;
 
+    // Fetch source weights for this pack
+    const { data: sourceWeights } = await adminClient
+      .from("pack_sources")
+      .select("id, weight")
+      .eq("pack_id", pack_id);
+
+    const weightMap = new Map((sourceWeights ?? []).map((s: any) => [s.id, Number(s.weight) || 1.0]));
+
     let queryBuilder = adminClient
       .from("knowledge_chunks")
-      .select("id, chunk_id, path, start_line, end_line, content, metadata")
+      .select("id, chunk_id, path, start_line, end_line, content, metadata, source_id")
       .eq("pack_id", pack_id)
       .eq("is_redacted", false)
       .textSearch("fts", tsQuery, { type: "plain" })
-      .limit(max_spans);
+      .limit(max_spans * 2); // Fetch more for re-ranking
 
     if (pathFilter) {
       queryBuilder = queryBuilder.ilike("path", pathFilter);
@@ -87,14 +95,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const spans = (chunks || []).map((chunk: any, idx: number) => ({
-      span_id: `S${idx + 1}`,
-      path: chunk.path,
-      chunk_id: chunk.chunk_id,
-      start_line: chunk.start_line,
-      end_line: chunk.end_line,
-      text: chunk.content,
-    }));
+    // Re-rank based on source weight
+    const spans = (chunks || [])
+      .map((chunk: any) => ({
+        ...chunk,
+        weight: weightMap.get(chunk.source_id) || 1.0
+      }))
+      // Simple re-ranking: sort by weight descending
+      // In a real RRS, we'd combine this with the FTS rank
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, max_spans)
+      .map((chunk: any, idx: number) => ({
+        span_id: `S${idx + 1}`,
+        path: chunk.path,
+        chunk_id: chunk.chunk_id,
+        start_line: chunk.start_line,
+        end_line: chunk.end_line,
+        text: chunk.content,
+      }));
 
     return new Response(JSON.stringify({ spans }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -8,6 +8,7 @@ import { useGeneratedAskLead } from "@/hooks/useGeneratedAskLead";
 import { useModulePlan } from "@/hooks/useModulePlan";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
+import { useContentFreshness } from "@/hooks/useContentFreshness";
 import { supabase } from "@/integrations/supabase/client";
 import { AIError } from "@/lib/ai-errors";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -22,6 +23,7 @@ import {
 import {
   BookOpen, Sparkles, Eye, Pencil, RotateCcw, Rocket, AlertTriangle,
   CheckCircle2, Loader2, BookText, Route, MessageSquareMore, Users, X,
+  RefreshCw,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -38,12 +40,13 @@ const difficultyColor: Record<string, string> = {
   advanced: "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
-function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount }: {
+function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount, isStale }: {
   mod: GeneratedModuleRow;
   onPreview: () => void;
   onRefine: () => void;
   onRegenerate: () => void;
   quizCount: number;
+  isStale?: boolean;
 }) {
   const sectionCount = (mod.module_data as any)?.sections?.length || 0;
   const contradictions = Array.isArray(mod.contradictions) ? mod.contradictions.length : 0;
@@ -59,6 +62,11 @@ function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount }:
           <Badge variant="outline" className={`text-[10px] ${statusColor[mod.status] || ""}`}>
             {mod.status}
           </Badge>
+          {isStale && (
+            <Badge variant="outline" className="text-[10px] bg-destructive/15 text-destructive border-destructive/30 flex items-center gap-1">
+              <RefreshCw className="w-2.5 h-2.5" /> Sync Required
+            </Badge>
+          )}
           {mod.status === "draft" && <HelpTooltip content={HELP_TOOLTIPS.generation.draftStatus} />}
         </div>
 
@@ -127,6 +135,7 @@ export default function ReviewPage() {
   const { paths } = useGeneratedPaths();
   const { askLead } = useGeneratedAskLead();
   const { plan, approvePlan } = useModulePlan();
+  const { freshness, staleCount, checkStaleness } = useContentFreshness();
 
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
@@ -297,6 +306,7 @@ export default function ReviewPage() {
                 key={mod.id}
                 mod={mod}
                 quizCount={0} // Will be enriched later
+                isStale={freshness.some(f => f.module_key === mod.module_key && f.is_stale)}
                 onPreview={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?preview=1`)}
                 onRefine={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?edit=1`)}
                 onRegenerate={() => handleRegenerate(mod)}
