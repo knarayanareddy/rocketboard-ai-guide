@@ -38,17 +38,35 @@ serve(async (req) => {
     const packIds = [...new Set((sources || []).map(s => s.pack_id))];
     console.log(`[WEBHOOK] Push to ${repoUrl} affects ${packIds.length} pack(s)`);
 
-    // Trigger staleness check for each affected pack
+    const commits = payload.commits || [];
+    const changedFiles = new Set<string>();
+    commits.forEach((c: any) => {
+      (c.added || []).forEach((f: string) => changedFiles.add(f));
+      (c.modified || []).forEach((f: string) => changedFiles.add(f));
+      (c.removed || []).forEach((f: string) => changedFiles.add(f));
+    });
+    const changedFilesList = Array.from(changedFiles);
+    const compareUrl = payload.compare;
+
+    // Trigger staleness check and remediation for each affected pack
     for (const packId of packIds) {
+      // 1. Mark as stale
       await fetch(`${supabaseUrl}/functions/v1/check-staleness`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceKey}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
         body: JSON.stringify({ pack_id: packId }),
       });
       console.log(`[WEBHOOK] Triggered staleness check for pack ${packId}`);
+
+      // 2. Trigger async remediation drafting
+      if (changedFilesList.length > 0 && compareUrl) {
+        await fetch(`${supabaseUrl}/functions/v1/auto-remediate-module`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ pack_id: packId, changed_files: changedFilesList, compare_url: compareUrl }),
+        });
+        console.log(`[WEBHOOK] Triggered auto-remediation for pack ${packId}`);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, affected_packs: packIds.length }), {

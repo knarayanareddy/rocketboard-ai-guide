@@ -5,6 +5,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
+  if (!apiKey) return null;
+  try {
+    const res = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        input: text.replace(/\n/g, " "),
+        model: "text-embedding-3-small"
+      })
+    });
+    if (!res.ok) {
+      console.error("OpenAI Embedding error:", await res.text());
+      return null;
+    }
+    const data = await res.json();
+    return data.data[0].embedding;
+  } catch (err) {
+    console.error("Embedding generation failed:", err);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -62,50 +88,38 @@ Deno.serve(async (req) => {
     }
 
     // Build path filter if module_key or track_key provided
-    let pathFilter = "";
+    let pathFilter = null;
     if (module_key) pathFilter = `%${module_key}%`;
     if (track_key) pathFilter = `%${track_key}%`;
 
-    // Fetch source weights for this pack
-    const { data: sourceWeights } = await adminClient
-      .from("pack_sources")
-      .select("id, weight")
-      .eq("pack_id", pack_id);
-
-    const weightMap = new Map((sourceWeights ?? []).map((s: any) => [s.id, Number(s.weight) || 1.0]));
-
-    let queryBuilder = adminClient
-      .from("knowledge_chunks")
-      .select("id, chunk_id, path, start_line, end_line, content, metadata, source_id")
-      .eq("pack_id", pack_id)
-      .eq("is_redacted", false)
-      .textSearch("fts", tsQuery, { type: "plain" })
-      .limit(max_spans * 2); // Fetch more for re-ranking
-
-    if (pathFilter) {
-      queryBuilder = queryBuilder.ilike("path", pathFilter);
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+    let embedding = null;
+    
+    if (openAIApiKey) {
+      embedding = await generateEmbedding(query, openAIApiKey);
     }
 
-    const { data: chunks, error: queryError } = await queryBuilder;
+    let spans = [];
 
-    if (queryError) {
-      console.error("Search error:", queryError);
-      return new Response(JSON.stringify({ error: "Search failed" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (embedding) {
+      console.log(`[RETRIEVAL] Using hybrid search for pack ${pack_id}`);
+      
+      const { data: chunks, error: rpcError } = await adminClient.rpc('match_chunks_hybrid', {
+        query_embedding: embedding,
+        query_text: tsQuery,
+        match_count: max_spans,
+        target_pack_id: pack_id,
+        path_filter: pathFilter
       });
-    }
 
-    // Re-rank based on source weight
-    const spans = (chunks || [])
-      .map((chunk: any) => ({
-        ...chunk,
-        weight: weightMap.get(chunk.source_id) || 1.0
-      }))
-      // Simple re-ranking: sort by weight descending
-      // In a real RRS, we'd combine this with the FTS rank
-      .sort((a, b) => b.weight - a.weight)
-      .slice(0, max_spans)
-      .map((chunk: any, idx: number) => ({
+      if (rpcError) {
+        console.error("Hybrid Search error:", rpcError);
+        return new Response(JSON.stringify({ error: "Hybrid search failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      spans = (chunks || []).map((chunk: any, idx: number) => ({
         span_id: `S${idx + 1}`,
         path: chunk.path,
         chunk_id: chunk.chunk_id,
@@ -113,6 +127,56 @@ Deno.serve(async (req) => {
         end_line: chunk.end_line,
         text: chunk.content,
       }));
+    } else {
+      console.log(`[RETRIEVAL] Fallback to FTS for pack ${pack_id}`);
+      
+      // Fetch source weights for this pack
+      const { data: sourceWeights } = await adminClient
+        .from("pack_sources")
+        .select("id, weight")
+        .eq("pack_id", pack_id);
+
+      const weightMap = new Map((sourceWeights ?? []).map((s: any) => [s.id, Number(s.weight) || 1.0]));
+
+      let queryBuilder = adminClient
+        .from("knowledge_chunks")
+        .select("id, chunk_id, path, start_line, end_line, content, metadata, source_id")
+        .eq("pack_id", pack_id)
+        .eq("is_redacted", false)
+        .textSearch("fts", tsQuery, { type: "plain" })
+        .limit(max_spans * 2); // Fetch more for re-ranking
+
+      if (pathFilter) {
+        queryBuilder = queryBuilder.ilike("path", pathFilter);
+      }
+
+      const { data: chunks, error: queryError } = await queryBuilder;
+
+      if (queryError) {
+        console.error("Search error:", queryError);
+        return new Response(JSON.stringify({ error: "Search failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Re-rank based on source weight
+      spans = (chunks || [])
+        .map((chunk: any) => ({
+          ...chunk,
+          weight: weightMap.get(chunk.source_id) || 1.0
+        }))
+        // Simple re-ranking: sort by weight descending
+        .sort((a, b) => b.weight - a.weight)
+        .slice(0, max_spans)
+        .map((chunk: any, idx: number) => ({
+          span_id: `S${idx + 1}`,
+          path: chunk.path,
+          chunk_id: chunk.chunk_id,
+          start_line: chunk.start_line,
+          end_line: chunk.end_line,
+          text: chunk.content,
+        }));
+    }
 
     return new Response(JSON.stringify({ spans }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

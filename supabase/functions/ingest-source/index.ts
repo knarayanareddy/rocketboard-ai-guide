@@ -178,6 +178,32 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
+  if (!apiKey) return null;
+  try {
+    const res = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        input: text.replace(/\n/g, " "),
+        model: "text-embedding-3-small"
+      })
+    });
+    if (!res.ok) {
+      console.error("OpenAI Embedding error:", await res.text());
+      return null;
+    }
+    const data = await res.json();
+    return data.data[0].embedding;
+  } catch (err) {
+    console.error("Embedding generation failed:", err);
+    return null;
+  }
+}
+
 function parseCodeowners(content: string): { pattern: string; owners: string[] }[] {
   const lines = content.split("\n");
   const rules: { pattern: string; owners: string[] }[] = [];
@@ -243,8 +269,11 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
 
     const jobId = job.id;
-    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any> }[] = [];
+    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[] }[] = [];
     let totalRedactions = 0;
+    
+    // We will attempt to get an OpenAI API key (or Lovable fallback) for embeddings
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
 
     if (source_type === "github_repo") {
       const match = source_uri.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -295,6 +324,13 @@ Deno.serve(async (req) => {
           const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
           const ext = filepath.split(".").pop() || "";
           const setupMeta = getSetupMetadata(filepath);
+          
+          let embedding: number[] | undefined;
+          if (openAIApiKey) {
+            const vec = await generateEmbedding(content, openAIApiKey);
+            if (vec) embedding = vec;
+          }
+
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `repo:${owner}/${repoName}/${filepath}`,
@@ -304,6 +340,7 @@ Deno.serve(async (req) => {
             content_hash: hash,
             is_redacted: isRedacted,
             metadata: { source_url: sourceUrl, file_type: ext, ...setupMeta },
+            embedding,
           });
         }
 
@@ -325,6 +362,13 @@ Deno.serve(async (req) => {
           console.log(`[REDACTION] doc:${docLabel} chunk ${chunkIdx}: ${redactionCount} secret(s) redacted`);
         }
         const hash = await sha256(content);
+        
+        let embedding: number[] | undefined;
+        if (openAIApiKey) {
+          const vec = await generateEmbedding(content, openAIApiKey);
+          if (vec) embedding = vec;
+        }
+
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `doc:${docLabel}`,
@@ -334,6 +378,7 @@ Deno.serve(async (req) => {
           content_hash: hash,
           is_redacted: isRedacted,
           metadata: { file_type: "document", source_url: source_uri || null },
+          embedding,
         });
       }
     } else if (["confluence", "notion", "google_drive", "sharepoint", "jira", "linear", "openapi_spec", "postman_collection", "figma", "slack_channel", "loom_video", "pagerduty"].includes(source_type)) {

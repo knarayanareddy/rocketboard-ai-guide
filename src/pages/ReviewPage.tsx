@@ -9,6 +9,7 @@ import { useModulePlan } from "@/hooks/useModulePlan";
 import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { useContentFreshness } from "@/hooks/useContentFreshness";
+import { useRemediations, RemediationRow } from "@/hooks/useRemediations";
 import { supabase } from "@/integrations/supabase/client";
 import { AIError } from "@/lib/ai-errors";
 import { AIErrorDisplay } from "@/components/AIErrorDisplay";
@@ -40,13 +41,15 @@ const difficultyColor: Record<string, string> = {
   advanced: "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
-function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount, isStale }: {
+function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, onReviewDraft, quizCount, isStale, pendingRemediation }: {
   mod: GeneratedModuleRow;
   onPreview: () => void;
   onRefine: () => void;
   onRegenerate: () => void;
+  onReviewDraft?: () => void;
   quizCount: number;
   isStale?: boolean;
+  pendingRemediation?: RemediationRow;
 }) {
   const sectionCount = (mod.module_data as any)?.sections?.length || 0;
   const contradictions = Array.isArray(mod.contradictions) ? mod.contradictions.length : 0;
@@ -62,11 +65,15 @@ function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount, i
           <Badge variant="outline" className={`text-[10px] ${statusColor[mod.status] || ""}`}>
             {mod.status}
           </Badge>
-          {isStale && (
+          {pendingRemediation ? (
+            <Badge variant="outline" className="text-[10px] bg-blue-500/15 text-blue-400 border-blue-500/30 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5" /> Draft Update Available
+            </Badge>
+          ) : isStale ? (
             <Badge variant="outline" className="text-[10px] bg-destructive/15 text-destructive border-destructive/30 flex items-center gap-1">
               <RefreshCw className="w-2.5 h-2.5" /> Sync Required
             </Badge>
-          )}
+          ) : null}
           {mod.status === "draft" && <HelpTooltip content={HELP_TOOLTIPS.generation.draftStatus} />}
         </div>
 
@@ -95,12 +102,20 @@ function ModuleReviewCard({ mod, onPreview, onRefine, onRegenerate, quizCount, i
         )}
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onPreview} data-tour="preview-button">
-            <Eye className="w-3 h-3" /> Preview
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onRefine} data-tour="refine-button">
-            <Pencil className="w-3 h-3" /> Refine
-          </Button>
+          {pendingRemediation && onReviewDraft ? (
+            <Button size="sm" variant="default" className="gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={onReviewDraft}>
+              <Sparkles className="w-3 h-3" /> Review AI Draft
+            </Button>
+          ) : (
+            <>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onPreview} data-tour="preview-button">
+                <Eye className="w-3 h-3" /> Preview
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={onRefine} data-tour="refine-button">
+                <Pencil className="w-3 h-3" /> Refine
+              </Button>
+            </>
+          )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="outline" className="gap-1.5 text-xs">
@@ -136,10 +151,12 @@ export default function ReviewPage() {
   const { askLead } = useGeneratedAskLead();
   const { plan, approvePlan } = useModulePlan();
   const { freshness, staleCount, checkStaleness } = useContentFreshness();
+  const { remediations, isLoading: loadingRemediations, resolveRemediation } = useRemediations(currentPackId);
 
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [regenError, setRegenError] = useState<AIError | null>(null);
+  const [reviewingRemediation, setReviewingRemediation] = useState<RemediationRow | null>(null);
 
   if (!hasPackPermission("author")) {
     return (
@@ -301,17 +318,22 @@ export default function ReviewPage() {
             <BookOpen className="w-5 h-5 text-primary" /> Modules ({allModulesForReview.length})
           </h2>
           <div className="space-y-3" data-tour="review-module-card">
-            {allModulesForReview.map(mod => (
-              <ModuleReviewCard
-                key={mod.id}
-                mod={mod}
-                quizCount={0} // Will be enriched later
-                isStale={freshness.some(f => f.module_key === mod.module_key && f.is_stale)}
-                onPreview={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?preview=1`)}
-                onRefine={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?edit=1`)}
-                onRegenerate={() => handleRegenerate(mod)}
-              />
-            ))}
+            {allModulesForReview.map(mod => {
+              const remediation = remediations.find(r => r.module_key === mod.module_key);
+              return (
+                <ModuleReviewCard
+                  key={mod.id}
+                  mod={mod}
+                  quizCount={0} // Will be enriched later
+                  isStale={freshness.some(f => f.module_key === mod.module_key && f.is_stale)}
+                  pendingRemediation={remediation}
+                  onPreview={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?preview=1`)}
+                  onRefine={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?edit=1`)}
+                  onRegenerate={() => handleRegenerate(mod)}
+                  onReviewDraft={() => setReviewingRemediation(remediation || null)}
+                />
+              );
+            })}
 
             {/* Regenerate error */}
             {regenError && (
@@ -359,6 +381,58 @@ export default function ReviewPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* AI Remediation Review Modal */}
+        {reviewingRemediation && (
+          <AlertDialog open={!!reviewingRemediation} onOpenChange={(open) => !open && setReviewingRemediation(null)}>
+            <AlertDialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-blue-500" /> Review AI Draft Update
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  The source code has changed. The AI proposes the following update: <strong>{reviewingRemediation.diff_summary}</strong>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="flex-1 overflow-auto grid grid-cols-2 gap-4 py-4 min-h-[40vh]">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-muted-foreground">Original Content (Stale)</h4>
+                  <div className="p-4 bg-muted/50 rounded-md whitespace-pre-wrap text-sm border border-border/50 text-muted-foreground max-h-[50vh] overflow-y-auto">
+                    {reviewingRemediation.original_content}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-blue-500">Proposed Update </h4>
+                  <div className="p-4 bg-blue-500/5 rounded-md whitespace-pre-wrap text-sm border border-blue-500/20 max-h-[50vh] overflow-y-auto text-foreground">
+                    {reviewingRemediation.proposed_content}
+                  </div>
+                </div>
+              </div>
+              <AlertDialogFooter className="mt-4">
+                <Button variant="ghost" disabled={loadingRemediations} onClick={() => {
+                  resolveRemediation.mutate({ id: reviewingRemediation.id, status: "rejected", module_key: reviewingRemediation.module_key, section_id: reviewingRemediation.section_id });
+                  setReviewingRemediation(null);
+                }}>
+                  <X className="w-4 h-4 mr-2" /> Reject Draft
+                </Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled={loadingRemediations} onClick={() => {
+                  resolveRemediation.mutate({ 
+                    id: reviewingRemediation.id, 
+                    status: "accepted", 
+                    module_key: reviewingRemediation.module_key, 
+                    section_id: reviewingRemediation.section_id,
+                    updated_content: reviewingRemediation.proposed_content 
+                  });
+                  setReviewingRemediation(null);
+                  toast.success("Draft accepted and module updated.");
+                }}>
+                  {loadingRemediations ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} 
+                  Accept Update
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
 
       </div>
     </DashboardLayout>
