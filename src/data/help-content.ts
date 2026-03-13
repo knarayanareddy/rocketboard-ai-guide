@@ -101,23 +101,31 @@ Re-sync sources to detect staleness and approve AI-drafted content repairs.
     lastUpdated: "2026-03-01",
     content: `# The 6-Phase Setup Flow
 
-## Phase 1: Setup
+Getting your team ramped up on a new codebase follows this battle-tested six-phase journey.
+
+:::step[Phase 1: Setup]
 Create your organization and your first pack. Invite team members and assign roles (Owner, Admin, Author, Learner, Read Only).
+:::
 
-## Phase 2: Ingestion
-Connect your knowledge sources. Supported: GitHub repos, Confluence, Notion, Google Drive, SharePoint, Jira, Linear, OpenAPI specs, Postman collections, Figma, Slack channels, Loom videos, PagerDuty, and direct document uploads.
+:::step[Phase 2: Ingestion]
+Connect your knowledge sources. Supported: GitHub repos, Confluence, Notion, Google Drive, SharePoint, Jira, Linear, and more.
+:::
 
-## Phase 3: Planning
-Click **Generate Plan** to have the AI analyze your sources. Review detected signals, proposed tracks, and modules. Edit, reorder, add, or remove. Set prerequisites. Approve when ready.
+:::step[Phase 3: Planning]
+AI analyzes your sources to propose a module roadmap. Review detected signals, tracks, and prerequisites before approving.
+:::
 
-## Phase 4: Generation
-Generate all content in one cascade: modules → quizzes → exercises → glossary → paths → ask-lead questions. All content starts as **draft**.
+:::step[Phase 4: Generation]
+Generate all content in one cascade: modules → quizzes → exercises → glossary → paths → ask-lead questions.
+:::
 
-## Phase 5: Learning
-Learners read modules, take quizzes, complete exercises, explore the glossary, follow onboarding paths, and track milestones.
+:::step[Phase 5: Learning]
+Learners read modules, take quizzes, complete exercises, explore the glossary, and track milestones on their dashboard.
+:::
 
-## Phase 6: Iteration
-Re-sync sources when code changes. Check Content Health for stale content. Refine or regenerate modules as needed.`,
+:::step[Phase 6: Iteration]
+Re-sync sources when code changes. Check **Content Health** for stale indicators and approve AI-drafted remedies.
+:::`,
     relatedArticles: ["gs-1", "src-1"],
   },
   {
@@ -131,20 +139,29 @@ Re-sync sources when code changes. Check Content Health for stale content. Refin
     lastUpdated: "2026-03-01",
     content: `# Quick Start for Learners
 
-Welcome! Here's how to get started:
+Welcome! Here's how to get started in under 5 minutes.
 
-1. **Check your Dashboard** — See your assigned modules and progress
-2. **Follow Paths** — Start with the Day 1 path for setup instructions
-3. **Read Modules** — Open a module and read through sections, marking each as complete
-4. **Take Quizzes** — Test your understanding after reading
-5. **Use Bookmarks** — Save important sections with the 🔖 icon
-6. **Ask the AI** — Click the 🚀 Rocket button to ask questions about module content
-7. **Meet Your Team** — Check the Team Directory and schedule 1:1s
+:::step[1. Dashboard]
+Open your **Dashboard** to see your assigned modules, onboarding paths, and overall progress.
+:::
 
-### Tips
-- Press **Cmd+K** (Mac) or **Ctrl+K** to search anything
-- Use **Simplify** on complex sections to get a simpler explanation
-- Check the **Glossary** when you encounter unfamiliar terms`,
+:::step[2. Follow Paths]
+Start with your **Day 1 path** to get all your environment setup and team access sorted out.
+:::
+
+:::step[3. Read & Learn]
+Open a module, read through sections, and mark them as complete. Use the **Simplify** button for tough concepts.
+:::
+
+:::step[4. Take Quizzes]
+Test your knowledge at the end of each module. If you get stuck, use **Mission Control** to ask questions.
+:::
+
+:::card[Tips for Success]{💡}
+- Press **Cmd+K** to search everything instantly
+- Use **Rocket Chat** (🚀) on any module page to ask about the specific content
+- Check the **Glossary** for unfamiliar team jargon
+:::`,
     relatedArticles: ["gs-1", "learn-1"],
   },
   {
@@ -196,6 +213,22 @@ As your code changes, RocketBoard detects staleness and drafts automated remedia
     lastUpdated: "2026-03-01",
     content: `# Understanding Roles & Permissions
 
+RocketBoard uses a robust access control system to ensure everyone has the right level of power for their role.
+
+:::card[Pack Owners & Admins]{🛡️}
+Full control over the organization, packs, billing, and member invites.
+:::
+
+:::card[Authors]{✍️}
+Strategic access to curate sources, generate content drafts, and publish educational modules.
+:::
+
+:::card[Learners]{🎓}
+Pure consumption access to read modules, take quizzes, and track personal ramp-up milestones.
+:::
+
+## Permission Matrix
+
 | Feature | Owner | Admin | Author | Learner | Read Only |
 |---------|-------|-------|--------|---------|-----------|
 | View content | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -223,19 +256,35 @@ As your code changes, RocketBoard detects staleness and drafts automated remedia
     lastUpdated: "2026-03-01",
     content: `# Connecting GitHub Repositories
 
-1. Go to **Sources** page
-2. Click **Add Source** and select **GitHub Repository**
-3. Enter the full repository URL (e.g., \`https://github.com/org/repo\`)
-4. Click **Add Source**
-5. Click **Sync** on the source card to start ingestion
+Ground your AI in your actual codebase by connecting your GitHub repositories.
+
+:::step[1. Go to Sources]
+Navigate to the **Sources** page from the sidebar.
+:::
+
+:::step[2. Add Repository]
+Click **Add Source** and select **GitHub Repository**.
+:::
+
+:::step[3. Enter URL]
+Paste the full repository URL (e.g., \`https://github.com/org/repo\`).
+:::
+
+:::step[4. Start Sync]
+Click **Sync** on the source card. RocketBoard will begin parsing your code and creating embeddings.
+:::
 
 [ACTION: connect_github(Add a GitHub Repo Now)]
 
-### What gets ingested
-Supported file types: \`.ts\`, \`.tsx\`, \`.js\`, \`.jsx\`, \`.md\`, \`.json\`, \`.yaml\`, \`.yml\`, \`.py\`, \`.go\`, \`.rs\`, \`.java\`, \`.rb\`, \`.sh\`, \`.css\`, \`.html\`, \`.sql\`, \`.tf\`, Dockerfile, Makefile, and more.
+## Automated Safeguards
 
-### Security
-Secrets (API keys, passwords, tokens) are automatically **redacted** during ingestion to prevent sensitive data from appearing in generated content.`,
+:::card[Security & Redaction]{🔒}
+Secrets like API keys, passwords, and tokens are automatically **redacted** during ingestion to prevent exposure in generated modules.
+:::
+
+:::card[Supported Languages]{📁}
+RocketBoard natively supports TypeScript, JavaScript, Python, Go, Rust, Java, and many more.
+:::`,
     relatedArticles: ["src-7", "ts-1"],
   },
   {
@@ -249,12 +298,23 @@ Secrets (API keys, passwords, tokens) are automatically **redacted** during inge
     lastUpdated: "2026-03-01",
     content: `# Connecting Confluence
 
-1. Go to **Sources** → **Add Source** → **Confluence**
-2. Enter your Confluence base URL, space key, and email
-3. Provide an API token (generate one from Atlassian account settings)
-4. Click **Add Source** then **Sync**
+Ground your AI in your Confluence wiki spaces and documentation pages.
 
-Pages from your space will be ingested as knowledge chunks.`,
+:::step[1. Start Connection]
+Go to **Sources** → **Add Source** and select **Confluence**.
+:::
+
+:::step[2. Provide Details]
+Enter your Confluence base URL (e.g., \`https://org.atlassian.net/wiki\`) and the Space Key you wish to ingest.
+:::
+
+:::step[3. Authenticate]
+Provide your email and a valid **API Token** (generate this from your Atlassian account security settings).
+:::
+
+:::step[4. Sync]
+Click **Add Source** then **Sync**. RocketBoard will ingest pages from the space as knowledge chunks.
+:::`,
     relatedArticles: ["src-1", "src-7"],
   },
   {
@@ -268,10 +328,23 @@ Pages from your space will be ingested as knowledge chunks.`,
     lastUpdated: "2026-03-01",
     content: `# Connecting Notion
 
-1. Go to **Sources** → **Add Source** → **Notion**
-2. Enter the Notion page URL and your integration token
-3. Make sure the Notion integration has access to the pages you want to ingest
-4. Click **Add Source** then **Sync**`,
+Import your team's Notion pages and databases as primary knowledge sources.
+
+:::step[1. Add Source]
+Go to **Sources** → **Add Source** and select **Notion**.
+:::
+
+:::step[2. Credentials]
+Enter the URL of the top-level Notion page and your Notion **Internal Integration Token**.
+:::
+
+:::step[3. Permissions]
+Ensure that your Notion integration has been **invited** to the pages you wish to ingest.
+:::
+
+:::step[4. Start Ingestion]
+Click **Add Source** then **Sync** to begin the knowledge mapping process.
+:::`,
     relatedArticles: ["src-1", "src-7"],
   },
   {
@@ -285,17 +358,23 @@ Pages from your space will be ingested as knowledge chunks.`,
     lastUpdated: "2026-03-01",
     content: `# Uploading Documents
 
-## Supported Formats
+Boost your knowledge base by uploading legacy documentation and static files.
+
+:::card[Supported Formats]{📄}
 PDF, DOCX, XLSX, PPTX, MD, TXT, CSV, HTML, JSON, YAML
+:::
 
-## How to Upload
-1. Go to **Sources** → **Add Source** → **Document**
-2. Choose **Upload** tab
-3. Drag & drop files or click to browse
-4. Up to 20 files at once, max 50MB per file
+:::step[1. Open Upload]
+Go to **Sources** → **Add Source** → **Document** and choose the **Upload** tab.
+:::
 
-## URL Import
-Choose the **URL** tab to import from a public URL. Use **Crawl mode** to follow internal links.`,
+:::step[2. Select Files]
+Drag & drop files or click to browse. You can upload up to 20 files at once (max 50MB per file).
+:::
+
+:::card[URL Import Strategy]{🔗}
+Choose the **URL** tab to import from a public URL. Use **Crawl mode** to automatically follow internal links.
+:::`,
     relatedArticles: ["src-7", "src-1"],
   },
   {
@@ -309,16 +388,19 @@ Choose the **URL** tab to import from a public URL. Use **Crawl mode** to follow
     lastUpdated: "2026-03-01",
     content: `# Understanding Knowledge Chunks
 
-Knowledge chunks are small segments of your source content (~100-150 lines of code or ~500 words of text).
+Knowledge chunks are the atomic units of information in RocketBoard, typically representing ~100-150 lines of code or ~500 words of text.
 
-## Why Chunking?
-The AI uses chunks as **evidence** when generating content. Smaller chunks allow more precise citations.
+:::card[Why Chunking?]{🧱}
+The AI uses these segments as **evidence** when generating content. Smaller chunks allow for surgical precision in citations.
+:::
 
-## Browsing Chunks
-Click **Browse Chunks** on any source card to view the individual text segments.
+:::card[Browsing Evidence]{🔍}
+Click **Browse Chunks** on any source card to audit the individual text segments stored in the vector database.
+:::
 
-## Redacted Content
-Secrets (API keys, tokens, passwords) are automatically replaced with \`***REDACTED***\` during ingestion.`,
+:::card[Privacy & Redaction]{🛡️}
+Secrets (API keys, tokens, passwords) are automatically detected and replaced with \`***REDACTED***\` during the ingestion process.
+:::`,
     relatedArticles: ["src-1", "src-4"],
   },
 
@@ -334,22 +416,23 @@ Secrets (API keys, tokens, passwords) are automatically replaced with \`***REDAC
     lastUpdated: "2026-03-01",
     content: `# Generating a Module Plan
 
-1. Go to the **Plan** page
-2. Click **Generate Plan**
-3. The AI analyzes your sources and proposes modules
+Turn raw code into a structured roadmap. The AI analyzes your source tree to propose a logical onboarding sequence.
+
+:::step[1. Trigger Analysis]
+Go to the **Plan** page and click **Generate Plan**. The AI will begin mapping "signals" to potential modules.
+:::
 
 [ACTION: generate_plan(Generate Plan from Sources)]
 
-## What You Can Do
-- **Edit** titles and descriptions inline
-- **Reorder** modules by dragging
-- **Add** custom modules
-- **Remove** modules you don't need
-- Set **prerequisites** between modules
-- Assign **tracks** and **templates**
+:::card[Curation Tools]{🛠️}
+- **Edit & Reorder:** Tweak titles and drag modules into the right order.
+- **Dependencies:** Set **prerequisites** to control the learner's journey.
+- **Categorization:** Assign **tracks** (e.g., Backend, Frontend) and module **templates**.
+:::
 
-## Approving
-Click **Approve Plan** when ready. This enables content generation.`,
+:::step[2. Approval]
+Click **Approve Plan** once the roadmap looks right. This unlocks the full content generation cascade.
+:::`,
     relatedArticles: ["cc-2", "cc-3"],
   },
   {
@@ -363,16 +446,23 @@ Click **Approve Plan** when ready. This enables content generation.`,
     lastUpdated: "2026-03-01",
     content: `# Content Generation Cascade
 
-When you click **Generate All**, content is created in sequence:
+One click to build an entire education track. When you click **Generate All**, RocketBoard triggers a multi-stage production sequence.
 
-1. **Modules** — Learning content with sections, code snippets, citations
-2. **Quizzes** — Multiple-choice questions per module
-3. **Exercises** — Hands-on coding challenges
-4. **Glossary** — Searchable terms with definitions
-5. **Paths** — Day 1 and Week 1 onboarding checklists
-6. **Ask-Lead** — Curated questions to ask your team lead
+:::step[1. Knowledge Modules]
+AI drafts the primary instructional content, complete with code walkthroughs and citations.
+:::
 
-All content starts as **draft**. If one item fails, others continue.`,
+:::step[2. Assessment & Practice]
+Multiple-choice **Quizzes** and hands-on **Exercises** are drafted to validate learner understanding.
+:::
+
+:::step[3. Auxiliary Content]
+The system populates a searchable **Glossary**, compiles **Onboarding Paths**, and prepares **Ask-Lead** questions.
+:::
+
+:::card[Draft Status]{📝}
+All generated content starts as a **Draft**. Nothing is visible to learners until you explicitly hit **Publish**.
+:::`,
     relatedArticles: ["cc-1", "cc-3"],
   },
   {
@@ -506,20 +596,21 @@ When RocketBoard detects a pushed change in GitHub that makes a module stale:
     lastUpdated: "2026-03-01",
     content: `# Reading Modules
 
-## Navigation
-Expand each section to read. Use the section mini-map on the side for quick navigation.
+Dive into your curated learning content. RocketBoard modules are designed for focused, technical reading.
 
-## Mark as Read
-Click the button to mark a section as completed. Progress is saved instantly.
+:::step[1. Section Map]
+Use the interactive mini-map on the right to jump between concepts or track your vertical scroll progress.
+:::
 
-## Taking Notes
-Open the notes panel for guided reflection prompts. Notes are always private.
+:::step[2. Code Explorer]
+Click any citation badge to open the side-car code explorer. View the raw source file exactly as it exists in your repo.
+:::
 
-## Bookmarks
-Click the 🔖 icon to save any section. Access from the Saved page.
-
-## Simplify
-Click **Simplify** for a simpler version of complex sections.`,
+:::card[Toolbox]{🧰}
+- **Mark as Read:** Click the completion button to update your progress dashboard.
+- **Notes & Reflection:** Use the private notes panel to document your understanding.
+- **Simplify:** Feeling overwhelmed? Click **Simplify** to get a high-level summary of the current section.
+:::`,
     relatedArticles: ["learn-2", "gs-3"],
   },
   {
@@ -533,18 +624,23 @@ Click **Simplify** for a simpler version of complex sections.`,
     lastUpdated: "2026-03-01",
     content: `# Taking Quizzes
 
-Quizzes are multiple-choice assessments at the end of each module.
+Validate your knowledge with multiple-choice assessments grounded in your codebase.
 
-## How It Works
-- Answer each question and get immediate feedback
-- Explanations include code references
-- Your score is saved automatically
+:::card[Immediate Feedback]{✅}
+Answer questions and get instant results. Correct and incorrect answers both provide deep-dive explanations linked back to the sources.
+:::
 
-## Retaking
-You can retake any quiz. Your most recent score is what counts.
+:::step[1. Complete Quiz]
+Work through the 5-10 questions per module. Your score is tracked automatically on your member profile.
+:::
 
-## Areas to Review
-After the quiz, you'll see which sections to revisit based on incorrect answers.`,
+:::step[2. Review Gaps]
+After submission, RocketBoard highlights specific module sections you should revisit based on missed questions.
+:::
+
+:::card[Retake Policy]{🔄}
+You can retake any quiz multiple times. Your **most recent score** is what will be reflected on your manager's dashboard.
+:::`,
     relatedArticles: ["learn-1", "learn-3"],
   },
   {
@@ -708,12 +804,19 @@ Check off each person as you have 1:1 conversations. Suggested topics help you h
     lastUpdated: "2026-03-01",
     content: `# Cohorts
 
-Cohorts are groups of learners who started onboarding around the same time.
+Cohorts are groups of learners who started onboarding around the same time, helping them learn together.
 
-## Features
-- See peer progress (respecting privacy settings)
-- Admins can create and manage cohorts
-- Cohort members can see each other's completion status`,
+:::card[Peer Progress]{📅}
+See how your peers are doing (respecting privacy settings) to gauge your own ramp-up speed.
+:::
+
+:::card[Management]{🛠️}
+Admins can create and manage cohorts to track specific hiring classes or project teams.
+:::
+
+:::card[Visibility]{👁️}
+Cohort members can see each other's completion status, fostering a sense of shared progress and healthy competition.
+:::`,
     relatedArticles: ["collab-1"],
   },
   {
@@ -745,22 +848,23 @@ Track which questions you've asked and mark them complete.`,
     lastUpdated: "2026-03-01",
     content: `# Personalizing Your Experience
 
-## Audience Profile
-- **Technical** — code and implementation details
-- **Non-Technical** — concepts and workflows
-- **Mixed** — balanced approach
+RocketBoard adapts to your specific learning style and technical background. Customize your experience in the **Settings** panel.
 
-## Content Depth
-- **Shallow** — quick overviews
-- **Standard** — balanced
-- **Deep** — comprehensive with edge cases
+:::card[Audience Profile]{👤}
+- **Technical:** Focuses on code implementation and architecture.
+- **Non-Technical:** Prioritizes workflows, business logic, and concepts.
+- **Mixed:** A balanced blend for cross-functional teams.
+:::
 
-## Other Settings
-- Language preference
-- Theme (Light/Dark/System)
-- Glossary density
-- Spaced repetition
-- Peer privacy`,
+:::card[Content Depth]{📚}
+- **Shallow:** Quick, 5-minute overviews of key features.
+- **Standard:** The default experience for most learners.
+- **Deep:** Comprehensive guides covering edge cases and performance.
+:::
+
+:::card[Theme & Privacy]{🎨}
+Toggle between **Light/Dark** modes or sync with your system. You can also control your **Peer Privacy** settings to hide or show your progress in cohorts.
+:::`,
     relatedArticles: ["set-2", "gs-5"],
   },
   {
@@ -774,16 +878,16 @@ Track which questions you've asked and mark them complete.`,
     lastUpdated: "2026-03-01",
     content: `# Generation Limits
 
-## Max Module Words
-Hard limit — the AI will not exceed this. Default: 1400 words.
+Authors can fine-tune exactly how much content the AI drafts during the generation cascade.
 
-## Max Quiz Questions
-Maximum questions per module quiz. Default: 5.
+:::card[Word Limits]{🔡}
+**Max Module Words:** Prevents the AI from drafting overly verbose sections. Default: 1,400 words.
+:::
 
-## Max Key Takeaways
-Maximum takeaway points per module. Default: 5.
-
-Adjust these on the Settings page to control content size.`,
+:::card[Educational Limits]{📝}
+**Max Quiz Questions:** Controls how many multiple-choice questions are generated per module. Default: 5.
+**Max Key Takeaways:** Limits the number of summary points at the end of each section. Default: 5.
+:::`,
     relatedArticles: ["set-1"],
   },
   {
@@ -797,14 +901,20 @@ Adjust these on the Settings page to control content size.`,
     lastUpdated: "2026-03-01",
     content: `# Understanding Access Levels
 
-See the [Roles & Permissions](/help/getting-started/understanding-roles) article for a full reference table.
+RocketBoard roles determine exactly what you can see and edit.
 
-## Quick Summary
-- **Owner** — full control
-- **Admin** — manage members, settings, content
-- **Author** — create and edit content
-- **Learner** — read, quiz, discuss
-- **Read Only** — view only`,
+:::card[Elevated Access]{⚙️}
+- **Owner:** Full organizational control, including billing and deletions.
+- **Admin:** Broad management powers for members, settings, and all packs.
+- **Author:** Strategic power to curate sources and trigger AI generation.
+:::
+
+:::card[Consumption Access]{📖}
+- **Learner:** Standard access to read, quiz, and track ramp-up.
+- **Read Only:** View-only access to published modules without interactive quizzes.
+:::
+
+[See the full Roles & Permissions table](/help/getting-started/understanding-roles)`,
     relatedArticles: ["gs-5"],
   },
 
@@ -820,17 +930,23 @@ See the [Roles & Permissions](/help/getting-started/understanding-roles) article
     lastUpdated: "2026-03-01",
     content: `# Source Ingestion Failed
 
-## Common Causes
-- **GitHub** — Repository not found (check URL), rate limited (wait and retry)
-- **Confluence** — Invalid API token, space not found
-- **Notion** — Integration not shared with pages
-- **General** — Network errors, timeout
+:::card[System Timeout]{⏱️}
+The repository is exceptionally large (>500MB). Try connecting specific subdirectories instead of the whole mono-repo.
+:::
 
 ## Steps to Fix
-1. Verify the source URL/credentials
-2. Wait a few minutes and retry
-3. Check if the source is accessible from a browser
-4. Try removing and re-adding the source`,
+
+:::step[1. Check Permissions]
+Verify that the credentials or tokens used for the source are still valid and haven't expired.
+:::
+
+:::step[2. Connectivity Test]
+Ensure the source URL is accessible from a standard browser window.
+:::
+
+:::step[3. Re-Add Source]
+Sometimes a fresh start is best. Remove the source and attempt to add it again with a fresh token.
+:::`,
     relatedArticles: ["src-1", "ts-2"],
   },
   {
@@ -844,12 +960,27 @@ See the [Roles & Permissions](/help/getting-started/understanding-roles) article
     lastUpdated: "2026-03-01",
     content: `# AI Generation Errors
 
-## Error Types
-- **Insufficient Evidence** — Add more sources, the AI doesn't have enough data
-- **Rate Limited** — Wait 30 seconds and retry
-- **Credit Exhausted** — Contact your admin
-- **Invalid Output** — Retry; if persistent, report the issue
-- **Network Error** — Check your connection`,
+Sometimes the AI Agent runs into a wall. Here’s how to handle common errors.
+
+:::card[Insufficient Evidence]{📉}
+**Cause:** The selected sources don't contain enough information to answer the prompt.
+**Fix:** Add more relevant source files or broaden your source selection.
+:::
+
+:::card[Rate Limited]{⏳}
+**Cause:** We've hit a temporary peak in AI service demand.
+**Fix:** Wait about 30 seconds and click **Retry**.
+:::
+
+:::card[Credit Exhausted]{💳}
+**Cause:** Your organization has reached its monthly AI token limit.
+**Fix:** Contact your pack admin to upgrade your plan.
+:::
+
+:::card[Network Error]{🌐}
+**Cause:** A glitch in the connection between your browser and our AI engines.
+**Fix:** Check your internet connection and try again.
+:::`,
     relatedArticles: ["ts-1", "ts-3"],
   },
   {
@@ -863,10 +994,23 @@ See the [Roles & Permissions](/help/getting-started/understanding-roles) article
     lastUpdated: "2026-03-01",
     content: `# Content Looks Wrong or Outdated
 
-1. Check the **Content Health** page for stale indicators
-2. **Re-sync** the source to update knowledge chunks
-3. **Refine** the module with specific instructions
-4. Use the **feedback** button (🚩) to flag issues for authors`,
+If the AI-generated content seems inaccurate or stale, follow these steps to repair it.
+
+:::step[1. Check Health]
+Open the **Content Health** dashboard to see if the AI has already flagged stale citations for this module.
+:::
+
+:::step[2. Re-Sync Sources]
+If code has changed recently, click **Sync** on the source card to update the underlying knowledge chunks.
+:::
+
+:::step[3. AI Refine]
+Use the **Refine** button on the module to describe what's wrong. The AI will rewrite the section based on your feedback.
+:::
+
+:::card[Report Issue]{🚩}
+Click the flag icon on any section to notify a Pack Author that the content needs manual review.
+:::`,
     relatedArticles: ["cc-7", "ts-2"],
   },
   {
@@ -895,11 +1039,21 @@ See the [Roles & Permissions](/help/getting-started/understanding-roles) article
     tags: ["quiz", "feedback", "incorrect"],
     summary: "How to report and fix quiz quality issues.",
     lastUpdated: "2026-03-01",
-    content: `# Quiz Questions Are Unfair or Incorrect
+    content: `# Quiz Quality & Fairness
 
-1. Use the **feedback** button after answering each question
-2. Authors can review feedback and edit or regenerate questions
-3. Check Quiz Analytics for questions with low correct rates`,
+We strive for 100% accuracy, but AI-generated questions can sometimes be ambiguous.
+
+:::card[Report Inaccuracy]{🚩}
+Use the **feedback** button immediately after answering a question to report a technical error or unfair framing.
+:::
+
+:::step[1. Author Review]
+Pack authors are notified of flagged questions. They can edit the text manually or click **Regenerate** to try a different angle.
+:::
+
+:::step[2. Global Analytics]
+Admins can view correct/incorrect rates for every question. Any question with an abnormally low success rate is automatically highlighted for review.
+:::`,
     relatedArticles: ["learn-2"],
   },
 
