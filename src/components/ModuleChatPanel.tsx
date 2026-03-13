@@ -16,6 +16,7 @@ import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 import { ChatReportDialog } from "@/components/ChatReportDialog";
 import { useNavigate } from "react-router-dom";
+import { CitationBadge } from "@/components/CitationBadge";
 
 export interface ReferencedSection {
   module_key: string;
@@ -155,14 +156,12 @@ function MessageSources({
                   {hasSpans && (
                     <div className="flex flex-wrap gap-1">
                       {response.referenced_spans!.map((span) => (
-                        <span
+                        <CitationBadge
                           key={span.span_id}
-                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
-                          title={span.path}
-                        >
-                          <ExternalLink className="w-2.5 h-2.5" />
-                          {span.span_id}
-                        </span>
+                          spanId={span.span_id}
+                          path={span.path}
+                          chunkId={span.chunk_id}
+                        />
                       ))}
                     </div>
                   )}
@@ -415,7 +414,9 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                     >
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
-                          <MarkdownRenderer>{msg.content}</MarkdownRenderer>
+                          <MarkdownRenderer referencedSpans={msg.response?.referenced_spans}>
+                            {msg.content}
+                          </MarkdownRenderer>
                         </div>
                       ) : (
                         msg.content

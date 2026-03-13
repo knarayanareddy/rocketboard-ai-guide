@@ -5,21 +5,24 @@ import type { Components } from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useParams } from "react-router-dom";
 import { Play, Sparkles } from "lucide-react";
+import { CitationBadge } from "@/components/CitationBadge";
 
 interface MarkdownRendererProps {
   children: string;
   className?: string;
   onAction?: (slug: string) => boolean | void;
+  referencedSpans?: { span_id: string; path: string; chunk_id: string }[];
 }
 
-// Parse custom callout syntax :::type[title]\n...\n::: and [ACTION: slug(label)]
+// Parse custom callout syntax :::type[title]\n...\n::: and [ACTION: slug(label)] and citations [S1]
 type Part = { 
-  type: "text" | "callout" | "action" | "ui_action" | "step" | "card"; 
+  type: "text" | "callout" | "action" | "ui_action" | "step" | "card" | "citation"; 
   content: string; 
   calloutType?: CalloutType; 
   title?: string;
   actionSlug?: string;
   icon?: string;
+  citationId?: string;
 };
 
 function parseMarkdown(markdown: string): Part[] {
@@ -27,7 +30,8 @@ function parseMarkdown(markdown: string): Part[] {
   
   // Regex for blocks: :::type[title]{icon}\n...\n:::
   // Regex for actions: [ACTION: slug(label)] or [UI_ACTION: slug(label)]
-  const combinedRegex = /(?::::(setup|pattern|config|warning|step|card)(?:\[([^\]]*)\])?(?:{([^}]*)})?\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])/g;
+  // Regex for citations: [S1], [S2], etc.
+  const combinedRegex = /(?::::(setup|pattern|config|warning|step|card)(?:\[([^\]]*)\])?(?:{([^}]*)})?\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])|(?:\[(S[0-9]+)\])/g;
   
   let lastIndex = 0;
   let match;
@@ -61,6 +65,13 @@ function parseMarkdown(markdown: string): Part[] {
         type: match[5] === "UI_ACTION" ? "ui_action" : "action",
         actionSlug: match[6],
         content: match[7] || "Take Action",
+      });
+    } else if (match[8]) {
+      // Citation match [Sn]
+      parts.push({
+        type: "citation",
+        citationId: match[8],
+        content: match[0],
       });
     }
     
@@ -102,7 +113,7 @@ const components: Components = {
   },
 };
 
-export function MarkdownRenderer({ children, className, onAction }: MarkdownRendererProps) {
+export function MarkdownRenderer({ children, className, onAction, referencedSpans }: MarkdownRendererProps) {
   const parts = parseMarkdown(children);
   const navigate = useNavigate();
   const { packId } = useParams();
@@ -140,6 +151,17 @@ export function MarkdownRenderer({ children, className, onAction }: MarkdownRend
   return (
     <div className={className}>
       {parts.map((part, i) => {
+        if (part.type === "citation" && part.citationId) {
+          const span = referencedSpans?.find(s => s.span_id === part.citationId);
+          return (
+            <CitationBadge
+              key={i}
+              spanId={part.citationId}
+              path={span?.path}
+              chunkId={span?.chunk_id}
+            />
+          );
+        }
         if (part.type === "step") {
           return (
             <div key={i} className="flex gap-4 mb-6 relative group">
