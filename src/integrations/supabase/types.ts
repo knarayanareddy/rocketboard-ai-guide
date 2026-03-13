@@ -14,71 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      author_profiles: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          slack_handle: string | null
-          teams_handle: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          slack_handle?: string | null
-          teams_handle?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          slack_handle?: string | null
-          teams_handle?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      knowledge_owners: {
-        Row: {
-          created_at: string
-          id: string
-          last_synced_at: string | null
-          ownership_score: number
-          source_id: string
-          updated_at: string
-          user_email: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          last_synced_at?: string | null
-          ownership_score?: number
-          source_id: string
-          updated_at?: string
-          user_email: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          last_synced_at?: string | null
-          ownership_score?: number
-          source_id?: string
-          updated_at?: string
-          user_email?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "knowledge_owners_source_id_fkey"
-            columns: ["source_id"]
-            isOneToOne: false
-            referencedRelation: "pack_sources"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       ask_lead_progress: {
         Row: {
           asked_at: string | null
@@ -2030,7 +1965,6 @@ export type Database = {
           source_config: Json | null
           source_type: string
           source_uri: string
-          weight: number
         }
         Insert: {
           created_at?: string
@@ -2041,7 +1975,6 @@ export type Database = {
           source_config?: Json | null
           source_type: string
           source_uri: string
-          weight?: number
         }
         Update: {
           created_at?: string
@@ -2052,7 +1985,6 @@ export type Database = {
           source_config?: Json | null
           source_type?: string
           source_uri?: string
-          weight?: number
         }
         Relationships: [
           {
