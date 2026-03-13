@@ -67,7 +67,7 @@ export default function TimelinePage() {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-tour="timeline-header">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Calendar className="w-6 h-6 text-primary" /> My Timeline
@@ -118,6 +118,7 @@ export default function TimelinePage() {
                           initial={{ opacity: 0, x: -8 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: i * 0.04 }}
+                          data-tour={i === 0 ? "timeline-entry" : undefined}
                           className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
                             status === "completed" ? "bg-primary/5" : "bg-card border border-border"
                           }`}

@@ -106,7 +106,7 @@ export default function TemplatesPage() {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6 pb-12">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-tour="templates-header">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Templates</h1>
             <p className="text-sm text-muted-foreground mt-1">Module generation blueprints for your organization</p>
@@ -134,7 +134,7 @@ export default function TemplatesPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-tour="template-grid">
             {templates.map((t) => (
               <TemplateCard key={t.id} template={t} onDelete={handleDelete} />
             ))}

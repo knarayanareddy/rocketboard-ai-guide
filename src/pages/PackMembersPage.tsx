@@ -147,7 +147,7 @@ export default function PackMembersPage() {
             Back to Dashboard
           </button>
 
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-6" data-tour="members-header">
             <Shield className="w-6 h-6 text-primary" />
             <div>
               <h1 className="text-2xl font-bold text-foreground">Manage Members</h1>
@@ -157,7 +157,7 @@ export default function PackMembersPage() {
 
           {/* Invite Form */}
           <ProtectedAction requiredLevel="admin">
-            <div className="bg-card border border-border rounded-xl p-5 mb-6">
+            <div className="bg-card border border-border rounded-xl p-5 mb-6" data-tour="invite-form">
               <div className="flex items-center gap-2 mb-4">
                 <UserPlus className="w-4 h-4 text-primary" />
                 <h2 className="font-semibold text-foreground">Invite by Email</h2>
@@ -228,7 +228,7 @@ export default function PackMembersPage() {
           )}
 
           {/* Members List */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden" data-tour="members-table">
             <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
               <Users className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-foreground">Members ({members.length})</h2>

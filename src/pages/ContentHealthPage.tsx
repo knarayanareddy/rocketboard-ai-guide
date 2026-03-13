@@ -25,7 +25,7 @@ export default function ContentHealthPage() {
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-tour="health-header">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Activity className="w-6 h-6 text-primary" /> Content Health
@@ -49,7 +49,7 @@ export default function ContentHealthPage() {
         </div>
 
         {/* Module health overview */}
-        <section className="space-y-3">
+        <section className="space-y-3" data-tour="health-card">
           <h2 className="text-lg font-semibold text-foreground">Module Overview</h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {modules.map(mod => {

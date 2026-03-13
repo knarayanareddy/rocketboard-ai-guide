@@ -15,11 +15,13 @@ export default function DiscussionsPage() {
           <ThreadDetail thread={selectedThread} onBack={() => setSelectedThread(null)} />
         ) : (
           <>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-6" data-tour="discussions-header">
               <MessageCircle className="w-6 h-6 text-primary" />
               <h1 className="text-2xl font-bold text-foreground">Discussions</h1>
             </div>
-            <DiscussionList onSelectThread={setSelectedThread} />
+            <div data-tour="discussion-list">
+              <DiscussionList onSelectThread={setSelectedThread} />
+            </div>
           </>
         )}
       </div>

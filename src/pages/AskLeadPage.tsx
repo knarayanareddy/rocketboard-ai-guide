@@ -77,7 +77,7 @@ export default function AskLeadPage() {
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2" data-tour="ask-lead-header">
             <div className="flex items-center gap-3">
               <MessageSquareMore className="w-6 h-6 text-primary" />
               <h1 className="text-2xl font-bold text-foreground">Ask Your Lead</h1>
@@ -113,7 +113,7 @@ export default function AskLeadPage() {
           </p>
         </motion.div>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6" data-tour="ask-lead-category-filter">
           {!isGenerated && (
             <div className="flex items-center gap-2 flex-wrap">
               {CATEGORIES.map((c) => (
@@ -148,7 +148,7 @@ export default function AskLeadPage() {
           )}
         </div>
 
-        <div className="text-xs text-muted-foreground mb-4">
+        <div className="text-xs text-muted-foreground mb-4" data-tour="ask-lead-progress">
           {askedQuestions.size}/{totalQuestions} questions asked
         </div>
 
@@ -168,6 +168,7 @@ export default function AskLeadPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
+                data-tour={i === 0 ? "ask-lead-question" : undefined}
                 className={`bg-card border rounded-xl p-5 transition-all ${askedQuestions.has(q.id) ? "border-primary/20 bg-card/50" : "border-border"}`}
               >
                 <div className="flex items-start gap-3">
@@ -217,6 +218,7 @@ export default function AskLeadPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
+                data-tour={i === 0 ? "ask-lead-question" : undefined}
                 className={`bg-card border rounded-xl p-5 transition-all ${askedQuestions.has(q.id) ? "border-primary/20 bg-card/50" : "border-border"}`}
               >
                 <div className="flex items-start gap-3">

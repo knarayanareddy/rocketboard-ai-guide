@@ -74,13 +74,13 @@ export default function FeedbackPage() {
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto space-y-6">
-        <div>
+        <div data-tour="feedback-header">
           <h1 className="text-2xl font-bold text-foreground">Feedback</h1>
           <p className="text-sm text-muted-foreground mt-1">Review learner feedback and chat reports across all modules.</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border">
+        <div className="flex gap-1 border-b border-border" data-tour="feedback-tabs">
           <button
             onClick={() => setTab("content")}
             className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
@@ -117,7 +117,7 @@ export default function FeedbackPage() {
         {tab === "content" && (
           <div className="space-y-8">
             {/* Module Rating Overview */}
-            <section className="space-y-3">
+            <section className="space-y-3" data-tour="feedback-module-ratings">
               <h2 className="text-lg font-semibold text-foreground">Module Ratings</h2>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {generated.map(mod => {
@@ -157,7 +157,7 @@ export default function FeedbackPage() {
             </section>
 
             {/* Flagged Content */}
-            <section className="space-y-3">
+            <section className="space-y-3" data-tour="feedback-flagged">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-foreground">
                   Flagged Content ({flagged.length})

@@ -149,7 +149,7 @@ export default function BookmarksPage() {
     <DashboardLayout>
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between" data-tour="bookmarks-header">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Bookmark className="w-6 h-6 text-primary" /> Saved Items
@@ -346,6 +346,7 @@ export default function BookmarksPage() {
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.02 }}
+                      data-tour={i === 0 ? "bookmark-item" : undefined}
                       className="bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-all group"
                     >
                       <div className="flex items-start gap-3">

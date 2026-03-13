@@ -178,10 +178,10 @@ export default function SettingsPage() {
     <DashboardLayout>
       <div className="max-w-2xl mx-auto">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <h1 className="text-2xl font-bold text-foreground mb-6">Settings</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-6" data-tour="settings-header">Settings</h1>
 
           {/* Profile Completeness */}
-          <div className="bg-card border border-border rounded-xl p-6">
+          <div className="bg-card border border-border rounded-xl p-6" data-tour="settings-profile">
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle2 className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Profile Completeness</h2>
@@ -224,7 +224,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Audience Profile */}
-          <div className="bg-card border border-border rounded-xl p-6">
+          <div className="bg-card border border-border rounded-xl p-6" data-tour="settings-pack">
             <div className="flex items-center gap-2 mb-4">
               <User className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-card-foreground">Audience Profile</h2>

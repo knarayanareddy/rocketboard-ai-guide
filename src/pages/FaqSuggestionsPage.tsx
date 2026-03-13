@@ -26,7 +26,7 @@ export default function FaqSuggestionsPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between" data-tour="suggestions-header">
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <Lightbulb className="w-6 h-6 text-primary" />
@@ -65,6 +65,7 @@ export default function FaqSuggestionsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ delay: i * 0.03 }}
+                data-tour={i === 0 ? "suggestion-card" : undefined}
                 className="bg-card border border-border rounded-xl overflow-hidden"
               >
                 {/* Main row */}
@@ -77,6 +78,7 @@ export default function FaqSuggestionsPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Button
+                      data-tour={i === 0 ? "convert-faq-button" : undefined}
                       size="sm"
                       className="h-7 text-xs gradient-primary border-0 gap-1"
                       onClick={() => setFaqDialog({ open: true, suggestion: s })}

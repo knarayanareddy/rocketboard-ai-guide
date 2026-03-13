@@ -269,4 +269,280 @@ export const ALL_TOURS: Tour[] = [
       },
     ],
   },
+  {
+    id: "ask-lead-intro",
+    pagePattern: "^/packs/[^/]+/ask-lead$",
+    steps: [
+      {
+        target: "[data-tour='ask-lead-header']",
+        title: "Ask Your Lead",
+        content: "A curated list of high-signal questions to bring to your first 1:1 meetings with team leads and senior colleagues.",
+      },
+      {
+        target: "[data-tour='ask-lead-category-filter']",
+        title: "Filter by Category or Track",
+        content: "Narrow the list by topic (Team, Technical, Process, Culture) or your role track to find the most relevant questions.",
+      },
+      {
+        target: "[data-tour='ask-lead-progress']",
+        title: "Track Your Progress",
+        content: "Check off each question as you ask it. This counter shows how many you've covered so far.",
+      },
+      {
+        target: "[data-tour='ask-lead-question']",
+        title: "Question Cards",
+        content: "Each card shows the question and why it matters. Click the circle to mark it as asked. Use the bookmark icon to save your favorites for later.",
+      },
+    ],
+  },
+  {
+    id: "faq-intro",
+    pagePattern: "^/packs/[^/]+/faq$",
+    steps: [
+      {
+        target: "[data-tour='faq-header']",
+        title: "Frequently Asked Questions",
+        content: "A living knowledge base of common questions and answers — sourced from chat conversations, discussion threads, and team authors.",
+      },
+      {
+        target: "[data-tour='faq-search']",
+        title: "Search Instantly",
+        content: "Type anything to filter across both questions and answers in real-time.",
+      },
+      {
+        target: "[data-tour='faq-tag-filter']",
+        title: "Filter by Tag",
+        content: "Use tags to browse questions by topic area — great for finding all FAQs related to a specific domain.",
+      },
+      {
+        target: "[data-tour='faq-entry']",
+        title: "FAQ Entry",
+        content: "Each entry shows the question and a full markdown answer. Authors can edit or archive entries using the hover actions.",
+      },
+    ],
+  },
+  {
+    id: "faq-suggestions-intro",
+    pagePattern: "^/packs/[^/]+/faq-suggestions$",
+    requiredRole: "author",
+    steps: [
+      {
+        target: "[data-tour='suggestions-header']",
+        title: "AI-Detected Repeated Questions",
+        content: "RocketBoard monitors chat and discussions for repeated questions. When the same question is asked multiple times, it surfaces here for you to act on.",
+      },
+      {
+        target: "[data-tour='suggestion-card']",
+        title: "Suggestion Card",
+        content: "Each card shows the canonical question, how many times it was asked, and example phrasings. Expand it to see the exact user questions.",
+      },
+      {
+        target: "[data-tour='convert-faq-button']",
+        title: "Convert to FAQ",
+        content: "Click to open a pre-filled FAQ dialog. Review the AI-suggested answer, then save it to make the knowledge permanent. You can also dismiss or save as a glossary term instead.",
+      },
+    ],
+  },
+  {
+    id: "discussions-intro",
+    pagePattern: "^/packs/[^/]+/discussions$",
+    steps: [
+      {
+        target: "[data-tour='discussions-header']",
+        title: "Pack Discussions",
+        content: "A space for async conversations about anything in the pack — module questions, process clarifications, or general onboarding chat.",
+      },
+      {
+        target: "[data-tour='discussion-list']",
+        title: "Thread List",
+        content: "Click any thread to read the conversation and reply. You can start a new thread using the **New Thread** button. Questions are grouped by module when applicable.",
+      },
+    ],
+  },
+  {
+    id: "analytics-intro",
+    pagePattern: "^/packs/[^/]+/analytics$",
+    requiredRole: "admin",
+    steps: [
+      {
+        target: "[data-tour='analytics-header']",
+        title: "Pack Analytics",
+        content: "Track how your team is engaging with the pack — overall progress, reading activity, quiz performance, and XP earned.",
+      },
+      {
+        target: "[data-tour='analytics-metrics']",
+        title: "Key Metrics",
+        content: "At-a-glance numbers: total members, modules published, sections read, quizzes taken, XP earned, and active learners in the last 7 days.",
+      },
+      {
+        target: "[data-tour='analytics-chart']",
+        title: "Module Engagement",
+        content: "A bar chart showing how many sections and quizzes each module has received. Useful for spotting which modules are underused.",
+      },
+      {
+        target: "[data-tour='analytics-leaderboard']",
+        title: "Leaderboard",
+        content: "See the top learners by XP earned. Use this to celebrate progress and identify who might need a nudge.",
+      },
+    ],
+  },
+  {
+    id: "feedback-intro",
+    pagePattern: "^/packs/[^/]+/feedback$",
+    requiredRole: "author",
+    steps: [
+      {
+        target: "[data-tour='feedback-header']",
+        title: "Learner Feedback",
+        content: "This page centralises all feedback your learners have submitted — section ratings, flags, and AI chat reports — in one place.",
+      },
+      {
+        target: "[data-tour='feedback-tabs']",
+        title: "Content vs Chat Feedback",
+        content: "**Content Feedback** shows in-module ratings and flagged sections. **Chat Reports** shows AI chat messages reported as incorrect or unhelpful.",
+      },
+      {
+        target: "[data-tour='feedback-module-ratings']",
+        title: "Module Ratings",
+        content: "See thumbs up/down counts and average star ratings per module. Flag counts highlight modules that may need attention.",
+      },
+      {
+        target: "[data-tour='feedback-flagged']",
+        title: "Flagged Content",
+        content: "Specific sections that learners marked as confusing, outdated, or incorrect. Click **Resolve** once you've addressed the issue.",
+      },
+    ],
+  },
+  {
+    id: "members-intro",
+    pagePattern: "^/packs/[^/]+/members$",
+    requiredRole: "admin",
+    steps: [
+      {
+        target: "[data-tour='members-header']",
+        title: "Manage Members",
+        content: "Add people to the pack, control their access level, and manage pending invites from this page.",
+      },
+      {
+        target: "[data-tour='invite-form']",
+        title: "Invite by Email",
+        content: "Enter an email and choose a role — **Learner**, **Author**, **Admin**, etc. If the user already has an account they'll be added immediately; otherwise they'll receive an invite link.",
+      },
+      {
+        target: "[data-tour='members-table']",
+        title: "Member List",
+        content: "All current members are listed here. Use the role dropdown to change access levels at any time. Remove members with the trash icon.",
+      },
+    ],
+  },
+  {
+    id: "bookmarks-intro",
+    pagePattern: "^/packs/[^/]+/bookmarks$",
+    steps: [
+      {
+        target: "[data-tour='bookmarks-header']",
+        title: "Saved Items",
+        content: "Everything you've bookmarked across modules, glossary terms, exercises, paths, and Ask Lead questions is collected here.",
+      },
+      {
+        target: "[data-tour='bookmark-item']",
+        title: "Bookmark Card",
+        content: "Click a bookmark to jump straight to the source. Use the pin icon to surface it on your dashboard, or the trash icon to remove it. You can also select multiple and bulk-manage them.",
+      },
+    ],
+  },
+  {
+    id: "timeline-intro",
+    pagePattern: "^/packs/[^/]+/timeline$",
+    steps: [
+      {
+        target: "[data-tour='timeline-header']",
+        title: "My Timeline",
+        content: "A milestone-based onboarding timeline organised into phases: Day 1, Week 1, Month 1, and beyond. Check off milestones as you complete them.",
+      },
+      {
+        target: "[data-tour='timeline-entry']",
+        title: "Milestone",
+        content: "Click the circle to mark a milestone as complete. Required milestones are highlighted. Admins can add custom milestones for the whole team.",
+      },
+    ],
+  },
+  {
+    id: "content-health-intro",
+    pagePattern: "^/packs/[^/]+/health$",
+    requiredRole: "author",
+    steps: [
+      {
+        target: "[data-tour='health-header']",
+        title: "Content Health",
+        content: "Monitors whether your generated content is still accurate after source code changes. If a source file is updated, the sections that reference it are flagged as stale.",
+      },
+      {
+        target: "[data-tour='health-card']",
+        title: "Module Health Overview",
+        content: "Each card shows the freshness status for a module. Green means all sections are up-to-date; amber/red means stale sections need attention. Click **Check Now** to run a fresh staleness scan.",
+      },
+    ],
+  },
+  {
+    id: "quiz-analytics-intro",
+    pagePattern: "^/packs/[^/]+/quiz-analytics$",
+    requiredRole: "author",
+    steps: [
+      {
+        target: "[data-tour='quiz-analytics-header']",
+        title: "Quiz Analytics",
+        content: "Deep-dive into how learners are performing on quizzes — pass rates, score distributions, and per-question analysis.",
+      },
+      {
+        target: "[data-tour='quiz-score-distribution']",
+        title: "Overall Metrics",
+        content: "Key numbers at a glance: total attempts, average score, pass rate, and first-try pass rate across all modules.",
+      },
+      {
+        target: "[data-tour='quiz-module-breakdown']",
+        title: "Per-Module Breakdown",
+        content: "Click any module row to expand it and see question-level stats. Questions with low correct rates (🔴) indicate concepts that may need clearer explanation in the module content.",
+      },
+    ],
+  },
+  {
+    id: "settings-intro",
+    pagePattern: "^/settings$",
+    steps: [
+      {
+        target: "[data-tour='settings-header']",
+        title: "Your Settings",
+        content: "Personalise how RocketBoard generates and displays content for you. Changes take effect on new AI responses immediately.",
+      },
+      {
+        target: "[data-tour='settings-profile']",
+        title: "Profile Completeness",
+        content: "Fill in all fields to get the most personalised content. The AI uses your role, experience level, and depth preference when generating modules and chat responses.",
+      },
+      {
+        target: "[data-tour='settings-pack']",
+        title: "Audience & Depth",
+        content: "Choose whether you want **Technical**, **Non-Technical**, or **Mixed** content. Pair this with a depth level to fine-tune verbosity and detail.",
+      },
+    ],
+  },
+  {
+    id: "templates-intro",
+    pagePattern: "^/templates$",
+    requiredRole: "admin",
+    steps: [
+      {
+        target: "[data-tour='templates-header']",
+        title: "Module Templates",
+        content: "Templates are blueprints that control how the AI structures generated modules. They define section outlines, trigger rules, and content constraints.",
+      },
+      {
+        target: "[data-tour='template-grid']",
+        title: "Your Templates",
+        content: "Click any template card to view or edit it. Assign templates to individual modules in the **Plan** page to ensure consistent formatting across similar content types.",
+      },
+    ],
+  },
 ];
+

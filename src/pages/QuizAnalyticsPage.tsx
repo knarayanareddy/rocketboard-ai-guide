@@ -173,7 +173,7 @@ export default function QuizAnalyticsPage() {
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto space-y-6 pb-12">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} data-tour="quiz-analytics-header">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-primary" /> Quiz Analytics
           </h1>
@@ -182,7 +182,7 @@ export default function QuizAnalyticsPage() {
 
         {/* Overview */}
         {overview && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" data-tour="quiz-score-distribution">
             <MetricCard icon={Target} label="Total Attempts" value={overview.totalAttempts} />
             <MetricCard icon={TrendingUp} label="Avg Score" value={`${overview.avgScore}%`} />
             <MetricCard icon={Target} label="Pass Rate (≥70%)" value={`${overview.passRate}%`} />
@@ -193,7 +193,7 @@ export default function QuizAnalyticsPage() {
         )}
 
         {/* Per-Module Table */}
-        <Card className="bg-card/50 border-border/50">
+        <Card className="bg-card/50 border-border/50" data-tour="quiz-module-breakdown">
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" /> Per-Module Quiz Stats

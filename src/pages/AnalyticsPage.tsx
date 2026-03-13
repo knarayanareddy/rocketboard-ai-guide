@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto space-y-6 pb-12">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} data-tour="analytics-header">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-primary" /> Analytics
           </h1>
@@ -78,7 +78,7 @@ export default function AnalyticsPage() {
         </motion.div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-tour="analytics-metrics">
           <MetricCard icon={Users} label="Members" value={metrics.totalMembers} />
           <MetricCard icon={BookOpen} label="Published Modules" value={metrics.totalModules} />
           <MetricCard icon={CheckCircle2} label="Sections Read" value={metrics.totalSectionsRead} />
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
 
         {/* Module Engagement Chart */}
         {chartData.length > 0 && (
-          <Card className="bg-card/50 border-border/50">
+          <Card className="bg-card/50 border-border/50" data-tour="analytics-chart">
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-primary" /> Module Engagement
@@ -116,7 +116,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* Leaderboard */}
-        <Card className="bg-card/50 border-border/50">
+        <Card className="bg-card/50 border-border/50" data-tour="analytics-leaderboard">
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Trophy className="w-4 h-4 text-primary" /> Leaderboard

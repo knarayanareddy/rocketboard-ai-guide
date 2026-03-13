@@ -48,7 +48,7 @@ export default function FaqPage() {
     <DashboardLayout>
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between" data-tour="faq-header">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <HelpCircle className="w-6 h-6 text-primary" />
@@ -71,6 +71,7 @@ export default function FaqPage() {
                   <Lightbulb className="w-3.5 h-3.5" /> Suggestions
                 </Button>
                 <Button
+                  data-tour="faq-add-button"
                   size="sm"
                   className="gradient-primary border-0 shadow gap-1.5 text-xs"
                   onClick={() => setCreateOpen(true)}
@@ -84,7 +85,7 @@ export default function FaqPage() {
 
         {/* Search + Tag filters */}
         <div className="space-y-3">
-          <div className="relative">
+          <div className="relative" data-tour="faq-search">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
@@ -95,7 +96,7 @@ export default function FaqPage() {
             />
           </div>
           {allTags.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap" data-tour="faq-tag-filter">
               <button
                 onClick={() => setTagFilter(null)}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${!tagFilter ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"}`}
@@ -138,6 +139,7 @@ export default function FaqPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
+                data-tour={i === 0 ? "faq-entry" : undefined}
                 className="bg-card border border-border rounded-xl p-5 hover:border-primary/20 transition-colors group"
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
