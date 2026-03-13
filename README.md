@@ -100,6 +100,12 @@ AI responses include inline citation badges (`[S1]`, `[S2]`) that are fully inte
 - **Click** to open the full file in the Source Explorer
 - Bottom-of-response source badges provide quick navigation
 
+### 👤 Personalization via Learner Profiles
+- **Role & Experience:** AI adjusts verbosity, code density, and depth dynamically
+- **Learning Style:** Choose between Visual (diagrams), Text-heavy, or Interactive (code-centric)
+- **Framework Analogies:** e.g., "I know React" prompts the AI to explain unfamiliar concepts using React comparisons
+- **Tone Preference:** Direct, Conversational, or Socratic guidance
+
 ### 📊 AI Observability (Langfuse Integration)
 Full telemetry tracing for every AI task:
 - Token usage, latency, and estimated cost per request
@@ -119,6 +125,7 @@ Full telemetry tracing for every AI task:
 - **Exercises** — code find, explain, configure, debug, explore challenges
 - **Glossary** with density controls and code-contextualized definitions
 - **Onboarding Paths** — Day 1 & Week 1 step-by-step checklists
+- **Learner Profiles** — highly personalized AI content adapting to learning style, familiarity, and tone
 - **Ask Your Lead** — curated high-signal questions for 1:1 meetings
 - **Notes & Bookmarks** — personal note-taking with guided prompts
 - **FAQ** — AI-detected repeated questions surfaced for author curation

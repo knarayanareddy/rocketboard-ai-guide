@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useAudiencePrefs, GlossaryDensity, ExperienceLevel } from "@/hooks/useAudiencePrefs";
+import { useAudiencePrefs, GlossaryDensity, ExperienceLevel, LearningStyle, TonePreference } from "@/hooks/useAudiencePrefs";
 import { useGenerationPrefs, TargetReadingLevel } from "@/hooks/useGenerationPrefs";
 import { usePeerVisibility } from "@/hooks/usePeerVisibility";
 import { usePack } from "@/hooks/usePack";
@@ -58,6 +58,20 @@ const EXPERIENCE_OPTIONS: { key: ExperienceLevel; label: string; desc: string }[
   { key: "senior", label: "Senior (5+ years)", desc: "Experienced, focus on architecture & patterns" },
 ];
 
+const LEARNING_STYLE_OPTIONS: { key: LearningStyle; label: string; desc: string }[] = [
+  { key: "balanced", label: "Balanced", desc: "A mix of text, code, and visuals" },
+  { key: "visual", label: "Visual", desc: "Heavy use of Mermaid diagrams and charts" },
+  { key: "text", label: "Text-Heavy", desc: "Detailed written explanations" },
+  { key: "interactive", label: "Interactive", desc: "Focused on code snippets and examples" },
+];
+
+const TONE_OPTIONS: { key: TonePreference; label: string; desc: string }[] = [
+  { key: "standard", label: "Standard", desc: "Clear and helpful" },
+  { key: "direct", label: "Direct", desc: "Concise, straight to the point" },
+  { key: "conversational", label: "Conversational", desc: "Friendly and approachable" },
+  { key: "socratic", label: "Socratic", desc: "Guides you with questions before answering" },
+];
+
 const READING_LEVEL_OPTIONS: { key: TargetReadingLevel; label: string; desc: string }[] = [
   { key: "plain", label: "Plain", desc: "Simple, easy-to-read language" },
   { key: "standard", label: "Standard", desc: "Balanced technical writing" },
@@ -89,12 +103,13 @@ const PROFILE_FIELDS = [
 export default function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, mermaidEnabled, updatePrefs } = useAudiencePrefs();
+  const { audience, depth, glossaryDensity, learnerRole, experienceLevel, outputLanguage, mermaidEnabled, learningStyle, frameworkFamiliarity, tonePreference, updatePrefs } = useAudiencePrefs();
   const { targetReadingLevel, maxSectionsHint, packLimits, isAuthorPlus, updatePrefs: updateGenPrefs, updatePackLimits } = useGenerationPrefs();
   const { prefs: peerPrefs, updatePrefs: updatePeerPrefs } = usePeerVisibility();
   const { hasPackPermission } = useRole();
   const { currentPackId, currentPack } = usePack();
   const [roleInput, setRoleInput] = useState(learnerRole || "");
+  const [frameworkInput, setFrameworkInput] = useState(frameworkFamiliarity || "");
   const [sectionsInput, setSectionsInput] = useState(maxSectionsHint);
   const [moduleWordsInput, setModuleWordsInput] = useState(packLimits.maxModuleWords);
   const [quizQuestionsInput, setQuizQuestionsInput] = useState(packLimits.maxQuizQuestions);
@@ -110,8 +125,11 @@ export default function SettingsPage() {
     if (experienceLevel) filled.push("Experience Level"); else missing.push("Experience Level");
     if (outputLanguage !== "en") filled.push("Output Language"); else missing.push("Output Language");
     if (glossaryDensity !== "standard") filled.push("Glossary Density"); else missing.push("Glossary Density");
-    return { filled, missing, total: 6, count: filled.length };
-  }, [audience, depth, learnerRole, experienceLevel, outputLanguage, glossaryDensity]);
+    if (learningStyle !== "balanced") filled.push("Learning Style"); else missing.push("Learning Style");
+    if (frameworkFamiliarity) filled.push("Framework Familiarity"); else missing.push("Framework Familiarity");
+    if (tonePreference !== "standard") filled.push("Tone Preference"); else missing.push("Tone Preference");
+    return { filled, missing, total: 9, count: filled.length };
+  }, [audience, depth, learnerRole, experienceLevel, outputLanguage, glossaryDensity, learningStyle, frameworkFamiliarity, tonePreference]);
 
   // Reset counts query
   const resetCountsQuery = useQuery({
@@ -162,7 +180,7 @@ export default function SettingsPage() {
     }
   };
 
-  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null; output_language: string; mermaid_enabled: boolean }>) => {
+  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null; output_language: string; mermaid_enabled: boolean; learning_style: LearningStyle; framework_familiarity: string | null; tone_preference: TonePreference }>) => {
     updatePrefs.mutate({
       audience: overrides.audience ?? audience,
       depth: overrides.depth ?? depth,
@@ -171,6 +189,9 @@ export default function SettingsPage() {
       experience_level: overrides.experience_level !== undefined ? overrides.experience_level : experienceLevel,
       output_language: overrides.output_language ?? outputLanguage,
       mermaid_enabled: overrides.mermaid_enabled !== undefined ? overrides.mermaid_enabled : mermaidEnabled,
+      learning_style: overrides.learning_style !== undefined ? overrides.learning_style : learningStyle,
+      framework_familiarity: overrides.framework_familiarity !== undefined ? overrides.framework_familiarity : frameworkFamiliarity,
+      tone_preference: overrides.tone_preference !== undefined ? overrides.tone_preference : tonePreference,
     });
   };
 
@@ -317,24 +338,48 @@ export default function SettingsPage() {
               Help the AI tailor content to your role and experience.
             </p>
 
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Your Role <HelpTooltip content={HELP_TOOLTIPS.settings.learnerRole} /></label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={roleInput}
-                    onChange={(e) => setRoleInput(e.target.value)}
-                    placeholder="e.g., Frontend Developer, SRE, etc."
-                    className="flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => saveAll({ learner_role: roleInput || null })}
-                    disabled={roleInput === (learnerRole || "")}
-                  >
-                    Save
-                  </Button>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Your Role <HelpTooltip content={HELP_TOOLTIPS.settings.learnerRole} /></label>
+                  <p className="text-xs text-muted-foreground mb-2">E.g., Frontend Developer, Data Engineer</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={roleInput}
+                      onChange={(e) => setRoleInput(e.target.value)}
+                      placeholder="e.g., Frontend Developer"
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => saveAll({ learner_role: roleInput || null })}
+                      disabled={roleInput === (learnerRole || "")}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Framework Familiarity</label>
+                  <p className="text-xs text-muted-foreground mb-2">Help AI use better analogies (e.g., "I know React but not Vue")</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={frameworkInput}
+                      onChange={(e) => setFrameworkInput(e.target.value)}
+                      placeholder="e.g., Expert in Python, new to Rust"
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => saveAll({ framework_familiarity: frameworkInput || null })}
+                      disabled={frameworkInput === (frameworkFamiliarity || "")}
+                    >
+                      Save
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -347,6 +392,46 @@ export default function SettingsPage() {
                       onClick={() => saveAll({ experience_level: opt.key })}
                       className={`text-left p-3 rounded-lg border transition-all ${
                         experienceLevel === opt.key
+                          ? "border-primary/40 bg-primary/10"
+                          : "border-border hover:border-primary/20"
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-card-foreground">{opt.label}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Learning Style</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {LEARNING_STYLE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => saveAll({ learning_style: opt.key })}
+                      className={`text-left p-3 rounded-lg border transition-all ${
+                        learningStyle === opt.key
+                          ? "border-primary/40 bg-primary/10"
+                          : "border-border hover:border-primary/20"
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-card-foreground">{opt.label}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-card-foreground mb-2 flex items-center gap-1.5">Tone Preference</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {TONE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => saveAll({ tone_preference: opt.key })}
+                      className={`text-left p-3 rounded-lg border transition-all ${
+                        tonePreference === opt.key
                           ? "border-primary/40 bg-primary/10"
                           : "border-border hover:border-primary/20"
                       }`}

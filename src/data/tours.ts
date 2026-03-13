@@ -543,7 +543,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='settings-profile']",
         title: "Profile Completeness",
-        content: "Fill in all fields to get the most personalised content. The AI uses your role, experience level, and depth preference when generating modules and chat responses.",
+        content: "Fill in all fields to get the most personalised content. The AI uses your role, experience level, learning style, framework familiarity, and tone preference when generating modules and chat responses.",
       },
       {
         target: "[data-tour='settings-pack']",

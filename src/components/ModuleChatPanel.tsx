@@ -213,11 +213,14 @@ function MessageSources({
   );
 }
 
+import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
+
 export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { currentPack, currentPackId } = usePack();
   const { packAccessLevel } = useRole();
+  const { learnerRole, experienceLevel, learningStyle, frameworkFamiliarity, tonePreference } = useAudiencePrefs();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastError, setLastError] = useState<AIError | null>(null);
@@ -296,6 +299,13 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
           title: currentPack?.title,
           description: currentPack?.description,
           language_mode: currentPack?.language_mode,
+        },
+        learnerProfile: {
+          role: learnerRole,
+          experience_level: experienceLevel,
+          learning_style: learningStyle,
+          framework_familiarity: frameworkFamiliarity,
+          tone_preference: tonePreference
         },
         messages: allMessages,
         evidenceSpans: spans,

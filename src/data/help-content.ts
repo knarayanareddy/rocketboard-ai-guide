@@ -874,10 +874,16 @@ Track which questions you've asked and mark them complete.`,
 
 RocketBoard adapts to your specific learning style and technical background. Customize your experience in the **Settings** panel.
 
-:::card[Audience Profile]{👤}
-- **Technical:** Focuses on code implementation and architecture.
-- **Non-Technical:** Prioritizes workflows, business logic, and concepts.
-- **Mixed:** A balanced blend for cross-functional teams.
+:::card[Learner Profile]{👤}
+- **Role & Experience:** The AI adapts its code density and depth to your specific job title and seniority.
+- **Learning Style:** Choose between Visual, Text-heavy, or Interactive explanations.
+- **Framework Familiarity:** Tell the AI what you already know (e.g. 'I know React') to get explanations using precise analogies.
+- **Tone Preference:** Choose Direct, Conversational, or Socratic tones for your AI chat interactions.
+:::
+
+:::card[Audience & Depth]{📚}
+- **Technical / Non-Technical / Mixed:** Controls the overall balance of code vs concept.
+- **Shallow / Standard / Deep:** Controls verbosity and the inclusion of edge-cases.
 :::
 
 :::card[Content Depth]{📚}

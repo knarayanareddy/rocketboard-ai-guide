@@ -234,6 +234,8 @@ function MessageSources({
   );
 }
 
+import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
+
 export function MissionControlChat() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -242,6 +244,7 @@ export function MissionControlChat() {
   const { packAccessLevel } = useRole();
   const { setMode } = useTheme();
   const { startTour } = useTour();
+  const { learnerRole, experienceLevel, learningStyle, frameworkFamiliarity, tonePreference } = useAudiencePrefs();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastError, setLastError] = useState<AIError | null>(null);
@@ -345,6 +348,13 @@ export function MissionControlChat() {
           title: currentPack?.title,
           description: currentPack?.description,
           language_mode: currentPack?.language_mode,
+        },
+        learnerProfile: {
+          role: learnerRole,
+          experience_level: experienceLevel,
+          learning_style: learningStyle,
+          framework_familiarity: frameworkFamiliarity,
+          tone_preference: tonePreference
         },
         messages: allMessages,
         evidenceSpans: spans,

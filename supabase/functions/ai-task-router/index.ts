@@ -180,6 +180,27 @@ function buildLanguageBlock(context: any, pack: any): string {
   return `\n## OUTPUT LANGUAGE INSTRUCTION\nWrite ALL user-facing prose (headings, content, explanations, definitions, reflection prompts, quiz questions, option text) in language code "${lang}". NEVER translate: code identifiers, file paths, variable names, IDs, citation fields (span_id, path, chunk_id), or JSON keys. JSON keys must remain in English.\n`;
 }
 
+function buildLearnerProfileBlock(context: any): string {
+  const profile = context?.learner_profile;
+  if (!profile || (!profile.role && !profile.experience_level && !profile.framework_familiarity && profile.learning_style === "balanced" && profile.tone_preference === "standard")) return "";
+  
+  const rules = [];
+  if (profile.role) rules.push(`- Assume the reader's role is: ${profile.role}`);
+  if (profile.experience_level) rules.push(`- Adjust explanations for experience level: ${profile.experience_level}`);
+  if (profile.framework_familiarity) rules.push(`- Use analogies bridging this knowledge: ${profile.framework_familiarity}`);
+  
+  if (profile.learning_style === "visual") rules.push(`- Maximize the use of Mermaid diagrams and charts to illustrate concepts.`);
+  if (profile.learning_style === "text") rules.push(`- Provide highly detailed, comprehensive written descriptions without over-relying on diagrams.`);
+  if (profile.learning_style === "interactive") rules.push(`- Focus heavily on concrete code snippets, examples, and hands-on scenarios.`);
+
+  if (profile.tone_preference === "direct") rules.push(`- Use a highly concise, direct, and straight-to-the-point tone. Avoid fluff.`);
+  if (profile.tone_preference === "conversational") rules.push(`- Use a friendly, approachable, and encouraging tone.`);
+  if (profile.tone_preference === "socratic") rules.push(`- Often guide the learner with thought-provoking questions to help them deduce the answer themselves.`);
+
+  if (rules.length === 0) return "";
+  return `\n## LEARNER PROFILE INSTRUCTION\nThe user has provided specific learning preferences. YOU MUST adhere to these when formulating your response:\n${rules.join("\n")}\n`;
+}
+
 function buildMermaidBlock(envelope: any): string {
   const enabled = envelope?.generation_prefs?.include_mermaid_if_supported;
   if (enabled) {
@@ -476,7 +497,7 @@ ${buildLimitsConstraintBlock(limits)}
 SECTION REFERENCES: When your answer is explained by a specific module section from the Section Index below, add that section to referenced_sections. Only include sections that are genuinely relevant. If no section matches, leave the array empty.
 
 CONTRADICTION HANDLING: If you detect contradictions in the evidence while answering, include them in the contradictions array. Be explicit about what conflicts and cite both sides.
-${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${packBlock}${moduleBlock}${audienceBlock}${sectionIndexBlock}${spansBlock}
+${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${buildLearnerProfileBlock(context)}${packBlock}${moduleBlock}${audienceBlock}${sectionIndexBlock}${spansBlock}
 
 You MUST respond with VALID JSON matching this schema:
 {
@@ -574,7 +595,7 @@ async function handleGlobalChat(envelope: any, extraWarnings: string[] = []): Pr
 - How to configure settings, manage sources, and customize content
 - General questions about the codebase and onboarding workflow
 
-${SECURITY_RULES_BLOCK}
+${SECURITY_RULES_BLOCK}${buildLearnerProfileBlock(context)}
 CODE IN CHAT RESPONSES:
 - When answering questions about how something works in the codebase, ALWAYS include the relevant code snippet from evidence spans.
 - Format as fenced code blocks with language identifier.
@@ -690,7 +711,7 @@ async function handleModulePlanner(envelope: any, extraWarnings: string[] = []):
     : "The pack has no tracks yet. Propose tracks based on what you see in the evidence.";
 
   const systemPrompt = `You are RocketBoard AI Module Planner. Your job is to analyze codebase evidence spans and propose a structured onboarding plan.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(envelope.context, pack)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(envelope.context, pack)}${buildLearnerProfileBlock(envelope.context)}
 TASK:
 1. Analyze the evidence spans to understand the codebase/system architecture.
 2. Detect technology signals (e.g., "uses_kubernetes", "has_ci_pipeline", "uses_typescript", "has_monitoring", "has_auth_system", "uses_react", "has_database_migrations", etc.).
@@ -784,7 +805,7 @@ async function handleGenerateModule(envelope: any, extraWarnings: string[] = [])
   const moduleRevision = inputs.module_revision || 1;
 
   const systemPrompt = `You are RocketBoard AI Module Generator. Your job is to generate comprehensive onboarding module content grounded in evidence spans.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${buildLearnerProfileBlock(context)}
 TASK: Generate a complete module titled "${moduleTitle}" (key: ${moduleKey}).
 ${moduleDesc ? `Description: ${moduleDesc}` : ""}
 ${trackKey ? `Track: ${trackKey}` : ""}
@@ -954,7 +975,7 @@ async function handleGenerateQuiz(envelope: any, extraWarnings: string[] = []): 
     : `\nModule key: ${moduleKey}`;
 
   const systemPrompt = `You are RocketBoard AI Quiz Generator. Generate multiple-choice quiz questions that test comprehension of module content.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildLearnerProfileBlock(context)}
 TASK: Generate up to ${limits.max_quiz_questions || 5} quiz questions for module "${moduleKey}".
 ${moduleContext}
 ${packBlock}
@@ -1054,7 +1075,7 @@ async function handleGenerateGlossary(envelope: any, extraWarnings: string[] = [
   const densityInstruction = densityMap[density] || "Include common terms. Aim for 15-25 terms.";
 
   const systemPrompt = `You are RocketBoard AI Glossary Generator. Generate a pack-specific glossary of technical terms found in the evidence spans.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildLearnerProfileBlock(context)}
 TASK: Generate a glossary for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
@@ -1129,7 +1150,7 @@ async function handleGeneratePaths(envelope: any, extraWarnings: string[] = []):
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Paths Generator. Generate structured onboarding checklists for Day 1 and Week 1.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildLearnerProfileBlock(context)}
 TASK: Generate onboarding paths for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
@@ -1228,7 +1249,7 @@ async function handleGenerateAskLead(envelope: any, extraWarnings: string[] = []
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Ask-Your-Lead Generator. Generate high-signal questions a new engineer should ask their team lead during their first 1:1s.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildLearnerProfileBlock(context)}
 TASK: Generate 10-15 questions for the "${pack.title || "unknown"}" pack.
 ${packBlock}
 
@@ -1315,7 +1336,7 @@ async function handleRefineModule(envelope: any, extraWarnings: string[] = []): 
   const existingModuleJson = JSON.stringify(existingModule, null, 2);
 
   const systemPrompt = `You are RocketBoard AI Module Refiner. You iteratively improve generated modules based on author instructions.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${buildLearnerProfileBlock(context)}
 TASK: Refine the existing module "${existingModule.title || moduleKey}" based on the author's instruction.
 
 ${packBlock}
@@ -1420,7 +1441,7 @@ async function handleSimplifySection(envelope: any, extraWarnings: string[] = []
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Section Simplifier. You rewrite technical content to be more accessible.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildMermaidBlock(envelope)}${buildLearnerProfileBlock(context)}
 TASK: Simplify the following section content for the target audience.
 ${packBlock}
 
@@ -1584,7 +1605,7 @@ async function handleRefineTemplate(envelope: any, extraWarnings: string[] = [])
   const packBlock = buildPackBlock(pack);
 
   const systemPrompt = `You are RocketBoard AI Template Refiner. You improve existing module templates based on author feedback.
-${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}
+${SECURITY_RULES_BLOCK}${buildLanguageBlock(context, pack)}${buildLearnerProfileBlock(context)}
 TASK: Refine this template based on the author's instruction.
 ${packBlock}
 

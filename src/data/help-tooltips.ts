@@ -82,6 +82,9 @@ export const HELP_TOOLTIPS = {
     themeToggle: "Light: standard light theme. Dark: reduced eye strain in low-light environments. System: automatically matches your device's dark/light mode setting.",
     learnerRole: "Your job title or role (e.g., 'Frontend Developer', 'SRE', 'QA Engineer'). Used to personalize AI responses and content recommendations.",
     experienceLevel: "New: less than 1 year in this role. Mid: 1-5 years of experience. Senior: 5+ years. Affects content depth and pre-test thresholds.",
+    learningStyle: "Visual: more diagrams and charts. Text-heavy: detailed descriptions. Interactive: more code snippets and examples.",
+    frameworkFamiliarity: "Tells the AI to use analogies bridging what you know to what you're learning (e.g., 'I know React').",
+    tonePreference: "Direct: concise and straight-to-the-point. Conversational: friendly. Socratic: guides you with questions.",
   },
 
   // ─── MEMBERS PAGE ───────────────────────────────────
