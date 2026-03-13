@@ -15,8 +15,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -132,11 +130,6 @@ export default function ReviewPage() {
 
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
-  const [refineTarget, setRefineTarget] = useState<GeneratedModuleRow | null>(null);
-  const [refineInstruction, setRefineInstruction] = useState("");
-  const [refining, setRefining] = useState(false);
-  const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
-  const [refineError, setRefineError] = useState<AIError | null>(null);
   const [regenError, setRegenError] = useState<AIError | null>(null);
 
   if (!hasPackPermission("author")) {
@@ -187,32 +180,6 @@ export default function ReviewPage() {
     setPublishing(false);
   };
 
-  const handleRefine = async () => {
-    if (!refineTarget) return;
-    setRefining(true);
-    setRefineError(null);
-    try {
-      const moduleData = refineTarget.module_data as unknown as GeneratedModuleData;
-      const result = await refineModule.mutateAsync({
-        moduleKey: refineTarget.module_key,
-        authorInstruction: refineInstruction,
-        existingModuleData: moduleData,
-        currentRevision: refineTarget.module_revision,
-        trackKey: refineTarget.track_key,
-      });
-      setChangeLog(result.changeLog);
-      setRefineTarget(null);
-      setRefineInstruction("");
-      toast.success(`Module refined to Rev. ${result.row.module_revision}`);
-    } catch (e: any) {
-      if (e instanceof AIError) {
-        setRefineError(e);
-      } else {
-        toast.error(e.message);
-      }
-    }
-    setRefining(false);
-  };
 
   const handleRegenerate = async (mod: GeneratedModuleRow) => {
     setRegenError(null);
@@ -331,7 +298,7 @@ export default function ReviewPage() {
                 mod={mod}
                 quizCount={0} // Will be enriched later
                 onPreview={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?preview=1`)}
-                onRefine={() => { setRefineTarget(mod); setRefineInstruction(""); setChangeLog([]); setRefineError(null); }}
+                onRefine={() => navigate(`/packs/${currentPackId}/modules/${mod.module_key}?edit=1`)}
                 onRegenerate={() => handleRegenerate(mod)}
               />
             ))}
@@ -383,50 +350,7 @@ export default function ReviewPage() {
           </Card>
         </div>
 
-        {/* Change log from last refine */}
-        {changeLog.length > 0 && (
-          <Card className="border-primary/20">
-            <CardContent className="p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" /> Last Refinement Changes
-              </h3>
-              <ul className="space-y-2">
-                {changeLog.map((entry, i) => (
-                  <li key={i} className="text-sm">
-                    <span className="text-foreground">{entry.change}</span>
-                    <span className="text-muted-foreground ml-2">— {entry.reason}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
       </div>
-
-      {/* Refine Sheet */}
-      <Sheet open={!!refineTarget} onOpenChange={(open) => { if (!open) setRefineTarget(null); }}>
-        <SheetContent className="sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>Refine: {refineTarget?.title}</SheetTitle>
-          </SheetHeader>
-          <div className="mt-6 space-y-4">
-            <p className="text-sm text-muted-foreground">Describe what you'd like to change about this module.</p>
-            <Textarea
-              value={refineInstruction}
-              onChange={(e) => setRefineInstruction(e.target.value)}
-              placeholder="e.g., Add more detail about the deployment process, simplify the introduction..."
-              rows={5}
-            />
-            <Button onClick={handleRefine} disabled={refining || !refineInstruction.trim()} className="w-full gap-2">
-              {refining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
-              {refining ? "Refining..." : "Refine Module"}
-            </Button>
-            {refineError && (
-              <AIErrorDisplay error={refineError} onRetry={handleRefine} />
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
     </DashboardLayout>
   );
 }

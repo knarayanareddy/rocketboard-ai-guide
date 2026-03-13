@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SectionViewer } from "@/components/SectionViewer";
@@ -460,9 +460,12 @@ export default function ModuleView() {
   const { modules: allGenModules } = useGenModulesForTitleMap();
   const effectiveLimits = getEffectiveLimits({ max_module_words: packLimits.maxModuleWords, max_quiz_questions: packLimits.maxQuizQuestions, max_key_takeaways: packLimits.maxKeyTakeaways });
 
+  const [searchParams] = useSearchParams();
+  const initEditMode = searchParams.get("edit") === "1";
+
   const [activeTrack, setActiveTrack] = useState<string>("all");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [editMode, setEditMode] = useState(initEditMode);
   const [editableModuleData, setEditableModuleData] = useState<GeneratedModuleData | null>(null);
   const [refineInstruction, setRefineInstruction] = useState("");
   const [changeLog, setChangeLog] = useState<ChangeLogEntry[]>([]);
