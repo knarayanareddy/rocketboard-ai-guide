@@ -489,7 +489,7 @@ export default function ModuleView() {
 
   // Sync edits when raw data loads
   useEffect(() => {
-    if (moduleData && !editMode) {
+    if (moduleData && (!editMode || !editableModuleData)) {
       setEditableModuleData(JSON.parse(JSON.stringify(moduleData)));
     }
   }, [moduleData, editMode]);

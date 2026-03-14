@@ -180,7 +180,19 @@ export default function SettingsPage() {
     }
   };
 
-  const saveAll = (overrides: Partial<{ audience: Audience; depth: Depth; glossary_density: GlossaryDensity; learner_role: string | null; experience_level: ExperienceLevel | null; output_language: string; mermaid_enabled: boolean; learning_style: LearningStyle; framework_familiarity: string | null; tone_preference: TonePreference }>) => {
+  const saveAll = (overrides: Partial<{ 
+    audience: Audience; 
+    depth: Depth; 
+    glossary_density: GlossaryDensity; 
+    learner_role: string | null; 
+    experience_level: ExperienceLevel | null; 
+    output_language: string; 
+    mermaid_enabled: boolean; 
+    learning_style: LearningStyle; 
+    framework_familiarity: string | null; 
+    tone_preference: TonePreference 
+  }>) => {
+    // We use the latest values from the hook to avoid overwriting with stale local state
     updatePrefs.mutate({
       audience: overrides.audience ?? audience,
       depth: overrides.depth ?? depth,

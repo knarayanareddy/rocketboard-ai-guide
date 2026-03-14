@@ -31,7 +31,6 @@ export function useAudiencePrefs() {
         .from("audience_preferences")
         .select("*")
         .eq("user_id", user.id)
-        .or(`pack_id.eq.${currentPackId},pack_id.is.null`)
         .maybeSingle();
       if (error) throw error;
       return data;
