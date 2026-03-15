@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
 
     if (!tokenResp.ok) {
       const errText = await tokenResp.text();
+      console.error(`[OAuth] Google Token Exchange Failed. Status: ${tokenResp.status}`, errText);
       let detailedError = "Failed to exchange authorization code.";
       try {
         const errJson = JSON.parse(errText);
@@ -91,7 +92,6 @@ Deno.serve(async (req) => {
       } catch {
         detailedError = `${detailedError} Details: ${errText}`;
       }
-      console.error("Token exchange failed:", errText);
       return new Response(errorPage(detailedError), {
         headers: { "Content-Type": "text/html" },
       });
