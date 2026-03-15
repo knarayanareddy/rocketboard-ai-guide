@@ -1,0 +1,218 @@
+import Parser from "https://esm.sh/web-tree-sitter@0.20.8";
+
+let isParserInitialized = false;
+const languageCache = new Map<string, any>();
+
+async function initParser() {
+  if (isParserInitialized) return;
+  await Parser.init();
+  isParserInitialized = true;
+}
+
+async function getLanguage(lang: string) {
+  // Map tsx -> typescript as they often share the same grammar in WASM distributions
+  const langKey = lang === "tsx" ? "typescript" : lang;
+  if (languageCache.has(langKey)) return languageCache.get(langKey);
+
+  try {
+    const url = `https://esm.sh/tree-sitter-wasms@0.1.11/out/tree-sitter-${langKey}.wasm`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch grammar for ${langKey}`);
+    const buffer = await res.arrayBuffer();
+    const language = await Parser.Language.load(new Uint8Array(buffer));
+    languageCache.set(langKey, language);
+    return language;
+  } catch (e) {
+    console.error(`[AST] Grammar load failed for ${langKey}:`, e);
+    return null;
+  }
+}
+
+export interface ChunkMetadata {
+  entity_type: string;
+  entity_name: string;
+  signature: string;
+  line_start: number;
+  line_end: number;
+  parent_id?: string;
+  content_hash?: string;
+  imports?: string[];
+  exported_names?: string[];
+}
+
+export interface ASTChunk {
+  text: string;
+  metadata: ChunkMetadata;
+}
+
+function extractImports(tree: Parser.Tree, lang: string): string[] {
+  const imports: string[] = [];
+  const root = tree.rootNode;
+  
+  // Basic heuristic import extraction
+  const queryMap: Record<string, string> = {
+    typescript: '(import_statement) @import (import_alias) @import',
+    javascript: '(import_statement) @import',
+    python: '(import_from_statement) @import (import_statement) @import',
+    go: '(import_declaration) @import',
+  };
+
+  const queryStr = queryMap[lang === "tsx" ? "typescript" : lang];
+  if (!queryStr) return [];
+
+  try {
+    const query = tree.getLanguage().query(queryStr);
+    const matches = query.matches(root);
+    for (const match of matches) {
+      for (const capture of match.captures) {
+        imports.push(capture.node.text);
+      }
+    }
+  } catch (e) {
+    // Fallback if query fails
+  }
+  return imports;
+}
+
+function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[]) {
+  const type = node.type;
+  const interestingTypes = [
+    "function_declaration", "method_definition", "class_declaration",
+    "interface_declaration", "enum_declaration", "type_alias_declaration",
+    "function_definition", "decorated_definition" // Python
+  ];
+
+  if (interestingTypes.includes(type)) {
+    const nameNode = node.childForFieldName("name") || node.children.find(c => c.type.includes("identifier"));
+    chunks.push({
+      text: code.slice(node.startIndex, node.endIndex),
+      metadata: {
+        entity_type: type,
+        entity_name: nameNode?.text || "anonymous",
+        signature: code.slice(node.startIndex, nameNode?.endIndex || node.endIndex).split('\n')[0],
+        line_start: node.startPosition.row + 1,
+        line_end: node.endPosition.row + 1,
+      }
+    });
+    return; // Don't recurse into interesting nodes for top-level chunking
+  }
+
+  for (const child of node.children) {
+    walkAST(child, code, chunks);
+  }
+}
+
+function extractOrphanCode(root: Parser.Node, code: string, astChunks: ASTChunk[]): ASTChunk[] {
+  const orphans: ASTChunk[] = [];
+  const sortedChunks = [...astChunks].sort((a, b) => a.metadata.line_start - b.metadata.line_start);
+  
+  let currentPos = 0;
+  for (const chunk of sortedChunks) {
+    const chunkStart = code.split('\n').slice(0, chunk.metadata.line_start - 1).join('\n').length;
+    if (chunkStart > currentPos + 50) { // arbitrary threshold for "meaningful" orphan code
+      const text = code.slice(currentPos, chunkStart).trim();
+      if (text.length > 20) {
+         orphans.push({
+           text,
+           metadata: {
+             entity_type: "orphan_code",
+             entity_name: "file_scope",
+             signature: text.split('\n')[0],
+             line_start: code.slice(0, currentPos).split('\n').length,
+             line_end: chunk.metadata.line_start - 1
+           }
+         });
+      }
+    }
+    currentPos = code.split('\n').slice(0, chunk.metadata.line_end).join('\n').length;
+  }
+  
+  // Tail orphan
+  if (currentPos < code.length - 20) {
+    const text = code.slice(currentPos).trim();
+    if (text.length > 20) {
+      orphans.push({
+        text,
+        metadata: {
+          entity_type: "orphan_code",
+          entity_name: "file_scope",
+          signature: text.split('\n')[0],
+          line_start: code.slice(0, currentPos).split('\n').length,
+          line_end: code.split('\n').length
+        }
+      });
+    }
+  }
+  
+  return orphans;
+}
+
+function splitOversizedChunk(chunk: ASTChunk, maxLines = 100): ASTChunk[] {
+  const lines = chunk.text.split('\n');
+  if (lines.length <= maxLines) return [chunk];
+
+  const results: ASTChunk[] = [];
+  for (let i = 0; i < lines.length; i += 80) { // 20 line overlap
+    const end = Math.min(i + 100, lines.length);
+    results.push({
+      text: lines.slice(i, end).join('\n'),
+      metadata: {
+        ...chunk.metadata,
+        entity_type: `${chunk.metadata.entity_type}_part`,
+        line_start: chunk.metadata.line_start + i,
+        line_end: chunk.metadata.line_start + end - 1,
+      }
+    });
+    if (end === lines.length) break;
+  }
+  return results;
+}
+
+export async function astChunk(code: string, filepath: string): Promise<ASTChunk[]> {
+  await initParser();
+  const ext = filepath.split('.').pop() || "";
+  const lang = ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java"].includes(ext) ? ext : null;
+  
+  if (!lang) {
+    // Fallback for non-code files
+    const lines = code.split('\n');
+    const results: ASTChunk[] = [];
+    for (let i = 0; i < lines.length; i += 100) {
+       const end = Math.min(i + 100, lines.length);
+       results.push({
+           text: lines.slice(i, end).join('\n'),
+           metadata: {
+               entity_type: "text_chunk",
+               entity_name: filepath,
+               signature: filepath,
+               line_start: i + 1,
+               line_end: end
+           }
+       });
+    }
+    return results;
+  }
+
+  const parser = new Parser();
+  const grammar = await getLanguage(lang);
+  if (!grammar) return astChunk(code, "fallback.txt"); // fallback to basic chunking
+
+  parser.setLanguage(grammar);
+  const tree = parser.parse(code);
+  const imports = extractImports(tree, lang);
+
+  const chunks: ASTChunk[] = [];
+  walkAST(tree.rootNode, code, chunks);
+  
+  const orphans = extractOrphanCode(tree.rootNode, code, chunks);
+  const finalChunks = [...chunks, ...orphans];
+
+  // Final pass: ensure imports are attached to chunks and split oversized
+  return finalChunks.flatMap(c => {
+    const split = splitOversizedChunk(c);
+    return split.map(s => ({
+      ...s,
+      metadata: { ...s.metadata, imports }
+    }));
+  });
+}

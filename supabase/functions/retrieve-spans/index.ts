@@ -59,10 +59,9 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify user via getClaims
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    // Verify user and get org_id
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: corsHeaders,
       });
@@ -71,6 +70,21 @@ Deno.serve(async (req) => {
     // Use service role for the actual query (since knowledge_chunks RLS is pack-member based)
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
+
+    // Resolve org_id from memberhip
+    const { data: memberData } = await adminClient
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .single();
+    
+    const org_id = memberData?.org_id;
+    if (!org_id) {
+       return new Response(JSON.stringify({ error: "No organization found for user" }), {
+        status: 403, headers: corsHeaders,
+      });
+    }
 
     // Build tsquery from the user's query
     const tsQuery = query
@@ -87,106 +101,49 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build path filter if module_key or track_key provided
-    let pathFilter = null;
-    if (module_key) pathFilter = `%${module_key}%`;
-    if (track_key) pathFilter = `%${track_key}%`;
-
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
     let embedding = null;
 
-    // Heuristic: detect keyword-heavy queries (env vars, identifiers, code tokens)
-    // and boost FTS weight. Conceptual queries stay balanced.
-    const keywordHeavyPattern = /[A-Z]{2,}|[a-z][A-Z]|_[a-z]|\d{3,}|\.ts\b|\.js\b|\.jsx\b|\.tsx\b|\benv\b/;
-    const isKeywordHeavy = keywordHeavyPattern.test(query);
-    const vectorWeight = isKeywordHeavy ? 0.7 : 1.0;
-    const keywordWeight = isKeywordHeavy ? 1.5 : 1.0;
-    if (isKeywordHeavy) console.log(`[RETRIEVAL] Keyword-heavy query detected, boosting FTS weight: v=${vectorWeight} k=${keywordWeight}`);
-    
     if (openAIApiKey) {
       embedding = await generateEmbedding(query, openAIApiKey);
     }
 
-    let spans = [];
-
-    if (embedding) {
-      console.log(`[RETRIEVAL] Using hybrid search for pack ${pack_id}`);
-      
-      const { data: chunks, error: rpcError } = await adminClient.rpc('match_chunks_hybrid', {
-        query_embedding: embedding,
-        query_text: tsQuery,
-        match_count: max_spans,
-        target_pack_id: pack_id,
-        path_filter: pathFilter,
-        vector_weight: vectorWeight,
-        keyword_weight: keywordWeight,
+    if (!embedding) {
+       return new Response(JSON.stringify({ error: "Failed to generate query embedding" }), {
+        status: 500, headers: corsHeaders,
       });
-
-      if (rpcError) {
-        console.error("Hybrid Search error:", rpcError);
-        return new Response(JSON.stringify({ error: "Hybrid search failed" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      spans = (chunks || []).map((chunk: any, idx: number) => ({
-        span_id: `S${idx + 1}`,
-        path: chunk.path,
-        chunk_id: chunk.chunk_id,
-        start_line: chunk.start_line,
-        end_line: chunk.end_line,
-        text: chunk.content,
-      }));
-    } else {
-      console.log(`[RETRIEVAL] Fallback to FTS for pack ${pack_id}`);
-      
-      // Fetch source weights for this pack
-      const { data: sourceWeights } = await adminClient
-        .from("pack_sources")
-        .select("id, weight")
-        .eq("pack_id", pack_id);
-
-      const weightMap = new Map((sourceWeights ?? []).map((s: any) => [s.id, Number(s.weight) || 1.0]));
-
-      let queryBuilder = adminClient
-        .from("knowledge_chunks")
-        .select("id, chunk_id, path, start_line, end_line, content, metadata, source_id")
-        .eq("pack_id", pack_id)
-        .eq("is_redacted", false)
-        .textSearch("fts", tsQuery, { type: "plain" })
-        .limit(max_spans * 2); // Fetch more for re-ranking
-
-      if (pathFilter) {
-        queryBuilder = queryBuilder.ilike("path", pathFilter);
-      }
-
-      const { data: chunks, error: queryError } = await queryBuilder;
-
-      if (queryError) {
-        console.error("Search error:", queryError);
-        return new Response(JSON.stringify({ error: "Search failed" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Re-rank based on source weight
-      spans = (chunks || [])
-        .map((chunk: any) => ({
-          ...chunk,
-          weight: weightMap.get(chunk.source_id) || 1.0
-        }))
-        // Simple re-ranking: sort by weight descending
-        .sort((a, b) => b.weight - a.weight)
-        .slice(0, max_spans)
-        .map((chunk: any, idx: number) => ({
-          span_id: `S${idx + 1}`,
-          path: chunk.path,
-          chunk_id: chunk.chunk_id,
-          start_line: chunk.start_line,
-          end_line: chunk.end_line,
-          text: chunk.content,
-        }));
     }
+
+    console.log(`[RETRIEVAL] Using hybrid_search_v2 for pack ${pack_id}, org ${org_id}`);
+    
+    const { data: chunks, error: rpcError } = await adminClient.rpc('hybrid_search_v2', {
+      p_org_id: org_id,
+      p_pack_id: pack_id,
+      p_query_text: tsQuery,
+      p_query_embedding: embedding,
+      p_match_count: max_spans,
+    });
+
+    if (rpcError) {
+      console.error("Hybrid Search error:", rpcError);
+      return new Response(JSON.stringify({ error: "Hybrid search failed" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const spans = (chunks || []).map((chunk: any, idx: number) => ({
+      span_id: `S${idx + 1}`,
+      path: chunk.path,
+      chunk_id: chunk.id,
+      start_line: chunk.line_start,
+      end_line: chunk.line_end,
+      text: chunk.content,
+      metadata: {
+        entity_type: chunk.entity_type,
+        entity_name: chunk.entity_name,
+        signature: chunk.signature
+      }
+    }));
 
     return new Response(JSON.stringify({ spans }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

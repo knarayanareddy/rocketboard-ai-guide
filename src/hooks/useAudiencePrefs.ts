@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
+import { toast } from "sonner";
 
 export type GlossaryDensity = "low" | "standard" | "high";
 export type ExperienceLevel = "new" | "mid" | "senior";
@@ -76,6 +77,11 @@ export function useAudiencePrefs() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["audience_preferences", user?.id, currentPackId] });
+      toast.success("Preferences updated");
+    },
+    onError: (error) => {
+      console.error("Failed to update preferences:", error);
+      toast.error(`Failed to update preferences: ${error.message}`);
     },
   });
 

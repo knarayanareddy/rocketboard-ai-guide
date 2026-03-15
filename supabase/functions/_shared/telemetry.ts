@@ -28,6 +28,8 @@ export interface GenerationMetrics {
   totalTokens?: number;
   latencyMs: number;
   costUsd?: number;
+  groundingScore?: number; // Phase 6: RAG Observability
+  attempts?: number;       // Phase 6: Agentic Review tracking
 }
 
 export interface SpanEvent {
@@ -133,9 +135,16 @@ export class TraceBuilder {
     return new SpanHandle(event);
   }
 
-  /** Record the core LLM generation */
   setGeneration(metrics: GenerationMetrics & { input?: unknown; output?: unknown }): this {
     this.data.generation = metrics;
+    return this;
+  }
+
+  /** Patch the current generation with additional metrics (e.g. groundingScore) */
+  updateGeneration(patch: Partial<GenerationMetrics>): this {
+    if (this.data.generation) {
+      this.data.generation = { ...this.data.generation, ...patch };
+    }
     return this;
   }
 
@@ -144,6 +153,11 @@ export class TraceBuilder {
     this.data.status = "error";
     this.data.errorMessage = message;
     return this;
+  }
+
+  /** Return the internal trace data (for local storage or debugging) */
+  getData() {
+    return this.data;
   }
 
   /** Finalize and flush to Langfuse */
@@ -166,6 +180,8 @@ export class TraceBuilder {
               inputTokens: this.data.generation.inputTokens,
               outputTokens: this.data.generation.outputTokens,
               latencyMs: this.data.generation.latencyMs,
+              groundingScore: this.data.generation.groundingScore,
+              attempts: this.data.generation.attempts,
             }
           : null,
         error: this.data.errorMessage || null,
@@ -221,6 +237,8 @@ export class TraceBuilder {
           metadata: {
             latencyMs: gen.latencyMs,
             costUsd: gen.costUsd,
+            groundingScore: gen.groundingScore,
+            attempts: gen.attempts,
           },
         });
       }

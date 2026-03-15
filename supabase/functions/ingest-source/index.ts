@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { astChunk } from "../_shared/ast-chunker.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,7 +128,6 @@ function redactSecrets(text: string): { content: string; isRedacted: boolean; re
   let wasRedacted = false;
   let count = 0;
   for (const pattern of REDACTION_PATTERNS) {
-    // Reset lastIndex for global patterns
     pattern.lastIndex = 0;
     const newText = redacted.replace(pattern, (match) => {
       count++;
@@ -137,23 +137,6 @@ function redactSecrets(text: string): { content: string; isRedacted: boolean; re
     redacted = newText;
   }
   return { content: redacted, isRedacted: wasRedacted, redactionCount: count };
-}
-
-function chunkLines(lines: string[], chunkSize = 120, overlap = 10): { start: number; end: number; text: string }[] {
-  const chunks: { start: number; end: number; text: string }[] = [];
-  let i = 0;
-  while (i < lines.length) {
-    const end = Math.min(i + chunkSize, lines.length);
-    chunks.push({
-      start: i + 1,
-      end,
-      text: lines.slice(i, end).join("\n"),
-    });
-    i = end - overlap;
-    if (i >= lines.length) break;
-    if (end === lines.length) break;
-  }
-  return chunks;
 }
 
 function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
@@ -273,7 +256,7 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
 
     const jobId = job.id;
-    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[] }[] = [];
+    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[]; entity_type?: string; entity_name?: string; signature?: string; imports?: string[] }[] = [];
     let totalRedactions = 0;
     
     // We will attempt to get an OpenAI API key (or Lovable fallback) for embeddings
@@ -310,40 +293,42 @@ Deno.serve(async (req) => {
 
       let chunkIdx = 0;
       for (const filepath of files) {
-        const fileContent = await fetchGitHubFile(owner, repo.replace(/\.git$/, ""), filepath, githubToken);
+        let fileContent = await fetchGitHubFile(owner, repo.replace(/\.git$/, ""), filepath, githubToken);
         if (!fileContent) continue;
 
-        const lines = fileContent.split("\n");
-        const fileChunks = chunkLines(lines);
+        const { content: redactedContent, isRedacted, redactionCount } = redactSecrets(fileContent);
+        if (isRedacted) {
+          totalRedactions += redactionCount;
+          console.log(`[REDACTION] ${filepath}: ${redactionCount} secret(s) redacted`);
+        }
 
-        for (const chunk of fileChunks) {
+        const astChunks = await astChunk(redactedContent, filepath);
+        const repoName = repo.replace(/\.git$/, "");
+        const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
+        const setupMeta = getSetupMetadata(filepath);
+
+        for (const chunk of astChunks) {
           chunkIdx++;
-          const { content, isRedacted, redactionCount } = redactSecrets(chunk.text);
-          if (isRedacted) {
-            totalRedactions += redactionCount;
-            console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${redactionCount} secret(s) redacted`);
-          }
-          const hash = await sha256(content);
-          const repoName = repo.replace(/\.git$/, "");
-          const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
-          const ext = filepath.split(".").pop() || "";
-          const setupMeta = getSetupMetadata(filepath);
+          const hash = await sha256(chunk.text);
           
           let embedding: number[] | undefined;
           if (openAIApiKey) {
-            const vec = await generateEmbedding(content, openAIApiKey);
-            if (vec) embedding = vec;
+            embedding = await generateEmbedding(chunk.text, openAIApiKey) || undefined;
           }
 
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `repo:${owner}/${repoName}/${filepath}`,
-            start_line: chunk.start,
-            end_line: chunk.end,
-            content,
+            start_line: chunk.metadata.line_start,
+            end_line: chunk.metadata.line_end,
+            content: chunk.text,
             content_hash: hash,
             is_redacted: isRedacted,
-            metadata: { source_url: sourceUrl, file_type: ext, ...setupMeta },
+            entity_type: chunk.metadata.entity_type,
+            entity_name: chunk.metadata.entity_name,
+            signature: chunk.metadata.signature,
+            imports: chunk.metadata.imports,
+            metadata: { source_url: sourceUrl, ...setupMeta },
             embedding,
           });
         }
