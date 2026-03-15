@@ -35,11 +35,12 @@ RocketBoard is an **AI-native onboarding platform** for engineering teams. It in
 ┌───────────────────────────▼─────────────────────────────────────┐
 │                   Supabase Edge Functions (Deno)                │
 │                                                                 │
-│  ai-task-router ─── 14 AI task types (chat, generate, quiz...) │
-│  retrieve-spans ── Hybrid vector + full-text search (pgvector) │
+│  ai-task-router ─── Zero-Hallucination Engine (Groundedness Audit)  │
+│  retrieve-spans ── Agentic Multi-Query Hybrid Search (v2)      │
+│  reindex-orgs ──── AST-Aware Intelligent Ingestion             │
 │  ingest-source ─── GitHub, Confluence, Notion, Slack, Jira...  │
 │  github-webhook ── Staleness detection + auto-remediation      │
-│  _shared/telemetry ── Langfuse observability traces            │
+│  _shared/telemetry ── Langfuse + Local RAG Metrics             │
 │  + 18 more functions                                            │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
@@ -61,7 +62,7 @@ RocketBoard is an **AI-native onboarding platform** for engineering teams. It in
 ## Core Features
 
 ### 🧠 AI Task Router (14 Task Types)
-The central AI orchestration engine. Every request goes through input sanitization, secret redaction, evidence span retrieval, and structured JSON output validation.
+The central AI orchestration engine. Every request goes through input sanitization, secret redaction, agentic multi-query retrieval, and a **runtime grounding audit** to prevent hallucinations.
 
 | Task Type | Description |
 |-----------|-------------|
@@ -94,9 +95,11 @@ Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them 
 - **URL** — arbitrary web pages
 
 ### 🔍 Hybrid Search (pgvector + Full-Text)
-Evidence retrieval uses `match_chunks_hybrid` RPC combining:
+Evidence retrieval uses `hybrid_search_v2` RPC which is **AST-Aware**:
 - **Semantic similarity** via pgvector embeddings
 - **Full-text search** via PostgreSQL `tsvector`
+- **AST Meta-tagging** — exact matches for function signatures, exports, and types extracted via tree-sitter
+- **Agentic Multi-Query** — AI generates 3-5 query variants to maximize recall
 - **Source weighting** — authors can boost/demote individual sources
 
 ### 🎯 Interactive Chat Citations
@@ -114,8 +117,11 @@ AI responses include inline citation badges (`[S1]`, `[S2]`) that are fully inte
 ### 📊 AI Observability (Langfuse Integration)
 Full telemetry tracing for every AI task:
 - Token usage, latency, and estimated cost per request
+- **Grounding Score** — AI-verified relevance of every citation
+- **Attempt Count** — tracking agentic self-correction loops
 - Structured traces tagged with `pack_id`, `user_id`, `task_type`, `module_key`
 - `trace_id` injected into every response for feedback loop correlation
+- **Local RAG Metrics** — structured performance data stored in `rag_metrics` table
 - Graceful fallback to structured `console.log` when Langfuse is not configured
 
 ### 🔄 Content Health & Auto-Remediation

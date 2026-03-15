@@ -212,7 +212,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='chat-message']",
         title: "Multi-Query Hybrid Citations",
-        content: "Look for **[S1]**, **[S2]** badges in the AI's responses. The AI fired 3-4 query variants in parallel to find these — **hover** for a code preview, or **click** to open the full source file in the Source Explorer.",
+        content: "Look for **[S1]**, **[S2]** badges in the AI's responses. The AI fired 3-4 query variants in parallel to find these, and then **verified them for grounding** — **hover** for a code preview, or **click** to open the full source file in the Source Explorer.",
       },
       {
         target: "[data-tour='chat-sources']",

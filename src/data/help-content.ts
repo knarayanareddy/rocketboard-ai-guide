@@ -47,7 +47,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     lastUpdated: "2026-03-01",
     content: `# What is RocketBoard?
 
-RocketBoard is an **AI-powered developer onboarding platform** that transforms your codebase, documentation, and internal knowledge into structured, interactive learning experiences.
+RocketBoard is an **AI-powered Zero-Hallucination developer onboarding platform** that transforms your codebase, documentation, and internal knowledge into structured, interactive learning experiences.
 
 ## Who is it for?
 
@@ -430,8 +430,8 @@ Choose the **URL** tab to import from a public URL. Use **Crawl mode** to automa
 
 Knowledge chunks are the atomic units of information in RocketBoard, typically representing ~100-150 lines of code or ~500 words of text.
 
-:::card[Why Chunking?]{🧱}
-The AI uses these segments as **evidence** when generating content. Smaller chunks allow for surgical precision in citations.
+:::card[Why AST-Smart Chunking?]{🧱}
+RocketBoard uses an **AST-aware (Abstract Syntax Tree) chunker** to parse code. Instead of blind line breaks, it identifies function signatures, classes, and types, ensuring that evidence spans are logically complete and easier for the AI to cite accurately.
 :::
 
 :::card[Browsing Evidence]{🔍}
@@ -581,7 +581,14 @@ Results are merged using **Reciprocal Rank Fusion (RRF)** — a proven algorithm
 ### Layer 4: Query-Frequency Re-Ranking
 Chunks that appeared in multiple query variants are ranked higher — a strong signal of relevance across different phrasing angles.
 
-## Browsing Evidence
+## The Zero-Hallucination Guardrail (Phase 4 & 5)
+
+Even with great retrieval, AI can still hallucinate. RocketBoard implements a **Grounding Verification Audit**:
+
+1.  **Existence Check:** Every citation badge [S1] is verified to exist in the retrieved evidence.
+2.  **Logic Audit:** The AI performs a second-pass review to ensure the cited code actually supports the statement made in the text.
+3.  **Code Stripping:** If the AI generates code that isn't found in your sources, it is automatically stripped and replaced with a verified reference.
+4.  **Agentic Retry:** If verification fails, the system automatically re-prompts the AI with a "Self-Correction" instruction. You can see these attempts (up to 3) in your audit logs.
 - **Click** a badge to view the original source with syntax highlighting
 - **Hover** for a quick preview
 - Open **Code Explorer** to browse all referenced files`,

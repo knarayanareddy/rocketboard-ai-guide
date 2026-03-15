@@ -7,7 +7,7 @@ export const HELP_TOOLTIPS = {
     documentUpload: "Upload files directly from your computer. Supported formats: PDF, DOCX, XLSX, PPTX, MD, TXT, CSV, HTML, JSON, YAML. Max 50MB per file, up to 20 files at once.",
     documentUrl: "Import content from any public URL. Single page mode fetches just that page. Crawl mode follows internal links to import an entire documentation site.",
     syncButton: "Re-fetches content from the original source and updates knowledge chunks. Changed files are updated, deleted files are removed, new files are added.",
-    chunkCount: "Knowledge chunks are small segments (~100-150 lines of code or ~500 words of text) that the AI uses as evidence when generating onboarding content.",
+    chunkCount: "Knowledge chunks are small, **AST-aware** segments (~100-150 lines of code or ~500 words of text) that the AI uses as evidence when generating onboarding content. Code chunks are parsed to preserve function signatures and classes exactly.",
     browseChunks: "View the individual text segments extracted from this source. Useful for verifying that the right content was captured.",
   },
 
@@ -31,7 +31,7 @@ export const HELP_TOOLTIPS = {
 
   // ─── GENERATION & REVIEW ────────────────────────────
   generation: {
-    cascadeGeneration: "Content is generated in sequence: each module → its quiz → its exercises, then glossary → paths → ask-lead questions. If one item fails, others continue.",
+    cascadeGeneration: "Content is generated in sequence: each module → its quiz → its exercises, then glossary → paths → ask-lead questions. Every step includes a **Runtime Grounding Audit** to verify accuracy.",
     draftStatus: "Generated content starts as 'draft' — only visible to authors. Learners cannot see draft content. You must review and publish to make it available.",
     publishPack: "Publishing changes all draft content to 'published' status, making it immediately visible to all learners in this pack. You can continue editing and re-publishing after the initial publish.",
     incrementalPublish: "When you update a module after publishing, the new version starts as draft while the old published version remains visible to learners. Publish the new version when ready.",
@@ -157,8 +157,8 @@ export const HELP_TOOLTIPS = {
 
   // ─── GLOBAL ─────────────────────────────────────────
   global: {
-    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by Agentic Multi-Query Hybrid Search (vector + keyword).",
-    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses are retrieved using multi-query hybrid search — 3-4 query variants fire in parallel across both vector and keyword indexes — for maximum accuracy.",
+    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by **Agentic Multi-Query Hybrid Search v2** (vector + keyword + AST matching).",
+    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses are retrieved using multi-query hybrid search — 3-4 query variants fire in parallel across both vector and keyword indexes — and then **audited for grounding** to prevent hallucinations.",
     missionControl: "Platform-wide AI assistant. Ask about RocketBoard features, navigation help, onboarding tips, or anything not specific to a single module.",
     packSelector: "Switch between different packs. Each pack has its own sources, content, progress, and team. Your progress is saved separately per pack.",
   },
