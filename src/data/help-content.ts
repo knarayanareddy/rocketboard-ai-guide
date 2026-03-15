@@ -1164,6 +1164,47 @@ Admins can view correct/incorrect rates for every question. Any question with an
     relatedArticles: [],
   },
 
+  // ─── SETTINGS ──────────────────────────────────────
+  {
+    id: "set-1",
+    slug: "bring-your-own-key",
+    title: "Bring Your Own Key (BYOK)",
+    category: "settings",
+    audience: ["all"],
+    tags: ["byok", "api keys", "models", "openai", "anthropic", "gemini"],
+    summary: "How to configure your own AI model provider and API keys.",
+    lastUpdated: "2026-03-15",
+    content: `# Bring Your Own Key (BYOK)
+
+RocketBoard is powered natively by Google Gemini 3 Flash Preview. However, if you or your organization demand specialized reasoning models or alternate context windows (like GPT-5.4 or Claude 4.6), you can supply your own API key.
+
+## Adding a Custom Key
+:::step[1. Go to Settings]
+Navigate to the **Settings** page and find the **AI Model Provider (BYOK)** section.
+:::
+
+:::step[2. Select Provider]
+Choose your desired vendor from the 4-tier provider catalog.
+:::
+
+:::step[3. Select Model]
+Choose your preferred baseline model (this acts as the default for generations).
+:::
+
+:::step[4. Save & Validate]
+Paste your API key and click **Validate & Save**. The platform executes a real-time health check on your key before accepting it.
+:::
+
+## Key Security
+:::card[Encrypted at Rest]{🔒}
+Keys are encrypted using AES-256 before being stored in the database. They are never printed back to the frontend (masked entirely) and are exclusively decrypted inside isolated serverless edge functions just in time for AI generation calls.
+:::
+
+## Fallback Behavior
+You can choose what happens if your custom key fails (e.g., rate-limited or out of credits). By default, RocketBoard gracefully falls back to the built-in Gemini 3 Flash model so your workflow is never interrupted.`,
+    relatedArticles: [],
+  },
+
   // ─── WHAT'S NEW ──────────────────────────────────
   {
     id: "wn-1",

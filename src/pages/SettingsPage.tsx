@@ -15,6 +15,7 @@ import { usePack } from "@/hooks/usePack";
 import type { Audience, Depth } from "@/data/onboarding-data";
 import { useState, useMemo } from "react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
+import { AIModelProviderSection } from "@/components/AIModelProviderSection";
 import { SlackSettingsSection } from "@/components/SlackSettingsSection";
 import { useRole } from "@/hooks/useRole";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -496,6 +497,8 @@ export default function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
+          {/* AI Model Provider */}
+          <AIModelProviderSection />
 
           {/* Generation Preferences (author+ only) */}
           {isAuthorPlus && (

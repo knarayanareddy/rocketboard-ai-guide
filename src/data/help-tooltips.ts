@@ -86,6 +86,7 @@ export const HELP_TOOLTIPS = {
     learningStyle: "Visual: more diagrams and charts. Text-heavy: detailed descriptions. Interactive: more code snippets and examples.",
     frameworkFamiliarity: "Tells the AI to use analogies bridging what you know to what you're learning (e.g., 'I know React').",
     tonePreference: "Direct: concise and straight-to-the-point. Conversational: friendly. Socratic: guides you with questions.",
+    aiModelProvider: "Bring Your Own Key (BYOK). Substitute the default AI model by providing your own API key for OpenAI, Anthropic, Google, and more. Keys are encrypted.",
   },
 
   // ─── MEMBERS PAGE ───────────────────────────────────

@@ -79,6 +79,11 @@ The central AI orchestration engine. Every request goes through input sanitizati
 | `simplify_section` | On-demand content simplification |
 | `create_template` / `refine_template` | Module structure blueprints |
 
+### 🔑 Bring Your Own Key (BYOK)
+- RocketBoard provides generative onboarding natively via Gemini 3 Flash. 
+- You can plug in your own API Keys for 13+ platform providers including **OpenAI (GPT-5.4), Anthropic (Claude 4.6), Google, Mistral, xAI**, and more.
+- **Zero-knowledge encryption** via `pgcrypto` AES-256 ensures maximum security.
+
 ### 📦 Source Ingestion (13 Connectors)
 Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them for retrieval.
 

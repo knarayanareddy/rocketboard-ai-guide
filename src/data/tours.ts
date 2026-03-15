@@ -550,6 +550,11 @@ export const ALL_TOURS: Tour[] = [
         title: "Audience & Depth",
         content: "Choose whether you want **Technical**, **Non-Technical**, or **Mixed** content. Pair this with a depth level to fine-tune verbosity and detail.",
       },
+      {
+        target: "[data-tour='settings-ai-provider']",
+        title: "AI Model Provider (BYOK)",
+        content: "RocketBoard defaults to Gemini 3 Flash, but you can bring your own API key to unlock frontier models like Claude 4.6 or GPT-5.4. Your keys are AES-256 encrypted.",
+      },
     ],
   },
   {
