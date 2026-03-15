@@ -7,7 +7,8 @@ export type HelpCategory =
   | "settings"
   | "troubleshooting"
   | "keyboard-shortcuts"
-  | "whats-new";
+  | "whats-new"
+  | "tech-implementation";
 
 export type HelpArticle = {
   id: string;
@@ -32,6 +33,7 @@ export const HELP_CATEGORY_META: Record<HelpCategory, { icon: string; label: str
   troubleshooting: { icon: "🔧", label: "Troubleshooting" },
   "keyboard-shortcuts": { icon: "⌨️", label: "Shortcuts" },
   "whats-new": { icon: "✨", label: "What's New" },
+  "tech-implementation": { icon: "🛠️", label: "Tech Implementation" },
 };
 
 export const HELP_ARTICLES: HelpArticle[] = [
@@ -1221,14 +1223,15 @@ You can choose what happens if your custom key fails (e.g., rate-limited or out 
     audience: ["all"],
     tags: ["changelog", "updates", "new features"],
     summary: "Recent updates and new features.",
-    lastUpdated: "2026-03-13",
+    lastUpdated: "2026-03-15",
     content: `# What's New in RocketBoard
 
 ## March 15, 2026 (Latest)
+- **Zero-Hallucination 7-Phase Engine** — Complete overhaul of the RAG pipeline with AST-aware ingestion, runtime grounding audits, and agentic self-correction retry loops.
 - **Google Drive OAuth** — Connect your Google Account to import Docs, Sheets, and Drive files directly. Secure OAuth 2.0 flow with automatic token refresh.
-- **Agentic Multi-Query RAG** — The AI now fires 3-4 diverse query variants in parallel before generating content. Chunks matched by more queries rank higher, dramatically improving retrieval quality and eliminating the "No evidence spans" warning.
-- **Dynamic RRF Weights** — The hybrid search engine now intelligently adjusts the balance between vector and keyword search based on query type. Code identifiers (env vars, class names) boost keyword search; conceptual questions boost vector search.
-- **Security Hardening** — Critical RLS vulnerabilities patched: privilege escalation via \`pack_members\` self-insert, badge self-award, and organization metadata leaks.
+- **Agentic Multi-Query RAG** — The AI now fires 3-4 diverse query variants in parallel before generating content, dramatically improving retrieval coverage.
+- **Dynamic RRF Weights** — Hybrid search now intelligently balances vector and keyword search based on whether the query is conceptual or identifier-based.
+- **Security Hardening** — Critical RLS vulnerabilities patched for organizations, members, and badges.
 
 ## March 13, 2026
 - **Interactive Chat Citations** — Click \`[S1]\`, \`[S2]\` badges in AI responses to open source code with syntax highlighting. Hover for instant previews.
@@ -1245,6 +1248,44 @@ You can choose what happens if your custom key fails (e.g., rate-limited or out 
 - **Spaced Repetition** — Review schedule for long-term retention
 - **Cohorts** — Peer group progress tracking
 - **Bookmarks & Collections** — Save and organize content`,
-    relatedArticles: [],
+    relatedArticles: ["tech-1"],
+  },
+  {
+    id: "tech-1",
+    slug: "zero-hallucination-rag-architecture",
+    title: "7-Phase Zero-Hallucination RAG Implementation",
+    category: "tech-implementation",
+    audience: ["admin", "author"],
+    tags: ["architecture", "rag", "hallucination", "technical"],
+    summary: "Deep dive into the 7-phase architecture underpinning RocketBoard's reliable AI.",
+    lastUpdated: "2026-03-15",
+    content: `# 7-Phase Zero-Hallucination RAG Implementation
+
+RocketBoard's RAG engine is built on a "Zero-Hallucination" philosophy. Here is the technical breakdown of the 7 core phases of the migration.
+
+## Phase 0: Grounded Generation
+Established strict citation formatting instructions and a bridge filter to prune unverified references.
+
+## Phase 1: Intelligent Ingestion (AST Chunking)
+Upgraded line-based chunking to **AST-aware parsing** using Tree-sitter. This preserves logical code blocks (functions, classes) as atomic evidence units.
+
+## Phase 2: Hybrid Index (Search v2)
+Implemented \`hybrid_search_v2\` combining vector semantic similarity with keyword-precise full-text search and AST metadata matching.
+
+## Phase 3: Reranking & Relevance Gate
+Integrated **Batch Reranking** to score and purge low-signal evidence ("ghost strings") before it reaches the AI context window.
+
+## Phase 4: Grounding Verification
+Implemented a **Runtime Audit** that extracts generated code blocks and verifies their existence in the source evidence. Hallucinated code is automatically stripped.
+
+## Phase 5: Agentic Retry Loop
+Introduced **Self-Correction loops**. If grounding fail audits, the AI is re-prompted with failure reasons to fix accuracy issues on a second attempt.
+
+## Phase 6: Observability Suite
+Full telemetry tracing of grounding scores and retry attempts via Langfuse and a local PostgreSQL \`rag_metrics\` table.
+
+## Phase 7: Documentation Refresh
+Final alignment of all user guidance (Help Center, Tours, README) with the upgraded RAG system capabilities.`,
+    relatedArticles: ["cc-5", "src-7"],
   },
 ];
