@@ -1,0 +1,139 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// HTML page returned after OAuth completes — closes the popup and signals the parent
+function successPage(email: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><title>Connected</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:40px;background:#0a0a0a;color:#fff;">
+  <h2>✅ Google Drive Connected</h2>
+  <p>Connected as <strong>${email}</strong></p>
+  <p>This window will close automatically...</p>
+  <script>
+    // Signal the parent window that auth succeeded
+    if (window.opener) {
+      window.opener.postMessage({ type: 'GOOGLE_OAUTH_SUCCESS', email: ${JSON.stringify(email)} }, '*');
+    }
+    setTimeout(() => window.close(), 1500);
+  </script>
+</body>
+</html>`;
+}
+
+function errorPage(message: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><title>Error</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:40px;background:#0a0a0a;color:#fff;">
+  <h2>❌ Connection Failed</h2>
+  <p>${message}</p>
+  <script>
+    if (window.opener) {
+      window.opener.postMessage({ type: 'GOOGLE_OAUTH_ERROR', error: ${JSON.stringify(message)} }, '*');
+    }
+    setTimeout(() => window.close(), 3000);
+  </script>
+</body>
+</html>`;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const url = new URL(req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state"); // user_id is passed as state
+  const error = url.searchParams.get("error");
+
+  if (error) {
+    return new Response(errorPage(`Google denied access: ${error}`), {
+      headers: { "Content-Type": "text/html" },
+    });
+  }
+
+  if (!code || !state) {
+    return new Response(errorPage("Missing authorization code or state."), {
+      headers: { "Content-Type": "text/html" },
+    });
+  }
+
+  const CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
+  const CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+  const REDIRECT_URI = Deno.env.get("GOOGLE_REDIRECT_URI")!;
+
+  try {
+    // Exchange authorization code for tokens
+    const tokenResp = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        redirect_uri: REDIRECT_URI,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenResp.ok) {
+      const errText = await tokenResp.text();
+      console.error("Token exchange failed:", errText);
+      return new Response(errorPage("Failed to exchange authorization code. Please try again."), {
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+
+    const tokenData = await tokenResp.json();
+    const { access_token, refresh_token, expires_in } = tokenData;
+
+    // Get the user's email from Google
+    const userInfoResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    const userInfo = userInfoResp.ok ? await userInfoResp.json() : {};
+    const email = userInfo.email || "Unknown";
+
+    const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
+
+    // Store token in DB
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { error: upsertErr } = await supabase
+      .from("google_oauth_tokens")
+      .upsert({
+        user_id: state, // state = user_id passed from the frontend
+        access_token,
+        refresh_token,
+        expires_at: expiresAt,
+        scope: tokenData.scope || null,
+        email,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+
+    if (upsertErr) {
+      console.error("Failed to save token:", upsertErr);
+      return new Response(errorPage("Failed to save Google credentials. Please try again."), {
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+
+    return new Response(successPage(email), {
+      headers: { "Content-Type": "text/html" },
+    });
+  } catch (err) {
+    console.error("OAuth callback error:", err);
+    return new Response(errorPage("An unexpected error occurred. Please try again."), {
+      headers: { "Content-Type": "text/html" },
+    });
+  }
+});

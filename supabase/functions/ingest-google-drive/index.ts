@@ -232,13 +232,62 @@ Deno.serve(async (req) => {
     }
 
     let accessToken: string;
-    
+
     if (auth_method === "service_account" && service_account_key) {
       const keyData = typeof service_account_key === "string" ? JSON.parse(service_account_key) : service_account_key;
       accessToken = await getAccessToken(keyData);
+    } else if (auth_method === "oauth") {
+      // Load stored OAuth token for this user
+      const { user_id } = source_config;
+      if (!user_id) {
+        return new Response(JSON.stringify({ error: "user_id required for OAuth auth" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const supabaseTmp = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: tokenRow, error: tokenErr } = await supabaseTmp
+        .from("google_oauth_tokens")
+        .select("access_token, refresh_token, expires_at")
+        .eq("user_id", user_id)
+        .single();
+
+      if (tokenErr || !tokenRow) {
+        return new Response(JSON.stringify({ error: "No Google OAuth token found. Please reconnect Google Drive in the Sources page." }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Refresh the token if it has expired (or expires within 2 minutes)
+      const expiresAt = new Date(tokenRow.expires_at).getTime();
+      if (Date.now() > expiresAt - 120_000 && tokenRow.refresh_token) {
+        const refreshResp = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: tokenRow.refresh_token,
+            client_id: Deno.env.get("GOOGLE_CLIENT_ID")!,
+            client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
+          }),
+        });
+        if (!refreshResp.ok) {
+          return new Response(JSON.stringify({ error: "Google OAuth token expired and refresh failed. Please reconnect Google Drive." }), {
+            status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const refreshData = await refreshResp.json();
+        accessToken = refreshData.access_token;
+        // Persist the new token
+        await supabaseTmp.from("google_oauth_tokens").update({
+          access_token: accessToken,
+          expires_at: new Date(Date.now() + (refreshData.expires_in || 3600) * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq("user_id", user_id);
+      } else {
+        accessToken = tokenRow.access_token;
+      }
     } else {
-      // TODO: Support connector-based OAuth
-      return new Response(JSON.stringify({ error: "Service account key required for Google Drive ingestion" }), {
+      return new Response(JSON.stringify({ error: "Service account key or Google OAuth connection required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

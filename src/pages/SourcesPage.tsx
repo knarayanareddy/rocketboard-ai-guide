@@ -342,6 +342,14 @@ export default function SourcesPage() {
 
   const handleAddGoogleDrive = async (config: GoogleDriveConfig) => {
     try {
+      // For OAuth, include the user_id so the edge function can look up the stored token
+      let extraConfig: Record<string, any> = {};
+      if (config.authMethod === "oauth") {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("You must be logged in to use Google OAuth");
+        extraConfig.user_id = session.user.id;
+      }
+
       const source = await addSource.mutateAsync({
         sourceType: "google_drive",
         sourceUri: `gdrive:${config.folderId}`,
@@ -351,6 +359,7 @@ export default function SourcesPage() {
           auth_method: config.authMethod,
           service_account_email: config.serviceAccountEmail,
           service_account_key: config.serviceAccountKey,
+          ...extraConfig,
         },
       });
 
@@ -367,6 +376,7 @@ export default function SourcesPage() {
       toast.error(err.message || "Failed to add Google Drive source");
     }
   };
+
 
   const handleAddSharePoint = async (config: SharePointConfig) => {
     try {
