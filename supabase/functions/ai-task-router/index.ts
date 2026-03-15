@@ -431,15 +431,16 @@ async function buildSectionIndex(packId: string, moduleKey: string | null, maxEn
     );
     let q = sb
       .from("generated_modules")
-      .select("module_key, content_json")
+      .select("module_key, module_data")
       .eq("pack_id", packId)
-      .eq("is_published", true);
+      .eq("status", "published");
     if (moduleKey) q = q.eq("module_key", moduleKey);
     const { data } = await q.limit(20);
     if (!data || data.length === 0) return "";
     const lines: string[] = [];
     for (const row of data) {
-      const sections: any[] = row.content_json?.module?.sections || [];
+      // module_data is the module object directly — no extra .module wrapper
+      const sections: any[] = (row.module_data as any)?.sections || [];
       for (const sec of sections.slice(0, Math.ceil(maxEntries / (data.length || 1)))) {
         const summary = (sec.markdown || "").replace(/[#\n]/g, " ").slice(0, 180).trim();
         lines.push(`- module_key: ${row.module_key} | section_id: ${sec.section_id} | heading: "${sec.heading}" | summary: ${summary}`);
@@ -454,6 +455,7 @@ async function buildSectionIndex(packId: string, moduleKey: string | null, maxEn
     return "";
   }
 }
+
 
 // ─── CHAT HANDLER ───
 async function handleChat(envelope: any, extraWarnings: string[] = []): Promise<Response> {
@@ -530,7 +532,7 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: AI_MODEL,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       stream: false,
     }),
@@ -657,7 +659,7 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: AI_MODEL,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       stream: false,
     }),

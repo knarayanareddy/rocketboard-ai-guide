@@ -53,4 +53,23 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
+  build: {
+    // Raise warning threshold — some viz libs are legitimately large
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Heavy visualization / document libraries — split into async chunks
+          // so they don't inflate the initial JS bundle
+          mermaid: ["mermaid"],
+          xlsx: ["xlsx"],
+          cytoscape: ["cytoscape"],
+          "pdf-lib": ["pdfjs-dist"],
+          katex: ["katex"],
+          "html2canvas": ["html2canvas"],
+        },
+      },
+    },
+  },
 }));
+

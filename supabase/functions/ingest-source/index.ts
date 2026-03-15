@@ -247,8 +247,12 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Hoist source_id so the catch block can mark the job as failed
+  let source_id: string | undefined;
   try {
-    const { pack_id, source_id, source_type, source_uri, document_content, label, source_config } = await req.json();
+    const body = await req.json();
+    const { pack_id, source_type, source_uri, document_content, label, source_config } = body;
+    source_id = body.source_id;
 
     if (!pack_id || !source_id || !source_type) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -461,11 +465,24 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("Ingestion error:", err);
 
+    // Mark the job as failed so the UI doesn't show a stuck spinner
     try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, serviceKey);
-    } catch { /* ignore */ }
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      if (source_id) {
+        await supabase
+          .from("ingestion_jobs")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: ((err as Error).message ?? "Unknown error").slice(0, 500),
+          })
+          .eq("source_id", source_id)
+          .eq("status", "processing");
+      }
+    } catch { /* ignore secondary failure */ }
 
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
