@@ -46,50 +46,48 @@ export const HELP_ARTICLES: HelpArticle[] = [
     audience: ["all"],
     tags: ["overview", "introduction", "platform"],
     summary: "Overview of the platform — what it does, who it's for.",
-    lastUpdated: "2026-03-01",
-    content: `# What is RocketBoard?
+    lastUpdated: "2026-03-15",
+    content: `# Welcome to RocketBoard 🚀
 
 RocketBoard is an **AI-powered Zero-Hallucination developer onboarding platform** that transforms your codebase, documentation, and internal knowledge into structured, interactive learning experiences.
 
-## Who is it for?
+## Your Learning Journey
 
-:::card[Pack Owners/Admins]{🛡️}
-Create and manage the high-level onboarding strategy for your organization.
+:::step[1. Ingest]{📦}
+Connect your GitHub repos, Notion docs, and Slack channels. Our **AST-Aware** parser builds a technical map of your knowledge.
 :::
 
-:::card[Authors]{✍️}
-Curate sources, review AI-generated content drafts, and publish educational modules.
+:::step[2. Plan]{🗺️}
+AI analyzes the map and proposes a logical learning path. You curate the modules, tracks, and templates.
 :::
 
-:::card[Learners]{🎓}
-Read modules, take quizzes, complete exercises, and ramp up on new repos in record time.
+:::step[3. Generate]{✨}
+Click a button to generate rich modules, quizzes, and glossary terms—all **Grounded** in your actual source code.
 :::
 
-## The 6-Phase Flow
-
-:::step[Setup]{1}
-Create an organization and pack, then invite your engineering team.
+:::step[4. Ramp Up]{🏅}
+Learners consume content at their own pace, ask questions via **Rocket Chat**, and earn XP as they master the codebase.
 :::
 
-:::step[Ingestion]{2}
-Connect sources like GitHub, Confluence, and Notion to ground your AI.
+## Who uses RocketBoard?
+
+:::card[Admins & Owners]{🛡️}
+**Set the Strategy:** Define organization-wide standards and manage the overall onboarding portfolio.
 :::
 
-:::step[Planning]{3}
-AI generates a module plan; you curate the structure and approve the roadmap.
+:::card[Authors & Experts]{✍️}
+**Curate the Knowledge:** Refine AI drafts, verify technical accuracy, and publish content to your team.
 :::
 
-:::step[Generation]{4}
-AI creates modules, quizzes, exercises, and glossary terms automatically.
+:::card[Learners & New Hires]{🎓}
+**Accelerate Onboarding:** Get up to speed on complex repositories in days, not months, with AI-guided learning.
 :::
 
-:::step[Learning]{5}
-Learners consume content, quiz themselves, and track their ramp-up progress.
+:::card[Rocket's Pro-Tip]{🚀}
+Ready to see it in action? Use the button below to ask our Mission Control assistant anything about the platform!
 :::
 
-:::step[Iteration]{6}
-Re-sync sources to detect staleness and approve AI-drafted content repairs.
-:::`,
+[UI_ACTION: open_help(Ask Mission Control)]`,
     relatedArticles: ["gs-2", "gs-3"],
   },
   {
@@ -1259,33 +1257,70 @@ You can choose what happens if your custom key fails (e.g., rate-limited or out 
     tags: ["architecture", "rag", "hallucination", "technical"],
     summary: "Deep dive into the 7-phase architecture underpinning RocketBoard's reliable AI.",
     lastUpdated: "2026-03-15",
-    content: `# 7-Phase Zero-Hallucination RAG Implementation
+    content: `# The Zero-Hallucination Journey 🚀
 
-RocketBoard's RAG engine is built on a "Zero-Hallucination" philosophy. Here is the technical breakdown of the 7 core phases of the migration.
+RocketBoard's RAG engine is built on a "Zero-Hallucination" philosophy. Here is the 7-phase architecture that powers our trusted AI output.
 
-## Phase 0: Grounded Generation
-Established strict citation formatting instructions and a bridge filter to prune unverified references.
+\`\`\`mermaid
+sequenceDiagram
+    participant U as User Query
+    participant R as Multi-Query Engine
+    participant S as Hybrid Search v2
+    participant G as Grounding Audit
+    participant A as Agentic Loop
 
-## Phase 1: Intelligent Ingestion (AST Chunking)
-Upgraded line-based chunking to **AST-aware parsing** using Tree-sitter. This preserves logical code blocks (functions, classes) as atomic evidence units.
+    U->>R: Input Query
+    R->>S: Generate 4x Query Variants
+    S->>S: Vector + FTS + AST Match
+    S->>G: Retrieve Evidence Pool
+    G->>G: Verification Audit
+    G-->>A: [Fail] Logic Errors
+    A->>R: Retry with Feedback
+    G-->>U: [Pass] Verified Answer
+\`\`\`
 
-## Phase 2: Hybrid Index (Search v2)
-Implemented \`hybrid_search_v2\` combining vector semantic similarity with keyword-precise full-text search and AST metadata matching.
+## The 7-Phase Lifecycle
 
-## Phase 3: Reranking & Relevance Gate
-Integrated **Batch Reranking** to score and purge low-signal evidence ("ghost strings") before it reaches the AI context window.
+:::step[Phase 0: Grounded Foundation]{🛡️}
+We established a strict **Citation Backbone**. Every statement made by the AI MUST be cross-referenced to a file and line range using the \`[SOURCE: file:lines]\` standard.
+:::
 
-## Phase 4: Grounding Verification
-Implemented a **Runtime Audit** that extracts generated code blocks and verifies their existence in the source evidence. Hallucinated code is automatically stripped.
+:::step[Phase 1: AST-Aware Ingestion]{🧱}
+Standard chunking is blind to code logic. We use **Tree-sitter** to parse your codebase into logical entities (Functions, Classes, Exports). This ensures evidence spans are structured, not just random slices of text.
+:::
 
-## Phase 5: Agentic Retry Loop
-Introduced **Self-Correction loops**. If grounding fail audits, the AI is re-prompted with failure reasons to fix accuracy issues on a second attempt.
+:::step[Phase 2: Hybrid Search v2]{🔍}
+We combine three retrieval layers for maximum recall:
+*   **Vector (Semantic):** For conceptual questions.
+*   **Full-Text (Keyword):** For finding specific variable names.
+*   **AST Metadata:** For surgical precision on type signatures.
+:::
 
-## Phase 6: Observability Suite
-Full telemetry tracing of grounding scores and retry attempts via Langfuse and a local PostgreSQL \`rag_metrics\` table.
+:::step[Phase 3: Relevance Gating]{🚧}
+The "Information Silo" problem is solved via **Batch Reranking**. We purge irrelevant noise before the AI even sees it, keeping the context window pristine.
+:::
 
-## Phase 7: Documentation Refresh
-Final alignment of all user guidance (Help Center, Tours, README) with the upgraded RAG system capabilities.`,
+:::step[Phase 4: Grounding Audit]{⚖️}
+Our "AI Judge" performs a **Runtime Verification**. It extracts generated code and verifies its existence in the source. If it's not in your repo, it's not in the response.
+:::
+
+:::step[Phase 5: Agentic Self-Correction]{🔄}
+If the audit fails, the **Agentic Loop** kicks in. The AI is given its own audit results and instructed to fix the grounding—handling up to 3 self-correction attempts automatically.
+:::
+
+:::step[Phase 6: Full Observability]{📊}
+Every decision is logged. We monitor **Grounding Scores** and **Latency** in real-time via Langfuse and our local \`rag_metrics\` database.
+:::
+
+:::step[Phase 7: User-Facing Clarity]{✨}
+The final phase brings it all together with interactive citations, page tours, and this technical documentation.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+You can view the raw performance data for every query in the **Analytics** dashboard. It shows you exactly how many self-correction steps were needed to get your answer!
+:::
+
+[UI_ACTION: navigate_sources(Manage Your Sources)]`,
     relatedArticles: ["cc-5", "src-7"],
   },
 ];
