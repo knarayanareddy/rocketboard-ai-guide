@@ -98,7 +98,31 @@ async function fetchPage(url: string): Promise<{ content: string; contentType: s
   const html = await resp.text();
 
   if (contentType.includes("text/html")) {
-    return { content: stripHtml(html), contentType: "html", html };
+    let content = stripHtml(html);
+
+    // If content is suspiciously short (likely a JS-rendered SPA), fall back to Jina Reader
+    // which runs a headless browser and returns clean markdown
+    if (content.length < 200) {
+      try {
+        console.log(`[URL] Content too short (${content.length} chars), trying Jina Reader for ${url}`);
+        const jinaResp = await fetch(`https://r.jina.ai/${url}`, {
+          headers: { "Accept": "text/plain", "User-Agent": "RocketBoard-Bot/1.0" },
+          redirect: "follow",
+        });
+        if (jinaResp.ok) {
+          const jinaContent = await jinaResp.text();
+          if (jinaContent.length > content.length) {
+            console.log(`[URL] Jina Reader returned ${jinaContent.length} chars`);
+            return { content: jinaContent, contentType: "html", html };
+          }
+        }
+      } catch (jinaErr) {
+        console.log(`[URL] Jina Reader fallback failed:`, jinaErr);
+        // Continue with original (possibly sparse) content
+      }
+    }
+
+    return { content, contentType: "html", html };
   }
   return { content: html, contentType: contentType.split(";")[0], html };
 }

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as yaml from "https://esm.sh/js-yaml@4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,10 +24,11 @@ function summarizeSchema(schema: any, depth = 0): string {
 }
 
 function parseSpec(raw: string): any {
+  // Try YAML first — js-yaml also handles JSON since JSON is valid YAML
+  try { return yaml.load(raw); } catch {}
+  // Strict JSON fallback
   try { return JSON.parse(raw); } catch {}
-  // Simple YAML-like parse for common cases — full YAML would need a library
-  try { return JSON.parse(raw); } catch {}
-  throw new Error("Could not parse spec. Please provide valid JSON.");
+  throw new Error("Could not parse spec. Please provide valid JSON or YAML.");
 }
 
 Deno.serve(async (req) => {

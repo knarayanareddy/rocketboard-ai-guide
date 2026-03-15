@@ -41,13 +41,16 @@ Deno.serve(async (req) => {
     const { data: job } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
     const jobId = job!.id;
 
-    // Fetch team info and issues
-    const teamData = await linearGQL(api_key, `
-      query($teamId: String!) {
+    const MAX_ISSUES = 2000;
+    const ISSUES_PER_PAGE = 50;
+
+    // First fetch: team info + projects + first page of issues
+    const firstPageData = await linearGQL(api_key, `
+      query($teamId: String!, $first: Int!) {
         team(id: $teamId) {
           name
           projects { nodes { name description state } }
-          issues(first: 200, orderBy: createdAt) {
+          issues(first: $first, orderBy: createdAt) {
             nodes {
               identifier title description
               state { name }
@@ -55,16 +58,45 @@ Deno.serve(async (req) => {
               labels { nodes { name } }
               project { name }
             }
+            pageInfo { hasNextPage endCursor }
           }
         }
       }
-    `, { teamId: team_id });
+    `, { teamId: team_id, first: ISSUES_PER_PAGE });
 
-    const team = teamData.team;
+    const team = firstPageData.team;
     if (!team) throw new Error("Team not found");
 
-    const issues = team.issues?.nodes || [];
     const projects = team.projects?.nodes || [];
+    let issues = team.issues?.nodes || [];
+    let pageInfo = team.issues?.pageInfo;
+
+    // Paginate through remaining issues
+    while (pageInfo?.hasNextPage && issues.length < MAX_ISSUES) {
+      const remainingQuota = MAX_ISSUES - issues.length;
+      const nextPageData = await linearGQL(api_key, `
+        query($teamId: String!, $first: Int!, $after: String!) {
+          team(id: $teamId) {
+            issues(first: $first, orderBy: createdAt, after: $after) {
+              nodes {
+                identifier title description
+                state { name }
+                priority priorityLabel
+                labels { nodes { name } }
+                project { name }
+              }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }
+      `, { teamId: team_id, first: Math.min(ISSUES_PER_PAGE, remainingQuota), after: pageInfo.endCursor });
+
+      const nextIssues = nextPageData.team?.issues?.nodes || [];
+      issues = [...issues, ...nextIssues];
+      pageInfo = nextPageData.team?.issues?.pageInfo;
+      // Rate limit: Linear API allows 1500 complexity points/min
+      await new Promise(r => setTimeout(r, 300));
+    }
 
     await supabase.from("ingestion_jobs").update({ total_chunks: issues.length + projects.length }).eq("id", jobId);
 

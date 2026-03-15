@@ -132,9 +132,24 @@ Deno.serve(async (req) => {
       // Loom API mode
       const headers = { Authorization: `Bearer ${api_key}`, "Content-Type": "application/json" };
       
-      const videosResp = await fetch("https://api.loom.com/v1/videos", { headers });
-      if (!videosResp.ok) throw new Error(`Loom API error: ${videosResp.status}`);
-      const videosData = await videosResp.json();
+      let videosData: any;
+      try {
+        const videosResp = await fetch("https://api.loom.com/v1/videos", { headers });
+        if (!videosResp.ok) {
+          throw new Error(
+            `Loom API returned ${videosResp.status}. The Loom public API has limited availability. ` +
+            `Please use the "Upload Transcript" tab instead — paste your transcript text directly ` +
+            `(supports SRT, VTT, or plain text format).`
+          );
+        }
+        videosData = await videosResp.json();
+      } catch (apiErr: any) {
+        if (apiErr.message.includes("Loom API returned")) throw apiErr;
+        throw new Error(
+          `Could not reach the Loom API. Please use the "Upload Transcript" tab and paste ` +
+          `your transcript text directly instead.`
+        );
+      }
       
       for (const video of videosData.videos || []) {
         // Fetch transcript

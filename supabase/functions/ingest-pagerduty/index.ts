@@ -98,6 +98,29 @@ Deno.serve(async (req) => {
           content += `\nAuto-resolve timeout: ${service.auto_resolve_timeout / 60} minutes\n`;
         }
 
+        // Runbook notes (fetched from Notes API when fetch_runbooks is enabled)
+        if (fetch_runbooks) {
+          try {
+            const notesResp = await pagerDutyAPI(api_key, `/services/${service.id}/notes`);
+            const notes = notesResp.notes || [];
+            const runbookNotes = notes.filter((note: any) => {
+              const text = note.content || "";
+              return text.includes("http") || text.includes("runbook") || text.includes("playbook") ||
+                     text.includes("steps") || text.includes("procedure");
+            });
+            if (runbookNotes.length > 0) {
+              content += `\n## Runbook Notes\n\n`;
+              for (const note of runbookNotes.slice(0, 10)) {
+                const author = note.user?.summary || "Unknown";
+                const created = note.created_at ? new Date(note.created_at).toLocaleDateString() : "";
+                content += `**${author}** (${created}):\n${note.content}\n\n`;
+              }
+            }
+          } catch (err) {
+            console.error(`[PagerDuty] Failed to fetch notes for service ${service.id}:`, err);
+          }
+        }
+
         const hash = await sha256(content);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,

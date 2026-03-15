@@ -162,9 +162,19 @@ export function GoogleDriveForm({ onSubmit, onBack, isSubmitting, hasConnector }
               ✅ Google Drive connector is linked. No additional setup needed.
             </div>
           ) : (
-            <div className="bg-muted/50 p-3 rounded-lg text-sm text-muted-foreground">
-              Connect your Google account using the Lovable connector for OAuth-based access.
-              This option requires setting up the Google Drive connector first.
+            <div className="space-y-2">
+              <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 p-3 rounded-lg text-sm border border-amber-500/20">
+                <strong>⚠️ OAuth not yet supported</strong>
+                <p className="mt-1 text-xs opacity-90">
+                  Connector-based OAuth for Google Drive is not currently available.
+                  Please use the <strong>Service Account</strong> tab instead — this is the only supported
+                  authentication method at this time.
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                To use a service account, switch to the "Service Account" tab and upload your
+                Google Cloud service account JSON key.
+              </p>
             </div>
           )}
         </TabsContent>

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import mammoth from "https://esm.sh/mammoth@1?bundle";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -162,12 +163,15 @@ async function downloadFileText(downloadUrl: string): Promise<string> {
 const SUPPORTED_EXTENSIONS = new Set([
   ".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".xml",
   ".html", ".htm", ".ts", ".tsx", ".js", ".jsx", ".py",
-  ".go", ".rs", ".java", ".rb", ".sh",
+  ".go", ".rs", ".java", ".rb", ".sh", ".docx",
 ]);
+
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 function isTextFile(name: string, mimeType: string): boolean {
   if (mimeType.startsWith("text/")) return true;
   if (mimeType === "application/json") return true;
+  if (mimeType === DOCX_MIME) return true;
   const ext = "." + name.split(".").pop()?.toLowerCase();
   return SUPPORTED_EXTENSIONS.has(ext);
 }
@@ -227,7 +231,14 @@ Deno.serve(async (req) => {
 
       let content = "";
       try {
-        content = await downloadFileText(file.downloadUrl);
+        if (file.mimeType === DOCX_MIME || file.name.toLowerCase().endsWith(".docx")) {
+          // Extract Word document text via mammoth
+          const arrayBuf = await (await fetch(file.downloadUrl)).arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer: arrayBuf });
+          content = result.value;
+        } else {
+          content = await downloadFileText(file.downloadUrl);
+        }
       } catch (err) {
         console.error(`[SharePoint] Error downloading ${file.path}:`, err);
         continue;

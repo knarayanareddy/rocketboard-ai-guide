@@ -43,6 +43,7 @@ import { useIngestion } from "@/hooks/useIngestion";
 import { useRole } from "@/hooks/useRole";
 import { usePack } from "@/hooks/usePack";
 import { useModulePlan } from "@/hooks/useModulePlan";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SourceWeightEditor } from "@/components/SourceWeightEditor";
@@ -247,6 +248,10 @@ export default function SourcesPage() {
         },
       });
 
+      // Get session JWT (falls back to anon key if not signed in, but normally user is always authed here)
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       // Call the ingest-url edge function
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ingest-url`,
@@ -254,7 +259,7 @@ export default function SourcesPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             pack_id: currentPackId,

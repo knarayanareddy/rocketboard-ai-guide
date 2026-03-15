@@ -50,6 +50,13 @@ export function LoomForm({ onSubmit, onBack, isSubmitting }: LoomFormProps) {
 
       {mode === "api" ? (
         <>
+          <div className="bg-amber-500/10 text-amber-700 dark:text-amber-400 p-3 rounded-lg text-sm border border-amber-500/20">
+            <strong>⚠️ Limited API availability</strong>
+            <p className="mt-1 text-xs opacity-90">
+              The Loom public API has limited availability and may not work reliably.
+              For guaranteed ingestion, use the <strong>Upload Transcript</strong> tab and paste your transcript text directly.
+            </p>
+          </div>
           <div>
             <label className="text-sm font-medium text-foreground mb-1.5 block">Loom API Key</label>
             <Input type="password" placeholder="Your Loom API key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
