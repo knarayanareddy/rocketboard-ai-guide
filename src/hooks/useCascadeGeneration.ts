@@ -12,7 +12,7 @@ import {
   buildGeneratePathsEnvelope,
   buildGenerateAskLeadEnvelope,
 } from "@/lib/envelope-builder";
-import { fetchEvidenceSpans } from "@/lib/fetch-spans";
+import { fetchEvidenceSpansMultiQuery, buildRetrievalQueries } from "@/lib/fetch-spans";
 import type { ModulePlanEntry } from "@/hooks/useModulePlan";
 import type { GeneratedModuleData } from "@/hooks/useGeneratedModules";
 
@@ -131,7 +131,11 @@ export function useCascadeGeneration() {
       await upsertJob("module", mod.module_key, "generating");
 
       try {
-        const spans = await fetchEvidenceSpans(currentPackId, `${mod.title} ${mod.description || ""}`, 15);
+        const moduleQueries = buildRetrievalQueries(
+          `${mod.title} ${mod.description || ""}`,
+          { packTitle: currentPack?.title, taskType: "generate_module" }
+        );
+        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, moduleQueries, 20);
         const envelope = buildGenerateModuleEnvelope({
           auth: authInfo(), pack: packInfo(), evidenceSpans: spans,
           moduleKey: mod.module_key, moduleTitle: mod.title,
@@ -165,7 +169,11 @@ export function useCascadeGeneration() {
         updateModuleStatus(mod.module_key, { quizStatus: "generating" });
         await upsertJob("quiz", mod.module_key, "generating");
         try {
-          const quizSpans = await fetchEvidenceSpans(currentPackId, `${mod.module_key} quiz assessment`, 10).catch(() => []);
+          const quizSpans = await fetchEvidenceSpansMultiQuery(
+            currentPackId,
+            [`${mod.title} quiz assessment`, `${mod.title} key concepts test`],
+            12
+          ).catch(() => []);
           const quizEnvelope = buildGenerateQuizEnvelope({
             auth: authInfo(), pack: packInfo(),
             moduleKey: mod.module_key, trackKey: mod.track_key,
@@ -226,7 +234,11 @@ export function useCascadeGeneration() {
       setSupportStatus(prev => ({ ...prev, glossary: "generating" }));
       await upsertJob("glossary", null, "generating");
       try {
-        const spans = await fetchEvidenceSpans(currentPackId, "glossary terms definitions technical vocabulary", 20).catch(() => []);
+        const glossaryQueries = buildRetrievalQueries(
+          "glossary terms definitions technical vocabulary",
+          { packTitle: currentPack?.title, packDescription: currentPack?.description, taskType: "generate_glossary" }
+        );
+        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, glossaryQueries, 25).catch(() => []);
         const envelope = buildGenerateGlossaryEnvelope({
           auth: authInfo(), pack: packInfo(), evidenceSpans: spans,
         });
@@ -250,7 +262,11 @@ export function useCascadeGeneration() {
       setSupportStatus(prev => ({ ...prev, paths: "generating" }));
       await upsertJob("paths", null, "generating");
       try {
-        const spans = await fetchEvidenceSpans(currentPackId, "setup onboarding getting started environment configuration", 20).catch(() => []);
+        const pathsQueries = buildRetrievalQueries(
+          "setup onboarding getting started environment configuration",
+          { packTitle: currentPack?.title, packDescription: currentPack?.description, taskType: "generate_paths" }
+        );
+        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, pathsQueries, 25).catch(() => []);
         const envelope = buildGeneratePathsEnvelope({
           auth: authInfo(), pack: packInfo(), evidenceSpans: spans,
         });
@@ -273,7 +289,11 @@ export function useCascadeGeneration() {
       setSupportStatus(prev => ({ ...prev, askLead: "generating" }));
       await upsertJob("ask_lead", null, "generating");
       try {
-        const spans = await fetchEvidenceSpans(currentPackId, "team process architecture decisions workflow onboarding culture", 20).catch(() => []);
+        const askLeadQueries = buildRetrievalQueries(
+          "team process architecture decisions workflow onboarding culture",
+          { packTitle: currentPack?.title, packDescription: currentPack?.description, taskType: "generate_ask_lead" }
+        );
+        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, askLeadQueries, 25).catch(() => []);
         const envelope = buildGenerateAskLeadEnvelope({
           auth: authInfo(), pack: packInfo(), evidenceSpans: spans,
         });

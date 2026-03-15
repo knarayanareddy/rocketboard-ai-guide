@@ -6,7 +6,7 @@ import { useRole } from "@/hooks/useRole";
 import { sendAITask } from "@/lib/ai-client";
 import { buildModulePlannerEnvelope } from "@/lib/envelope-builder";
 import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
-import { fetchEvidenceSpans } from "@/lib/fetch-spans";
+import { fetchEvidenceSpansMultiQuery, buildRetrievalQueries } from "@/lib/fetch-spans";
 
 export interface ModulePlanEntry {
   module_key: string;
@@ -88,12 +88,16 @@ export function useModulePlan() {
     mutationFn: async (): Promise<ModulePlanData> => {
       if (!currentPackId) throw new Error("No pack selected");
 
-      // Get broad evidence spans
-      const spans = await fetchEvidenceSpans(
-        currentPackId,
+      // Build multi-angle queries for broader coverage
+      const queries = buildRetrievalQueries(
         "architecture setup configuration deployment infrastructure code structure",
-        20
+        {
+          packTitle: currentPack?.title,
+          packDescription: currentPack?.description,
+          taskType: "module_planner",
+        }
       );
+      const spans = await fetchEvidenceSpansMultiQuery(currentPackId, queries, 30);
 
       const envelope = buildModulePlannerEnvelope({
         auth: {

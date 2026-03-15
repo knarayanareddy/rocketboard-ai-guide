@@ -94,6 +94,14 @@ Deno.serve(async (req) => {
 
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
     let embedding = null;
+
+    // Heuristic: detect keyword-heavy queries (env vars, identifiers, code tokens)
+    // and boost FTS weight. Conceptual queries stay balanced.
+    const keywordHeavyPattern = /[A-Z]{2,}|[a-z][A-Z]|_[a-z]|\d{3,}|\.ts\b|\.js\b|\.jsx\b|\.tsx\b|\benv\b/;
+    const isKeywordHeavy = keywordHeavyPattern.test(query);
+    const vectorWeight = isKeywordHeavy ? 0.7 : 1.0;
+    const keywordWeight = isKeywordHeavy ? 1.5 : 1.0;
+    if (isKeywordHeavy) console.log(`[RETRIEVAL] Keyword-heavy query detected, boosting FTS weight: v=${vectorWeight} k=${keywordWeight}`);
     
     if (openAIApiKey) {
       embedding = await generateEmbedding(query, openAIApiKey);
@@ -109,7 +117,9 @@ Deno.serve(async (req) => {
         query_text: tsQuery,
         match_count: max_spans,
         target_pack_id: pack_id,
-        path_filter: pathFilter
+        path_filter: pathFilter,
+        vector_weight: vectorWeight,
+        keyword_weight: keywordWeight,
       });
 
       if (rpcError) {

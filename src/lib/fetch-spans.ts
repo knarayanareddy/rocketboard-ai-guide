@@ -35,3 +35,94 @@ export async function fetchEvidenceSpans(
     return [];
   }
 }
+
+/**
+ * Multi-query retrieval: fires N queries in parallel, merges results
+ * by chunk_id. Chunks appearing in more queries rank higher.
+ * Falls back to single-query if only one query is provided.
+ */
+export async function fetchEvidenceSpansMultiQuery(
+  packId: string,
+  queries: string[],
+  maxSpans: number = 20,
+  extraParams?: { module_key?: string; track_key?: string },
+): Promise<EvidenceSpan[]> {
+  const uniqueQueries = [...new Set(queries.filter(Boolean))];
+  if (uniqueQueries.length === 0) return [];
+  if (uniqueQueries.length === 1) {
+    return fetchEvidenceSpans(packId, uniqueQueries[0], maxSpans, extraParams);
+  }
+
+  // Fire all queries in parallel, fetching more per-query so after dedup
+  // we still have enough to fill the `maxSpans` budget.
+  const perQueryLimit = Math.ceil((maxSpans * 1.5) / uniqueQueries.length) + 5;
+  const allResults = await Promise.all(
+    uniqueQueries.map((q) =>
+      fetchEvidenceSpans(packId, q, perQueryLimit, extraParams)
+    )
+  );
+
+  // Merge: track how many queries each chunk_id appeared in & first-seen span
+  const hitCount = new Map<string, number>();
+  const spanMap = new Map<string, EvidenceSpan>();
+
+  for (const spans of allResults) {
+    const seenInBatch = new Set<string>();
+    for (const span of spans) {
+      const key = span.chunk_id;
+      if (!seenInBatch.has(key)) {
+        seenInBatch.add(key);
+        hitCount.set(key, (hitCount.get(key) ?? 0) + 1);
+        if (!spanMap.has(key)) spanMap.set(key, span);
+      }
+    }
+  }
+
+  // Sort by query-frequency (desc), re-assign stable span_ids
+  const merged = [...spanMap.values()].sort(
+    (a, b) => (hitCount.get(b.chunk_id) ?? 0) - (hitCount.get(a.chunk_id) ?? 0)
+  );
+
+  return merged.slice(0, maxSpans).map((span, idx) => ({
+    ...span,
+    span_id: `S${idx + 1}`,
+  }));
+}
+
+/**
+ * Generate a diverse set of search query variants for a given task type.
+ * This avoids a round-trip LLM call for query rewriting while still giving
+ * multi-angle coverage of the knowledge base.
+ */
+export function buildRetrievalQueries(
+  baseQuery: string,
+  context: { packTitle?: string | null; packDescription?: string | null; taskType?: string }
+): string[] {
+  const queries: string[] = [baseQuery];
+
+  const title = context.packTitle?.toLowerCase() ?? "";
+  const desc = context.packDescription?.toLowerCase() ?? "";
+  const task = context.taskType ?? "";
+
+  if (task === "module_planner") {
+    queries.push(`${title} architecture overview setup getting started`);
+    queries.push(`${title} configuration deployment infrastructure workflow`);
+    queries.push(`${title} key concepts components patterns best practices`);
+  } else if (task === "generate_module" || task === "refine_module") {
+    // base query is already the module title + description combination
+    queries.push(`${baseQuery} implementation example code`);
+    queries.push(`${baseQuery} background concepts prerequisites`);
+  } else if (task === "generate_glossary") {
+    queries.push(`${title} terminology definitions vocabulary`);
+    queries.push(`${title} ${desc} technical terms abbreviations`);
+  } else if (task === "generate_paths") {
+    queries.push(`${title} onboarding steps checklist first day`);
+    queries.push(`${title} setup guide environment configuration`);
+  } else if (task === "generate_ask_lead" || task === "chat" || task === "global_chat") {
+    queries.push(`${title} team process decisions FAQ`);
+    queries.push(`${title} common questions challenges pitfalls`);
+  }
+
+  // Always deduplicate and return the first 4 max
+  return [...new Set(queries)].slice(0, 4);
+}
