@@ -348,6 +348,46 @@ Click **Add Source** then **Sync** to begin the knowledge mapping process.
     relatedArticles: ["src-1", "src-7"],
   },
   {
+    id: "src-5",
+    slug: "connecting-google-drive",
+    title: "Connecting Google Drive (OAuth)",
+    category: "sources",
+    audience: ["admin", "author"],
+    tags: ["google drive", "oauth", "source", "documents"],
+    summary: "Import Google Docs, Sheets, and Drive files using OAuth.",
+    lastUpdated: "2026-03-15",
+    content: `# Connecting Google Drive (OAuth)
+
+Import Google Docs, Sheets, and other Drive files directly into your knowledge base using your Google Account.
+
+:::step[1. Add Source]
+Go to **Sources** → **Add Source** and select **Google Drive**.
+:::
+
+:::step[2. Connect with Google]
+Click the **Connect with Google** button. A secure popup will open asking you to authenticate with your Google Account. Your credentials are never stored — only a secure OAuth token is saved.
+:::
+
+:::step[3. Paste Drive URL]
+Paste the URL of a Google Doc, Sheet, or Drive folder. RocketBoard will import the content and convert it to knowledge chunks.
+:::
+
+:::step[4. Sync]
+Click **Sync**. The content will be imported and indexed. Tokens are refreshed automatically — you only need to reconnect if you revoke access.
+:::
+
+:::card[Supported File Types]{📂}
+- Google Docs (converted to Markdown)
+- Google Sheets (tabular data extracted)
+- Any file in a shared Drive folder
+:::
+
+:::card[Security]{🔒}
+OAuth tokens are stored encrypted in your Supabase database with row-level security. Only the ingest function can read them.
+:::`,
+    relatedArticles: ["src-1", "src-7"],
+  },
+  {
     id: "src-4",
     slug: "uploading-documents",
     title: "Uploading Documents",
@@ -519,13 +559,27 @@ On the Plan page, select a template from the dropdown on each module card.`,
     tags: ["citations", "evidence", "source code", "spans"],
     summary: "How AI content is grounded in your actual source code.",
     lastUpdated: "2026-03-01",
-    content: `# Understanding Citations and Semantic Search
+    content: `# Understanding Citations and Multi-Query Hybrid Search
 
 Generated content includes **citation badges** (e.g., [S1], [S2]) linking to actual source files, ensuring absolute accuracy and traceability to your codebase.
 
-## Semantic Hybrid Search
-    RocketBoard uses an advanced **AI Semantic Vector Search** (powered by \`pgvector\`) combined with full-text search.
-When generating content or answering questions in Chat, the AI doesn't just look for exact keyword matches. It understands the *meaning* of the code and prioritizes the most authoritative files.
+## How Retrieval Works — Agentic Multi-Query Hybrid Search
+
+RocketBoard uses a **two-layer retrieval strategy** that goes far beyond simple keyword matching:
+
+### Layer 1: Multi-Query Generation
+Before fetching any evidence, the system automatically generates **3-4 semantically diverse query variants** from your module's title, description, and pack context. For example, a query about "Authentication" would also search for "login flow", "JWT implementation", and "user credentials".
+
+### Layer 2: Hybrid Search per Query
+Each query variant fires **both** vector (semantic) and full-text (keyword) search simultaneously:
+- **Vector Search** (OpenAI \`text-embedding-3-small\`): finds semantically similar content even when exact words differ.
+- **Full-Text Search** (PostgreSQL \`tsvector\`): excels at exact identifiers, function names, env variables.
+
+### Layer 3: Weighted RRF Fusion
+Results are merged using **Reciprocal Rank Fusion (RRF)** — a proven algorithm that combines the two rankings. The system intelligently **boosts keyword weight** for code-heavy queries (e.g. \`VITE_SUPABASE_URL\`) and **boosts vector weight** for conceptual queries (e.g. "how does auth work?").
+
+### Layer 4: Query-Frequency Re-Ranking
+Chunks that appeared in multiple query variants are ranked higher — a strong signal of relevance across different phrasing angles.
 
 ## Browsing Evidence
 - **Click** a badge to view the original source with syntax highlighting
@@ -1122,7 +1176,13 @@ Admins can view correct/incorrect rates for every question. Any question with an
     lastUpdated: "2026-03-13",
     content: `# What's New in RocketBoard
 
-## March 2026 (Latest)
+## March 15, 2026 (Latest)
+- **Google Drive OAuth** — Connect your Google Account to import Docs, Sheets, and Drive files directly. Secure OAuth 2.0 flow with automatic token refresh.
+- **Agentic Multi-Query RAG** — The AI now fires 3-4 diverse query variants in parallel before generating content. Chunks matched by more queries rank higher, dramatically improving retrieval quality and eliminating the "No evidence spans" warning.
+- **Dynamic RRF Weights** — The hybrid search engine now intelligently adjusts the balance between vector and keyword search based on query type. Code identifiers (env vars, class names) boost keyword search; conceptual questions boost vector search.
+- **Security Hardening** — Critical RLS vulnerabilities patched: privilege escalation via \`pack_members\` self-insert, badge self-award, and organization metadata leaks.
+
+## March 13, 2026
 - **Interactive Chat Citations** — Click \`[S1]\`, \`[S2]\` badges in AI responses to open source code with syntax highlighting. Hover for instant previews.
 - **AI Observability** — Full telemetry tracing for all AI tasks (token usage, latency, cost). Trace IDs link user feedback to specific AI interactions.
 - **Automated Remediation** — AI-drafted module updates when source code changes are detected via GitHub webhooks

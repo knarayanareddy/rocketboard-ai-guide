@@ -50,7 +50,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='add-source']",
         title: "Add a Source",
-        content: "Start by adding a GitHub repository or uploading documents. You can add multiple sources — most packs have 2-5 sources.",
+        content: "Add a GitHub repository, upload documents, or connect Google Drive via OAuth. Most packs have 2-5 sources. The AI retrieves evidence across all of them simultaneously.",
       },
       {
         target: "[data-tour='source-list']",
@@ -211,8 +211,8 @@ export const ALL_TOURS: Tour[] = [
       },
       {
         target: "[data-tour='chat-message']",
-        title: "Interactive Source Citations",
-        content: "Look for **[S1]**, **[S2]** badges in the AI's responses. **Hover** for a code preview, or **click** to open the full source file in the Source Explorer.",
+        title: "Multi-Query Hybrid Citations",
+        content: "Look for **[S1]**, **[S2]** badges in the AI's responses. The AI fired 3-4 query variants in parallel to find these — **hover** for a code preview, or **click** to open the full source file in the Source Explorer.",
       },
       {
         target: "[data-tour='chat-sources']",

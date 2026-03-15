@@ -1,8 +1,9 @@
 export const HELP_TOOLTIPS = {
   // ─── SOURCES PAGE ───────────────────────────────────
   sources: {
-    sourceTypes: "RocketBoard can ingest content from GitHub repos, Confluence, Notion, Google Drive, SharePoint, Jira, Linear, OpenAPI specs, Postman collections, Figma files, Slack channels, Loom videos, PagerDuty, and uploaded documents.",
+    sourceTypes: "RocketBoard can ingest content from GitHub repos, Confluence, Notion, Google Drive (OAuth), SharePoint, Jira, Linear, OpenAPI specs, Postman collections, Figma files, Slack channels, Loom videos, PagerDuty, and uploaded documents.",
     githubRepo: "Enter the full URL of a GitHub repository. RocketBoard will fetch all supported files (.ts, .js, .md, .json, .yaml, Dockerfile, etc.) and extract text content for analysis.",
+    googleDriveOAuth: "Connect with your Google Account to import Google Docs, Sheets, and Drive files. A secure OAuth 2.0 popup handles authentication — your credentials are never stored. Tokens auto-refresh so you only reconnect if you revoke access.",
     documentUpload: "Upload files directly from your computer. Supported formats: PDF, DOCX, XLSX, PPTX, MD, TXT, CSV, HTML, JSON, YAML. Max 50MB per file, up to 20 files at once.",
     documentUrl: "Import content from any public URL. Single page mode fetches just that page. Crawl mode follows internal links to import an entire documentation site.",
     syncButton: "Re-fetches content from the original source and updates knowledge chunks. Changed files are updated, deleted files are removed, new files are added.",
@@ -155,8 +156,8 @@ export const HELP_TOOLTIPS = {
 
   // ─── GLOBAL ─────────────────────────────────────────
   global: {
-    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by Semantic Vector Search.",
-    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses are retrieved instantly using pgvector hybrid search and grounded in your codebase.",
+    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by Agentic Multi-Query Hybrid Search (vector + keyword).",
+    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses are retrieved using multi-query hybrid search — 3-4 query variants fire in parallel across both vector and keyword indexes — for maximum accuracy.",
     missionControl: "Platform-wide AI assistant. Ask about RocketBoard features, navigation help, onboarding tips, or anything not specific to a single module.",
     packSelector: "Switch between different packs. Each pack has its own sources, content, progress, and team. Your progress is saved separately per pack.",
   },
