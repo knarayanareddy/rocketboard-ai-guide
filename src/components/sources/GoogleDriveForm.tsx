@@ -37,10 +37,11 @@ export function GoogleDriveForm({ onSubmit, onBack, isSubmitting }: GoogleDriveF
   const GOOGLE_CLIENT_ID = "184142288412-iblbsh2rp4odei8phobaaqjejar59lng.apps.googleusercontent.com";
   const REDIRECT_URI = `https://ersqhobqaptsxqclawcc.supabase.co/functions/v1/google-oauth-callback`;
   const SCOPES = [
+    "openid",
+    "email",
     "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/documents.readonly",
     "https://www.googleapis.com/auth/spreadsheets.readonly",
-    "https://www.googleapis.com/auth/userinfo.email",
   ].join(" ");
 
   // Check if the user already has a connected Google token
