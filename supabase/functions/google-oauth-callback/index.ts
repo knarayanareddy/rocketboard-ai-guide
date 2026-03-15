@@ -64,9 +64,20 @@ Deno.serve(async (req) => {
     });
   }
 
-  const CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
-  const CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
-  const REDIRECT_URI = Deno.env.get("GOOGLE_REDIRECT_URI")!;
+  const CLIENT_ID = (Deno.env.get("GOOGLE_CLIENT_ID") || "").trim();
+  const CLIENT_SECRET = (Deno.env.get("GOOGLE_CLIENT_SECRET") || "").trim();
+  const REDIRECT_URI = (Deno.env.get("GOOGLE_REDIRECT_URI") || "").trim();
+
+  if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+    console.error("[OAuth] Missing required secrets:", { 
+      has_id: !!CLIENT_ID, 
+      has_secret: !!CLIENT_SECRET, 
+      has_redirect: !!REDIRECT_URI 
+    });
+    return new Response(errorPage("Server configuration error: Missing Google secrets."), {
+      headers: { "Content-Type": "text/html" },
+    });
+  }
 
   try {
     // Exchange authorization code for tokens
