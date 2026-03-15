@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.check-staleness]
 verify_jwt = false
+
+[functions.google-oauth-callback]
+verify_jwt = false
+
+[functions.ingest-google-drive]
+verify_jwt = false
