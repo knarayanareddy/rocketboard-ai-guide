@@ -513,21 +513,28 @@ All generated content starts as a **Draft**. Nothing is visible to learners unti
     audience: ["admin", "author"],
     tags: ["review", "publish", "draft", "refine"],
     summary: "How to review, refine, and publish generated content.",
-    lastUpdated: "2026-03-01",
-    content: `# Reviewing and Publishing
+    lastUpdated: "2026-03-15",
+    content: `# Reviewing and Publishing ✨
 
-## Review Page
-- Preview each module as learners will see it
-- Check for contradictions and warnings
-- **Review AI Drafts:** If source code changed, review and accept automatically drafted updates.
+Before your team sees the content, you have full control to audit, refine, and polish every word.
 
-## Refining
-Click **Refine** and describe changes in natural language. The AI updates the module and shows what changed.
+:::step[1. Audit the Review Page]{👁️}
+Preview each module as learners will see it. Look for **Contradiction Badges** or **Freshness Warnings** that indicate source-code drift.
+:::
 
-[ACTION: open_sandbox(Try it in the Sandbox)]
+:::step[2. Refine with AI]{✍️}
+Click **Refine** on any section. Chat with the AI in natural language to adjust the tone, add specific examples, or expand on complex logic.
+:::
 
-## Publishing
-Click **Publish Pack** to make all draft content visible to learners. You can continue editing and re-publishing after.`,
+:::step[3. Accept AI Drafts]{🔄}
+If your source code has changed, look for the "Blue Badge" on the review page. AI-drafted remedies are waiting for your approval.
+:::
+
+:::step[4. Go Live]{🚀}
+Click **Publish Pack** to move all content from *Draft* to *Live*. You can re-publish at any time!
+:::
+
+[UI_ACTION: open_sandbox(Try it in the Sandbox)]`,
     relatedArticles: ["cc-1", "cc-5"],
   },
   {
@@ -538,16 +545,26 @@ Click **Publish Pack** to make all draft content visible to learners. You can co
     audience: ["admin", "author"],
     tags: ["templates", "blueprint", "structure"],
     summary: "How to create and use templates for standardized module structures.",
-    lastUpdated: "2026-03-01",
-    content: `# Module Templates
+    lastUpdated: "2026-03-15",
+    content: `# Module Templates 📋
 
-Templates are reusable blueprints that define a standard section structure. Assign templates to modules before generation.
+Standardize your onboarding by creating blueprints for recurring module types (e.g., "Feature Deep-Dive" or "Service Architecture").
 
-## Creating Templates
-Go to **Templates** page and create a new template with your desired section structure.
+:::step[1. Create Blueprint]{📐}
+Go to the **Templates** page. Define the section hierarchy you want every module of this type to follow.
+:::
 
-## Assigning Templates
-On the Plan page, select a template from the dropdown on each module card.`,
+:::step[2. Assign to Plan]{🔗}
+On the **Plan** page, use the dropdown on each module card to select your template.
+:::
+
+:::step[3. Generate]{⚡}
+The AI will respect your template structure, filling in each section using your source code as evidence.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Consistent structure helps learners ramp up faster as they become familiar with where to find specific details like "Environment Setup" or "Testing".
+:::`,
     relatedArticles: ["cc-1"],
   },
   {
@@ -558,40 +575,32 @@ On the Plan page, select a template from the dropdown on each module card.`,
     audience: ["all"],
     tags: ["citations", "evidence", "source code", "spans"],
     summary: "How AI content is grounded in your actual source code.",
-    lastUpdated: "2026-03-01",
-    content: `# Understanding Citations and Multi-Query Hybrid Search
+    lastUpdated: "2026-03-15",
+    content: `# Understanding Citations & Verification 🛡️
 
-Generated content includes **citation badges** (e.g., [S1], [S2]) linking to actual source files, ensuring absolute accuracy and traceability to your codebase.
+RocketBoard doesn't just "chat" with your code—it verifies every single claim against your actual repository.
 
-## How Retrieval Works — Agentic Multi-Query Hybrid Search
+:::card[Layer 1: Hybrid Search v2]{🔍}
+We combine **Vector** (for concepts) and **Full-Text** (for identifiers) to find the most relevant code chunks.
+:::
 
-RocketBoard uses a **two-layer retrieval strategy** that goes far beyond simple keyword matching:
+:::card[Layer 2: Grounding Audit]{⚖️}
+Our "AI Judge" verifies that every citation badge (e.g., [S1]) actually exists in your code. Hallucinations are automatically stripped.
+:::
 
-### Layer 1: Multi-Query Generation
-Before fetching any evidence, the system automatically generates **3-4 semantically diverse query variants** from your module's title, description, and pack context. For example, a query about "Authentication" would also search for "login flow", "JWT implementation", and "user credentials".
+:::card[Layer 3: Agentic Self-Correction]{🔄}
+If an answer isn't firmly grounded, the system re-prompts itself to fix the logical gap before you ever see it.
+:::
 
-### Layer 2: Hybrid Search per Query
-Each query variant fires **both** vector (semantic) and full-text (keyword) search simultaneously:
-- **Vector Search** (OpenAI \`text-embedding-3-small\`): finds semantically similar content even when exact words differ.
-- **Full-Text Search** (PostgreSQL \`tsvector\`): excels at exact identifiers, function names, env variables.
+## How to use Citations
 
-### Layer 3: Weighted RRF Fusion
-Results are merged using **Reciprocal Rank Fusion (RRF)** — a proven algorithm that combines the two rankings. The system intelligently **boosts keyword weight** for code-heavy queries (e.g. \`VITE_SUPABASE_URL\`) and **boosts vector weight** for conceptual queries (e.g. "how does auth work?").
+*   **Hover:** See a live preview of the cited code.
+*   **Click:** Open the **Code Explorer** to see the file in context.
+*   **Audit:** Check the trace logs to see the "Grounding Score" for any response.
 
-### Layer 4: Query-Frequency Re-Ranking
-Chunks that appeared in multiple query variants are ranked higher — a strong signal of relevance across different phrasing angles.
-
-## The Zero-Hallucination Guardrail (Phase 4 & 5)
-
-Even with great retrieval, AI can still hallucinate. RocketBoard implements a **Grounding Verification Audit**:
-
-1.  **Existence Check:** Every citation badge [S1] is verified to exist in the retrieved evidence.
-2.  **Logic Audit:** The AI performs a second-pass review to ensure the cited code actually supports the statement made in the text.
-3.  **Code Stripping:** If the AI generates code that isn't found in your sources, it is automatically stripped and replaced with a verified reference.
-4.  **Agentic Retry:** If verification fails, the system automatically re-prompts the AI with a "Self-Correction" instruction. You can see these attempts (up to 3) in your audit logs.
-- **Click** a badge to view the original source with syntax highlighting
-- **Hover** for a quick preview
-- Open **Code Explorer** to browse all referenced files`,
+:::card[Rocket's Pro-Tip]{🚀}
+Clicking a citation badge [S1] takes you directly to the logic. It's the fastest way to confirm that the AI is telling the truth!
+:::`,
     relatedArticles: ["cc-3", "src-7"],
   },
   {
@@ -602,20 +611,28 @@ Even with great retrieval, AI can still hallucinate. RocketBoard implements a **
     audience: ["admin", "author"],
     tags: ["prerequisites", "dependencies", "ordering"],
     summary: "How to control module ordering with dependencies.",
-    lastUpdated: "2026-03-01",
-    content: `# Setting Prerequisites
+    lastUpdated: "2026-03-15",
+    content: `# Learning Prerequisites ⛓️
 
-## Hard Prerequisites
-The module is **locked** until the prerequisite is completed. Learners cannot access it.
+Control the learner's journey by setting logical dependencies between modules.
 
-## Soft Prerequisites
-A **recommendation** is shown, but learners can proceed anyway.
+:::card[Hard Prerequisites]{🔒}
+The module is **locked** until the prerequisite is completed. Ideal for absolute requirements like "Environment Setup".
+:::
 
-## Configuration
-- **Min Completion %** — How much of the prerequisite must be read (default: 100%)
-- **Min Quiz Score** — Minimum quiz score required (set to 0 to skip)
+:::card[Soft Prerequisites]{💡}
+A recommendation is shown, but learners can proceed to the content anyway.
+:::
 
-View the **Dependency Graph** to visualize all prerequisite relationships.`,
+:::step[How to Configure]{⚙️}
+1. Open the **Plan** page.
+2. Select a module and click the **Dependencies** icon.
+3. Choose the parent module and set the **Min Completion %** (Default: 100%).
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Use the **Dependency Graph** view to visualize your entire onboarding curriculum and ensure there are no dead-ends!
+:::`,
     relatedArticles: ["cc-1"],
   },
   {
@@ -626,22 +643,26 @@ View the **Dependency Graph** to visualize all prerequisite relationships.`,
     audience: ["admin", "author"],
     tags: ["freshness", "stale", "content health"],
     summary: "How to keep generated content up-to-date.",
-    lastUpdated: "2026-03-01",
-    content: `# Content Health and Automated Remediation
+    lastUpdated: "2026-03-15",
+    content: `# Content Health & Freshness 🥗
 
-The Content Health page shows which modules reference **changed source files**.
+Don't let your documentation rot. RocketBoard monitors your code and alerts you when modules become "stale".
 
-## Freshness Score
-Percentage of cited chunks that still match their original content. 100% = all sources unchanged.
+:::step[1. Monitor Drift]{📉}
+Check the **Content Health** dashboard to see which modules reference files that have been modified since the last generation.
+:::
 
-## Automated AI Remediation ✨
-When RocketBoard detects a pushed change in GitHub that makes a module stale:
-1. An AI Agent reads the raw git diff.
-2. It drafts a precise update to the module text to reflect the code changes.
-3. You will see a blue "Draft Update Available" badge on the **Review** page.
-4. Review the Side-by-Side Diff and click **Accept Update** to instantly repair the module.
+:::step[2. Review Git Diffs]{🔍}
+Click on a stale module to see the exact code changes that occurred in your repository compared to the content.
+:::
 
-*(For sources without webhook integrations, you can fix stale content by clicking Re-Sync and refining the module manually).*`,
+:::step[3. AI Auto-Repair]{🛠️}
+Accept the **AI-Drafted Update**. Our agent reads the new code and proposes text changes to keep the module accurate.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Enable **Auto-Sync** for your GitHub sources to get real-time health alerts as soon as code is pushed to your main branch!
+:::`,
     relatedArticles: ["cc-3", "src-1"],
   },
 
@@ -712,23 +733,26 @@ You can retake any quiz multiple times. Your **most recent score** is what will 
     audience: ["learner", "all"],
     tags: ["exercises", "coding", "hands-on"],
     summary: "How hands-on exercises work.",
-    lastUpdated: "2026-03-01",
-    content: `# Completing Exercises
+    lastUpdated: "2026-03-15",
+    content: `# Hands-On Exercises 🛠️
 
-Exercises are hands-on challenges that test practical skills.
+Put your knowledge into practice with interactive coding challenges that are reviewed by the AI in real-time.
 
-## Types
-- **Code Find** — Locate specific code patterns
-- **Explain** — Write explanations of code behavior
-- **Config** — Configure a setting or tool
-- **Debug** — Find and fix issues
-- **Explore** — Investigate the codebase
+:::card[Code Find]{🔍}
+Locate specific patterns or architectural decisions within the source explorer.
+:::
 
-## Hints
-Use progressive hints if you're stuck. Each hint is more specific. Hint usage is tracked but doesn't affect scoring.
+:::card[Explain Logic]{✍️}
+Write a short explanation of how a specific function or class works. The AI verifies your reasoning against the truth.
+:::
 
-## AI Review
-Submit your answer for AI feedback with a score and suggestions.`,
+:::card[Debug & Explore]{🐞}
+Find a hidden bug or investigate how a specific environment variable affects system behavior.
+:::
+
+:::card[Hints & AI Review]{🧠}
+Stuck? Use **Progressive Hints**. When you're done, submit for an **AI Review** to get a score and personalized feedback.
+:::`,
     relatedArticles: ["learn-1", "learn-2"],
   },
   {
@@ -786,17 +810,25 @@ Mission Control is available on all pages (bottom-left). It answers questions ab
     audience: ["learner", "all"],
     tags: ["paths", "day1", "week1", "checklist"],
     summary: "How to use the structured checklists.",
-    lastUpdated: "2026-03-01",
-    content: `# Onboarding Paths
+    lastUpdated: "2026-03-15",
+    content: `# Onboarding Paths 🚀
 
-## Day 1
-Focus on environment setup, access requests, and meeting your immediate team.
+Structured checklists to ensure you have everything you need to be productive from day one.
 
-## Week 1
+:::card[Day 1: Setup & Access]{🔑}
+Focus on environment setup, access requests, and meeting your immediate team. Check off items as you go!
+:::
+
+:::card[Week 1: Core Concepts]{📚}
 Deeper exploration: complete initial modules, understand team workflows, and explore the codebase.
+:::
 
-## Tracking Progress
-Check off steps as you complete them. Progress is saved automatically.`,
+:::step[How it works]{⚙️}
+1. Open the **Paths** tab on your dashboard.
+2. Select your assigned path (e.g., "Frontend New Hire").
+3. Follow the sequence and mark tasks as complete.
+4. Your manager can see your progress to provide support where needed.
+:::`,
     relatedArticles: ["gs-3", "learn-1"],
   },
   {
@@ -807,14 +839,22 @@ Check off steps as you complete them. Progress is saved automatically.`,
     audience: ["all"],
     tags: ["glossary", "flashcards", "terms"],
     summary: "How to use the searchable glossary and flashcard mode.",
-    lastUpdated: "2026-03-01",
-    content: `# Glossary and Flashcards
+    lastUpdated: "2026-03-15",
+    content: `# Glossary & Flashcards 📖
 
-## Glossary
-Search and filter terms by name, definition, or track. Each term includes context and code examples.
+Master the team jargon and technical terminology used in your codebase.
 
-## Flashcard Mode
-Practice terms with flip cards for memorization. Great for reviewing before quizzes.`,
+:::card[Searchable Glossary]{🔍}
+Filter by name, definition, or track. Each term includes context and **Grounded Code Examples**.
+:::
+
+:::card[Flashcard Mode]{🎴}
+Practice terms with interactive flip cards. A great way to review before taking a module quiz!
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Press **Cmd+K** on any page to search the glossary instantly. You don't even have to leave the module you're reading!
+:::`,
     relatedArticles: ["learn-1"],
   },
   {
@@ -825,16 +865,26 @@ Practice terms with flip cards for memorization. Great for reviewing before quiz
     audience: ["learner", "all"],
     tags: ["review", "spaced repetition", "retention"],
     summary: "How review reminders help with long-term retention.",
-    lastUpdated: "2026-03-01",
-    content: `# Spaced Repetition Reviews
+    lastUpdated: "2026-03-15",
+    content: `# Spaced Repetition 🧠
 
-Completed modules are scheduled for review at increasing intervals: 3 days, 1 week, 2 weeks, 1 month.
+Cement your knowledge for the long term. RocketBoard automatically schedules "Review Sessions" based on the Ebbinghaus Forgetting Curve.
 
-## How It Works
-- Enable in Settings
-- You'll see review prompts on your dashboard
-- Quick review sessions with self-rating
-- Helps cement knowledge long-term`,
+:::step[1. Complete a Module]{✅}
+As soon as you finish a module, it's added to your review queue.
+:::
+
+:::step[2. Scheduled Reminders]{⏱️}
+You'll get prompts on your dashboard at increasing intervals: **3 Days**, **1 Week**, **2 Weeks**, and **1 Month**.
+:::
+
+:::step[3. Quick Review]{🔄}
+Sessions are short (2-3 minutes) and focus on key takeaways and quiz questions you previously answered correctly.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+You can enable or disable Spaced Repetition in your **Settings** panel under "Learning Preferences".
+:::`,
     relatedArticles: ["learn-1"],
   },
 
@@ -847,13 +897,22 @@ Completed modules are scheduled for review at increasing intervals: 3 days, 1 we
     audience: ["all"],
     tags: ["team", "directory", "meetings"],
     summary: "Finding and meeting your team members.",
-    lastUpdated: "2026-03-01",
-    content: `# Team Directory
+    lastUpdated: "2026-03-15",
+    content: `# Team Directory 👥
 
-Team members are auto-detected from source files (CODEOWNERS, Git commits, etc.) and can be manually added.
+Onboarding isn't just about code—it's about the people who write it. The Team Directory helps you connect with your new colleagues.
 
-## Meeting Tracking
-Check off each person as you have 1:1 conversations. Suggested topics help you have productive meetings.`,
+:::card[Auto-Detection]{🤖}
+Team members are automatically identified from **CODEOWNERS** files and Git commit history. You'll see who is the expert on every module.
+:::
+
+:::card[Meeting Tracker]{📅}
+Check off each person as you have your initial 1:1 conversations.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Each profile includes "Suggested Topics"—AI-generated icebreakers based on the files that person maintains. Use them to have more productive 1:1s!
+:::`,
     relatedArticles: ["collab-2"],
   },
   {
@@ -864,18 +923,26 @@ Check off each person as you have 1:1 conversations. Suggested topics help you h
     audience: ["all"],
     tags: ["discussions", "questions", "tips", "threads"],
     summary: "How to ask questions, share tips, and learn with peers.",
-    lastUpdated: "2026-03-01",
-    content: `# Discussions
+    lastUpdated: "2026-03-15",
+    content: `# Discussions & Peer Learning 💬
 
-## Thread Types
-- **Discussion** — general conversation
-- **Question** — can be marked as resolved with an accepted answer
-- **Tip** — helpful insights for other learners
+Connect with other learners and experts directly within the context of your codebase.
 
-## Features
-- Upvote helpful posts
-- Pin important threads
-- Filter by module or type`,
+:::card[Questions & Resolution]{❓}
+Ask a question and get answers from your team. Authors can mark the most helpful response as the **Accepted Answer**.
+:::
+
+:::card[Technical Tips]{💡}
+Share insights or "gotchas" you discovered while exploring a specific module.
+:::
+
+:::card[Announcements]{📢}
+Stay updated with official notes from Pack Authors about module refreshes or architectural shifts.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+You can **Upvote** helpful threads to help future learners find the best information quickly!
+:::`,
     relatedArticles: ["collab-1"],
   },
   {
@@ -912,12 +979,26 @@ Cohort members can see each other's completion status, fostering a sense of shar
     audience: ["learner", "all"],
     tags: ["ask lead", "questions", "team lead"],
     summary: "Curated questions to ask your team lead.",
-    lastUpdated: "2026-03-01",
-    content: `# Ask Your Lead
+    lastUpdated: "2026-03-15",
+    content: `# Ask Your Lead 🧭
 
-AI-generated questions to ask your team lead during onboarding. Topics cover architecture decisions, team processes, and project context.
+RocketBoard helps you have better 1:1s with your manager by providing curated, high-impact questions based on your progress.
 
-Track which questions you've asked and mark them complete.`,
+:::card[Architecture & Context]{🏗️}
+AI generates questions about "Why" specific decisions were made, helping you understand the history of the codebase.
+:::
+
+:::card[Processes & Workflow]{🔄}
+Understand the team's PR review style, deployment cadence, and on-call rotations.
+:::
+
+:::card[Individual Growth]{🌱}
+Personalized questions tailored to your role and seniority level.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Mark questions as "Asked" to keep a historical log of your 1:1 discussions. This is great for end-of-quarter reviews!
+:::`,
     relatedArticles: ["collab-1"],
   },
 
@@ -1112,13 +1193,26 @@ Click the flag icon on any section to notify a Pack Author that the content need
     audience: ["all"],
     tags: ["access", "permission", "locked"],
     summary: "Troubleshooting access and permission issues.",
-    lastUpdated: "2026-03-01",
-    content: `# Can't Access a Feature
+    lastUpdated: "2026-03-15",
+    content: `# Can't Access a Feature? 🔒
 
-1. Check your role on the Settings page
-2. Contact your pack admin for elevated access
-3. If a module is locked, complete its prerequisites first
-4. Some features (Sources, Plan, Analytics) require Author or Admin roles`,
+If you're seeing a "Locked" icon or a "Permission Denied" message, follow this recovery flow.
+
+:::step[1. Check Prerequisites]{⛓️}
+Is the module locked? Many modules require you to complete a "Day 1" path or a parent module first.
+:::
+
+:::step[2. Verify your Role]{👤}
+Go to **Settings** → **Profile**. If you need to add sources or generate content, you must have the **Author** or **Admin** role.
+:::
+
+:::step[3. Consult your Admin]{🛡️}
+Roles are managed at the Organization level. Contact your Pack Owner or Admin to request elevated access.
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Admins can use the **Audit Logs** to see exactly why an access request was denied.
+:::`,
     relatedArticles: ["gs-5", "set-3"],
   },
   {
