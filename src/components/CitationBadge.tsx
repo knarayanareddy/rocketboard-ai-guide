@@ -61,6 +61,7 @@ export function CitationBadge({
     : null;
 
   const handleClick = () => {
+    console.log("CitationBadge clicked:", { spanId, chunkId, viewerOpen });
     if (chunkId) {
       setViewerOpen(true);
     }
@@ -110,7 +111,7 @@ export function CitationBadge({
       return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20 dark:text-emerald-400";
     }
     // Default for code
-    return "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20";
+    return "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:ring-2 hover:ring-primary/50";
   };
 
   // If we don't have a chunk ID, fall back to simple tooltip
@@ -152,7 +153,7 @@ export function CitationBadge({
           <button
             onClick={handleClick}
             className={cn(
-              "relative z-10 inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded border cursor-pointer transition-colors",
+              "relative z-20 inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded border cursor-pointer transition-all active:scale-95 pointer-events-auto",
               getBadgeStyle()
             )}
           >

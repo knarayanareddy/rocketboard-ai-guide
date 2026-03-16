@@ -31,7 +31,7 @@ function parseMarkdown(markdown: string): Part[] {
   // Regex for blocks: :::type[title]{icon}\n...\n:::
   // Regex for actions: [ACTION: slug(label)] or [UI_ACTION: slug(label)]
   // Regex for citations: [S1], [S2], etc.
-  const combinedRegex = /(?::::(setup|pattern|config|warning|step|card)(?:\[([^\]]*)\])?(?:{([^}]*)})?\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])|(?:\[(S[0-9]+)\])/g;
+  const combinedRegex = /(?::::(setup|pattern|config|warning|step|card)(?:\[([^\]]*)\])?(?:{([^}]*)})?\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])|(?:\[(S\d+)\])/g;
   
   let lastIndex = 0;
   let match;
@@ -153,6 +153,7 @@ export function MarkdownRenderer({ children, className, onAction, referencedSpan
       {parts.map((part, i) => {
         if (part.type === "citation" && part.citationId) {
           const span = referencedSpans?.find(s => s.span_id === part.citationId);
+          if (!span) console.warn(`No span found for citation: ${part.citationId}`, referencedSpans);
           return (
             <CitationBadge
               key={i}
