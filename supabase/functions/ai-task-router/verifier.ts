@@ -53,52 +53,81 @@ function isCodeGrounded(block: string, spans: EvidenceSpan[]): boolean {
 }
 
 /**
- * Full implementation of Phase 4 Grounding Verification.
- * Performs existence checks, code matching, and hallucination stripping.
+ * Segments markdown into semantic claims and enforces citation validity.
+ * metrics: claims_total, claims_stripped, strip_rate.
  */
+export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
+  const claimUnits = text.split(/(\n- |\n\d+\. |(?<=[.!?])\s+)/);
+  let claims_total = 0;
+  let claims_stripped = 0;
+
+  const verifiedParts = claimUnits.map(part => {
+    if (/^(\n- |\n\d+\. |\s+)$/.test(part)) return part;
+
+    claims_total++;
+    const citations = extractCitations(part); // Regex: [SOURCE: ...]
+    const isTechnical = /[a-zA-Z0-9_]{3,}\.[a-zA-Z0-9_]{3,}|function|class|const|var/.test(part);
+    
+    const validCitations = citations.filter(cit => {
+       const span = spans.find(s => {
+         const sPath = s.path === cit.path;
+         const sStart = (s.start_line ?? s.line_start ?? 0) <= cit.start;
+         const sEnd = (s.end_line ?? s.line_end ?? 0) >= cit.end;
+         return sPath && sStart && sEnd;
+       });
+       return !!span;
+    });
+
+    // Invariant: Invalid citation => remove ENTIRE claim unit
+    if ((citations.length > 0 && validCitations.length !== citations.length) || (!citations.length && isTechnical)) {
+      claims_stripped++;
+      return null;
+    }
+    return part;
+  });
+
+  const strip_rate = claims_total > 0 ? claims_stripped / claims_total : 0;
+  if (strip_rate > 0.30) {
+    throw { status: 422, error_code: "grounding_failed", message: `Strip rate too high (${Math.round(strip_rate*100)}%). Triggering retry.` };
+  }
+
+  const rawJoined = verifiedParts.filter(Boolean).join("");
+  const verifiedText = cleanupDanglingListMarkers(rawJoined);
+  
+  return { verifiedText, claims_total, claims_stripped, strip_rate };
+}
+
+function cleanupDanglingListMarkers(md: string): string {
+  return md
+    .replace(/\n- (?=\n|$)/g, "") // Remove empty bullets
+    .replace(/\n\d+\. (?=\n|$)/g, "") // Remove empty numbers
+    .replace(/\n{3,}/g, "\n\n"); // Collapse 3+ lines to 2
+}
+
+function extractCitations(text: string): { path: string; start: number; end: number }[] {
+  const regex = /\[SOURCE:\s*([^\]:]+):\s*(\d+)-(\d+)\]/g;
+  const citations = [];
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    citations.push({
+      path: match[1].trim(),
+      start: parseInt(match[2]),
+      end: parseInt(match[3])
+    });
+  }
+  return citations;
+}
+
 export async function verifyGroundedness(
   response: string, 
   spans: EvidenceSpan[]
 ): Promise<VerificationResult> {
-  const warnings: string[] = [];
-  const failedBlocks: string[] = [];
-  let verifiedContent = response;
-
-  // 1. EXISTENCE CHECK: Verify all [SOURCE: ...] tags point to valid spans
-  const citationRegex = /\[SOURCE:\s*(.*?):\s*(\d+)-(\d+)\]/g;
-  const matches = [...response.matchAll(citationRegex)];
-  
-  for (const match of matches) {
-    const [_, path] = match;
-    const exists = spans.some(s => s.path === path);
-    if (!exists) {
-      warnings.push(`Response cited non-existent source: ${path}`);
-    }
-  }
-
-  // 2. CODE STRIPPING: Remove unverified code blocks (Phase 4 Non-Negotiable)
-  // [STRICT MODE]: Reject if the code implementation uses libraries or patterns not present in the evidence.
-  const codeBlocks = extractCodeBlocks(response);
-  for (const block of codeBlocks) {
-    if (!isCodeGrounded(block, spans)) {
-      failedBlocks.push(block);
-      warnings.push("Removed unverified code block to prevent hallucination.");
-      
-      // Use replaceAll to ensure all identical hallucinations are purged
-      verifiedContent = verifiedContent.split(block).join("\n\n> [!WARNING]\n> Removed unverified code block.\n\n");
-    }
-  }
-
-  // 3. SCORE CALCULATION
-  const totalChecks = codeBlocks.length + (matches.length > 0 ? 1 : 0);
-  const totalFailed = failedBlocks.length + (matches.length > 0 && !matches.every(m => spans.some(s => s.path === m[1])) ? 1 : 0);
-  
-  const score = totalChecks === 0 ? 1.0 : Math.max(0, 1.0 - (totalFailed / totalChecks));
-
+  // Legacy function - we can either keep it or redirect it to verifyClaims
+  const { verifiedText, claims_stripped } = await verifyClaims(response, spans);
   return {
-    verifiedContent,
-    score,
-    warnings,
-    failedBlocks
+    verifiedContent: verifiedText,
+    score: claims_stripped === 0 ? 1.0 : 0.5, // Rough legacy mapping
+    warnings: claims_stripped > 0 ? ["Some unverified claims were removed."] : [],
+    failedBlocks: []
   };
 }

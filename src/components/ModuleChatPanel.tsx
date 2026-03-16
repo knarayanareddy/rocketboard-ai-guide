@@ -26,14 +26,21 @@ export interface ReferencedSection {
 }
 
 export interface ChatResponse {
-  response_markdown: string;
-  referenced_spans?: { span_id: string; path: string; chunk_id: string }[];
+  display_response: string;
+  canonical_response: string;
+  source_map: { badge: string; filepath: string; start: number; end: number; chunk_id?: string }[];
   referenced_sections?: ReferencedSection[];
   unverified_claims?: { claim: string; reason: string }[];
   contradictions?: { description: string }[];
   suggested_search_queries?: string[];
   warnings?: string[];
   trace_id?: string;
+  metrics?: {
+    claims_total: number;
+    claims_stripped: number;
+    strip_rate: number;
+    snippets_resolved: number;
+  };
 }
 
 type Msg = { role: "user" | "assistant"; content: string; response?: ChatResponse };
@@ -71,7 +78,7 @@ function MessageSources({
   moduleId: string;
 }) {
   const navigate = useNavigate();
-  const hasSpans = (response.referenced_spans?.length ?? 0) > 0;
+  const hasSpans = (response.source_map?.length ?? 0) > 0;
   const hasSections = (response.referenced_sections?.length ?? 0) > 0;
   const hasUnverified = (response.unverified_claims?.length ?? 0) > 0;
 
@@ -138,7 +145,7 @@ function MessageSources({
             {sourcesOpen ? "Hide sources" : "Show sources"}
             {!sourcesOpen && (hasSpans || hasSections) && (
               <span className="ml-1 text-primary">
-                ({(response.referenced_spans?.length ?? 0) + (response.referenced_sections?.length ?? 0)})
+                ({(response.source_map?.length ?? 0) + (response.referenced_sections?.length ?? 0)})
               </span>
             )}
           </button>
@@ -156,12 +163,14 @@ function MessageSources({
                   {/* Span badges */}
                   {hasSpans && (
                     <div className="flex flex-wrap gap-1">
-                      {response.referenced_spans!.map((span) => (
+                      {response.source_map!.map((source) => (
                         <CitationBadge
-                          key={span.span_id}
-                          spanId={span.span_id}
-                          path={span.path}
-                          chunkId={span.chunk_id}
+                          key={source.badge}
+                          spanId={source.badge}
+                          path={source.filepath}
+                          chunkId={source.chunk_id}
+                          startLine={source.start}
+                          endLine={source.end}
                         />
                       ))}
                     </div>
@@ -204,7 +213,7 @@ function MessageSources({
         <ChatReportDialog
           open={reportOpen}
           onClose={() => setReportOpen(false)}
-          messageContent={response.response_markdown}
+          messageContent={response.display_response || (response as any).response_markdown}
           moduleId={moduleId}
           traceId={response.trace_id}
         />
@@ -314,16 +323,16 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
       });
 
       const result = await sendAITask(envelope);
-      const responseMarkdown = result.response_markdown || "No response received.";
       const typedResult = result as ChatResponse;
-
+      const displayResponse = typedResult.display_response || typedResult.canonical_response || (result as any).response_markdown || "No response received.";
+      
       // Store response WITH the full metadata on the message object
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: responseMarkdown, response: typedResult },
+        { role: "assistant", content: displayResponse, response: typedResult },
       ]);
 
-      if (user) saveMessage(user.id, moduleId, "assistant", responseMarkdown, currentPackId);
+      if (user) saveMessage(user.id, moduleId, "assistant", displayResponse, currentPackId);
     } catch (e: any) {
       if (e instanceof AIError) {
         setLastError(e);
@@ -426,7 +435,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                     >
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
-                          <MarkdownRenderer referencedSpans={msg.response?.referenced_spans}>
+                          <MarkdownRenderer referencedSpans={msg.response?.source_map?.map(s => ({ span_id: s.badge, path: s.filepath, chunk_id: s.chunk_id }))}>
                             {msg.content}
                           </MarkdownRenderer>
                         </div>
