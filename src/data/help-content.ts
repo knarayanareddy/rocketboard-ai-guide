@@ -49,7 +49,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     lastUpdated: "2026-03-15",
     content: `# Welcome to RocketBoard 🚀
 
-RocketBoard is an **AI-powered Zero-Hallucination developer onboarding platform** that transforms your codebase, documentation, and internal knowledge into structured, interactive learning experiences.
+RocketBoard is an **AI-powered Zero-Hallucination RAG platform** that transforms your codebase, documentation, and internal knowledge into structured, interactive learning experiences.
 
 ## Your Learning Journey
 
@@ -588,18 +588,18 @@ We combine **Vector** (for concepts) and **Full-Text** (for identifiers) to find
 Our "AI Judge" verifies that every citation badge (e.g., [S1]) actually exists in your code. Hallucinations are automatically stripped.
 :::
 
-:::card[Layer 3: Agentic Self-Correction]{🔄}
-If an answer isn't firmly grounded, the system re-prompts itself to fix the logical gap before you ever see it.
+:::card[Layer 3: Structural Guardrails]{🧱}
+The LLM is strictly forbidden from writing code and can only emit placeholders. Our server resolves these placeholders into exact code from the sources, ensuring **zero hallucinations** in snippets.
 :::
 
 ## How to use Citations
 
 *   **Hover:** See a live preview of the cited code.
 *   **Click:** Open the **Code Explorer** to see the file in context.
-*   **Audit:** Check the trace logs to see the "Grounding Score" for any response.
+*   **Audit:** Check the trace logs to see the "Grounding Score" and "Strip Rate" for any response.
 
 :::card[Rocket's Pro-Tip]{🚀}
-Clicking a citation badge [S1] takes you directly to the logic. It's the fastest way to confirm that the AI is telling the truth!
+Clicking a citation badge [S1] takes you directly to the logic. Every snippet you see is a literal extract from your actual codebase, verified by our 4-stage pipeline.
 :::`,
     relatedArticles: ["cc-3", "src-7"],
   },
@@ -782,6 +782,7 @@ Type any question about the module — e.g., "How does the auth flow work?" or "
 The AI response includes inline citation badges like **[S1]**, **[S2]**, etc. These are interactive:
 - **Hover** over a badge to see a preview of the source code snippet.
 - **Click** the badge to open the full file in the Source Explorer with syntax highlighting.
+- **Structural Integrity:** Every code snippet is resolved from the server to guarantee it matches your code exactly. 
 :::
 
 :::step[3. Explore Sources]

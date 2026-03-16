@@ -158,7 +158,7 @@ export const HELP_TOOLTIPS = {
   // ─── GLOBAL ─────────────────────────────────────────
   global: {
     globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by **Agentic Multi-Query Hybrid Search v2** (vector + keyword + AST matching).",
-    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses are retrieved using multi-query hybrid search — 3-4 query variants fire in parallel across both vector and keyword indexes — and then **audited for grounding** to prevent hallucinations.",
+    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses follow a **4-stage Zero-Hallucination pipeline**: the AI is forbidden from writing repo code, instead emitting [SNIPPET] placeholders that the server resolves to exact source lines. Every claim is audited and ungrounded content is automatically stripped.",
     missionControl: "Platform-wide AI assistant. Ask about RocketBoard features, navigation help, onboarding tips, or anything not specific to a single module.",
     packSelector: "Switch between different packs. Each pack has its own sources, content, progress, and team. Your progress is saved separately per pack.",
   },

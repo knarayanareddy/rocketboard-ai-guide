@@ -62,7 +62,11 @@ RocketBoard is an **AI-native onboarding platform** for engineering teams. It in
 ## Core Features
 
 ### 🧠 AI Task Router (14 Task Types)
-The central AI orchestration engine. Every request goes through input sanitization, secret redaction, agentic multi-query retrieval, and a **runtime grounding audit** to prevent hallucinations.
+The central AI orchestration engine. Every request goes through input sanitization, secret redaction, agentic multi-query retrieval, and a **4-Stage Zero-Hallucination Pipeline**:
+1. **Structural Enforcement**: The AI is forbidden from writing repository code directly; it must emit `[SNIPPET]` placeholders.
+2. **Claim-Level Verification**: Every sentence is audited against evidence. Ungrounded claims are stripped.
+3. **Server-Side Hydration**: `[SNIPPET]` tags are resolved at the server level from the original source files, ensuring 100% code accuracy.
+4. **Canonical Citation Mapping**: Citations are mapped to stable UI badges and verified for spatial proximity.
 
 | Task Type | Description |
 |-----------|-------------|
