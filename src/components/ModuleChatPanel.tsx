@@ -57,13 +57,14 @@ interface ModuleChatPanelProps {
   moduleContext: ModuleContext;
 }
 
-async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string) {
-  await supabase.from("chat_messages").insert({
+async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string, metadata?: any) {
+  await (supabase.from("chat_messages") as any).insert({
     user_id: userId,
     module_id: moduleId,
     role,
     content,
     pack_id: packId || null,
+    metadata: metadata || null,
   });
 }
 
@@ -241,9 +242,9 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
   useEffect(() => {
     if (!isOpen || !user || historyLoaded) return;
     (async () => {
-      const q = supabase
-        .from("chat_messages")
-        .select("role, content")
+      const q = (supabase
+        .from("chat_messages") as any)
+        .select("role, content, metadata")
         .eq("user_id", user.id)
         .eq("module_id", moduleId)
         .order("created_at", { ascending: true });
@@ -253,7 +254,11 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
         : await q;
 
       if (data && data.length > 0) {
-        setMessages(data.map((d) => ({ role: d.role as "user" | "assistant", content: d.content })));
+        setMessages(data.map((d) => ({ 
+          role: d.role as "user" | "assistant", 
+          content: d.content,
+          response: d.metadata as unknown as ChatResponse
+        })));
       }
       setHistoryLoaded(true);
     })();
@@ -273,7 +278,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
 
   const clearHistory = async () => {
     if (!user) return;
-    await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", moduleId);
+    await (supabase.from("chat_messages") as any).delete().eq("user_id", user.id).eq("module_id", moduleId);
     setMessages([]);
     setLastError(null);
     toast.success("Chat history cleared");
@@ -332,7 +337,8 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
         { role: "assistant", content: displayResponse, response: typedResult },
       ]);
 
-      if (user) saveMessage(user.id, moduleId, "assistant", displayResponse, currentPackId);
+      // Save assistant response WITH metadata
+      if (user) await saveMessage(user.id, moduleId, "assistant", displayResponse, currentPackId, typedResult);
     } catch (e: any) {
       if (e instanceof AIError) {
         setLastError(e);

@@ -147,12 +147,12 @@ export function CitationBadge({
 
   return (
     <>
-      <HoverCard openDelay={300} closeDelay={100}>
+      <HoverCard openDelay={0} closeDelay={100}>
         <HoverCardTrigger asChild>
           <button
             onClick={handleClick}
             className={cn(
-              "inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded border cursor-pointer transition-colors",
+              "relative z-10 inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded border cursor-pointer transition-colors",
               getBadgeStyle()
             )}
           >
