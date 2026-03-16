@@ -444,7 +444,7 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                           <MarkdownRenderer referencedSpans={msg.response?.source_map?.map(s => ({ 
                             span_id: s.badge, 
                             path: s.filepath, 
-                            chunk_id: s.chunk_id,
+                            chunk_id: s.chunk_id || "",
                             start_line: s.start,
                             end_line: s.end
                           }))}>

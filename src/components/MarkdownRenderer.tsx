@@ -30,8 +30,8 @@ function parseMarkdown(markdown: string): Part[] {
   
   // Regex for blocks: :::type[title]{icon}\n...\n:::
   // Regex for actions: [ACTION: slug(label)] or [UI_ACTION: slug(label)]
-  // Regex for citations: [S1], [S2], etc.
-  const combinedRegex = /(?::::(setup|pattern|config|warning|step|card)(?:\[([^\]]*)\])?(?:{([^}]*)})?\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])|(?:\[(S\d+)\])/g;
+  // Regex for citations: [S1], [S2], [S3, S5] etc.
+  const combinedRegex = /(?::::(setup|pattern|config|warning|step|card)(?:\[([^\]]*)\])?(?:{([^}]*)})?\n([\s\S]*?):::)|(?:\[(ACTION|UI_ACTION): ([^(\]]+)(?:\(([^)]+)\))?\])|(?:\[(S\d+(?:\s*,\s*S\d+)*)\])/g;
   
   let lastIndex = 0;
   let match;
@@ -67,11 +67,14 @@ function parseMarkdown(markdown: string): Part[] {
         content: match[7] || "Take Action",
       });
     } else if (match[8]) {
-      // Citation match [Sn]
-      parts.push({
-        type: "citation",
-        citationId: match[8],
-        content: match[0],
+      // Citation match [S1] or [S1, S2]
+      const ids = match[8].split(',').map(id => id.trim());
+      ids.forEach(id => {
+        parts.push({
+          type: "citation",
+          citationId: id,
+          content: `[${id}]`,
+        });
       });
     }
     

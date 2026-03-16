@@ -24,7 +24,25 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SaveAsFaqDialog } from "@/components/SaveAsFaqDialog";
 import { SaveAsGlossaryDialog } from "@/components/SaveAsGlossaryDialog";
 import { trackQuestionSuggestion } from "@/hooks/useFaqSuggestions";
-import type { ReferencedSection, ChatResponse } from "@/components/ModuleChatPanel";
+import type { ReferencedSection } from "@/components/ModuleChatPanel";
+
+type ChatResponse = {
+  source_map: { badge: string; filepath: string; start: number; end: number; chunk_id?: string }[];
+  referenced_spans?: { span_id: string; path: string; chunk_id: string; start_line?: number; end_line?: number }[];
+  referenced_sections?: ReferencedSection[];
+  unverified_claims?: { claim: string; reason: string }[];
+  contradictions?: { description: string }[];
+  suggested_search_queries?: string[];
+  warnings?: string[];
+  trace_id?: string;
+  metrics?: {
+    claims_total: number;
+    claims_stripped: number;
+    strip_rate: number;
+    snippets_resolved: number;
+  };
+  response_markdown?: string;
+};
 
 type Msg = { role: "user" | "assistant"; content: string; response?: ChatResponse };
 
@@ -45,7 +63,7 @@ function MessageSources({
   messages: Msg[];
 }) {
   const navigate = useNavigate();
-  const hasSpans = (response.referenced_spans?.length ?? 0) > 0;
+  const hasSpans = (response.source_map?.length ?? 0) > 0;
   const hasSections = (response.referenced_sections?.length ?? 0) > 0;
   const hasUnverified = (response.unverified_claims?.length ?? 0) > 0;
 
@@ -124,7 +142,7 @@ function MessageSources({
             {sourcesOpen ? "Hide sources" : "Show sources"}
             {!sourcesOpen && (
               <span className="ml-1 text-primary">
-                ({(response.referenced_spans?.length ?? 0) + (response.referenced_sections?.length ?? 0)})
+                ({(response.source_map?.length ?? 0) + (response.referenced_sections?.length ?? 0)})
               </span>
             )}
           </button>
@@ -141,14 +159,14 @@ function MessageSources({
                 <div className="mt-2 space-y-2">
                   {hasSpans && (
                     <div className="flex flex-wrap gap-1">
-                      {response.referenced_spans!.map((span) => (
+                      {response.source_map!.map((span) => (
                         <span
-                          key={span.span_id}
+                          key={span.badge}
                           className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
-                          title={span.path}
+                          title={span.filepath}
                         >
                           <ExternalLink className="w-2.5 h-2.5" />
-                          {span.span_id}
+                          {span.badge}
                         </span>
                       ))}
                     </div>
@@ -260,9 +278,9 @@ export function MissionControlChat() {
   useEffect(() => {
     if (!isOpen || !user || historyLoaded) return;
     (async () => {
-      const q = supabase
-        .from("chat_messages")
-        .select("role, content")
+      const q = (supabase
+        .from("chat_messages") as any)
+        .select("role, content, metadata")
         .eq("user_id", user.id)
         .eq("module_id", "__mission_control__")
         .order("created_at", { ascending: true });
@@ -272,7 +290,11 @@ export function MissionControlChat() {
         : await q;
 
       if (data && data.length > 0) {
-        setMessages(data.map((d) => ({ role: d.role as "user" | "assistant", content: d.content })));
+        setMessages(data.map((d) => ({ 
+          role: d.role as "user" | "assistant", 
+          content: d.content,
+          response: d.metadata as unknown as ChatResponse
+        })));
       }
       setHistoryLoaded(true);
     })();
@@ -378,6 +400,7 @@ export function MissionControlChat() {
           role: "assistant",
           content: responseMarkdown,
           pack_id: currentPackId || null,
+          metadata: typedResult,
         });
       }
     } catch (e: any) {
@@ -489,12 +512,21 @@ export function MissionControlChat() {
                     >
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
-                          <MarkdownRenderer onAction={(slug) => {
-                            if (slug === 'theme_dark') { setMode('dark'); return true; }
-                            if (slug === 'theme_light') { setMode('light'); return true; }
-                            if (slug === 'start_tour') { startTour('platform-overview'); return true; }
-                            return false;
-                          }}>
+                          <MarkdownRenderer 
+                            referencedSpans={msg.response?.source_map?.map(s => ({
+                              span_id: s.badge,
+                              path: s.filepath,
+                              chunk_id: s.chunk_id || "",
+                              start_line: s.start,
+                              end_line: s.end
+                            }))}
+                            onAction={(slug) => {
+                              if (slug === 'theme_dark') { setMode('dark'); return true; }
+                              if (slug === 'theme_light') { setMode('light'); return true; }
+                              if (slug === 'start_tour') { startTour('platform-overview'); return true; }
+                              return false;
+                            }}
+                          >
                             {msg.content}
                           </MarkdownRenderer>
                         </div>
