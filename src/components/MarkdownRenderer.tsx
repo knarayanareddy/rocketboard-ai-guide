@@ -11,7 +11,7 @@ interface MarkdownRendererProps {
   children: string;
   className?: string;
   onAction?: (slug: string) => boolean | void;
-  referencedSpans?: { span_id: string; path: string; chunk_id: string }[];
+  referencedSpans?: { span_id: string; path: string; chunk_id: string; start_line?: number; end_line?: number }[];
 }
 
 // Parse custom callout syntax :::type[title]\n...\n::: and [ACTION: slug(label)] and citations [S1]
@@ -159,6 +159,8 @@ export function MarkdownRenderer({ children, className, onAction, referencedSpan
               spanId={part.citationId}
               path={span?.path}
               chunkId={span?.chunk_id}
+              startLine={span?.start_line}
+              endLine={span?.end_line}
             />
           );
         }

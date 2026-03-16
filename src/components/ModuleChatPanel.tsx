@@ -435,7 +435,13 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
                     >
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
-                          <MarkdownRenderer referencedSpans={msg.response?.source_map?.map(s => ({ span_id: s.badge, path: s.filepath, chunk_id: s.chunk_id }))}>
+                          <MarkdownRenderer referencedSpans={msg.response?.source_map?.map(s => ({ 
+                            span_id: s.badge, 
+                            path: s.filepath, 
+                            chunk_id: s.chunk_id,
+                            start_line: s.start,
+                            end_line: s.end
+                          }))}>
                             {msg.content}
                           </MarkdownRenderer>
                         </div>
