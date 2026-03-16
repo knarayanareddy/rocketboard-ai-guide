@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { modules as staticModules } from "@/data/onboarding-data";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { SectionViewer } from "@/components/SectionViewer";
@@ -119,6 +119,7 @@ function GeneratedSectionViewer({ section, index, isRead, onMarkRead, savedNote,
       className={`border rounded-xl p-6 transition-all duration-300 ${
         isRead ? "bg-card/50 border-primary/20" : "bg-card border-border hover:border-primary/30"
       }`}
+      id={section.section_id}
       data-tour="module-section"
     >
       <div className="flex items-start justify-between mb-3">
@@ -443,6 +444,7 @@ function ExercisesTab({ moduleKey, moduleTitle, moduleDescription }: { moduleKey
 export default function ModuleView() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentPackId } = usePack();
 
   const staticMod = staticModules.find((m) => m.id === moduleId);
@@ -493,6 +495,24 @@ export default function ModuleView() {
       setEditableModuleData(JSON.parse(JSON.stringify(moduleData)));
     }
   }, [moduleData, editMode]);
+
+  // Handle hash navigation (Section scrolling)
+  useEffect(() => {
+    const hash = location.hash;
+    if (hash && hash.includes("section=")) {
+      const sectionId = hash.split("section=")[1];
+      if (sectionId) {
+        // Wait a bit for the content to render
+        const timer = setTimeout(() => {
+          const element = document.getElementById(sectionId);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [location.hash, isGenerated, genLoading]);
 
   // Cmd+D bookmark shortcut — bookmark the current module's first section
   const { toggleBookmark: bmToggle } = useBookmarks();

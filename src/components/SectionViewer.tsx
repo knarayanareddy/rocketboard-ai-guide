@@ -36,6 +36,7 @@ export function SectionViewer({ section, index, isRead, moduleKey, onMarkRead, s
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08, duration: 0.35 }}
+      id={section.id}
       className={`border rounded-xl p-6 transition-all duration-300 ${
         isRead
           ? "bg-card/50 border-primary/20"

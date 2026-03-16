@@ -41,10 +41,15 @@ export function canonicalizeCitations(originalText: string, spans: any[] = []): 
       map.set(key, badge);
       
       // Attempt to enrich with chunk_id from evidence spans
-      const span = spans.find(s => 
-        s.path === normalizedPath && 
-        (s.start_line <= startLine && s.end_line >= endLine)
-      );
+      const span = spans.find(s => {
+        const sStart = s.start_line ?? s.line_start;
+        const sEnd = s.end_line ?? s.line_end;
+        return (
+          s.path === normalizedPath && 
+          sStart !== undefined && sEnd !== undefined &&
+          sStart <= startLine && sEnd >= endLine
+        );
+      });
 
       sourceMap.push({ 
         badge, 
