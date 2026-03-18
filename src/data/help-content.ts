@@ -1396,7 +1396,7 @@ Standard chunking is blind to code logic. We use **Tree-sitter** to parse your c
 :::step[Phase 2: Titanium Hybrid Search v2]{🔍}
 We combine three retrieval layers for maximum recall:
 *   **Vector (Semantic):** For conceptual questions.
-*   **Full-Text (Websearch):** Using `websearch_to_tsquery` for safe, production-grade lexical parsing.
+*   **Full-Text (Websearch):** Using \`websearch_to_tsquery\` for safe, production-grade lexical parsing.
 *   **AST Metadata:** For surgical precision on type signatures and logical entities.
 :::
 
