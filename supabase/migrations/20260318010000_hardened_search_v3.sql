@@ -1,44 +1,15 @@
 -- Hardened Search v3: Schema Migration & SQL Optimization
 -- Addressing expert feedback round 2
 
--- 1. Migrate JSONB fields to TEXT[] for native array performance and overlap operators
-DO $$ 
-BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'knowledge_chunks' AND column_name = 'imports' AND data_type = 'jsonb'
-    ) THEN
-        -- Temporary column for migration
-        ALTER TABLE knowledge_chunks ADD COLUMN imports_new TEXT[];
-        ALTER TABLE knowledge_chunks ADD COLUMN exported_names_new TEXT[];
-        
-        -- Copy data (assuming they are JSON arrays of strings)
-        UPDATE knowledge_chunks 
-        SET 
-            imports_new = ARRAY(SELECT jsonb_array_elements_text(COALESCE(imports, '[]'::jsonb))),
-            exported_names_new = ARRAY(SELECT jsonb_array_elements_text(COALESCE(exported_names, '[]'::jsonb)));
-            
-        -- Swap columns
-        ALTER TABLE knowledge_chunks DROP COLUMN imports;
-        ALTER TABLE knowledge_chunks DROP COLUMN exported_names;
-        ALTER TABLE knowledge_chunks RENAME COLUMN imports_new TO imports;
-        ALTER TABLE knowledge_chunks RENAME COLUMN exported_names_new TO exported_names;
-        
-        -- Re-add default values
-        ALTER TABLE knowledge_chunks ALTER COLUMN imports SET DEFAULT '{}'::text[];
-        ALTER TABLE knowledge_chunks ALTER COLUMN exported_names SET DEFAULT '{}'::text[];
-    END IF;
-END $$;
-
--- 2. Indexing for high-performance retrieval
+-- 1. Indexing for high-performance retrieval (Moved to foundation in fresh installs, but kept here for idempotency/repair)
 CREATE INDEX IF NOT EXISTS idx_chunks_imports_gin ON knowledge_chunks USING GIN(imports);
 CREATE INDEX IF NOT EXISTS idx_chunks_exports_gin ON knowledge_chunks USING GIN(exported_names);
 
--- Composite indexes for context-aware filtering (Phase 7.2)
+-- Composite indexes for context-aware filtering
 CREATE INDEX IF NOT EXISTS idx_chunks_org_pack_gen_module ON knowledge_chunks(org_id, pack_id, generation_id, module_key);
 CREATE INDEX IF NOT EXISTS idx_chunks_org_pack_gen_track ON knowledge_chunks(org_id, pack_id, generation_id, track_key);
 
--- 3. Hardened hybrid_search_v2
+-- 2. Hardened hybrid_search_v2
 CREATE OR REPLACE FUNCTION hybrid_search_v2(
   p_org_id UUID,
   p_pack_id UUID,
@@ -68,6 +39,19 @@ AS $$
 DECLARE
   v_generation_id UUID;
 BEGIN
+  -- 0. DEFENSE IN DEPTH: Verify membership redundantly at SQL level
+  -- This ensures that even if the Edge Function check is bypassed, the DB is secure.
+  IF NOT EXISTS (
+    SELECT 1 FROM pack_members 
+    WHERE pack_id = p_pack_id AND user_id = auth.uid()
+  ) THEN
+    -- If no user is authenticated (e.g. service role), allow if it's the service role
+    -- auth.uid() is null for service role calls in most standard setups
+    IF auth.uid() IS NOT NULL THEN
+      RAISE EXCEPTION 'Unauthorized: User is not a member of this pack.';
+    END IF;
+  END IF;
+
   -- 1. Identify Active Generation
   SELECT active_generation_id INTO v_generation_id
   FROM pack_active_generation

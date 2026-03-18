@@ -11,9 +11,8 @@ ALTER TABLE knowledge_chunks
   ADD COLUMN IF NOT EXISTS contextualized_content TEXT,
   ADD COLUMN IF NOT EXISTS content_hash TEXT,
   ADD COLUMN IF NOT EXISTS generation_id UUID,
-  ADD COLUMN IF NOT EXISTS imports JSONB DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS exported_names JSONB DEFAULT '[]'::jsonb,
-  ADD CONSTRAINT imports_is_array CHECK (jsonb_typeof(imports) = 'array');
+  ADD COLUMN IF NOT EXISTS imports TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS exported_names TEXT[] DEFAULT '{}';
 
 -- 2. ENABLE RLS on all related tables natively avoiding UI leakages
 ALTER TABLE knowledge_chunks ENABLE ROW LEVEL SECURITY;

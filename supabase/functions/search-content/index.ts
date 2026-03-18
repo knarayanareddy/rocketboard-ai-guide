@@ -1,14 +1,26 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
+const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
+
+function getCorsHeaders(origin: string | null) {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+  
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  
+  return headers;
+}
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders(origin) });
   }
 
   try {
@@ -16,7 +28,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
       });
     }
 
@@ -31,7 +43,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
       });
     }
     const userId = claimsData.claims.sub;
@@ -41,7 +53,7 @@ Deno.serve(async (req) => {
     if (!pack_id || !query || query.trim().length === 0) {
       return new Response(
         JSON.stringify({ error: "pack_id and query are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
       );
     }
 
@@ -57,7 +69,7 @@ Deno.serve(async (req) => {
     if (!tsQuery) {
       return new Response(
         JSON.stringify({ modules: [], glossary: [], notes: [], chatHistory: [], sourceChunks: [] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
       );
     }
 
@@ -80,7 +92,7 @@ Deno.serve(async (req) => {
     if (!membership) {
       return new Response(JSON.stringify({ error: "Not a pack member" }), {
         status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
       });
     }
 
@@ -247,13 +259,13 @@ Deno.serve(async (req) => {
     await Promise.allSettled(promises);
 
     return new Response(JSON.stringify(results), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("Search error:", err);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
     );
   }
 });
