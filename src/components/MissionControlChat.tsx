@@ -513,6 +513,7 @@ export function MissionControlChat() {
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
                           <MarkdownRenderer 
+                            packId={currentPackId || undefined}
                             referencedSpans={msg.response?.source_map?.map(s => ({
                               span_id: s.badge,
                               path: s.filepath,

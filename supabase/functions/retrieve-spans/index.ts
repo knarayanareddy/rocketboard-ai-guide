@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "http://localhost:5173, http://localhost:8080",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -71,17 +71,33 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Resolve org_id from memberhip
-    const { data: memberData } = await adminClient
-      .from("org_members")
+    // 1. Resolve org_id and verify pack exists
+    const { data: packData, error: packError } = await adminClient
+      .from("packs")
       .select("org_id")
+      .eq("id", pack_id)
+      .maybeSingle();
+
+    if (packError || !packData) {
+      return new Response(JSON.stringify({ error: "Pack not found" }), {
+        status: 404, headers: corsHeaders,
+      });
+    }
+
+    const org_id = packData.org_id;
+
+    // 2. Security Check: Verify user belongs to the pack (or has access)
+    // We use service role to check membership accurately regardless of user's current JWT claims
+    const { data: membership, error: memberError } = await adminClient
+      .from("pack_members")
+      .select("role")
+      .eq("pack_id", pack_id)
       .eq("user_id", user.id)
-      .limit(1)
-      .single();
-    
-    const org_id = memberData?.org_id;
-    if (!org_id) {
-       return new Response(JSON.stringify({ error: "No organization found for user" }), {
+      .maybeSingle();
+
+    if (memberError || !membership) {
+      console.warn(`[RETRIEVAL] Access denied for user ${user.id} to pack ${pack_id}`);
+      return new Response(JSON.stringify({ error: "Forbidden: You are not a member of this pack" }), {
         status: 403, headers: corsHeaders,
       });
     }
@@ -108,20 +124,21 @@ Deno.serve(async (req) => {
       embedding = await generateEmbedding(query, openAIApiKey);
     }
 
+    // Reliability: Fallback to keyword-only search if embedding fails
     if (!embedding) {
-       return new Response(JSON.stringify({ error: "Failed to generate query embedding" }), {
-        status: 500, headers: corsHeaders,
-      });
+      console.warn("[RETRIEVAL] Embedding generation failed, falling back to keyword search.");
     }
 
-    console.log(`[RETRIEVAL] Using hybrid_search_v2 for pack ${pack_id}, org ${org_id}`);
+    console.log(`[RETRIEVAL] Using hybrid_search_v2 for pack ${pack_id}, org ${org_id}. Context: ${module_key || 'global'}`);
     
     const { data: chunks, error: rpcError } = await adminClient.rpc('hybrid_search_v2', {
       p_org_id: org_id,
       p_pack_id: pack_id,
       p_query_text: tsQuery,
-      p_query_embedding: embedding,
+      p_query_embedding: embedding, // Can be null (fallback handled in SQL)
       p_match_count: max_spans,
+      p_module_key: module_key || null,
+      p_track_key: track_key || null
     });
 
     if (rpcError) {
@@ -134,7 +151,7 @@ Deno.serve(async (req) => {
     const spans = (chunks || []).map((chunk: any, idx: number) => ({
       span_id: `S${idx + 1}`,
       path: chunk.path,
-      chunk_id: chunk.id,
+      chunk_id: chunk.chunk_id || chunk.id,
       start_line: chunk.line_start,
       end_line: chunk.line_end,
       text: chunk.content,

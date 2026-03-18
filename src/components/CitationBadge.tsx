@@ -18,6 +18,7 @@ interface CitationBadgeProps {
   verified?: boolean; // true = verified, false = flagged, undefined = unknown/default
   verificationWarning?: string;
   note?: string;
+  packId?: string;
 }
 
 export function CitationBadge({
@@ -29,13 +30,15 @@ export function CitationBadge({
   verified,
   verificationWarning,
   note,
+  packId: explicitPackId,
 }: CitationBadgeProps) {
-  const { currentPackId } = usePack();
+  const { currentPackId: contextPackId } = usePack();
+  const packId = explicitPackId || contextPackId;
   const [viewerOpen, setViewerOpen] = useState(false);
 
   // Fetch preview content for hover
   const { data: chunkContent } = useEvidenceSpanContent(
-    currentPackId || null,
+    packId || null,
     chunkId || null
   );
 
@@ -114,16 +117,9 @@ export function CitationBadge({
     return "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:ring-2 hover:ring-primary/50";
   };
 
-  // If we don't have a chunk ID, fall back to simple tooltip
-  if (!chunkId) {
-    const tooltipContent = [
-      path && `Path: ${path}`,
-      startLine != null && endLine != null && `Lines: ${startLine}-${endLine}`,
-      isFlagged && (verificationWarning || "⚠ Unverified citation"),
-    ]
-      .filter(Boolean)
-      .join("\n");
-
+  // If we don't have a chunk ID, we can still show a simple tooltip, 
+  // but if we have a path or some other info, we should still try to allow clicking if possible.
+  if (!chunkId && !path) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -137,11 +133,9 @@ export function CitationBadge({
             {spanId}
           </span>
         </TooltipTrigger>
-        {tooltipContent && (
-          <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-line">
-            {tooltipContent}
-          </TooltipContent>
-        )}
+        <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-line">
+          Citation {spanId} (No source metadata available)
+        </TooltipContent>
       </Tooltip>
     );
   }
@@ -223,10 +217,10 @@ export function CitationBadge({
       </HoverCard>
 
       {/* Full viewer modal */}
-      {currentPackId && (
+      {packId && (
         <EvidenceSpanViewer
           span={span}
-          packId={currentPackId}
+          packId={packId}
           isOpen={viewerOpen}
           onClose={() => setViewerOpen(false)}
         />

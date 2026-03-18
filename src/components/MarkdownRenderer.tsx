@@ -12,6 +12,7 @@ interface MarkdownRendererProps {
   className?: string;
   onAction?: (slug: string) => boolean | void;
   referencedSpans?: { span_id: string; path: string; chunk_id: string; start_line?: number; end_line?: number }[];
+  packId?: string;
 }
 
 // Parse custom callout syntax :::type[title]\n...\n::: and [ACTION: slug(label)] and citations [S1]
@@ -116,10 +117,11 @@ const components: Components = {
   },
 };
 
-export function MarkdownRenderer({ children, className, onAction, referencedSpans }: MarkdownRendererProps) {
+export function MarkdownRenderer({ children, className, onAction, referencedSpans, packId: explicitPackId }: MarkdownRendererProps) {
   const parts = parseMarkdown(children);
   const navigate = useNavigate();
-  const { packId } = useParams();
+  const { packId: urlPackId } = useParams();
+  const packId = explicitPackId || urlPackId;
 
   const handleAction = (slug: string) => {
     // Check if parent wants to handle it
@@ -165,6 +167,7 @@ export function MarkdownRenderer({ children, className, onAction, referencedSpan
               chunkId={span?.chunk_id}
               startLine={span?.start_line}
               endLine={span?.end_line}
+              packId={packId}
             />
           );
         }
