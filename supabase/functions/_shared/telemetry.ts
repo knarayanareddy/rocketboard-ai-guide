@@ -136,6 +136,12 @@ export class TraceBuilder {
     };
   }
 
+  /** Force create/enable a trace that was initially disabled (strategic sampling) */
+  enable(): this {
+    this.enabled = true;
+    return this;
+  }
+
   addSpan(event: SpanEvent): this {
     if (!this.enabled) return this;
     this.data.spans.push(event);
@@ -160,6 +166,13 @@ export class TraceBuilder {
   score(event: ScoreEvent): this {
     if (!this.enabled) return this;
     this.data.scores.push(event);
+    return this;
+  }
+
+  /** Update trace metadata (e.g. after user auth) */
+  updateMetadata(patch: Partial<TraceMetadata>): this {
+    if (!this.enabled) return this;
+    this.data.metadata = { ...this.data.metadata, ...patch };
     return this;
   }
 

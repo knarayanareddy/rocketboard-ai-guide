@@ -51,6 +51,9 @@ Deno.serve(async (req) => {
       });
     }
     const userId = claimsData.claims.sub;
+    
+    // Phase 7: Late-bind userId to trace
+    trace.updateMetadata({ userId });
 
     const body = await req.json();
     const { pack_id, query, filters, limit = 10 } = body;
@@ -263,7 +266,20 @@ Deno.serve(async (req) => {
 
     await Promise.allSettled(promises);
 
+    // Phase 7: Rich Retrieval Diagnostics
+    const scores = (results.matches || []).map((m: any) => m.score || 0);
+    const top1Score = scores.length > 0 ? Math.max(...scores) : 0;
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const uniqueFiles = new Set((results.matches || []).map((m: any) => m.path)).size;
+
     const latency_ms = Date.now() - startTime;
+    
+    trace.updateMetadata({
+      top1_score: top1Score,
+      avg_score: avgScore,
+      unique_files_count: uniqueFiles,
+    });
+
     await trace.flush();
 
     return new Response(JSON.stringify({ 

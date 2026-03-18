@@ -523,6 +523,11 @@ async function callWithAgenticReview(
     parsed.generation_meta.grounding_score = score;
     parsed.generation_meta.attempts = attempts;
     
+    // Phase 7: Strategic Sampling — enable trace if quality is low or we retried
+    if (score < 0.7 || attempts > 1) {
+      trace.enable();
+    }
+    
     // Phase 6: Observability — update trace with RAG metrics
     const m = parsed.metrics || {};
     trace.updateGeneration({ 
@@ -646,6 +651,7 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
       query: "[chat history or prompt redacted]", 
       task_type: data.metadata?.taskType,
       request_id: data.metadata?.requestId,
+      trace_id: data.traceId,
       
       // Retrieval Metrics
       retrieval_method: retrieval.method || "hybrid",
@@ -2535,6 +2541,9 @@ serve(async (req) => {
     const authResult = await authenticateRequest(req);
     if (authResult instanceof Response) return authResult;
     const { userId } = authResult;
+
+    // Late-bind userId to trace if it was already created
+    trace.updateMetadata({ userId });
 
     // Rate limiting
     if (!checkRateLimit(userId)) {

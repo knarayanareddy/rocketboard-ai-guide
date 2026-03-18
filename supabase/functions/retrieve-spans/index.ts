@@ -99,6 +99,9 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Phase 7: Late-bind userId to trace
+    trace.updateMetadata({ userId: user.id });
+
     // Use service role for the actual query (since knowledge_chunks RLS is pack-member based)
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
@@ -189,7 +192,22 @@ Deno.serve(async (req) => {
       }
     }));
 
+    // Phase 7: Rich Retrieval Diagnostics
+    const scores = (chunks || []).map((c: any) => c.score || 0);
+    const top1Score = scores.length > 0 ? Math.max(...scores) : 0;
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const uniqueFiles = new Set((chunks || []).map((c: any) => c.path)).size;
+
     const latency_ms = Date.now() - startTime;
+    
+    // Update trace with advanced RAG metadata
+    trace.updateMetadata({ 
+      top1_score: top1Score,
+      avg_score: avgScore,
+      unique_files_count: uniqueFiles,
+      embedding_model: "text-embedding-3-small" // Default if using our wrapper
+    });
+
     await trace.flush();
 
     return new Response(JSON.stringify({ 
