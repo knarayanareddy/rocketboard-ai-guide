@@ -58,15 +58,9 @@ Deno.serve(async (req) => {
     }
 
     const safeLimit = Math.min(Math.max(limit, 1), 25);
-    const tsQuery = query
-      .trim()
-      .split(/\s+/)
-      .filter((w: string) => w.length > 0)
-      .map((w: string) => w.replace(/[^\w]/g, ""))
-      .filter((w: string) => w.length > 0)
-      .join(" & ");
+    const clampedQuery = query.trim().slice(0, 500);
 
-    if (!tsQuery) {
+    if (clampedQuery.length === 0) {
       return new Response(
         JSON.stringify({ modules: [], glossary: [], notes: [], chatHistory: [], sourceChunks: [] }),
         { headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
@@ -84,7 +78,7 @@ Deno.serve(async (req) => {
     // Verify pack membership
     const { data: membership } = await serviceClient
       .from("pack_members")
-      .select("id")
+      .select("org_id")
       .eq("pack_id", pack_id)
       .eq("user_id", userId)
       .maybeSingle();
@@ -96,6 +90,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    const org_id = membership.org_id;
     const results: Record<string, unknown[]> = {
       modules: [],
       glossary: [],
@@ -109,26 +104,20 @@ Deno.serve(async (req) => {
 
     if (activeFilters.includes("sourceChunks")) {
       promises.push(
-        Promise.resolve(
-          serviceClient
-            .rpc("search_chunks_fts", undefined, { count: "exact" })
-            .then(() => undefined, () => undefined)
-        )
-      );
-      // Direct query approach
-      promises.push(
         (async () => {
-          const { data } = await serviceClient
-            .from("knowledge_chunks")
-            .select("chunk_id, path, content")
-            .eq("pack_id", pack_id)
-            .textSearch("fts", tsQuery, { type: "plain" })
-            .limit(safeLimit);
+          const { data } = await serviceClient.rpc("hybrid_search_v2", {
+            p_org_id: org_id,
+            p_pack_id: pack_id,
+            p_query_text: clampedQuery,
+            p_query_embedding: null,
+            p_match_count: safeLimit
+          });
+          
           if (data) {
             results.sourceChunks = data.map((r: any) => ({
-              chunkId: r.chunk_id,
+              chunkId: r.id,
               path: r.path,
-              snippet: makeSnippet(r.content, query),
+              snippet: makeSnippet(r.content, clampedQuery),
             }));
           }
         })()
@@ -145,7 +134,7 @@ Deno.serve(async (req) => {
             .eq("status", "published")
             .limit(100);
           if (data) {
-            const lowerQ = query.toLowerCase();
+            const lowerQ = clampedQuery.toLowerCase();
             const matched: any[] = [];
             for (const mod of data) {
               const sections = (mod.module_data as any)?.sections || [];
@@ -158,7 +147,7 @@ Deno.serve(async (req) => {
                     moduleTitle: mod.title,
                     sectionId: sec.id || heading,
                     sectionHeading: heading,
-                    snippet: makeSnippet(md || heading, query),
+                    snippet: makeSnippet(md || heading, clampedQuery),
                   });
                   if (matched.length >= safeLimit) break;
                 }
@@ -171,7 +160,7 @@ Deno.serve(async (req) => {
                     moduleTitle: mod.title,
                     sectionId: null,
                     sectionHeading: null,
-                    snippet: makeSnippet(mod.description || mod.title, query),
+                    snippet: makeSnippet(mod.description || mod.title, clampedQuery),
                   });
                 }
               }
@@ -194,7 +183,7 @@ Deno.serve(async (req) => {
             .order("created_at", { ascending: false });
           if (data && data.length > 0) {
             const terms = (data[0].glossary_data as any[]) || [];
-            const lowerQ = query.toLowerCase();
+            const lowerQ = clampedQuery.toLowerCase();
             const matched = terms
               .filter(
                 (t: any) =>
@@ -205,7 +194,7 @@ Deno.serve(async (req) => {
               .map((t: any) => ({
                 term: t.term,
                 definition: t.definition,
-                snippet: makeSnippet(t.definition || t.term, query),
+                snippet: makeSnippet(t.definition || t.term, clampedQuery),
               }));
             results.glossary = matched;
           }
@@ -221,13 +210,13 @@ Deno.serve(async (req) => {
             .select("module_id, section_id, content")
             .eq("user_id", userId)
             .eq("pack_id", pack_id)
-            .textSearch("content", tsQuery, { type: "plain" })
+            .textSearch("content", clampedQuery, { type: "websearch", config: "simple" })
             .limit(safeLimit);
           if (data) {
             results.notes = data.map((r: any) => ({
               moduleId: r.module_id,
               sectionId: r.section_id,
-              snippet: makeSnippet(r.content, query),
+              snippet: makeSnippet(r.content, clampedQuery),
             }));
           }
         })()
@@ -242,14 +231,14 @@ Deno.serve(async (req) => {
             .select("module_id, content, role")
             .eq("user_id", userId)
             .eq("pack_id", pack_id)
-            .textSearch("content", tsQuery, { type: "plain" })
+            .textSearch("content", clampedQuery, { type: "websearch", config: "simple" })
             .limit(safeLimit);
           if (data) {
             results.chatHistory = data.map((r: any) => ({
               moduleId: r.module_id,
               content: r.content,
               role: r.role,
-              snippet: makeSnippet(r.content, query),
+              snippet: makeSnippet(r.content, clampedQuery),
             }));
           }
         })()

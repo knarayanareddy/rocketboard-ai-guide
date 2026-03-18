@@ -54,11 +54,15 @@ Deno.serve(async (req) => {
   try {
     const { pack_id, query, max_spans = 10, module_key, track_key } = await req.json();
 
-    if (!pack_id || !query) {
-      return new Response(JSON.stringify({ error: "Missing pack_id or query" }), {
+    if (!pack_id || !query || typeof query !== "string") {
+      return new Response(JSON.stringify({ error: "Missing pack_id or valid query" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Defensive Caps
+    const clampedQuery = query.trim().slice(0, 500);
+    const clampedMaxSpans = Math.min(Math.max(Number(max_spans) || 10, 1), 50);
 
     // Validate auth
     const authHeader = req.headers.get("Authorization");
@@ -117,16 +121,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build tsquery from the user's query
-    const tsQuery = query
-      .trim()
-      .split(/\s+/)
-      .filter((w: string) => w.length > 1)
-      .map((w: string) => w.replace(/[^a-zA-Z0-9]/g, ""))
-      .filter(Boolean)
-      .join(" | ");
-
-    if (!tsQuery) {
+    if (clampedQuery.length === 0) {
       return new Response(JSON.stringify({ spans: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -136,7 +131,7 @@ Deno.serve(async (req) => {
     let embedding = null;
 
     if (openAIApiKey) {
-      embedding = await generateEmbedding(query, openAIApiKey);
+      embedding = await generateEmbedding(clampedQuery, openAIApiKey);
     }
 
     // Reliability: Fallback to keyword-only search if embedding fails
@@ -149,9 +144,9 @@ Deno.serve(async (req) => {
     const { data: chunks, error: rpcError } = await adminClient.rpc('hybrid_search_v2', {
       p_org_id: org_id,
       p_pack_id: pack_id,
-      p_query_text: tsQuery,
-      p_query_embedding: embedding, // Can be null (fallback handled in SQL)
-      p_match_count: max_spans,
+      p_query_text: clampedQuery,
+      p_query_embedding: embedding,
+      p_match_count: clampedMaxSpans,
       p_module_key: module_key || null,
       p_track_key: track_key || null
     });
