@@ -110,7 +110,9 @@ Deno.serve(async (req) => {
             line_end: c.metadata.line_end,
             generation_id,
             embedding,
-            metadata: { imports: c.metadata.imports }
+            imports: c.metadata.imports || [],
+            exported_names: c.metadata.exported_names || [],
+            metadata: { ...c.metadata }
           });
         }
 

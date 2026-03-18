@@ -74,7 +74,35 @@ function extractImports(tree: Parser.Tree, lang: string): string[] {
   return imports;
 }
 
-function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[]) {
+function extractExportedNames(node: Parser.Node, lang: string): string[] {
+  const exports: string[] = [];
+  
+  // For TS/JS, look for nodes wrapped in export_statement
+  if (["ts", "tsx", "js", "jsx"].includes(lang)) {
+    if (node.type === "export_statement" || (node.parent && node.parent.type === "export_statement")) {
+      const nameNode = node.childForFieldName("name") || node.children.find(c => c.type.includes("identifier"));
+      if (nameNode) exports.push(nameNode.text);
+    }
+  } 
+  // For Python, assume top-level functions/classes not starting with _ are exported
+  else if (lang === "py") {
+    if (node.type === "function_definition" || node.type === "class_definition") {
+      const nameNode = node.childForFieldName("name");
+      if (nameNode && !nameNode.text.startsWith("_")) exports.push(nameNode.text);
+    }
+  }
+  // For Go, check if the identifier starts with an uppercase letter
+  else if (lang === "go") {
+    if (node.type === "function_declaration" || node.type === "type_declaration") {
+      const nameNode = node.childForFieldName("name");
+      if (nameNode && /^[A-Z]/.test(nameNode.text)) exports.push(nameNode.text);
+    }
+  }
+
+  return exports;
+}
+
+function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[], lang: string) {
   const type = node.type;
   const interestingTypes = [
     "function_declaration", "method_definition", "class_declaration",
@@ -84,6 +112,8 @@ function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[]) {
 
   if (interestingTypes.includes(type)) {
     const nameNode = node.childForFieldName("name") || node.children.find(c => c.type.includes("identifier"));
+    const exported_names = extractExportedNames(node, lang);
+    
     chunks.push({
       text: code.slice(node.startIndex, node.endIndex),
       metadata: {
@@ -92,13 +122,14 @@ function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[]) {
         signature: code.slice(node.startIndex, nameNode?.endIndex || node.endIndex).split('\n')[0],
         line_start: node.startPosition.row + 1,
         line_end: node.endPosition.row + 1,
+        exported_names
       }
     });
     return; // Don't recurse into interesting nodes for top-level chunking
   }
 
   for (const child of node.children) {
-    walkAST(child, code, chunks);
+    walkAST(child, code, chunks, lang);
   }
 }
 
@@ -202,17 +233,21 @@ export async function astChunk(code: string, filepath: string): Promise<ASTChunk
   const imports = extractImports(tree, lang);
 
   const chunks: ASTChunk[] = [];
-  walkAST(tree.rootNode, code, chunks);
+  walkAST(tree.rootNode, code, chunks, lang);
   
   const orphans = extractOrphanCode(tree.rootNode, code, chunks);
   const finalChunks = [...chunks, ...orphans];
 
-  // Final pass: ensure imports are attached to chunks and split oversized
+  // Final pass: ensure imports and file-level exports are attached to chunks
   return finalChunks.flatMap(c => {
     const split = splitOversizedChunk(c);
     return split.map(s => ({
       ...s,
-      metadata: { ...s.metadata, imports }
+      metadata: { 
+        ...s.metadata, 
+        imports,
+        exported_names: s.metadata.exported_names || [] // Preserve if already found in walkAST
+      }
     }));
   });
 }

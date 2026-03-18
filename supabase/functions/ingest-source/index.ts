@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
 
     const jobId = job.id;
-    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[]; entity_type?: string; entity_name?: string; signature?: string; imports?: string[] }[] = [];
+    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[]; entity_type?: string; entity_name?: string; signature?: string; imports?: string[]; exported_names?: string[] }[] = [];
     let totalRedactions = 0;
     
     // We will attempt to get an OpenAI API key (or Lovable fallback) for embeddings
@@ -328,6 +328,7 @@ Deno.serve(async (req) => {
             entity_name: chunk.metadata.entity_name,
             signature: chunk.metadata.signature,
             imports: chunk.metadata.imports,
+            exported_names: chunk.metadata.exported_names || [],
             metadata: { source_url: sourceUrl, ...setupMeta },
             embedding,
           });
