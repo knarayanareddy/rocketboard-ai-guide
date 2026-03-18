@@ -524,22 +524,20 @@ async function callWithAgenticReview(
     parsed.generation_meta.attempts = attempts;
     
     // Phase 6: Observability — update trace with RAG metrics
-    if (trace) {
-      const m = parsed.metrics || {};
-      trace.updateGeneration({ 
-        groundingScore: score, 
-        attempts,
-        stripRate: m.strip_rate,
-        claimsTotal: m.claims_total,
-        claimsStripped: m.claims_stripped,
-        snippetsResolved: m.snippets_resolved
-      });
-      
-      // Emit numeric scores for Langfuse analytics
-      trace.score({ name: "grounding-score", value: score });
-      if (m.strip_rate !== undefined) {
-        trace.score({ name: "strip-rate", value: m.strip_rate });
-      }
+    const m = parsed.metrics || {};
+    trace.updateGeneration({ 
+      groundingScore: score, 
+      attempts,
+      stripRate: m.strip_rate,
+      claimsTotal: m.claims_total,
+      claimsStripped: m.claims_stripped,
+      snippetsResolved: m.snippets_resolved
+    });
+    
+    // Emit numeric scores for Langfuse analytics
+    trace.score({ name: "grounding-score", value: score });
+    if (m.strip_rate !== undefined) {
+      trace.score({ name: "strip-rate", value: m.strip_rate });
     }
     
     if (score >= 0.7) {
@@ -2530,7 +2528,7 @@ async function handleValidateKey(envelope: any): Promise<Response> {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  let trace: TraceBuilder | undefined;
+  let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
 
   try {
     // JWT Authentication
@@ -2555,18 +2553,17 @@ serve(async (req) => {
     const isErrorOrRetry = (envelope.task?.attempts || 1) > 1;
     const shouldTrace = isErrorOrRetry || Math.random() < LANGFUSE_SAMPLE_RATE;
 
-    if (shouldTrace) {
-      trace = createTrace({
-        taskType,
-        requestId,
-        userId,
-        packId: envelope.pack?.pack_id,
-        org_id: envelope.pack?.org_id,
-        moduleKey: envelope.context?.current_module_key || envelope.inputs?.module?.module_key,
-        trackKey: envelope.context?.current_track_key,
-        environment: Deno.env.get("LANGFUSE_ENVIRONMENT") || "production",
-      });
-    }
+    trace = createTrace({
+      taskType,
+      requestId,
+      userId,
+      packId: envelope.pack?.pack_id,
+      org_id: envelope.pack?.org_id,
+      moduleKey: envelope.context?.current_module_key || envelope.inputs?.module?.module_key,
+      trackKey: envelope.context?.current_track_key,
+      environment: Deno.env.get("LANGFUSE_ENVIRONMENT") || "production",
+      serviceName: "ai-task-router",
+    }, { enabled: shouldTrace });
 
     // Handle validate key as a special case bypassing normal auth logic if needed
     if (taskType === "validate_key") {
@@ -2673,10 +2670,8 @@ serve(async (req) => {
 
   } catch (e: any) {
     console.error("ai-task-router error:", e);
-    if (trace) {
-      trace.setError(e.message || "Unknown error");
-      await trace.flush();
-    }
+    trace.setError(e.message || "Unknown error");
+    await trace.flush();
     const requestId = "unknown";
     if (e.error_code) {
       return structuredError(requestId, e.error_code, e.message || "An error occurred");

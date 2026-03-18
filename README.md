@@ -36,7 +36,7 @@ RocketBoard is an **AI-native onboarding platform** for engineering teams. It in
 │                   Supabase Edge Functions (Deno)                │
 │                                                                 │
 │  ai-task-router ─── Zero-Hallucination Engine (Groundedness Audit)  │
-│  retrieve-spans ── Agentic Multi-Query Hybrid Search (v2)      │
+│  retrieve-spans ── Agentic Multi-Query Hybrid Search (Titanium)   │
 │  reindex-orgs ──── AST-Aware Intelligent Ingestion             │
 │  ingest-source ─── GitHub, Confluence, Notion, Slack, Jira...  │
 │  github-webhook ── Staleness detection + auto-remediation      │
@@ -99,12 +99,12 @@ Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them 
 - **URL** — arbitrary web pages
 
 ### 🔍 Hybrid Search (pgvector + Full-Text)
-Evidence retrieval uses `hybrid_search_v2` RPC which is **AST-Aware**:
+Evidence retrieval uses `hybrid_search_v2` RPC which is **Titanium-Hardened**:
 - **Semantic similarity** via pgvector embeddings
-- **Full-text search** via PostgreSQL `tsvector`
+- **Full-text search** via PostgreSQL `websearch_to_tsquery` (Safe, complex parsing)
 - **AST Meta-tagging** — exact matches for function signatures, exports, and types extracted via tree-sitter
 - **Agentic Multi-Query** — AI generates 3-5 query variants to maximize recall
-- **Source weighting** — authors can boost/demote individual sources
+- **Defensive Shielding** — 50-span hard caps and query clamping to prevent abuse
 
 ### 🎯 Interactive Chat Citations
 AI responses include inline citation badges (`[S1]`, `[S2]`) that are fully interactive:
@@ -251,7 +251,7 @@ supabase/
 - **Rate limiting** — 30 requests/minute per user in `ai-task-router`
 - **Input sanitization** — author instructions capped at 2k chars, evidence spans at 50/100k chars, conversation at 50 messages
 - **Secret redaction** — 12 regex patterns strip AWS keys, JWTs, connection strings, GitHub tokens, API keys before AI processing
-- **RLS** on every Supabase table with pack-scoped access controls
+- **RLS** on every Supabase table with **Pack-Scoped** isolation for knowledge chunks
 - **Pack authorization** — author tasks require `author` role, learner tasks require `learner` role
 
 ---

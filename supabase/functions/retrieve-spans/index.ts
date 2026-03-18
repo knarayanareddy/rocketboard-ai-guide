@@ -53,18 +53,18 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  let trace;
+  let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
   let requestId = "unknown";
   try {
     const body = await req.json();
     const { pack_id, query, max_spans = 10, module_key, track_key } = body;
 
-    // ─── Telemetry: Correlation ───
-    requestId = body.request_id || body.trace_id || req.headers.get("x-request-id") || crypto.randomUUID();
+    // ─── Phase 6: Observability — create trace ── Correlate with router requestId
     trace = createTrace({
       taskType: "retrieve-spans",
       requestId,
       packId: pack_id,
+      serviceName: "retrieval",
     });
 
     if (!pack_id || !query || typeof query !== "string") {
@@ -201,10 +201,8 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     const latency_ms = Date.now() - startTime;
-    if (trace) {
-       trace.setError(err.message);
-       await trace.flush();
-    }
+    trace.setError(err.message);
+    await trace.flush();
     return new Response(JSON.stringify({ error: (err as Error).message, trace_id: requestId, latency_ms }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

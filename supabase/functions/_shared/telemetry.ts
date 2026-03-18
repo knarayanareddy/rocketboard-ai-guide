@@ -116,15 +116,16 @@ export function calculateCost(
   return (inputTokens / 1000) * rates.input + (outputTokens / 1000) * rates.output;
 }
 
-// ─── Trace Builder (fluent API) ───
-export function createTrace(metadata: TraceMetadata): TraceBuilder {
-  return new TraceBuilder(metadata);
+export function createTrace(metadata: TraceMetadata, options?: { enabled?: boolean }): TraceBuilder {
+  return new TraceBuilder(metadata, options?.enabled ?? true);
 }
 
 export class TraceBuilder {
   private data: TraceData;
+  private enabled: boolean;
 
-  constructor(metadata: TraceMetadata) {
+  constructor(metadata: TraceMetadata, enabled: boolean = true) {
+    this.enabled = enabled;
     this.data = {
       traceId: metadata.requestId || crypto.randomUUID(),
       metadata,
@@ -135,32 +136,36 @@ export class TraceBuilder {
     };
   }
 
-  /** Add a timed span (e.g., "input-sanitization", "evidence-retrieval") */
   addSpan(event: SpanEvent): this {
+    if (!this.enabled) return this;
     this.data.spans.push(event);
     return this;
   }
 
   /** Start a span and return a handle to end it later */
   startSpan(name: string, input?: Record<string, unknown>): SpanHandle {
+    if (!this.enabled) return new SpanHandle({ name, startTime: Date.now() }, false);
     const event: SpanEvent = { name, startTime: Date.now(), input };
     this.data.spans.push(event);
-    return new SpanHandle(event);
+    return new SpanHandle(event, true);
   }
 
   setGeneration(metrics: GenerationMetrics & { input?: unknown; output?: unknown }): this {
+    if (!this.enabled) return this;
     this.data.generation = metrics;
     return this;
   }
 
   /** Add a numeric score (eval) to the trace */
   score(event: ScoreEvent): this {
+    if (!this.enabled) return this;
     this.data.scores.push(event);
     return this;
   }
 
   /** Patch the current generation with additional metrics (e.g. groundingScore) */
   updateGeneration(patch: Partial<GenerationMetrics>): this {
+    if (!this.enabled) return this;
     if (this.data.generation) {
       this.data.generation = { ...this.data.generation, ...patch };
     }
@@ -169,6 +174,7 @@ export class TraceBuilder {
 
   /** Mark the trace as errored */
   setError(message: string): this {
+    if (!this.enabled) return this;
     this.data.status = "error";
     this.data.errorMessage = message;
     return this;
@@ -181,6 +187,7 @@ export class TraceBuilder {
 
   /** Finalize and flush to Langfuse */
   async flush(): Promise<string> {
+    if (!this.enabled) return this.data.traceId;
     this.data.endTime = Date.now();
 
     const langfuse = await getLangfuseClient();
@@ -209,9 +216,12 @@ export class TraceBuilder {
     }
 
     try {
+      // Use service-specific name if provided, otherwise default to ai-task-router
+      const serviceName = (this.data.metadata.serviceName as string) || "ai-task-router";
+      
       const trace = langfuse.trace({
         id: this.data.traceId,
-        name: `ai-task-router/${this.data.metadata.taskType}`,
+        name: `${serviceName}/${this.data.metadata.taskType}`,
         userId: this.data.metadata.userId,
         sessionId: this.data.metadata.packId
           ? `${this.data.metadata.userId}-${this.data.metadata.packId}`
@@ -306,18 +316,22 @@ export class TraceBuilder {
 /** Handle for an in-flight span */
 export class SpanHandle {
   private event: SpanEvent;
+  private enabled: boolean;
 
-  constructor(event: SpanEvent) {
+  constructor(event: SpanEvent, enabled: boolean = true) {
     this.event = event;
+    this.enabled = enabled;
   }
 
   end(output?: Record<string, unknown>, metadata?: Record<string, unknown>): void {
+    if (!this.enabled) return;
     this.event.endTime = Date.now();
     if (output) this.event.output = output;
     if (metadata) this.event.metadata = { ...(this.event.metadata || {}), ...metadata };
   }
 
   error(message: string): void {
+    if (!this.enabled) return;
     this.event.endTime = Date.now();
     this.event.level = "ERROR";
     this.event.statusMessage = message;

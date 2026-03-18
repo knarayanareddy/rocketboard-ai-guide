@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: getCorsHeaders(origin) });
   }
 
-  let trace;
+  let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
   let requestId = "unknown";
   try {
     const authHeader = req.headers.get("Authorization");
@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
         requestId,
         userId,
         packId: pack_id,
+        serviceName: "retrieval",
     });
 
     if (!pack_id || !query || query.trim().length === 0) {
@@ -274,8 +275,10 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("Search error:", err);
+    trace.setError((err as Error).message);
+    await trace.flush();
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ error: "Internal server error", trace_id: requestId }),
       { status: 500, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
     );
   }

@@ -54,7 +54,7 @@ RocketBoard is an **AI-powered Zero-Hallucination RAG platform** that transforms
 ## Your Learning Journey
 
 :::step[1. Ingest]{📦}
-Connect your GitHub repos, Notion docs, and Slack channels. Our **AST-Aware** parser builds a technical map of your knowledge.
+Connect your GitHub repos, Notion docs, and Slack channels. Our **Titanium-Hardened** AST-Aware parser builds a technical map of your knowledge.
 :::
 
 :::step[2. Plan]{🗺️}
@@ -278,8 +278,8 @@ Click **Sync** on the source card. RocketBoard will begin parsing your code and 
 
 ## Automated Safeguards
 
-:::card[Security & Redaction]{🔒}
-Secrets like API keys, passwords, and tokens are automatically **redacted** during ingestion to prevent exposure in generated modules.
+:::card[Security & Isolation]{🔒}
+Secrets like API keys and tokens are automatically **redacted** during ingestion. Furthermore, all knowledge chunks are protected by **Pack-Scoped RLS**, ensuring zero-leak isolation across teams.
 :::
 
 :::card[Supported Languages]{📁}
@@ -431,7 +431,7 @@ Choose the **URL** tab to import from a public URL. Use **Crawl mode** to automa
 Knowledge chunks are the atomic units of information in RocketBoard, typically representing ~100-150 lines of code or ~500 words of text.
 
 :::card[Why AST-Smart Chunking?]{🧱}
-RocketBoard uses an **AST-aware (Abstract Syntax Tree) chunker** to parse code. Instead of blind line breaks, it identifies function signatures, classes, and types, ensuring that evidence spans are logically complete and easier for the AI to cite accurately.
+RocketBoard uses an **AST-aware (Tree-sitter) chunker**. Instead of blind line breaks, it identifies function signatures and logical blocks, ensuring that evidence spans are semantically complete and Titanium-hardened for precise retrieval.
 :::
 
 :::card[Browsing Evidence]{🔍}
@@ -580,16 +580,16 @@ Consistent structure helps learners ramp up faster as they become familiar with 
 
 RocketBoard doesn't just "chat" with your code—it verifies every single claim against your actual repository.
 
-:::card[Layer 1: Hybrid Search v2]{🔍}
-We combine **Vector** (for concepts) and **Full-Text** (for identifiers) to find the most relevant code chunks.
+:::card[Layer 1: Titanium Hybrid Search v2]{🔍}
+We combine **Vector** (for concepts) and **Full-Text** (via \`websearch_to_tsquery\`) to find the most relevant code chunks with defensive shielding and query clamping.
 :::
 
 :::card[Layer 2: Grounding Audit]{⚖️}
-Our "AI Judge" verifies that every citation badge (e.g., [S1]) actually exists in your code. Hallucinations are automatically stripped.
+Our "AI Judge" verifies that every citation badge (e.g., [S1]) actually exists in your code. Hallucinations are automatically stripped via a multi-layered verification chain.
 :::
 
-:::card[Layer 3: Structural Guardrails]{🧱}
-The LLM is strictly forbidden from writing code and can only emit placeholders. Our server resolves these placeholders into exact code from the sources, ensuring **zero hallucinations** in snippets.
+:::card[Layer 3: Zero-Hallucination Hydration]{🧱}
+The LLM is strictly forbidden from writing code and can only emit placeholders. Our server resolves these placeholders into exact code from the source files, ensuring **Zero Hallucination** in every snippet.
 :::
 
 ## How to use Citations
@@ -1326,6 +1326,11 @@ You can choose what happens if your custom key fails (e.g., rate-limited or out 
 - **Dynamic RRF Weights** — Hybrid search now intelligently balances vector and keyword search based on whether the query is conceptual or identifier-based.
 - **Security Hardening** — Critical RLS vulnerabilities patched for organizations, members, and badges.
 
+## March 18, 2026 (Titanium Update)
+- **Titanium Security Hardening** — Full migration to **Pack-Scoped RLS** for \`knowledge_chunks\`. Direct table access now requires explicit pack membership, ending cross-pack data leakage.
+- **Websearch-to-TSQuery** — Upgraded search parsing to use Postgres \`websearch\` grammar. Safely handle quotes, +/- operators, and complex technical queries with defensive query clamping.
+- **Defensive Resource Shields** — Implemented hard caps on retrieval spans (50) and query length (500 chars) in both Edge and SQL layers to prevent resource exhaustion and abuse.
+
 ## March 13, 2026
 - **Interactive Chat Citations** — Click \`[S1]\`, \`[S2]\` badges in AI responses to open source code with syntax highlighting. Hover for instant previews.
 - **AI Observability** — Full telemetry tracing for all AI tasks (token usage, latency, cost). Trace IDs link user feedback to specific AI interactions.
@@ -1384,11 +1389,11 @@ We established a strict **Citation Backbone**. Every statement made by the AI MU
 Standard chunking is blind to code logic. We use **Tree-sitter** to parse your codebase into logical entities (Functions, Classes, Exports). This ensures evidence spans are structured, not just random slices of text.
 :::
 
-:::step[Phase 2: Hybrid Search v2]{🔍}
+:::step[Phase 2: Titanium Hybrid Search v2]{🔍}
 We combine three retrieval layers for maximum recall:
 *   **Vector (Semantic):** For conceptual questions.
-*   **Full-Text (Keyword):** For finding specific variable names.
-*   **AST Metadata:** For surgical precision on type signatures.
+*   **Full-Text (Websearch):** Using `websearch_to_tsquery` for safe, production-grade lexical parsing.
+*   **AST Metadata:** For surgical precision on type signatures and logical entities.
 :::
 
 :::step[Phase 3: Relevance Gating]{🚧}
