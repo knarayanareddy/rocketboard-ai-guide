@@ -74,31 +74,57 @@ function extractImports(tree: Parser.Tree, lang: string): string[] {
   return imports;
 }
 
-function extractExportedNames(node: Parser.Node, lang: string): string[] {
-  const exports: string[] = [];
+function extractExportedNames(tree: Parser.Tree, lang: string): { name: string; line: number }[] {
+  const exports: { name: string; line: number }[] = [];
+  const root = tree.rootNode;
   
-  // For TS/JS, look for nodes wrapped in export_statement
-  if (["ts", "tsx", "js", "jsx"].includes(lang)) {
-    if (node.type === "export_statement" || (node.parent && node.parent.type === "export_statement")) {
-      const nameNode = node.childForFieldName("name") || node.children.find(c => c.type.includes("identifier"));
-      if (nameNode) exports.push(nameNode.text);
-    }
-  } 
-  // For Python, assume top-level functions/classes not starting with _ are exported
-  else if (lang === "py") {
-    if (node.type === "function_definition" || node.type === "class_definition") {
-      const nameNode = node.childForFieldName("name");
-      if (nameNode && !nameNode.text.startsWith("_")) exports.push(nameNode.text);
-    }
-  }
-  // For Go, check if the identifier starts with an uppercase letter
-  else if (lang === "go") {
-    if (node.type === "function_declaration" || node.type === "type_declaration") {
-      const nameNode = node.childForFieldName("name");
-      if (nameNode && /^[A-Z]/.test(nameNode.text)) exports.push(nameNode.text);
-    }
-  }
+  const queryMap: Record<string, string> = {
+    typescript: `
+      (export_statement (declaration (function_declaration name: (identifier) @export)))
+      (export_statement (declaration (class_declaration name: (identifier) @export)))
+      (export_statement (declaration (lexical_declaration (variable_declarator name: (identifier) @export))))
+      (export_statement (declaration (type_alias_declaration name: (type_identifier) @export)))
+      (export_statement (declaration (interface_declaration name: (type_identifier) @export)))
+      (export_statement (declaration (enum_declaration name: (identifier) @export)))
+      (export_statement (export_clause (export_specifier name: (identifier) @export)))
+      (export_statement (export_clause (export_specifier alias: (identifier) @export)))
+    `,
+    javascript: `
+      (export_statement (declaration (function_declaration name: (identifier) @export)))
+      (export_statement (declaration (class_declaration name: (identifier) @export)))
+      (export_statement (declaration (lexical_declaration (variable_declarator name: (identifier) @export))))
+      (export_statement (export_clause (export_specifier name: (identifier) @export)))
+    `,
+    python: `
+      (function_definition name: (identifier) @export)
+      (class_definition name: (identifier) @export)
+    `,
+    go: `
+      (function_declaration name: (identifier) @export)
+      (type_declaration (type_spec name: (identifier) @export))
+      (method_declaration name: (field_identifier) @export)
+    `,
+  };
 
+  const queryStr = queryMap[lang === "tsx" ? "typescript" : lang];
+  if (!queryStr) return [];
+
+  try {
+    const query = tree.getLanguage().query(queryStr);
+    const matches = query.matches(root);
+    for (const match of matches) {
+      for (const capture of match.captures) {
+        const name = capture.node.text;
+        const line = capture.node.startPosition.row + 1;
+        // Language specific filtering
+        if (lang === "py" && name.startsWith("_")) continue;
+        if (lang === "go" && !/^[A-Z]/.test(name)) continue;
+        exports.push({ name, line });
+      }
+    }
+  } catch (e) {
+    console.error(`[AST] Export query failed for ${lang}:`, e);
+  }
   return exports;
 }
 
@@ -112,7 +138,6 @@ function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[], lang: stri
 
   if (interestingTypes.includes(type)) {
     const nameNode = node.childForFieldName("name") || node.children.find(c => c.type.includes("identifier"));
-    const exported_names = extractExportedNames(node, lang);
     
     chunks.push({
       text: code.slice(node.startIndex, node.endIndex),
@@ -122,7 +147,6 @@ function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[], lang: stri
         signature: code.slice(node.startIndex, nameNode?.endIndex || node.endIndex).split('\n')[0],
         line_start: node.startPosition.row + 1,
         line_end: node.endPosition.row + 1,
-        exported_names
       }
     });
     return; // Don't recurse into interesting nodes for top-level chunking
@@ -139,6 +163,7 @@ function extractOrphanCode(root: Parser.Node, code: string, astChunks: ASTChunk[
   
   let currentPos = 0;
   for (const chunk of sortedChunks) {
+    const chunkLines = code.slice(0, currentPos).split('\n');
     const chunkStart = code.split('\n').slice(0, chunk.metadata.line_start - 1).join('\n').length;
     if (chunkStart > currentPos + 50) { // arbitrary threshold for "meaningful" orphan code
       const text = code.slice(currentPos, chunkStart).trim();
@@ -149,7 +174,7 @@ function extractOrphanCode(root: Parser.Node, code: string, astChunks: ASTChunk[
              entity_type: "orphan_code",
              entity_name: "file_scope",
              signature: text.split('\n')[0],
-             line_start: code.slice(0, currentPos).split('\n').length,
+             line_start: chunkLines.length,
              line_end: chunk.metadata.line_start - 1
            }
          });
@@ -231,6 +256,7 @@ export async function astChunk(code: string, filepath: string): Promise<ASTChunk
   parser.setLanguage(grammar);
   const tree = parser.parse(code);
   const imports = extractImports(tree, lang);
+  const exports = extractExportedNames(tree, lang);
 
   const chunks: ASTChunk[] = [];
   walkAST(tree.rootNode, code, chunks, lang);
@@ -241,13 +267,20 @@ export async function astChunk(code: string, filepath: string): Promise<ASTChunk
   // Final pass: ensure imports and file-level exports are attached to chunks
   return finalChunks.flatMap(c => {
     const split = splitOversizedChunk(c);
-    return split.map(s => ({
-      ...s,
-      metadata: { 
-        ...s.metadata, 
-        imports,
-        exported_names: s.metadata.exported_names || [] // Preserve if already found in walkAST
-      }
-    }));
+    return split.map(s => {
+      // Find exports defined within this chunk's line range
+      const chunkExports = exports
+        .filter(e => e.line >= s.metadata.line_start && e.line <= s.metadata.line_end)
+        .map(e => e.name);
+
+      return {
+        ...s,
+        metadata: { 
+          ...s.metadata, 
+          imports,
+          exported_names: chunkExports
+        }
+      };
+    });
   });
 }

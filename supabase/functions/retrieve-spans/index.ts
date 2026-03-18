@@ -1,14 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://localhost:8080"
-];
+const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
+const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
 
 function getCorsHeaders(origin: string | null) {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin", // SECURITY: Ensure CDNs don't cache headers for wrong origin
   };
   
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
