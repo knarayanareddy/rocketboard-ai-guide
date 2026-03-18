@@ -1,9 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "http://localhost:5173, http://localhost:8080",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://localhost:8080"
+];
+
+function getCorsHeaders(origin: string | null) {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+  
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  
+  return headers;
+}
 
 async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
   if (!apiKey) return null;
@@ -32,6 +45,9 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -167,6 +183,8 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("Retrieve spans error:", err);
+    // Note: origin might not be available in catch if json parsing failed, 
+    // but Deno.serve handles top-level scope.
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
