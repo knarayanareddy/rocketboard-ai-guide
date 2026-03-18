@@ -68,6 +68,8 @@ setInterval(() => {
   }
 }, 120_000);
 
+const LANGFUSE_SAMPLE_RATE = Number(Deno.env.get("LANGFUSE_SAMPLE_RATE") || "1.0");
+
 // ─── SECRET REDACTION PATTERNS (second-pass) ───
 const REDACTION_PATTERNS = [
   /AKIA[0-9A-Z]{16}/g,
@@ -532,6 +534,12 @@ async function callWithAgenticReview(
         claimsStripped: m.claims_stripped,
         snippetsResolved: m.snippets_resolved
       });
+      
+      // Emit numeric scores for Langfuse analytics
+      trace.score({ name: "grounding-score", value: score });
+      if (m.strip_rate !== undefined) {
+        trace.score({ name: "strip-rate", value: m.strip_rate });
+      }
     }
     
     if (score >= 0.7) {
@@ -613,7 +621,6 @@ async function checkPackAccess(userId: string, envelope: any): Promise<Response 
   return null;
 }
 
-// ─── RAG METRICS (PHASE 6) ───
 async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
   try {
     const data = trace.getData();
@@ -627,25 +634,39 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
     const gen = data.generation;
     const task = envelope.task || {};
     const pack = envelope.pack || {};
+    const retrieval = envelope.retrieval || {};
+
+    // Calculate aggregate retrieval metrics
+    const spans = retrieval.evidence_spans || [];
+    const avgRelevance = spans.length > 0 
+      ? spans.reduce((acc: number, s: any) => acc + (s.relevance_score || 0), 0) / spans.length 
+      : 0;
 
     await supabase.from("rag_metrics").insert({
       org_id: pack.org_id,
       user_id: data.metadata?.userId,
       query: "[chat history or prompt redacted]", 
-      task_type: data.name,
+      task_type: data.metadata?.taskType,
       request_id: data.metadata?.requestId,
       
       // Retrieval Metrics
-      retrieval_method: "hybrid",
-      chunks_retrieved: envelope.retrieval?.evidence_spans?.length || 0,
+      retrieval_method: retrieval.method || "hybrid",
+      chunks_retrieved: spans.length,
+      chunks_after_rerank: spans.filter((s: any) => (s.relevance_score || 0) >= 3).length,
+      avg_relevance_score: avgRelevance,
+      retrieval_latency_ms: retrieval.latency_ms || 0,
       
       // Generation Metrics
       model_used: gen.model,
+      provider_used: data.metadata?.provider || "default",
       generation_latency_ms: gen.latencyMs,
       input_tokens: gen.inputTokens,
       output_tokens: gen.outputTokens,
       
       // Grounding/Verification Metrics
+      citations_found: gen.claimsTotal || 0,
+      citations_verified: (gen.claimsTotal || 0) - (gen.claimsStripped || 0),
+      citations_failed: gen.claimsStripped || 0,
       grounding_score: gen.groundingScore,
       attempts: gen.attempts || 1,
       strip_rate: gen.stripRate || 0,
@@ -2524,23 +2545,28 @@ serve(async (req) => {
 
     const envelope = await req.json();
     const taskType = envelope.task?.type;
-    const requestId = envelope.task?.request_id || crypto.randomUUID();
+    const requestId = envelope.task?.request_id || envelope.task?.trace_id || crypto.randomUUID();
 
     if (!taskType) {
       return errorResponse(400, { error: "Missing task.type in envelope" });
     }
 
     // ─── Telemetry: create trace ───
-    trace = createTrace({
-      taskType,
-      requestId,
-      userId,
-      packId: envelope.pack?.pack_id,
-      orgId: envelope.pack?.org_id,
-      moduleKey: envelope.context?.current_module_key || envelope.inputs?.module?.module_key,
-      trackKey: envelope.context?.current_track_key,
-      environment: Deno.env.get("LANGFUSE_ENVIRONMENT") || "production",
-    });
+    const isErrorOrRetry = (envelope.task?.attempts || 1) > 1;
+    const shouldTrace = isErrorOrRetry || Math.random() < LANGFUSE_SAMPLE_RATE;
+
+    if (shouldTrace) {
+      trace = createTrace({
+        taskType,
+        requestId,
+        userId,
+        packId: envelope.pack?.pack_id,
+        org_id: envelope.pack?.org_id,
+        moduleKey: envelope.context?.current_module_key || envelope.inputs?.module?.module_key,
+        trackKey: envelope.context?.current_track_key,
+        environment: Deno.env.get("LANGFUSE_ENVIRONMENT") || "production",
+      });
+    }
 
     // Handle validate key as a special case bypassing normal auth logic if needed
     if (taskType === "validate_key") {

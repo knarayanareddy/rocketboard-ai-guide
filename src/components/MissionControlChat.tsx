@@ -228,7 +228,8 @@ function MessageSources({
       <ChatReportDialog
         open={reportOpen}
         onClose={() => setReportOpen(false)}
-        messageContent={response.response_markdown}
+        messageContent={response.response_markdown || ""}
+        traceId={response.trace_id}
         context={{
           pathname: location.pathname,
           pack_id: packId,

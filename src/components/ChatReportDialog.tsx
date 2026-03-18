@@ -31,7 +31,7 @@ const REASONS = Object.entries(CHAT_FEEDBACK_REASON_LABELS) as [
   { label: string; icon: string }
 ][];
 
-export function ChatReportDialog({ open, onClose, messageContent, moduleId, context }: ChatReportDialogProps) {
+export function ChatReportDialog({ open, onClose, messageContent, moduleId, traceId, context }: ChatReportDialogProps) {
   const { submitChatFeedback } = useChatFeedback();
   const [reason, setReason] = useState<ChatFeedbackReason>("incorrect");
   const [comment, setComment] = useState("");
@@ -48,6 +48,7 @@ export function ChatReportDialog({ open, onClose, messageContent, moduleId, cont
           : comment.trim() || undefined,
         createTask,
         moduleId,
+        traceId,
       });
       toast.success("Feedback submitted — thank you!");
       setComment("");

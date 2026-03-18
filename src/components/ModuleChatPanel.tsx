@@ -214,7 +214,7 @@ function MessageSources({
         <ChatReportDialog
           open={reportOpen}
           onClose={() => setReportOpen(false)}
-          messageContent={response.display_response || (response as any).response_markdown}
+          messageContent={response.display_response || (response as any).response_markdown || ""}
           moduleId={moduleId}
           traceId={response.trace_id}
         />

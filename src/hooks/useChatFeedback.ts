@@ -60,12 +60,14 @@ export function useChatFeedback() {
       comment,
       createTask,
       moduleId,
+      traceId,
     }: {
       messageContent: string;
       reason: ChatFeedbackReason;
       comment?: string;
       createTask?: boolean;
       moduleId?: string;
+      traceId?: string;
     }) => {
       if (!user) throw new Error("Not authenticated");
 
@@ -79,6 +81,7 @@ export function useChatFeedback() {
           reason,
           comment: comment ?? null,
           create_task: createTask ?? true,
+          trace_id: traceId ?? null,
         })
         .select()
         .single();

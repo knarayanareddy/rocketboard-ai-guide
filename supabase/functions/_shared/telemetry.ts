@@ -30,6 +30,10 @@ export interface GenerationMetrics {
   costUsd?: number;
   groundingScore?: number; // Phase 6: RAG Observability
   attempts?: number;       // Phase 6: Agentic Review tracking
+  stripRate?: number;
+  claimsTotal?: number;
+  claimsStripped?: number;
+  snippetsResolved?: number;
 }
 
 export interface SpanEvent {
@@ -43,10 +47,18 @@ export interface SpanEvent {
   statusMessage?: string;
 }
 
+export interface ScoreEvent {
+  name: string;
+  value: number;
+  comment?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface TraceData {
   traceId: string;
   metadata: TraceMetadata;
   spans: SpanEvent[];
+  scores: ScoreEvent[];
   generation?: GenerationMetrics & {
     input?: unknown;
     output?: unknown;
@@ -77,7 +89,7 @@ async function getLangfuseClient() {
       secretKey: Deno.env.get("LANGFUSE_SECRET_KEY")!,
       publicKey: Deno.env.get("LANGFUSE_PUBLIC_KEY")!,
       baseUrl: Deno.env.get("LANGFUSE_BASE_URL") || "https://cloud.langfuse.com",
-      flushAt: 1,       // Flush after every event (critical for edge functions)
+      flushAt: 10,      // Relaxed flushing (critical for edge functions)
       flushInterval: 0, // No batching delay
     });
     return _langfuseClient;
@@ -117,6 +129,7 @@ export class TraceBuilder {
       traceId: metadata.requestId || crypto.randomUUID(),
       metadata,
       spans: [],
+      scores: [],
       status: "success",
       startTime: Date.now(),
     };
@@ -137,6 +150,12 @@ export class TraceBuilder {
 
   setGeneration(metrics: GenerationMetrics & { input?: unknown; output?: unknown }): this {
     this.data.generation = metrics;
+    return this;
+  }
+
+  /** Add a numeric score (eval) to the trace */
+  score(event: ScoreEvent): this {
+    this.data.scores.push(event);
     return this;
   }
 
@@ -227,8 +246,9 @@ export class TraceBuilder {
           model: gen.model,
           input: gen.input,
           output: gen.output,
-          startTime: new Date(this.data.startTime),
-          endTime: new Date(this.data.endTime),
+          // Accurate model timing: end of trace minus model latency
+          startTime: new Date(this.data.endTime! - gen.latencyMs),
+          endTime: new Date(this.data.endTime!),
           usage: {
             input: gen.inputTokens || 0,
             output: gen.outputTokens || 0,
@@ -239,7 +259,21 @@ export class TraceBuilder {
             costUsd: gen.costUsd,
             groundingScore: gen.groundingScore,
             attempts: gen.attempts,
+            stripRate: gen.stripRate,
+            claimsTotal: gen.claimsTotal,
+            claimsStripped: gen.claimsStripped,
+            snippetsResolved: gen.snippetsResolved,
           },
+        });
+      }
+
+      // Add scores (evals)
+      for (const s of this.data.scores) {
+        trace.score({
+          name: s.name,
+          value: s.value,
+          comment: s.comment,
+          metadata: s.metadata,
         });
       }
 

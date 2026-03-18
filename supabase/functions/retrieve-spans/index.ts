@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createTrace } from "../_shared/telemetry.ts";
 
 const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
 const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
@@ -44,6 +45,7 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
 }
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
   const origin = req.headers.get("Origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -51,8 +53,19 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let trace;
+  let requestId = "unknown";
   try {
-    const { pack_id, query, max_spans = 10, module_key, track_key } = await req.json();
+    const body = await req.json();
+    const { pack_id, query, max_spans = 10, module_key, track_key } = body;
+
+    // ─── Telemetry: Correlation ───
+    requestId = body.request_id || body.trace_id || req.headers.get("x-request-id") || crypto.randomUUID();
+    trace = createTrace({
+      taskType: "retrieve-spans",
+      requestId,
+      packId: pack_id,
+    });
 
     if (!pack_id || !query || typeof query !== "string") {
       return new Response(JSON.stringify({ error: "Missing pack_id or valid query" }), {
@@ -131,7 +144,9 @@ Deno.serve(async (req) => {
     let embedding = null;
 
     if (openAIApiKey) {
+      const embedSpan = trace.startSpan("generate-embedding");
       embedding = await generateEmbedding(clampedQuery, openAIApiKey);
+      embedSpan.end({ success: !!embedding });
     }
 
     // Reliability: Fallback to keyword-only search if embedding fails
@@ -141,6 +156,7 @@ Deno.serve(async (req) => {
 
     console.log(`[RETRIEVAL] Using hybrid_search_v2 for pack ${pack_id}, org ${org_id}. Context: ${module_key || 'global'}`);
     
+    const rpcSpan = trace.startSpan("rpc:hybrid_search_v2");
     const { data: chunks, error: rpcError } = await adminClient.rpc('hybrid_search_v2', {
       p_org_id: org_id,
       p_pack_id: pack_id,
@@ -150,6 +166,7 @@ Deno.serve(async (req) => {
       p_module_key: module_key || null,
       p_track_key: track_key || null
     });
+    rpcSpan.end({ count: chunks?.length || 0, error: !!rpcError });
 
     if (rpcError) {
       console.error("Hybrid Search error:", rpcError);
@@ -172,14 +189,23 @@ Deno.serve(async (req) => {
       }
     }));
 
-    return new Response(JSON.stringify({ spans }), {
+    const latency_ms = Date.now() - startTime;
+    await trace.flush();
+
+    return new Response(JSON.stringify({ 
+      spans, 
+      trace_id: requestId,
+      latency_ms 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Retrieve spans error:", err);
-    // Note: origin might not be available in catch if json parsing failed, 
-    // but Deno.serve handles top-level scope.
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+    const latency_ms = Date.now() - startTime;
+    if (trace) {
+       trace.setError(err.message);
+       await trace.flush();
+    }
+    return new Response(JSON.stringify({ error: (err as Error).message, trace_id: requestId, latency_ms }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

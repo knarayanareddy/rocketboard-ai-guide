@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
+import { createTrace } from "../_shared/telemetry.ts";
 
 const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
 const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
@@ -18,11 +19,14 @@ function getCorsHeaders(origin: string | null) {
 }
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
   const origin = req.headers.get("Origin");
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: getCorsHeaders(origin) });
   }
 
+  let trace;
+  let requestId = "unknown";
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -48,11 +52,20 @@ Deno.serve(async (req) => {
     }
     const userId = claimsData.claims.sub;
 
-    const { pack_id, query, filters, limit = 10 } = await req.json();
+    const body = await req.json();
+    const { pack_id, query, filters, limit = 10 } = body;
+
+    requestId = body.request_id || body.trace_id || req.headers.get("x-request-id") || crypto.randomUUID();
+    trace = createTrace({
+        taskType: "search-content",
+        requestId,
+        userId,
+        packId: pack_id,
+    });
 
     if (!pack_id || !query || query.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: "pack_id and query are required" }),
+        JSON.stringify({ error: "pack_id and query are required", trace_id: requestId }),
         { status: 400, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
       );
     }
@@ -105,6 +118,7 @@ Deno.serve(async (req) => {
     if (activeFilters.includes("sourceChunks")) {
       promises.push(
         (async () => {
+          const rpcSpan = trace.startSpan("rpc:hybrid_search_v2");
           const { data } = await serviceClient.rpc("hybrid_search_v2", {
             p_org_id: org_id,
             p_pack_id: pack_id,
@@ -112,6 +126,7 @@ Deno.serve(async (req) => {
             p_query_embedding: null,
             p_match_count: safeLimit
           });
+          rpcSpan.end({ count: data?.length || 0 });
           
           if (data) {
             results.sourceChunks = data.map((r: any) => ({
@@ -247,7 +262,14 @@ Deno.serve(async (req) => {
 
     await Promise.allSettled(promises);
 
-    return new Response(JSON.stringify(results), {
+    const latency_ms = Date.now() - startTime;
+    await trace.flush();
+
+    return new Response(JSON.stringify({ 
+        ...results,
+        trace_id: requestId,
+        latency_ms
+    }), {
       headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
     });
   } catch (err) {
