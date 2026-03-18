@@ -118,15 +118,15 @@ AI responses include inline citation badges (`[S1]`, `[S2]`) that are fully inte
 - **Framework Analogies:** e.g., "I know React" prompts the AI to explain unfamiliar concepts using React comparisons
 - **Tone Preference:** Direct, Conversational, or Socratic guidance
 
-### 📊 AI Observability (Langfuse Integration)
-Full telemetry tracing for every AI task:
-- Token usage, latency, and estimated cost per request
-- **Grounding Score** — AI-verified relevance of every citation
-- **Attempt Count** — tracking agentic self-correction loops
-- Structured traces tagged with `pack_id`, `user_id`, `task_type`, `module_key`
-- `trace_id` injected into every response for feedback loop correlation
-- **Local RAG Metrics** — structured performance data stored in `rag_metrics` table
-- Graceful fallback to structured `console.log` when Langfuse is not configured
+### 📊 AI Observability & Quality Monitoring (Phase 7)
+Full telemetry tracing for every AI task using our **Unified Telemetry Wrapper**:
+- **Strategic Sampling** — 100% trace capture for errors/low-scores, with cost-optimized background sampling for success.
+- **Grounding Score** — Professional quality assessment of citation accuracy (0-1).
+- **Strip Rate** — Percentage of ungrounded LLM content automatically redacted.
+- **Retrieval Analytics** — `top1_score`, `avg_relevance`, and `unique_files_count` tracked per request.
+- **Feedback Loop Closure** — User ratings linked to technical traces via persistent `trace_id`.
+- **Local RAG Metrics** — Performance data stored in PostgreSQL `rag_metrics` for out-of-the-box SQL reporting.
+- **Graceful No-op Fallback** — Safe execution even when Langfuse is disabled.
 
 ### 🔄 Content Health & Auto-Remediation
 - **GitHub Webhook** detects pushes that affect cited source files

@@ -592,6 +592,10 @@ Our "AI Judge" verifies that every citation badge (e.g., [S1]) actually exists i
 The LLM is strictly forbidden from writing code and can only emit placeholders. Our server resolves these placeholders into exact code from the source files, ensuring **Zero Hallucination** in every snippet.
 :::
 
+:::card[Layer 4: Continuous Observability]{📡}
+Every generation is tracked with unified telemetry. Authors can audit the **Grounding Score**, **Strip Rate**, and **Retrieval Relevance** in real-time, closing the loop between AI output and technical performance.
+:::
+
 ## How to use Citations
 
 *   **Hover:** See a live preview of the cited code.

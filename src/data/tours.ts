@@ -221,8 +221,8 @@ export const ALL_TOURS: Tour[] = [
       },
       {
         target: "[data-tour='chat-report']",
-        title: "Report Incorrect Answers",
-        content: "If an answer seems wrong, click the **flag** icon. Your feedback is tagged with a trace ID and routed to authors for review.",
+        title: "Report Incorrect Answers & Close the Loop",
+        content: "If an answer seems wrong, click the **flag** icon. Your feedback is instantly tagged with a Trace ID and linked to our technical telemetry, allowing authors to audit the exact retrieval context and 'fix the glitch' across the entire pack.",
       },
     ],
   },
