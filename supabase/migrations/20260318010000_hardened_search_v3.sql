@@ -41,15 +41,13 @@ DECLARE
 BEGIN
   -- 0. DEFENSE IN DEPTH: Verify membership redundantly at SQL level
   -- This ensures that even if the Edge Function check is bypassed, the DB is secure.
-  IF NOT EXISTS (
+  IF auth.role() = 'service_role' THEN
+    -- Allow service role (Edge Function runner) to bypass the secondary check
+  ELSIF NOT EXISTS (
     SELECT 1 FROM pack_members 
     WHERE pack_id = p_pack_id AND user_id = auth.uid()
   ) THEN
-    -- If no user is authenticated (e.g. service role), allow if it's the service role
-    -- auth.uid() is null for service role calls in most standard setups
-    IF auth.uid() IS NOT NULL THEN
-      RAISE EXCEPTION 'Unauthorized: User is not a member of this pack.';
-    END IF;
+    RAISE EXCEPTION 'Unauthorized: User is not a member of this pack or insufficient privileges.';
   END IF;
 
   -- 1. Identify Active Generation

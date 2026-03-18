@@ -13,11 +13,6 @@ EXCEPTION
         RAISE NOTICE 'Legacy search functions not found, skipping revoke.';
 END $$;
 
--- 2. Consolidate hybrid_search_v2 security
--- Ensure it is strictly SERVICE ROLE ONLY
-REVOKE ALL ON FUNCTION public.hybrid_search_v2(vector, text, uuid, uuid, text, text, int) FROM PUBLIC, authenticated;
-GRANT EXECUTE ON FUNCTION public.hybrid_search_v2(vector, text, uuid, uuid, text, text, int) TO service_role;
-
 -- 3. Lockdown knowledge_chunks table
 -- Ensure RLS is active and NO public/authenticated access exists beyond SELECT (controlled by RLS)
 ALTER TABLE public.knowledge_chunks ENABLE ROW LEVEL SECURITY;

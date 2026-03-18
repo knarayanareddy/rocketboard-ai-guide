@@ -8,7 +8,9 @@ CREATE OR REPLACE FUNCTION hybrid_search_v2(
   p_query_embedding VECTOR(1536),
   p_match_threshold FLOAT DEFAULT 0.5,
   p_match_count INT DEFAULT 15,
-  p_rrf_k INT DEFAULT 60
+  p_rrf_k INT DEFAULT 60,
+  p_module_key TEXT DEFAULT NULL,
+  p_track_key TEXT DEFAULT NULL
 )
 RETURNS TABLE (
   id UUID,
@@ -23,6 +25,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_generation_id UUID;
@@ -32,7 +35,7 @@ BEGIN
   FROM pack_active_generation
   WHERE org_id = p_org_id AND pack_id = p_pack_id;
 
-  -- Fallback if no ledger exists (graceful degradation)
+  -- Fallback if no ledger exists
   IF v_generation_id IS NULL THEN
     v_generation_id := (SELECT generation_id FROM knowledge_chunks WHERE org_id = p_org_id AND pack_id = p_pack_id ORDER BY created_at DESC LIMIT 1);
   END IF;
@@ -43,9 +46,13 @@ BEGIN
       kc.id,
       ROW_NUMBER() OVER (ORDER BY kc.embedding <=> p_query_embedding) as rank
     FROM knowledge_chunks kc
-    WHERE kc.org_id = p_org_id 
+    WHERE p_query_embedding IS NOT NULL
+      AND kc.org_id = p_org_id 
       AND kc.pack_id = p_pack_id 
+      AND kc.is_redacted = false
       AND (v_generation_id IS NULL OR kc.generation_id = v_generation_id)
+      AND (p_module_key IS NULL OR kc.module_key = p_module_key)
+      AND (p_track_key IS NULL OR kc.track_key = p_track_key)
       AND 1 - (kc.embedding <=> p_query_embedding) > p_match_threshold
     LIMIT p_match_count * 2
   ),
@@ -56,7 +63,10 @@ BEGIN
     FROM knowledge_chunks kc
     WHERE kc.org_id = p_org_id 
       AND kc.pack_id = p_pack_id 
+      AND kc.is_redacted = false
       AND (v_generation_id IS NULL OR kc.generation_id = v_generation_id)
+      AND (p_module_key IS NULL OR kc.module_key = p_module_key)
+      AND (p_track_key IS NULL OR kc.track_key = p_track_key)
       AND kc.fts @@ to_tsquery('simple', p_query_text)
     LIMIT p_match_count * 2
   ),
@@ -77,7 +87,6 @@ BEGIN
     JOIN knowledge_chunks kc ON r.id = kc.id
   ),
   graph_expansion AS (
-    -- Simple 1-step expansion: find chunks that export names that base_chunks import
     SELECT 
       kc.id, kc.path, kc.content, kc.entity_type, kc.entity_name, kc.signature,
       kc.line_start, kc.line_end, kc.imports, (bc.rrf_score * 0.5) as rrf_score
@@ -85,14 +94,15 @@ BEGIN
     JOIN knowledge_chunks kc ON kc.org_id = p_org_id AND kc.pack_id = p_pack_id AND kc.generation_id = v_generation_id
     WHERE kc.exported_names && bc.imports
       AND kc.id NOT IN (SELECT bc2.id FROM base_chunks bc2)
+      AND kc.is_redacted = false
     LIMIT 5
   )
   SELECT 
-    b.id, b.path, b.content, b.entity_type, b.entity_name, b.signature, b.line_start, b.line_end, b.rrf_score
+    b.id, b.path, b.content, b.entity_type, b.entity_name, b.signature, b.line_start, b.line_end, b.rrf_score AS score
   FROM base_chunks b
   UNION ALL
   SELECT 
-    g.id, g.path, g.content, g.entity_type, g.entity_name, g.signature, g.line_start, g.line_end, g.rrf_score
+    g.id, g.path, g.content, g.entity_type, g.entity_name, g.signature, g.line_start, g.line_end, g.rrf_score AS score
   FROM graph_expansion g
   ORDER BY score DESC;
 END;
