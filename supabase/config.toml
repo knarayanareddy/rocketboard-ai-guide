@@ -29,3 +29,46 @@ verify_jwt = false
 
 [functions.ingest-google-drive]
 verify_jwt = false
+
+[functions.list-my-packs]
+verify_jwt = false
+
+[functions.ingest-confluence]
+verify_jwt = false
+
+[functions.ingest-figma]
+verify_jwt = false
+
+[functions.ingest-jira]
+verify_jwt = false
+
+[functions.ingest-linear]
+verify_jwt = false
+
+[functions.ingest-loom]
+verify_jwt = false
+
+[functions.ingest-notion]
+verify_jwt = false
+
+[functions.ingest-openapi]
+verify_jwt = false
+
+[functions.ingest-pagerduty]
+verify_jwt = false
+
+[functions.ingest-postman]
+verify_jwt = false
+
+[functions.ingest-sharepoint]
+verify_jwt = false
+
+[functions.ingest-slack]
+verify_jwt = false
+
+[functions.ingest-url]
+verify_jwt = false
+
+[functions.reindex-orgs]
+verify_jwt = false
+
