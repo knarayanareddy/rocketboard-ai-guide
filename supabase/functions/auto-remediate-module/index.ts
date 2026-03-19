@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +33,15 @@ serve(async (req) => {
     // This is a naive translation; robust implementations would parse owner/repo/shas
     const apiUrl = compare_url.replace("github.com", "api.github.com/repos");
     
-    const diffResp = await fetch(apiUrl, { headers });
+    // SSRF Protection
+    const validatedApiUrl = parseAndValidateExternalUrl(apiUrl, {
+      allowAnyHost: false,
+      allowedHostSuffixes: ["api.github.com"],
+      allowHttps: true,
+      disallowPrivateIPs: true,
+    });
+
+    const diffResp = await fetch(validatedApiUrl, { headers });
     if (!diffResp.ok) throw new Error("Failed to fetch diff");
     const diffText = await diffResp.text();
 

@@ -8,6 +8,7 @@ import { verifyGroundedness, verifyClaims } from "./verifier.ts";
 import { canonicalizeCitations } from "./utils/citation-mapper.ts";
 import { resolveSnippets } from "./utils/snippet-resolver.ts";
 import { redactText as sharedRedactText } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 /**
  * Structural Code Enforcement: Block unauthorized repo code fences.
@@ -377,7 +378,13 @@ async function callAI(systemPrompt: string, userPrompt: string, trace?: TraceBui
       };
     }
 
-    response = await fetch(activeConfig.endpoint, {
+    const validatedEndpoint = parseAndValidateExternalUrl(activeConfig.endpoint, {
+      allowAnyHost: true, // Many providers allowed
+      disallowPrivateIPs: true,
+      allowHttps: true,
+    });
+
+    response = await fetch(validatedEndpoint, {
       method: "POST",
       headers,
       body: JSON.stringify(reqBody),

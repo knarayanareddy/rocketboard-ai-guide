@@ -91,7 +91,12 @@ async function listFilesRecursive(driveId: string, folderId: string, accessToken
   let nextLink: string | null = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${folderId}/children?$select=id,name,file,folder,@microsoft.graph.downloadUrl`;
 
   while (nextLink) {
-    const resp: Response = await fetch(nextLink, {
+    const validatedNextLink = parseAndValidateExternalUrl(nextLink, {
+      allowAnyHost: true,
+      disallowPrivateIPs: true,
+      allowHttps: true,
+    });
+    const resp: Response = await fetch(validatedNextLink, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -133,7 +138,12 @@ async function listFilesRecursive(driveId: string, folderId: string, accessToken
 }
 
 async function downloadFileText(downloadUrl: string): Promise<string> {
-  const resp = await fetch(downloadUrl);
+  const validatedUrl = parseAndValidateExternalUrl(downloadUrl, {
+    allowAnyHost: true,
+    disallowPrivateIPs: true,
+    allowHttps: true,
+  });
+  const resp = await fetch(validatedUrl);
   if (!resp.ok) return "";
   return await resp.text();
 }
@@ -226,7 +236,12 @@ Deno.serve(async (req) => {
       try {
         if (file.mimeType === DOCX_MIME || file.name.toLowerCase().endsWith(".docx")) {
           // Extract Word document text via mammoth
-          const arrayBuf = await (await fetch(file.downloadUrl)).arrayBuffer();
+          const validatedUrl = parseAndValidateExternalUrl(file.downloadUrl, {
+            allowAnyHost: true,
+            disallowPrivateIPs: true,
+            allowHttps: true,
+          });
+          const arrayBuf = await (await fetch(validatedUrl)).arrayBuffer();
           const result = await mammoth.extractRawText({ arrayBuffer: arrayBuf });
           content = result.value;
         } else {

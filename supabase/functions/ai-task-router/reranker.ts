@@ -1,3 +1,5 @@
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+
 export interface RerankedSpan {
   id: string; // original span_id or chunk_id
   score: number; // 0-10
@@ -39,8 +41,15 @@ Prioritize snippets that show definitions, implementations, or specific configur
 
   const userPrompt = `Query: ${query}\n\nCandidate Snips:\n${JSON.stringify(spansJson, null, 2)}`;
 
+  const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
+    allowAnyHost: false,
+    allowedHostSuffixes: ["ai.gateway.lovable.dev"],
+    allowHttps: true,
+    disallowPrivateIPs: true,
+  });
+
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetch(validatedEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
