@@ -108,6 +108,33 @@ export function validateAIOutput(taskType: string, output: unknown): ValidationR
       errors.push('response_markdown must be a non-empty string');
     }
   }
+ 
+  if (taskType === "generate_exercises" && obj.exercises) {
+    const exercises = obj.exercises as Record<string, unknown>[];
+    if (!Array.isArray(exercises)) {
+      errors.push('exercises must be an array');
+    } else if (exercises.length === 0) {
+      errors.push('exercises must have at least one item');
+    } else {
+      for (let i = 0; i < exercises.length; i++) {
+        const ex = exercises[i];
+        if (!ex.title) errors.push(`exercises[${i}] missing title`);
+        if (!ex.description) errors.push(`exercises[${i}] missing description`);
+        if (!ex.exercise_type) errors.push(`exercises[${i}] missing exercise_type`);
+      }
+    }
+  }
+ 
+  if (taskType === "verify_exercise") {
+    const status = obj.status as string;
+    const validStatuses = ["correct", "partially_correct", "incorrect"];
+    if (!validStatuses.includes(status)) {
+      errors.push(`Invalid status "${status}". Must be one of: ${validStatuses.join(", ")}`);
+    }
+    if (typeof obj.score === "number" && (obj.score < 0 || obj.score > 100)) {
+      errors.push('score must be between 0 and 100');
+    }
+  }
 
   return { valid: errors.length === 0, errors, warnings };
 }

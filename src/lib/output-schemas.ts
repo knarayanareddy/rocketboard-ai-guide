@@ -172,6 +172,30 @@ export const TASK_OUTPUT_SCHEMAS: Record<string, TaskSchema> = {
       warnings: { type: "array", optional: true },
     },
   },
+  generate_exercises: {
+    description: "Generated hands-on coding exercises",
+    requiredFields: {
+      type: { type: "string" },
+      request_id: { type: "string" },
+      pack_id: { type: "string" },
+      pack_version: { type: "number" },
+      generation_meta: { type: "object" },
+      exercises: { type: "array" },
+      warnings: { type: "array", optional: true },
+    },
+  },
+  verify_exercise: {
+    description: "Verified learner exercise submission",
+    requiredFields: {
+      type: { type: "string" },
+      request_id: { type: "string" },
+      status: { type: "string" },
+      feedback_markdown: { type: "string" },
+      score: { type: "number" },
+      suggestions: { type: "array" },
+      warnings: { type: "array", optional: true },
+    },
+  },
   error: {
     description: "Error response from AI",
     requiredFields: {

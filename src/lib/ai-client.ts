@@ -61,7 +61,9 @@ export async function sendAITask(envelope: object): Promise<any> {
         (taskType === "generate_paths" && (e.includes('Missing required field: "day1"') || e.includes('Missing required field: "week1"'))) ||
         (taskType === "generate_ask_lead" && e.includes('Missing required field: "questions"')) ||
         (taskType === "refine_module" && e.includes('Missing required field: "module"')) ||
-        (taskType === "simplify_section" && e.includes('Missing required field: "simplified_markdown"'))
+        (taskType === "simplify_section" && e.includes('Missing required field: "simplified_markdown"')) ||
+        (taskType === "generate_exercises" && e.includes('Missing required field: "exercises"')) ||
+        (taskType === "verify_exercise" && (e.includes('Missing required field: "status"') || e.includes('Missing required field: "feedback_markdown"')))
     );
 
     if (criticalMissing) {
