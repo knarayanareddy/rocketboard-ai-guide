@@ -9,6 +9,7 @@ import { canonicalizeCitations } from "./utils/citation-mapper.ts";
 import { resolveSnippets } from "./utils/snippet-resolver.ts";
 import { redactText as sharedRedactText } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { runDetectiveRetrieval } from "./detective-retrieval.ts";
 
 /**
  * Structural Code Enforcement: Block unauthorized repo code fences.
@@ -622,6 +623,7 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
     const task = envelope.task || {};
     const pack = envelope.pack || {};
     const retrieval = envelope.retrieval || {};
+    const detective = retrieval._detective_metrics || {};
 
     // Calculate aggregate retrieval metrics
     const spans = retrieval.evidence_spans || [];
@@ -661,6 +663,13 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
       claims_total: gen.claimsTotal || 0,
       claims_stripped: gen.claimsStripped || 0,
       snippets_resolved: gen.snippetsResolved || 0,
+      
+      // Detective Loop Metrics
+      detective_enabled: detective.detective_enabled || false,
+      retrieval_hops: detective.hops_run || 0,
+      symbols_extracted: detective.symbols_extracted || 0,
+      expanded_chunks_added: detective.hop1_added || 0,
+      detective_time_ms: detective.time_ms || 0,
       
       total_latency_ms: Date.now() - data.startTime,
     });
@@ -746,7 +755,18 @@ async function handleChat(envelope: any, extraWarnings: string[] = [], trace?: T
 
   // ─── RERANKING & RELEVANCE GATE (PHASE 3) ───
   let evidenceSpans = retrieval.evidence_spans || [];
-  if (evidenceSpans.length > 0) {
+
+  if (retrieval.detective_mode) {
+     const detectiveResult = await runDetectiveRetrieval(
+       createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!),
+       envelope,
+       evidenceSpans,
+       lastUserMessage
+     );
+     evidenceSpans = detectiveResult.finalSpans;
+     // Store metrics in envelope temporarily for recordRagMetrics
+     retrieval._detective_metrics = detectiveResult.metrics;
+  } else if (evidenceSpans.length > 0) {
      evidenceSpans = await batchRerankWithLLM(lastUserMessage, evidenceSpans);
   }
 
@@ -889,7 +909,17 @@ async function handleGlobalChat(envelope: any, extraWarnings: string[] = [], tra
 
   // ─── RERANKING & RELEVANCE GATE (PHASE 3) ───
   let evidenceSpans = retrieval.evidence_spans || [];
-  if (evidenceSpans.length > 0) {
+  
+  if (retrieval.detective_mode) {
+     const detectiveResult = await runDetectiveRetrieval(
+       createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!),
+       envelope,
+       evidenceSpans,
+       lastUserMessage
+     );
+     evidenceSpans = detectiveResult.finalSpans;
+     retrieval._detective_metrics = detectiveResult.metrics;
+  } else if (evidenceSpans.length > 0) {
      evidenceSpans = await batchRerankWithLLM(lastUserMessage, evidenceSpans);
   }
 

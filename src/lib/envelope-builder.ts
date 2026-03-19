@@ -99,7 +99,7 @@ function baseEnvelope(
       ui_capabilities: { notes_enabled: true, quiz_enabled: true, quiz_shown_at_end_of_module: true, quiz_required_for_completion: false },
     },
     templates: { applied_templates: [] },
-    retrieval: { query: null as string | null, evidence_spans: [] as EvidenceSpan[] },
+    retrieval: { query: null as string | null, evidence_spans: [] as EvidenceSpan[], detective_mode: false as boolean },
     inputs: {
       module_revision: null,
       existing_module: null,
@@ -132,11 +132,13 @@ interface CommonOpts {
   generationPrefs?: GenerationPrefsInput;
   limitsOverrides?: LimitsOverrides;
   evidenceSpans?: EvidenceSpan[];
+  detectiveMode?: boolean;
 }
 
 function applyCommon(env: ReturnType<typeof baseEnvelope>, opts: CommonOpts) {
   if (opts.audienceProfile) env.context.audience_profile = { ...env.context.audience_profile, ...opts.audienceProfile };
   env.retrieval.evidence_spans = opts.evidenceSpans || [];
+  if (opts.detectiveMode !== undefined) env.retrieval.detective_mode = opts.detectiveMode;
 }
 
 export function buildChatEnvelope(opts: CommonOpts & {
