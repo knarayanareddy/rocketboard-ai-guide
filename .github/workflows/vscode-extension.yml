@@ -1,0 +1,28 @@
+name: VS Code Extension PR CI
+
+on:
+  pull_request:
+    paths:
+      - 'vscode-extension/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Compile Extension
+        run: npm run compile

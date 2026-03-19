@@ -11,7 +11,8 @@
 
 ## RocketBoard AI Guide
 
-> AI coding agents: read [AGENTS.md](file:///c:/first%20commit/rocketboard-ai-guide/AGENTS.md) first.
+> **Internal Docs**: AI coding agents should read [AGENTS.md](file:///c:/first%20commit/rocketboard-ai-guide/AGENTS.md).
+> **IDE Integration**: Setup and user guide for the [VS Code Extension](./vscode-extension/README.md).
 
 RocketBoard is a high-performance, grounded AI onboarding platform designed to help developers master complex codebases with zero hallucinations. It ingests your GitHub repos, Confluence docs, Notion pages, and other knowledge sources — then generates structured learning modules, quizzes, glossaries, exercises, and onboarding paths. Every piece of generated content is **grounded in evidence spans** from your actual codebase, with full citation tracking.
 
@@ -62,6 +63,11 @@ RocketBoard is a high-performance, grounded AI onboarding platform designed to h
 ---
 
 ## Core Features
+
+### 💻 VS Code Extension (v0)
+The official **RocketBoard VS Code Extension** lets developers select code snippets and get instant, grounded explanations directly in their IDE. It features interactive citations, secure token storage, and workspace-aware pack selection. 
+
+For installation and configuration details, see the **[VS Code Setup Guide](./vscode-extension/README.md)**.
 
 ### 🧠 AI Task Router (14 Task Types)
 The central AI orchestration engine. Every request goes through input sanitization, secret redaction, agentic multi-query retrieval, and a **4-Stage Zero-Hallucination Pipeline**:

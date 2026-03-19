@@ -15,6 +15,7 @@ import { toast } from "sonner";
 const ALL_CATEGORIES: HelpCategory[] = [
   "getting-started", "sources", "content-creation", "learning",
   "collaboration", "settings", "troubleshooting", "keyboard-shortcuts", "whats-new",
+  "vs-code-extension",
 ];
 
 const POPULAR_SLUGS = [

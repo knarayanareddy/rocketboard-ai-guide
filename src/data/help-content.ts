@@ -8,6 +8,7 @@ export type HelpCategory =
   | "troubleshooting"
   | "keyboard-shortcuts"
   | "whats-new"
+  | "vs-code-extension"
   | "tech-implementation";
 
 export type HelpArticle = {
@@ -33,6 +34,7 @@ export const HELP_CATEGORY_META: Record<HelpCategory, { icon: string; label: str
   troubleshooting: { icon: "🔧", label: "Troubleshooting" },
   "keyboard-shortcuts": { icon: "⌨️", label: "Shortcuts" },
   "whats-new": { icon: "✨", label: "What's New" },
+  "vs-code-extension": { icon: "🔌", label: "VS Code Extension" },
   "tech-implementation": { icon: "🛠️", label: "Tech Implementation" },
 };
 
@@ -1547,5 +1549,117 @@ Hints follow a "Progressive Disclosure" pattern to ensure you still have the "Ah
 Hints are designed to be helpful, not annoying. Every hint has a **24-hour cooldown** per section, and you can always **Snooze** or **Dismiss** a hint if you'd prefer to work through it on your own.
 :::`,
     relatedArticles: ["learn-1", "learn-3"],
+  },
+  // ─── VS CODE EXTENSION ───────────────────────────
+  {
+    id: "vsc-1",
+    slug: "vscode-user-guide",
+    title: "VS Code Extension: User Guide",
+    category: "vs-code-extension",
+    audience: ["all"],
+    tags: ["vscode", "extension", "setup", "guide"],
+    summary: "Complete guide to installing, configuring, and using the RocketBoard VS Code extension.",
+    lastUpdated: "2026-03-19",
+    content: `# RocketBoard VS Code Extension 🔌
+
+RocketBoard is a grounded AI coding assistant that explains your code selections using your own repository's context.
+
+## 🚀 Features
+
+- **Explain Selection**: Select any block of code and get a detailed explanation.
+- **Grounded AI**: Every claim is backed by evidence from your codebase.
+- **Interactive Citations**: Clickable badges \`[S1]\`, \`[S2]\`, etc.
+- **Pack Selection**: Ground explanations against specific project "packs".
+
+## 📦 Setup and Installation
+
+### Prerequisites
+- **VS Code**: Version 1.80.0 or higher.
+- **Node.js**: Version 18.x or higher.
+
+### Installation (Build from Source)
+1. **Clone the Repo**: \`git clone https://github.com/knarayanareddy/rocketboard-ai-guide.git\`
+2. **Install**: \`npm install\` in \`vscode-extension/\`
+3. **Build**: \`npm run compile\`
+4. **Launch**: Press \`F5\` to open the Extension Development Host.
+
+### Detailed Configuration
+Set these in **File > Preferences > Settings**:
+| Setting | Description |
+|---|---|
+| \`rocketboard.supabaseUrl\` | **Required.** Your Supabase project URL. |
+| \`rocketboard.packId\` | The UUID of the specific pack. |
+
+## 🔑 Authentication
+1. Log in to your RocketBoard dashboard.
+2. Navigate to **API Keys** and copy your token.
+3. In VS Code, run \`RocketBoard: Set token\`.
+
+## 🛠️ Usage
+1. **Select Pack**: Click the Status Bar item (bottom right).
+2. **Explain Code**: Highlight code and run \`RocketBoard: Explain selection\`.
+3. **Citations**: Click \`[S1]\` to jump to source code.`,
+  },
+  {
+    id: "vsc-2",
+    slug: "vscode-maintainers-guide",
+    title: "VS Code Extension: Maintainer's Guide",
+    category: "vs-code-extension",
+    audience: ["admin", "author"],
+    tags: ["vscode", "maintainer", "architecture", "internals"],
+    summary: "Technical deep dive into the extension's architecture, state management, and API integration.",
+    lastUpdated: "2026-03-19",
+    content: `# maintainer's Guide 🛠️
+
+This document describes the technical internals of the RocketBoard VS Code extension.
+
+## 📂 Repository Layout
+- \`src/extension.ts\`: Main entry point.
+- \`src/packPicker.ts\`: Pack selection logic.
+- \`src/auth.ts\`: \`SecretStorage\` token management.
+- \`src/api.ts\`: Edge Function integration.
+- \`src/citations.ts\`: \`[S#]\` citation mapping.
+- \`src/webview.ts\`: Webview configuration.
+
+## 💾 State & Persistence
+- **Config**: \`rocketboard.*\` settings.
+- **WorkspaceState**: Active pack ID and title.
+- **Secrets**: Secure API token storage.
+
+## 📡 API Integration
+1. \`/functions/v1/list-my-packs\`: Fetch available packs.
+2. \`/functions/v1/retrieve-spans\`: Fetch evidence for selection.
+3. \`/functions/v1/ai-task-router\`: Generate grounded response.
+
+## 🏗️ Technical Internals
+- **Webview**: Uses Strict CSP and \`DOMPurify\` for sanitization.
+- **Citations**: Resolved across workspaces with path-traversal guards.`,
+  },
+  {
+    id: "vsc-3",
+    slug: "vscode-security-model",
+    title: "VS Code Extension: Security Model",
+    category: "vs-code-extension",
+    audience: ["all"],
+    tags: ["vscode", "security", "threat model", "sanitization"],
+    summary: "Overview of the extension's security posture and threat mitigation strategies.",
+    lastUpdated: "2026-03-19",
+    content: `# Security Model 🛡️
+
+RocketBoard is built with a security-first mindset.
+
+## ⚡ Threat Model & Mitigations
+| Threat | Mitigation |
+|---|---|
+| **Token Theft** | Use VS Code \`SecretStorage\` (OS Keychain). |
+| **XSS / Malicious MD** | Strict CSP + \`DOMPurify\` sanitization. |
+| **Path Traversal** | Workspace root validation on all citation clicks. |
+| **Range Disclosure** | Range bounding (capped at 5000 lines). |
+
+## 📐 Secure Coding Rules
+1. **Strict Secret Handling**: Never log tokens or raw code.
+2. **Webview Safety**: Use Nonces and sanitize all HTML.
+3. **Workspace Isolation**: Restrict file operations to the workspace root.
+4. **External Fetches**: Only communicate with the configured Supabase URL.`,
   },
 ];
