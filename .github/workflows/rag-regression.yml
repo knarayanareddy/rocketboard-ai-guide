@@ -1,0 +1,52 @@
+name: RAG Regression Guard
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'supabase/functions/ai-task-router/**'
+      - 'supabase/migrations/**'
+      - 'rag-eval/**'
+  workflow_dispatch:
+
+jobs:
+  rag-regression:
+    name: RAG Regression Suite
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './rag-eval/package-lock.json'
+
+      - name: Install Dependencies
+        working-directory: ./rag-eval
+        run: npm install
+
+      - name: Run Baseline Suite
+        working-directory: ./rag-eval
+        env:
+          RAG_EVAL_SUPABASE_URL: ${{ secrets.RAG_EVAL_SUPABASE_URL }}
+          RAG_EVAL_SUPABASE_ANON_KEY: ${{ secrets.RAG_EVAL_SUPABASE_ANON_KEY }}
+          RAG_EVAL_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_EVAL_SUPABASE_SERVICE_ROLE_KEY }}
+          RAG_EVAL_USER_EMAIL: ${{ secrets.RAG_EVAL_USER_EMAIL }}
+          RAG_EVAL_USER_PASSWORD: ${{ secrets.RAG_EVAL_USER_PASSWORD }}
+          RAG_EVAL_PACK_ID: ${{ secrets.RAG_EVAL_PACK_ID }}
+        run: npm run test -- --suite suites/baseline.yaml
+
+      - name: Run Detective Suite
+        working-directory: ./rag-eval
+        env:
+          RAG_EVAL_SUPABASE_URL: ${{ secrets.RAG_EVAL_SUPABASE_URL }}
+          RAG_EVAL_SUPABASE_ANON_KEY: ${{ secrets.RAG_EVAL_SUPABASE_ANON_KEY }}
+          RAG_EVAL_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_EVAL_SUPABASE_SERVICE_ROLE_KEY }}
+          RAG_EVAL_USER_EMAIL: ${{ secrets.RAG_EVAL_USER_EMAIL }}
+          RAG_EVAL_USER_PASSWORD: ${{ secrets.RAG_EVAL_USER_PASSWORD }}
+          RAG_EVAL_PACK_ID: ${{ secrets.RAG_EVAL_PACK_ID }}
+        run: npm run test -- --suite suites/detective.yaml

@@ -561,10 +561,9 @@ async function callWithAgenticReview(
     trace?.updateGeneration({ 
       groundingScore: score, 
       attempts,
-      stripRate: m.strip_rate,
-      claimsTotal: m.claims_total,
-      claimsStripped: m.claims_stripped,
       snippetsResolved: m.snippets_resolved,
+      citationsFound: m.citations_found,
+      uniqueFilesCount: m.unique_files_count,
       groundingGatePassed: decision.ok,
       groundingGateReason: decision.reason_code,
       groundingPolicy: policy
@@ -689,6 +688,7 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
     const avgRelevance = spans.length > 0 
       ? spans.reduce((acc: number, s: any) => acc + (s.relevance_score || 0), 0) / spans.length 
       : 0;
+    const uniqueFilesCount = new Set(spans.map((s: any) => s.path)).size;
 
     await supabase.from("rag_metrics").insert({
       org_id: pack.org_id,
@@ -713,8 +713,8 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
       output_tokens: gen.outputTokens,
       
       // Grounding/Verification Metrics
-      citations_found: gen.claimsTotal || 0,
-      citations_verified: (gen.claimsTotal || 0) - (gen.claimsStripped || 0),
+      citations_found: gen.citationsFound || 0,
+      citations_verified: (gen.citationsFound || 0) - (gen.claimsStripped || 0),
       citations_failed: gen.claimsStripped || 0,
       grounding_score: gen.groundingScore,
       attempts: gen.attempts || 1,
@@ -722,6 +722,7 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
       claims_total: gen.claimsTotal || 0,
       claims_stripped: gen.claimsStripped || 0,
       snippets_resolved: gen.snippetsResolved || 0,
+      unique_files_count: uniqueFilesCount,
       
       // Detective Loop Metrics
       detective_enabled: detective.detective_enabled || false,
