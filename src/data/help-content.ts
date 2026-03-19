@@ -90,7 +90,79 @@ Ready to see it in action? Use the button below to ask our Mission Control assis
 :::
 
 [UI_ACTION: open_help(Ask Mission Control)]`,
-    relatedArticles: ["gs-2", "gs-3"],
+    relatedArticles: ["gs-2", "gs-1"],
+  },
+  // ─── ROADMAPS ────────────────────────────────────
+  {
+    id: "rm-1",
+    slug: "roadmap-admin-guide",
+    title: "Administrating Structured Roadmaps",
+    category: "tech-implementation",
+    audience: ["admin"],
+    tags: ["roadmap", "setup", "rollout", "admin"],
+    summary: "Technical guide for rolling out and managing structured onboarding roadmaps.",
+    lastUpdated: "2026-03-29",
+    content: `# Administrating Structured Roadmaps 🗺️
+
+Structured Roadmaps turn onboarding from "content + chat" into a program with timelines, accountability, and clear progress.
+
+## 1. Rollout & Activation
+The feature is disabled by default to allow for per-pack piloting. To enable it for a specific pack, an admin must set the \`roadmap_enabled\` flag.
+
+:::card[Enable via SQL]{⚙️}
+\`\`\`sql
+UPDATE public.packs SET roadmap_enabled = TRUE WHERE id = 'YOUR_PACK_ID';
+\`\`\`
+:::
+
+## 2. Setting Up Your First Playlist
+Navigate to **Roadmap Builder** to create your first structured playlist.
+- **Phases:** Group items into **Day 1-30**, **Day 31-60**, or **Day 61-90**.
+- **Assignments:** Assign playlists to specific learners with a start date and a mentor.
+
+## 3. Managing Dependencies
+Prevent information overload by setting dependencies between items.
+- Items are **Locked** until their prerequisites are completed.
+- The system automatically detects completion of linked modules, quizzes, and sections.
+
+## 4. Integrity & Security
+- **Cycle Prevention:** The database prevents circular dependencies.
+- **RLS isolation:** Roadmaps are strictly scoped to the pack level.
+- **Audit Logs:** Every status transition is tracked for accountability.`,
+    relatedArticles: ["rm-2", "gs-2"],
+  },
+  {
+    id: "rm-2",
+    slug: "roadmap-learner-guide",
+    title: "Using Your Onboarding Roadmap",
+    category: "learning",
+    audience: ["learner", "all"],
+    tags: ["roadmap", "progress", "onboarding"],
+    summary: "How to use your personalized onboarding roadmap to track your progress.",
+    lastUpdated: "2026-03-29",
+    content: `# Charting Your Journey 🗺️
+
+Welcome to your personalized onboarding roadmap! This page shows exactly what you need to do and when to do it.
+
+## Your Learning Phases
+Your roadmap is organized into three key phases to help you ramp up effectively without being overwhelmed.
+- **Day 1-30:** Foundations and setup.
+- **Day 31-60:** Feature ownership and deeper exploration.
+- **Day 61-90:** Full autonomy and advanced mastery.
+
+## Understanding Item States
+- **Locked (🔒):** This item is blocked by a prerequisite. Hover to see what you need to finish first.
+- **Up Next:** Available for you to start now.
+- **In Progress:** You've started this item.
+- **Completed (✅):** Well done! You've mastered this requirement.
+
+## Automatic Progress
+If a roadmap item is linked to a module or quiz, RocketBoard will **automatically** mark it as completed once you finish the linked content. No manual check-ins required!
+
+:::card[Rocket's Pro-Tip]{🚀}
+Focus on the items in your current phase. If you're blocked, check the "Blocked by" message to find your next available task.
+:::`,
+    relatedArticles: ["rm-1", "learn-1"],
   },
   {
     id: "gs-2",

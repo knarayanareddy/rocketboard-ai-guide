@@ -574,5 +574,58 @@ export const ALL_TOURS: Tour[] = [
       },
     ],
   },
+  {
+    id: "roadmap-learner-tour",
+    pagePattern: "^/packs/[^/]+/roadmap$",
+    steps: [
+      {
+        target: "[data-tour='roadmap-header']",
+        title: "Your Onboarding Roadmap",
+        content: "This is your personalized journey. It breaks down your onboarding into three phases: Day 1-30, 31-60, and 61-90.",
+      },
+      {
+        target: "[data-tour='roadmap-phase-day-1-30']",
+        title: "Phased Learning",
+        content: "We group items into phases to help you focus on what's most important right now. You can see your progress for each phase here.",
+      },
+      {
+        target: "[data-tour='roadmap-item-card']",
+        title: "Roadmap Items",
+        content: "Each card represents a task, module, or milestone. Click 'Start' to jump to the content.",
+      },
+      {
+        target: "[data-tour='roadmap-lock']",
+        title: "Locked Items",
+        content: "Items with a lock icon are blocked by prerequisites. Hover to see what you need to complete first.",
+      },
+    ],
+  },
+  {
+    id: "roadmap-builder-tour",
+    pagePattern: "^/packs/[^/]+/roadmap-builder$",
+    requiredRole: "author",
+    steps: [
+      {
+        target: "[data-tour='builder-header']",
+        title: "Welcome to Roadmap Builder",
+        content: "As an author or admin, you can design the structured journey for your team here.",
+      },
+      {
+        target: "[data-tour='create-playlist']",
+        title: "Create a Playlist",
+        content: "A playlist is a collection of items for a specific phase (e.g., 'Backend Day 1-30').",
+      },
+      {
+        target: "[data-tour='assign-user']",
+        title: "Assign to Learners",
+        content: "Once a playlist is ready, assign it to learners. You can set a custom start date and assign a mentor for each assignment.",
+      },
+      {
+        target: "[data-tour='add-item-button']",
+        title: "Add Items & Dependencies",
+        content: "Add modules, links, or tasks to your playlists. Use the dependency tool to set the required order of learning.",
+      },
+    ],
+  },
 ];
 

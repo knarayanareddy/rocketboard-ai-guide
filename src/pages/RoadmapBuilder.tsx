@@ -163,15 +163,21 @@ export default function RoadmapBuilder() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto pb-20">
-        <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4" data-tour="builder-header">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Program Builder</h1>
-            <p className="text-muted-foreground mt-1">Design structure and assign it to your team.</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Roadmap Builder</h1>
+            <p className="text-muted-foreground mt-1">Design structured onboarding journeys and assign them to your team.</p>
           </div>
           <div className="flex items-center gap-3">
-             <CreatePlaylistDialog onSave={(t, p) => createPlaylist.mutate({ title: t, phase: p })} />
+             <AssignDialog 
+              members={members} 
+              playlists={playlists} 
+              onAssign={(playlistId, learnerId) => assignPlaylist.mutate({ playlistId, learnerId })} 
+              data-tour="assign-user"
+            />
+             <CreatePlaylistDialog onSave={(t, p) => createPlaylist.mutate({ title: t, phase: p })} data-tour="create-playlist" />
           </div>
-        </header>
+        </div>
 
         <div className="flex items-center gap-4 mb-8 overflow-x-auto pb-2">
            <Button 

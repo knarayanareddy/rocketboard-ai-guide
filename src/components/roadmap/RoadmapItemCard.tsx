@@ -67,7 +67,9 @@ export function RoadmapItemCard({ item, packId, assignmentId }: RoadmapItemCardP
   };
 
   return (
-    <div className={cn(
+    <div 
+      data-tour="roadmap-item-card"
+      className={cn(
       "group relative bg-card border rounded-xl p-4 transition-all duration-300",
       status === 'blocked' ? "opacity-60 grayscale-[0.5]" : "hover:border-primary/50 hover:shadow-lg shadow-sm"
     )}>
@@ -93,7 +95,7 @@ export function RoadmapItemCard({ item, packId, assignmentId }: RoadmapItemCardP
       {item.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-1">{item.description}</p>}
       
       {status === 'blocked' && item.prerequisite_title && (
-         <p className="text-[10px] text-amber-500 font-medium mb-3 flex items-center gap-1">
+         <p className="text-[10px] text-amber-500 font-medium mb-3 flex items-center gap-1" data-tour="roadmap-lock">
             <Lock className="w-2.5 h-2.5" />
             Blocked by: {item.prerequisite_title}
          </p>

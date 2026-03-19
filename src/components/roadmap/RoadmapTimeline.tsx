@@ -23,7 +23,11 @@ export function RoadmapTimeline({ items, packId, assignmentId }: RoadmapTimeline
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {PHASES.map((phase, idx) => (
-        <div key={phase.id} className="flex flex-col h-full">
+        <div 
+          key={phase.id} 
+          className="flex flex-col h-full"
+          data-tour={`roadmap-phase-${phase.id.replace(/_/g, '-')}`}
+        >
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">{phase.label}</h3>

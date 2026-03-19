@@ -163,4 +163,18 @@ export const HELP_TOOLTIPS = {
     missionControl: "Platform-wide AI assistant. Ask about RocketBoard features, navigation help, onboarding tips, or anything not specific to a single module.",
     packSelector: "Switch between different packs. Each pack has its own sources, content, progress, and team. Your progress is saved separately per pack.",
   },
+
+  // ─── ROADMAP & BUILDER ──────────────────────────────
+  roadmap: {
+    phases: "Onboarding is split into 3 phases: 0-30, 31-60, and 61-90 days. This helps focus your learning on what matters most for your current stage.",
+    itemStatus: "Blocked: prerequisite not met. Available: ready to start. In Progress: currently working on it. Done: completed.",
+    autoProgress: "Items linked to modules, quizzes, or sections update automatically as you complete the underlying content.",
+    phaseProgress: "Shows your overall completion percentage for this specific phase of onboarding.",
+  },
+  roadmapBuilder: {
+    createPlaylist: "A playlist is a collection of requirements for a specific phase. You can have multiple playlists per pack (e.g., 'Core', 'Frontend Branch').",
+    assignUser: "Assign a playlist to an individual learner. You can set a custom start date and assign a mentor/lead to oversee their progress.",
+    manageItems: "Add modules, sections, quizzes, or custom tasks to the playlist. Drag to reorder or click the chain icon to set dependencies.",
+    dependencyCycle: "The system prevents circular dependencies. An item cannot depend on itself or an item that eventually depends on it.",
+  },
 } as const;

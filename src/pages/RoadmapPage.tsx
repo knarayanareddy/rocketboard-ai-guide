@@ -76,6 +76,16 @@ export default function RoadmapPage() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col gap-6" data-tour="roadmap-header">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Onboarding Roadmap</h1>
+              <p className="text-muted-foreground mt-1">
+                Track your journey through our codebase and platform.
+              </p>
+            </div>
+          </div>
+        </div>
         <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-1">
