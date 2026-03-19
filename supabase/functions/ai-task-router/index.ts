@@ -10,6 +10,16 @@ import { resolveSnippets } from "./utils/snippet-resolver.ts";
 import { redactText as sharedRedactText } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 import { runDetectiveRetrieval } from "./detective-retrieval.ts";
+import { 
+  evaluateGroundingGate, 
+  computeGroundingScore, 
+  getRetryDirective 
+} from "./grounding-gate.ts";
+import type { 
+  GroundingAttemptMetrics, 
+  GroundingPolicy, 
+  GroundingDecision 
+} from "./grounding-gate.ts";
 
 /**
  * Structural Code Enforcement: Block unauthorized repo code fences.
@@ -77,6 +87,33 @@ const LANGFUSE_SAMPLE_RATE = Number(Deno.env.get("LANGFUSE_SAMPLE_RATE") || "1.0
 function redactText(text: string): { text: string; wasRedacted: boolean } {
   const result = sharedRedactText(text);
   return { text: result.redactedText, wasRedacted: result.secretsFound > 0 };
+}
+
+// ─── GROUNDING POLICY ───
+function resolveGroundingPolicy(taskType: string, pack: any = {}): GroundingPolicy {
+  // Use pack settings if available, otherwise fallback to environment variables
+  const packPolicy = pack.grounding_policy || {};
+  
+  const minScore = packPolicy.min_score ?? Number(Deno.env.get("GROUNDING_MIN_SCORE") || "0.80");
+  const maxStripRate = packPolicy.max_strip_rate ?? Number(Deno.env.get("STRIP_RATE_MAX") || "0.20");
+  const minCitations = packPolicy.min_citations ?? Number(Deno.env.get("MIN_CITATIONS") || "1");
+  const maxUnverified = packPolicy.max_unverified_claims ?? Number(Deno.env.get("MAX_UNVERIFIED_CLAIMS") || "0");
+  const mode = packPolicy.mode ?? (Deno.env.get("GROUNDING_GATE_MODE") || "retry_then_refuse");
+  const appliesToTasks = packPolicy.applies_to_tasks ?? (Deno.env.get("GROUNDING_GATE_APPLIES_TO_TASKS") || "chat,global_chat,generate_module,refine_module,generate_quiz");
+
+  const taskList = appliesToTasks.split(",").map((t: string) => t.trim());
+  
+  // If task isn't in the list, effectively turn it off for this task
+  const finalMode = taskList.includes(taskType) ? mode : "off";
+
+  return {
+    min_score: minScore,
+    max_strip_rate: maxStripRate,
+    min_citations: minCitations,
+    max_unverified_claims: maxUnverified,
+    mode: finalMode as any,
+    applies_to_tasks: taskList
+  };
 }
 
 function redactSpans(spans: any[]): { spans: any[]; warnings: string[] } {
@@ -466,7 +503,7 @@ function validateStructure(data: any, requiredKeys: string[]): boolean {
 
 /**
  * Calls the AI with an integrated Agentic Review loop (Phase 5).
- * Automatically retries up to 3 times if grounding_score is low.
+ * Automatically retries up to 3 times if grounding criteria are not met.
  */
 async function callWithAgenticReview(
   taskType: string,
@@ -476,13 +513,15 @@ async function callWithAgenticReview(
   evidenceSpans: EvidenceSpan[],
   config: AIConfig | undefined,
   parseDefaults: object,
-  verificationSteps: (parsed: any) => Promise<{ score: number; warnings: string[] }>,
-  trace?: TraceBuilder
+  verificationSteps: (parsed: any) => Promise<GroundingAttemptMetrics>,
+  trace?: TraceBuilder,
+  pack: any = {}
 ): Promise<any> {
+  const policy = resolveGroundingPolicy(taskType, pack);
   let attempts = 0;
   const MAX_ATTEMPTS = 3;
   let currentSystemPrompt = systemPrompt;
-  let lastFailedReason = "";
+  let lastFailedReason: GroundingDecision["reason_code"] | null = null;
 
   while (attempts < MAX_ATTEMPTS) {
     attempts++;
@@ -491,7 +530,6 @@ async function callWithAgenticReview(
       raw = await callAI(currentSystemPrompt, userPrompt, trace, config);
     } catch (e: any) {
       if (e.isCustom) {
-        // Fallback to platform key if BYOK fails
         console.warn(`[BYOK FAIL] Task ${taskType} falling back to platform key.`);
         raw = await callAI(currentSystemPrompt, userPrompt, trace, undefined);
       } else {
@@ -501,54 +539,75 @@ async function callWithAgenticReview(
 
     const parsed = parseAIJson(raw, parseDefaults);
     
-    // ─── Phase 4: Grounding Verification ───
-    const { score, warnings } = await verificationSteps(parsed);
+    // ─── Grounding Verification ───
+    const metrics = await verificationSteps(parsed);
+    const score = computeGroundingScore(metrics, policy);
+    
+    // Evaluate the gate
+    const decision = evaluateGroundingGate(metrics, policy, attempts, MAX_ATTEMPTS);
     
     parsed.generation_meta = parsed.generation_meta || {};
     parsed.generation_meta.grounding_score = score;
     parsed.generation_meta.attempts = attempts;
+    parsed.generation_meta.grounding_gate_passed = decision.ok;
+    parsed.generation_meta.grounding_gate_reason = decision.reason_code;
+    parsed.generation_meta.grounding_policy = policy;
     
-    // Phase 7: Strategic Sampling — enable trace if quality is low or we retried
-    if (score < 0.7 || attempts > 1) {
-      trace.enable();
+    if (!decision.ok || attempts > 1) {
+      trace?.enable();
     }
     
-    // Phase 6: Observability — update trace with RAG metrics
-    const m = parsed.metrics || {};
-    trace.updateGeneration({ 
+    const m = metrics || {};
+    trace?.updateGeneration({ 
       groundingScore: score, 
       attempts,
       stripRate: m.strip_rate,
       claimsTotal: m.claims_total,
       claimsStripped: m.claims_stripped,
-      snippetsResolved: m.snippets_resolved
+      snippetsResolved: m.snippets_resolved,
+      groundingGatePassed: decision.ok,
+      groundingGateReason: decision.reason_code,
+      groundingPolicy: policy
     });
     
-    // Emit numeric scores for Langfuse analytics
-    trace.score({ name: "grounding-score", value: score });
+    trace?.score({ name: "grounding-score", value: score });
     if (m.strip_rate !== undefined) {
-      trace.score({ name: "strip-rate", value: m.strip_rate });
+      trace?.score({ name: "strip-rate", value: m.strip_rate });
     }
     
-    if (score >= 0.7) {
+    if (decision.ok) {
       if (attempts > 1) {
         parsed.warnings = [...(parsed.warnings || []), `Resolved grounding issues after ${attempts} attempts.`];
       }
       return parsed;
     }
 
-    // FAILED VERIFICATION: Prepare for retry
-    lastFailedReason = `Attempt ${attempts} failed grounding verification (score: ${score.toFixed(2)}). Issues: ${warnings.join("; ")}`;
-    console.warn(`[AGENTIC RETRY] ${taskType} | Attempt ${attempts} | ${lastFailedReason}`);
-
-    currentSystemPrompt = `${systemPrompt}\n\n[STRICT AUDIT FEEDBACK]: Your previous response failed grounding verification with a score of ${score.toFixed(2)}. ${lastFailedReason}\n\nFIXES REQUIRED:\n- Remove citations to non-existent sources.\n- Do NOT invent code snippets or properties not present in the evidence.\n- Ensure EVERY claim is supported by a cited span.\n\nPLEASE RE-GENERATE.`;
+    // FAILED GATE: Prepare for retry or refuse
+    if (decision.should_retry) {
+      console.warn(`[AGENTIC RETRY] ${taskType} | Attempt ${attempts} | Reason: ${decision.reason_code}`);
+      const retryDirective = getRetryDirective(decision.reason_code);
+      currentSystemPrompt = `${systemPrompt}${retryDirective}`;
+      lastFailedReason = decision.reason_code;
+    } else {
+      // REFUSE
+      console.error(`[GROUNDING REFUSAL] ${taskType} | Attempts: ${attempts} | Reason: ${decision.reason_code}`);
+      throw { 
+        status: 422, 
+        error_code: "insufficient_evidence", 
+        message: decision.user_message || "Insufficient evidence to provide a confident answer.",
+        _trace_enabled: true,
+        _metrics: metrics,
+        _policy: policy,
+        _decision: decision
+      };
+    }
   }
 
-  // Final fallback
+  // Final fallback if loop ends unexpectedly
   throw { 
     status: 422, 
-    error_code: "grounding_failed", 
-    message: `I'm sorry, I couldn't generate a sufficiently grounded response for "${taskType}" after multiple attempts. Try adding more specific sources or documentation.` 
+    error_code: "insufficient_evidence", 
+    message: "I couldn't generate a sufficiently grounded response after multiple attempts." 
   };
 }
 
@@ -672,6 +731,13 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
       detective_time_ms: detective.time_ms || 0,
       
       total_latency_ms: Date.now() - data.startTime,
+      
+      // Grounding Gate Metrics
+      grounding_gate_mode: gen.groundingPolicy?.mode || "off",
+      grounding_gate_passed: gen.groundingGatePassed ?? true,
+      grounding_gate_reason: gen.groundingGateReason || "ok",
+      grounding_threshold_score: gen.groundingPolicy?.min_score || 0.80,
+      grounding_threshold_strip: gen.groundingPolicy?.max_strip_rate || 0.20,
     });
   } catch (e) {
     console.warn("[recordRagMetrics] failed:", e.message);
@@ -852,36 +918,27 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       },
       async (parsed) => {
         const raw = parsed.response_markdown || "";
-        
-        // 1. Enforce no direct code (Structural enforcement)
         const codeCleaned = enforceNoDirectCode(raw);
-        
-        // 2. Verify Claims (Claim-level stripping)
         const { verifiedText, claims_total, claims_stripped, strip_rate } = await verifyClaims(codeCleaned, evidenceSpans);
-        
-        // 3. Resolve Snippets (Server-side code loading)
         const { finalMarkdown, snippets_resolved } = resolveSnippets(verifiedText, evidenceSpans);
-        
-        // 4. Canonicalize Citations (Final display projection)
         const { display_response, source_map, canonical_response } = canonicalizeCitations(finalMarkdown, evidenceSpans);
         
-        // 5. Build Final Structure
         parsed.display_response = display_response;
         parsed.source_map = source_map;
         parsed.canonical_response = canonical_response;
-        parsed.metrics = {
+        parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved };
+
+        return {
+          strip_rate,
           claims_total,
           claims_stripped,
-          strip_rate,
-          snippets_resolved
-        };
-
-        return { 
-          score: 1.0 - strip_rate, 
-          warnings: claims_stripped > 0 ? [`Stripped ${claims_stripped} unverified claims.`] : [] 
+          citations_found: source_map.length,
+          snippets_resolved,
+          evidence_count: evidenceSpans.length
         };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) {
@@ -1032,9 +1089,17 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
         parsed.canonical_response = canonical_response;
         parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved };
 
-        return { score: 1.0 - strip_rate, warnings: claims_stripped > 0 ? [`Stripped ${claims_stripped} unverified claims.`] : [] };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: source_map.length,
+          snippets_resolved,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) {
@@ -1124,40 +1189,61 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
 
   const userPrompt = `Analyze the ${spans.length} evidence spans provided and create a comprehensive onboarding module plan for the "${pack.title || "unknown"}" pack.`;
 
+  const spans = evidenceSpans;
   try {
-    const raw = await callAI(systemPrompt, userPrompt);
-    const parsed = parseAIJson(raw, {
-      type: "module_planner",
-      request_id: requestId,
-      pack_id: pack.pack_id || null,
-      pack_version: pack.pack_version || 1,
-      generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
-      detected_signals: [],
-      tracks: [],
-      module_plan: [],
-      contradictions: [],
-    });
-    parsed.type = "module_planner";
-    parsed.request_id = requestId;
+    const parsed = await callWithAgenticReview(
+      "module_planner",
+      requestId,
+      systemPrompt,
+      userPrompt,
+      evidenceSpans,
+      envelope.context?.ai_config,
+      {
+        type: "module_planner",
+        request_id: requestId,
+        pack_id: pack.pack_id || null,
+        pack_version: pack.pack_version || 1,
+        generation_meta: { timestamp_iso: new Date().toISOString(), request_id: requestId },
+        detected_signals: [],
+        tracks: [],
+        module_plan: [],
+        contradictions: [],
+        warnings: ["AI response could not be parsed as JSON"]
+      },
+      async (parsed) => {
+        if (!parsed.module_plan) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: evidenceSpans.length };
+        let totalClaims = 0;
+        let totalStripped = 0;
+        let totalSnippets = 0;
+        const metrics = { citations_found: 0 };
 
-    // ─── CITATION VERIFICATION (ENHANCED PHASE 2) ───
-    if (parsed.module_plan) {
-       let totalClaims = 0;
-       let totalStripped = 0;
-       let totalSnippets = 0;
-       for (const mod of parsed.module_plan) {
+        for (const mod of parsed.module_plan) {
           if (mod.rationale) {
-             const { verifiedText, claims_total, claims_stripped } = await verifyClaims(mod.rationale, evidenceSpans);
-             const { finalMarkdown, snippets_resolved } = resolveSnippets(verifiedText, evidenceSpans);
-             mod.rationale = finalMarkdown;
-             totalClaims += claims_total;
-             totalStripped += claims_stripped;
-             totalSnippets += snippets_resolved;
+            const { verifiedText, claims_total, claims_stripped } = await verifyClaims(mod.rationale, evidenceSpans);
+            const { finalMarkdown, snippets_resolved } = resolveSnippets(verifiedText, evidenceSpans);
+            mod.rationale = finalMarkdown;
+            totalClaims += claims_total;
+            totalStripped += claims_stripped;
+            totalSnippets += snippets_resolved;
           }
-       }
-       const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-       parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate: stripRate, snippets_resolved: totalSnippets };
-    }
+          if (mod.citations) metrics.citations_found += mod.citations.length;
+        }
+        
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved: totalSnippets };
+
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: metrics.citations_found,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
+        };
+      },
+      trace,
+      pack
+    );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
     return jsonResponse(parsed);
@@ -1176,10 +1262,16 @@ async function handleGenerateModule(envelope: any, extraWarnings: string[] = [],
   const limits = envelope.limits || {};
   const inputs = envelope.inputs || {};
   const audience = context.audience_profile || {};
+  const moduleKey = inputs.module_key || "unknown";
+  const moduleTitle = inputs.title || "Untitled Module";
+  const moduleDesc = inputs.description || "";
+  const trackKey = inputs.track_key || null;
   const moduleRevision = inputs.module_revision || 1;
 
   // ─── RERANKING & RELEVANCE GATE (PHASE 3) ───
   let evidenceSpans = retrieval.evidence_spans || [];
+  const packBlock = buildPackBlock(pack);
+
   if (evidenceSpans.length > 0) {
      evidenceSpans = await batchRerankWithLLM(`Generate detailed content for module: ${moduleTitle}. ${moduleDesc}`, evidenceSpans);
   }
@@ -1332,39 +1424,41 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
         warnings: ["AI response could not be parsed as JSON"],
       },
       async (parsed) => {
-        if (!parsed.module?.sections) return { score: 1, warnings: [] };
+        if (!parsed.module?.sections) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: evidenceSpans.length };
         let totalClaims = 0;
         let totalStripped = 0;
         let totalSnippets = 0;
+        let citationsFound = 0;
         let allWarnings: string[] = [];
-
+ 
         for (const sec of parsed.module.sections) {
           const raw = sec.markdown || "";
           const codeCleaned = enforceNoDirectCode(raw);
           const { verifiedText, claims_total, claims_stripped } = await verifyClaims(codeCleaned, evidenceSpans);
           const { finalMarkdown, snippets_resolved } = resolveSnippets(verifiedText, evidenceSpans);
           
-          // Note: for modules, we keep canonical citations for storage, 
-          // but we still want the metadata. The UI handles badges on render.
           sec.markdown = finalMarkdown;
-          
           totalClaims += claims_total;
           totalStripped += claims_stripped;
           totalSnippets += snippets_resolved;
+          if (sec.citations) citationsFound += sec.citations.length;
           if (claims_stripped > 0) allWarnings.push(`Section ${sec.section_id}: stripped ${claims_stripped} claims.`);
         }
-
-        const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = {
-          claims_total: totalClaims,
-          claims_stripped: totalStripped,
-          strip_rate: stripRate,
-          snippets_resolved: totalSnippets
+ 
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate, snippets_resolved: totalSnippets };
+ 
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: citationsFound,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
         };
-
-        return { score: 1.0 - stripRate, warnings: allWarnings };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
@@ -1485,10 +1579,11 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
         warnings: ["AI response could not be parsed as JSON"],
       },
       async (parsed) => {
-        if (!parsed.quiz?.questions) return { score: 1, warnings: [] };
+        if (!parsed.quiz?.questions) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: evidenceSpans.length };
         let totalClaims = 0;
         let totalStripped = 0;
         let totalSnippets = 0;
+        let citationsFound = 0;
         let allWarnings: string[] = [];
 
         for (const q of parsed.quiz.questions) {
@@ -1502,16 +1597,25 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
             totalClaims += claims_total;
             totalStripped += claims_stripped;
             totalSnippets += snippets_resolved;
+            if (q.citations) citationsFound += q.citations.length;
             if (claims_stripped > 0) allWarnings.push(`Question ${q.id}: stripped ${claims_stripped} claims.`);
           }
         }
 
-        const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate: stripRate, snippets_resolved: totalSnippets };
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate, snippets_resolved: totalSnippets };
 
-        return { score: 1.0 - stripRate, warnings: allWarnings };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: citationsFound,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
@@ -1614,10 +1718,11 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
         warnings: ["AI response could not be parsed as JSON"],
       },
       async (parsed) => {
-        if (!parsed.glossary) return { score: 1, warnings: [] };
+        if (!parsed.glossary) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: evidenceSpans.length };
         let totalClaims = 0;
         let totalStripped = 0;
         let totalSnippets = 0;
+        let citationsFound = 0;
         let allWarnings: string[] = [];
 
         for (const term of parsed.glossary) {
@@ -1631,15 +1736,24 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
             totalClaims += claims_total;
             totalStripped += claims_stripped;
             totalSnippets += snippets_resolved;
+            if (term.citations) citationsFound += term.citations.length;
           }
         }
 
-        const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate: stripRate, snippets_resolved: totalSnippets };
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved: totalSnippets };
 
-        return { score: 1.0 - stripRate, warnings: allWarnings };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: citationsFound,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
@@ -1761,10 +1875,11 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
       },
       async (parsed) => {
         const verifyArray = [...(parsed.day1 || []), ...(parsed.week1 || [])];
-        if (verifyArray.length === 0) return { score: 1, warnings: [] };
+        if (verifyArray.length === 0) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: evidenceSpans.length };
         let totalClaims = 0;
         let totalStripped = 0;
         let totalSnippets = 0;
+        let citationsFound = 0;
         let allWarnings: string[] = [];
 
         for (const step of verifyArray) {
@@ -1778,15 +1893,24 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
             totalClaims += claims_total;
             totalStripped += claims_stripped;
             totalSnippets += snippets_resolved;
+            if (step.citations) citationsFound += step.citations.length;
           }
         }
 
-        const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate: stripRate, snippets_resolved: totalSnippets };
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved: totalSnippets };
 
-        return { score: 1.0 - stripRate, warnings: allWarnings };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: citationsFound,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
@@ -1880,10 +2004,11 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
         warnings: ["AI response could not be parsed as JSON"],
       },
       async (parsed) => {
-        if (!parsed.questions) return { score: 1, warnings: [] };
+        if (!parsed.questions) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: evidenceSpans.length };
         let totalClaims = 0;
         let totalStripped = 0;
         let totalSnippets = 0;
+        let citationsFound = 0;
         let allWarnings: string[] = [];
 
         for (const q of parsed.questions) {
@@ -1897,15 +2022,24 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
             totalClaims += claims_total;
             totalStripped += claims_stripped;
             totalSnippets += snippets_resolved;
+            if (q.citations) citationsFound += q.citations.length;
           }
         }
 
-        const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate: stripRate, snippets_resolved: totalSnippets };
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved: totalSnippets };
 
-        return { score: 1.0 - stripRate, warnings: allWarnings };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: citationsFound,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
@@ -1942,6 +2076,9 @@ async function handleRefineModule(envelope: any, extraWarnings: string[] = []): 
 
   const spansBlock = buildSpansBlock(evidenceSpans);
   const packBlock = buildPackBlock(pack);
+  const existingModule = inputs.existing_module || {};
+  const moduleKey = inputs.module_key || existingModule.module_key || "unknown";
+  const trackKey = inputs.track_key || existingModule.track_key || null;
   const existingModuleJson = JSON.stringify(existingModule, null, 2);
 
   const systemPrompt = `You are RocketBoard AI Module Refiner. You iteratively improve generated modules based on author instructions.
@@ -2026,10 +2163,11 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
         warnings: ["AI response could not be parsed as JSON"],
       },
       async (parsed) => {
-        if (!parsed.module?.sections) return { score: 1, warnings: [] };
+        if (!parsed.module?.sections) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: evidenceSpans.length };
         let totalClaims = 0;
         let totalStripped = 0;
         let totalSnippets = 0;
+        let citationsFound = 0;
         let allWarnings: string[] = [];
 
         for (const sec of parsed.module.sections) {
@@ -2042,14 +2180,23 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
           totalClaims += claims_total;
           totalStripped += claims_stripped;
           totalSnippets += snippets_resolved;
+          if (sec.citations) citationsFound += sec.citations.length;
         }
 
-        const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate: stripRate, snippets_resolved: totalSnippets };
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate, snippets_resolved: totalSnippets };
 
-        return { score: 1.0 - stripRate, warnings: allWarnings };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: citationsFound,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
     return jsonResponse(parsed);
@@ -2167,9 +2314,17 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
         parsed.simplified_markdown = finalMarkdown;
         parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved };
 
-        return { score: 1.0 - strip_rate, warnings: claims_stripped > 0 ? [`Stripped ${claims_stripped} unverified claims.`] : [] };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: (parsed.citations || []).length,
+          snippets_resolved,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
@@ -2401,10 +2556,11 @@ Return ONLY the JSON object.`;
         warnings: ["Could not generate exercises"],
       },
       async (parsed) => {
-        if (!parsed.exercises) return { score: 1, warnings: [] };
+        if (!parsed.exercises) return { strip_rate: 0, claims_total: 0, claims_stripped: 0, citations_found: 0, snippets_resolved: 0, evidence_count: retrieval.evidence_spans?.length || 0 };
         let totalClaims = 0;
         let totalStripped = 0;
         let totalSnippets = 0;
+        let citationsFound = 0;
         let allWarnings: string[] = [];
         const evidenceSpans = retrieval.evidence_spans || [];
 
@@ -2419,15 +2575,24 @@ Return ONLY the JSON object.`;
             totalClaims += claims_total;
             totalStripped += claims_stripped;
             totalSnippets += snippets_resolved;
+            if (ex.evidence_citations) citationsFound += ex.evidence_citations.length;
           }
         }
 
-        const stripRate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate: stripRate, snippets_resolved: totalSnippets };
+        const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
+        parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved: totalSnippets };
 
-        return { score: 1.0 - stripRate, warnings: allWarnings };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: citationsFound,
+          snippets_resolved: totalSnippets,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
     return jsonResponse(parsed);
@@ -2507,9 +2672,17 @@ Return ONLY the JSON object.`;
         parsed.feedback_markdown = finalMarkdown;
         parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved };
 
-        return { score: 1.0 - strip_rate, warnings: claims_stripped > 0 ? [`Stripped ${claims_stripped} unverified feedback claims.`] : [] };
+        return {
+          strip_rate,
+          claims_total,
+          claims_stripped,
+          citations_found: 0, // Not explicitly tracked in simple feedback
+          snippets_resolved,
+          evidence_count: evidenceSpans.length
+        };
       },
-      trace
+      trace,
+      pack
     );
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
     return jsonResponse(parsed);

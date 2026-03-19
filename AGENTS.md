@@ -41,6 +41,12 @@ If you change any contract, update **both** the producer and consumer, plus migr
 - Author instructions must be capped.
 (These are cost + safety controls.)
 
+**Grounding SLO Gate (required):**
+- All router responses MUST pass the Grounding SLO Gate evaluation.
+- Default thresholds: `min_score: 0.80`, `max_strip_rate: 0.20`.
+- If a response fails, the router must retry (up to 3x) or refuse with `insufficient_evidence`.
+- This ensures only verified, grounded claims reach the user.
+
 ### 1.2 Security invariants (SSRF, secrets, credentials)
 **SSRF policy is mandatory for any external fetch:**
 - Any URL derived from `pack_sources.config`, user input, or connector config must be validated by the shared URL policy before `fetch()`.

@@ -12,7 +12,7 @@ interface AIErrorDisplayProps {
   onSearchQuery?: (query: string) => void;
 }
 
-const RETRYABLE: Set<AIErrorCode> = new Set(["invalid_output", "rate_limited", "network_error"]);
+const RETRYABLE: Set<AIErrorCode> = new Set(["insufficient_evidence", "invalid_output", "rate_limited", "network_error"]);
 const RATE_LIMIT_COUNTDOWN = 30;
 
 const ERROR_CONFIG: Record<AIErrorCode, {

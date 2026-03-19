@@ -87,9 +87,7 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
   });
 
   const strip_rate = claims_total > 0 ? claims_stripped / claims_total : 0;
-  if (strip_rate > 0.30) {
-    throw { status: 422, error_code: "grounding_failed", message: `Strip rate too high (${Math.round(strip_rate*100)}%). Triggering retry.` };
-  }
+  // NOTE: Hard throw removed. Grounding gate in index.ts now handles retries/refusals.
 
   const rawJoined = verifiedParts.filter(Boolean).join("");
   const verifiedText = cleanupDanglingListMarkers(rawJoined);
