@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,7 +49,17 @@ Deno.serve(async (req) => {
 
   try {
     const { pack_id, source_id, source_config } = await req.json();
-    const { file_key, personal_access_token, include_components = true, include_comments = true, include_layer_structure = false } = source_config || {};
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    let { file_key, personal_access_token, include_components = true, include_comments = true, include_layer_structure = false } = source_config || {};
+
+    // 1. Fetch personal_access_token from Vault if missing
+    if (!personal_access_token) {
+      personal_access_token = await getSourceCredential(supabase, source_id, 'api_token');
+    }
 
     if (!file_key || !personal_access_token) {
       return new Response(JSON.stringify({ error: "Missing Figma configuration" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -62,10 +74,6 @@ Deno.serve(async (req) => {
 
     const fileName = fileData.name || file_key;
     const pages = fileData.document?.children || [];
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
 
     const { data: job } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
     const jobId = job!.id;
@@ -107,12 +115,21 @@ Deno.serve(async (req) => {
           }
         }
 
-        const hash = await sha256(content);
+        const assessment = assessChunkRedaction(content);
+        const hash = await sha256(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `figma:${fileName}/${page.name}/${frame.name}`,
-          start_line: 1, end_line: content.split("\n").length,
-          content, content_hash: hash, is_redacted: false, pack_id, source_id,
+          start_line: 1, end_line: assessment.contentToStore.split("\n").length,
+          content: assessment.contentToStore, content_hash: hash, is_redacted: assessment.isRedacted, pack_id, source_id,
+          metadata: {
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
+          }
         });
       }
     }
@@ -131,12 +148,21 @@ Deno.serve(async (req) => {
             if (c.resolved_at) content += `(Resolved)\n`;
             content += "\n";
           }
-          const hash = await sha256(content);
+          const assessment = assessChunkRedaction(content);
+          const hash = await sha256(assessment.contentToStore);
           chunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `figma:${fileName}/comments`,
-            start_line: 1, end_line: content.split("\n").length,
-            content, content_hash: hash, is_redacted: false, pack_id, source_id,
+            start_line: 1, end_line: assessment.contentToStore.split("\n").length,
+            content: assessment.contentToStore, content_hash: hash, is_redacted: assessment.isRedacted, pack_id, source_id,
+            metadata: {
+              redaction: {
+                action: assessment.action,
+                secretsFound: assessment.metrics.secretsFound,
+                matchedPatterns: assessment.metrics.matchedPatterns,
+                redactionRatio: assessment.metrics.redactionRatio,
+              }
+            }
           });
         }
       }

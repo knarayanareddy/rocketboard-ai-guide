@@ -1,17 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const REDACTION_PATTERNS = [
-  /AKIA[0-9A-Z]{16}/g,
-  /sk-[A-Za-z0-9]{32,}/g,
-  /xox[bpas]-[A-Za-z0-9-]{10,}/g,
-  /ghp_[A-Za-z0-9]{36}/g,
-  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-];
+// Redaction now handled by centralized secret-patterns.ts
 
 const VALUE_KEYWORDS = [
   "decision", "architecture", "we decided", "going forward", "convention",
@@ -25,14 +21,7 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function redactSecrets(text: string): string {
-  let result = text;
-  for (const pattern of REDACTION_PATTERNS) {
-    pattern.lastIndex = 0;
-    result = result.replace(pattern, "***REDACTED***");
-  }
-  return result;
-}
+// Local redactSecrets removed in favor of assessChunkRedaction()
 
 function isHighValueMessage(msg: any): boolean {
   if (!msg.text) return false;
@@ -79,7 +68,12 @@ Deno.serve(async (req) => {
 
   try {
     const { pack_id, source_id, source_config } = await req.json();
-    const {
+    
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    let {
       bot_token,
       channel_ids = [],
       days_back = 30,
@@ -88,15 +82,16 @@ Deno.serve(async (req) => {
       min_reactions = 0,
     } = source_config || {};
 
+    // 1. Fetch bot_token from Vault if missing
+    if (!bot_token) {
+      bot_token = await getSourceCredential(supabase, source_id, 'bot_token');
+    }
+
     if (!bot_token || channel_ids.length === 0) {
       return new Response(JSON.stringify({ error: "Missing bot_token or channel_ids" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
 
     const { data: job } = await supabase.from("ingestion_jobs")
       .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
@@ -187,14 +182,13 @@ Deno.serve(async (req) => {
             content = `# Thread in #${channelName} (${date})\n\n`;
             for (const reply of threadResp.messages || []) {
               const replyUser = userCache[reply.user] || "[team member]";
-              const replyText = redactSecrets(reply.text || "");
-              content += `**${replyUser}**: ${replyText}\n\n`;
+              content += `**${replyUser}**: ${reply.text || ""}\n\n`;
             }
           } catch {
-            content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${redactSecrets(msg.text || "")}\n`;
+            content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${msg.text || ""}\n`;
           }
         } else {
-          content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${redactSecrets(msg.text || "")}\n`;
+          content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${msg.text || ""}\n`;
         }
 
         // Add reaction info
@@ -204,15 +198,16 @@ Deno.serve(async (req) => {
         }
 
         chunkIdx++;
-        const hash = await sha256(content);
+        const assessment = assessChunkRedaction(content);
+        const hash = await sha256(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `slack:${channelName}/${date}/${msg.ts}`,
           start_line: 1,
-          end_line: content.split("\n").length,
-          content,
+          end_line: assessment.contentToStore.split("\n").length,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: false,
+          is_redacted: assessment.isRedacted,
           pack_id,
           source_id,
           metadata: {
@@ -221,6 +216,12 @@ Deno.serve(async (req) => {
             message_ts: msg.ts,
             reply_count: msg.reply_count || 0,
             reaction_count: msg.reactions?.length || 0,
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
           },
         });
       }

@@ -12,7 +12,7 @@ export function useSources() {
     queryKey: ["pack_sources", currentPackId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("pack_sources")
+        .from("pack_sources_safe" as any)
         .select("*")
         .eq("pack_id", currentPackId)
         .order("created_at", { ascending: false });
@@ -98,5 +98,33 @@ export function useSources() {
     enabled: !!currentPackId,
   });
 
-  return { sources, isLoading, addSource, deleteSource, updateSourceWeight, chunkCounts };
+  const configureSource = useMutation({
+    mutationFn: async ({ sourceId, sourceType, sourceUri, label, sourceConfig, credentials }: {
+      sourceId?: string;
+      sourceType: string;
+      sourceUri: string;
+      label?: string;
+      sourceConfig?: Record<string, any>;
+      credentials?: Record<string, string>;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("configure-source", {
+        body: {
+          pack_id: currentPackId,
+          source_id: sourceId,
+          source_type: sourceType,
+          source_uri: sourceUri,
+          label: label,
+          source_config: sourceConfig,
+          credentials: credentials
+        }
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pack_sources", currentPackId] });
+    },
+  });
+
+  return { sources, isLoading, addSource, configureSource, deleteSource, updateSourceWeight, chunkCounts };
 }

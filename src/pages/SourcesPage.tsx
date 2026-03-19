@@ -81,7 +81,8 @@ export default function SourcesPage() {
   const navigate = useNavigate();
   const { currentPack, currentPackId } = usePack();
   const { hasPackPermission } = useRole();
-  const { sources, isLoading, addSource, deleteSource, chunkCounts } = useSources();
+  const { sources: _sources, isLoading, addSource, configureSource, deleteSource, chunkCounts } = useSources();
+  const sources = _sources as any[];
   const { triggerIngestion, hasActiveJob, jobs } = useIngestion();
   const { plan } = useModulePlan();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -189,10 +190,12 @@ export default function SourcesPage() {
     }
 
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "github_repo",
         sourceUri,
         label: label || undefined,
+        // GitHub might use a token from window if we have a setup flow
+        credentials: (window as any).GITHUB_TOKEN ? { github_token: (window as any).GITHUB_TOKEN } : undefined
       });
 
       await triggerIngestion.mutateAsync({
@@ -288,7 +291,7 @@ export default function SourcesPage() {
 
   const handleAddConfluence = async (config: ConfluenceConfig) => {
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "confluence",
         sourceUri: `${config.baseUrl}/wiki/spaces/${config.spaceKey}`,
         label: label || `Confluence: ${config.spaceKey}`,
@@ -296,15 +299,16 @@ export default function SourcesPage() {
           base_url: config.baseUrl,
           space_key: config.spaceKey,
           auth_email: config.authEmail,
-          api_token: config.apiToken,
         },
+        credentials: {
+          api_token: config.apiToken
+        }
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "confluence",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -316,21 +320,22 @@ export default function SourcesPage() {
 
   const handleAddNotion = async (config: NotionConfig) => {
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "notion",
         sourceUri: config.rootPageId ? `notion:${config.rootPageId}` : "notion:workspace",
         label: label || "Notion Workspace",
         sourceConfig: {
-          integration_token: config.integrationToken,
           root_page_id: config.rootPageId,
         },
+        credentials: {
+          integration_token: config.integrationToken
+        }
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "notion",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -350,7 +355,7 @@ export default function SourcesPage() {
         extraConfig.user_id = session.user.id;
       }
 
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "google_drive",
         sourceUri: `gdrive:${config.folderId}`,
         label: label || "Google Drive Folder",
@@ -358,16 +363,17 @@ export default function SourcesPage() {
           folder_id: config.folderId,
           auth_method: config.authMethod,
           service_account_email: config.serviceAccountEmail,
-          service_account_key: config.serviceAccountKey,
           ...extraConfig,
         },
+        credentials: config.authMethod === "service_account" ? {
+          service_account_key: config.serviceAccountKey
+        } : undefined
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "google_drive",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -380,7 +386,7 @@ export default function SourcesPage() {
 
   const handleAddSharePoint = async (config: SharePointConfig) => {
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "sharepoint",
         sourceUri: config.siteUrl,
         label: label || `SharePoint: ${config.documentLibrary}`,
@@ -389,15 +395,16 @@ export default function SourcesPage() {
           document_library: config.documentLibrary,
           tenant_id: config.tenantId,
           client_id: config.clientId,
-          client_secret: config.clientSecret,
         },
+        credentials: {
+          client_secret: config.clientSecret
+        }
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "sharepoint",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -409,7 +416,7 @@ export default function SourcesPage() {
 
   const handleAddJira = async (config: JiraConfig) => {
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "jira",
         sourceUri: `${config.baseUrl}/projects/${config.projectKey}`,
         label: label || `Jira: ${config.projectKey}`,
@@ -417,20 +424,21 @@ export default function SourcesPage() {
           base_url: config.baseUrl,
           project_key: config.projectKey,
           auth_email: config.authEmail,
-          api_token: config.apiToken,
           max_issues: config.maxIssues,
           include_epics: config.includeEpics,
           include_recent: config.includeRecent,
           include_comments: config.includeComments,
           include_resolved: config.includeResolved,
         },
+        credentials: {
+          api_token: config.apiToken
+        }
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "jira",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -442,21 +450,22 @@ export default function SourcesPage() {
 
   const handleAddLinear = async (config: LinearConfig) => {
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "linear",
         sourceUri: `linear:${config.teamId}`,
         label: label || "Linear Team",
         sourceConfig: {
-          api_key: config.apiKey,
           team_id: config.teamId,
         },
+        credentials: {
+          api_key: config.apiKey
+        }
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "linear",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -495,23 +504,24 @@ export default function SourcesPage() {
 
   const handleAddPostman = async (config: PostmanConfig) => {
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "postman_collection",
         sourceUri: config.collectionUrl || `postman:${config.label}`,
         label: label || config.label,
         sourceConfig: {
           collection_json: config.collectionJson,
           collection_url: config.collectionUrl,
-          postman_api_key: config.postmanApiKey,
           label: config.label,
         },
+        credentials: {
+          postman_api_key: config.postmanApiKey
+        }
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "postman_collection",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -523,24 +533,25 @@ export default function SourcesPage() {
 
   const handleAddFigma = async (config: FigmaConfig) => {
     try {
-      const source = await addSource.mutateAsync({
+      const source = await configureSource.mutateAsync({
         sourceType: "figma",
         sourceUri: `figma:${config.fileKey}`,
         label: label || `Figma: ${config.fileKey}`,
         sourceConfig: {
           file_key: config.fileKey,
-          personal_access_token: config.personalAccessToken,
           include_components: config.includeComponents,
           include_comments: config.includeComments,
           include_layer_structure: config.includeLayerStructure,
         },
+        credentials: {
+          api_token: config.personalAccessToken
+        }
       });
 
       await triggerIngestion.mutateAsync({
         sourceId: source.id,
         sourceType: "figma",
         sourceUri: source.source_uri,
-        sourceConfig: source.source_config as Record<string, any> | undefined,
       });
 
       setAddOpen(false);
@@ -721,24 +732,25 @@ export default function SourcesPage() {
         return (
           <SlackForm
             onSubmit={async (config) => {
-              const source = await addSource.mutateAsync({
+              const source = await configureSource.mutateAsync({
                 sourceType: "slack_channel",
                 sourceUri: `slack:${config.channelIds.join(",")}`,
                 label: label || "Slack Channels",
                 sourceConfig: {
-                  bot_token: config.botToken,
                   channel_ids: config.channelIds,
                   days_back: config.daysBack,
                   threaded_only: config.threadedOnly,
                   pinned_only: config.pinnedOnly,
                   min_reactions: config.minReactions,
                 },
+                credentials: {
+                  bot_token: config.botToken
+                }
               });
               await triggerIngestion.mutateAsync({
                 sourceId: source.id,
                 sourceType: "slack_channel",
                 sourceUri: source.source_uri,
-                sourceConfig: source.source_config as Record<string, any>,
               });
               setAddOpen(false);
               toast.success("Slack channels added and ingestion started");
@@ -752,23 +764,24 @@ export default function SourcesPage() {
         return (
           <LoomForm
             onSubmit={async (config) => {
-              const source = await addSource.mutateAsync({
+              const source = await configureSource.mutateAsync({
                 sourceType: "loom_video",
                 sourceUri: config.apiKey ? "loom:workspace" : `loom:${config.videoTitle}`,
                 label: label || config.videoTitle || "Loom Videos",
                 sourceConfig: {
-                  api_key: config.apiKey,
                   workspace_id: config.workspaceId,
                   video_title: config.videoTitle,
                   video_url: config.videoUrl,
                   transcript_content: config.transcriptContent,
                 },
+                credentials: {
+                  api_key: config.apiKey
+                }
               });
               await triggerIngestion.mutateAsync({
                 sourceId: source.id,
                 sourceType: "loom_video",
                 sourceUri: source.source_uri,
-                sourceConfig: source.source_config as Record<string, any>,
               });
               setAddOpen(false);
               toast.success("Video transcript added and ingestion started");
@@ -782,24 +795,25 @@ export default function SourcesPage() {
         return (
           <PagerDutyForm
             onSubmit={async (config) => {
-              const source = await addSource.mutateAsync({
+              const source = await configureSource.mutateAsync({
                 sourceType: "pagerduty",
                 sourceUri: "pagerduty:services",
                 label: label || "PagerDuty",
                 sourceConfig: {
-                  api_key: config.apiKey,
                   service_ids: config.serviceIds,
                   include_services: config.includeServices,
                   include_oncall: config.includeOncall,
                   include_incidents: config.includeIncidents,
                   fetch_runbooks: config.fetchRunbooks,
                 },
+                credentials: {
+                  api_key: config.apiKey
+                }
               });
               await triggerIngestion.mutateAsync({
                 sourceId: source.id,
                 sourceType: "pagerduty",
                 sourceUri: source.source_uri,
-                sourceConfig: source.source_config as Record<string, any>,
               });
               setAddOpen(false);
               toast.success("PagerDuty source added and ingestion started");

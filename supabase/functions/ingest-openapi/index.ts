@@ -1,5 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as yaml from "https://esm.sh/js-yaml@4";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,24 +122,45 @@ Deno.serve(async (req) => {
     if (spec.info?.description) overview += spec.info.description + "\n\n";
     overview += `Tags: ${Object.keys(taggedEndpoints).join(", ")}\n`;
     overview += `Total endpoints: ${Object.values(taggedEndpoints).flat().length}\n`;
-    const overviewHash = await sha256(overview);
+
+    const overviewAssessment = assessChunkRedaction(overview);
+    const overviewHash = await sha256(overviewAssessment.contentToStore);
     chunks.push({
       chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
       path: `openapi:${title}/overview`,
-      start_line: 1, end_line: overview.split("\n").length,
-      content: overview, content_hash: overviewHash, is_redacted: false, pack_id, source_id,
+      start_line: 1, end_line: overviewAssessment.contentToStore.split("\n").length,
+      content: overviewAssessment.contentToStore, content_hash: overviewHash,
+      is_redacted: overviewAssessment.isRedacted, pack_id, source_id,
+      metadata: {
+        redaction: {
+          action: overviewAssessment.action,
+          secretsFound: overviewAssessment.metrics.secretsFound,
+          matchedPatterns: overviewAssessment.metrics.matchedPatterns,
+          redactionRatio: overviewAssessment.metrics.redactionRatio,
+        }
+      }
     });
 
     // Per-tag chunks
     for (const [tag, endpoints] of Object.entries(taggedEndpoints)) {
-      chunkIdx++;
-      const content = `# ${title} — ${tag}\n\n${endpoints.join("\n---\n\n")}`;
-      const hash = await sha256(content);
+      const assessment = assessChunkRedaction(content);
+      if (assessment.action === "exclude") continue;
+      
+      const hash = await sha256(assessment.contentToStore);
       chunks.push({
         chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
         path: `openapi:${title}/${tag}`,
-        start_line: 1, end_line: content.split("\n").length,
-        content, content_hash: hash, is_redacted: false, pack_id, source_id,
+        start_line: 1, end_line: assessment.contentToStore.split("\n").length,
+        content: assessment.contentToStore, content_hash: hash,
+        is_redacted: assessment.isRedacted, pack_id, source_id,
+        metadata: {
+          redaction: {
+            action: assessment.action,
+            secretsFound: assessment.metrics.secretsFound,
+            matchedPatterns: assessment.metrics.matchedPatterns,
+            redactionRatio: assessment.metrics.redactionRatio,
+          }
+        }
       });
     }
 

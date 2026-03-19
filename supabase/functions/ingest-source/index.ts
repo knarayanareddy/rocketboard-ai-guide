@@ -1,45 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { astChunk } from "../_shared/ast-chunker.ts";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Comprehensive secret redaction patterns
-const REDACTION_PATTERNS = [
-  // AWS Access Keys
-  /AKIA[0-9A-Z]{16}/g,
-  // AWS Secret Keys
-  /(?:aws_secret_access_key|aws_secret|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
-  // Generic API keys/secrets
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
-  // JWT tokens
-  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-  // Bearer tokens
-  /Bearer\s+[A-Za-z0-9_\-.~+\/]{20,}/g,
-  // Connection strings (expanded)
-  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
-  // Private keys (expanded)
-  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
-  // .env style secrets (expanded)
-  /^(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DB_PASS|API_KEY|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL|DB_PASSWORD)\s*=\s*\S+/gmi,
-  // GitHub tokens (expanded)
-  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
-  /github_pat_[A-Za-z0-9_]{82}/g,
-  // OpenAI-style keys
-  /sk-[A-Za-z0-9]{32,}/g,
-  // Slack tokens (expanded)
-  /xox[bpas]-[A-Za-z0-9-]{10,}/g,
-  // Generic password patterns
-  /(?:password|passwd|pwd)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  // Stripe keys
-  /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
-  // SendGrid keys
-  /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
-  // Generic long hex/base64 secrets
-  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
-];
+// Redaction now handled by centralized secret-patterns.ts
 
 const SUPPORTED_EXTENSIONS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".md", ".json", ".yaml", ".yml",
@@ -123,21 +92,7 @@ function isSupported(filepath: string): boolean {
   return SUPPORTED_EXTENSIONS.has(ext);
 }
 
-function redactSecrets(text: string): { content: string; isRedacted: boolean; redactionCount: number } {
-  let redacted = text;
-  let wasRedacted = false;
-  let count = 0;
-  for (const pattern of REDACTION_PATTERNS) {
-    pattern.lastIndex = 0;
-    const newText = redacted.replace(pattern, (match) => {
-      count++;
-      return "***REDACTED***";
-    });
-    if (newText !== redacted) wasRedacted = true;
-    redacted = newText;
-  }
-  return { content: redacted, isRedacted: wasRedacted, redactionCount: count };
-}
+// Local redactSecrets removed in favor of assessChunkRedaction()
 
 function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
   const words = text.split(/\s+/);
@@ -266,9 +221,16 @@ Deno.serve(async (req) => {
       const match = source_uri.match(/github\.com\/([^/]+)\/([^/]+)/);
       if (!match) throw new Error("Invalid GitHub repo URL");
       const [, owner, repo] = match;
-
-      const githubToken = Deno.env.get("GITHUB_TOKEN");
-      const files = await fetchGitHubTree(owner, repo.replace(/\.git$/, ""), githubToken);
+      
+      // 1. Try to get token from Vault
+      let githubToken = await getSourceCredential(supabase, source_id, 'api_token');
+      
+      // 2. Fallback to Env Var (for system-wide or legacy support)
+      if (!githubToken) {
+        githubToken = Deno.env.get("GITHUB_TOKEN");
+      }
+      
+      const files = await fetchGitHubTree(owner, repo.replace(/\.git$/, ""), githubToken || undefined);
 
       // Check for CODEOWNERS
       const codeownersPath = files.find(f => f.endsWith("CODEOWNERS") || f === ".github/CODEOWNERS" || f === "docs/CODEOWNERS");
@@ -293,44 +255,48 @@ Deno.serve(async (req) => {
 
       let chunkIdx = 0;
       for (const filepath of files) {
-        let fileContent = await fetchGitHubFile(owner, repo.replace(/\.git$/, ""), filepath, githubToken);
+        let fileContent = await fetchGitHubFile(owner, repo.replace(/\.git$/, ""), filepath, githubToken || undefined);
         if (!fileContent) continue;
 
-        const { content: redactedContent, isRedacted, redactionCount } = redactSecrets(fileContent);
-        if (isRedacted) {
-          totalRedactions += redactionCount;
-          console.log(`[REDACTION] ${filepath}: ${redactionCount} secret(s) redacted`);
-        }
-
-        const astChunks = await astChunk(redactedContent, filepath);
+        const astChunks = await astChunk(fileContent, filepath);
         const repoName = repo.replace(/\.git$/, "");
         const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
         const setupMeta = getSetupMetadata(filepath);
 
         for (const chunk of astChunks) {
           chunkIdx++;
-          const hash = await sha256(chunk.text);
-          
-          let embedding: number[] | undefined;
-          if (openAIApiKey) {
-            embedding = await generateEmbedding(chunk.text, openAIApiKey) || undefined;
+          const assessment = assessChunkRedaction(chunk.text);
+          if (assessment.metrics.secretsFound > 0) {
+            totalRedactions += assessment.metrics.secretsFound;
+            console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`);
           }
 
+          const hash = await sha256(assessment.contentToStore);
+          
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `repo:${owner}/${repoName}/${filepath}`,
             start_line: chunk.metadata.line_start,
             end_line: chunk.metadata.line_end,
-            content: chunk.text,
+            content: assessment.contentToStore,
             content_hash: hash,
-            is_redacted: isRedacted,
+            is_redacted: assessment.isRedacted,
             entity_type: chunk.metadata.entity_type,
             entity_name: chunk.metadata.entity_name,
             signature: chunk.metadata.signature,
             imports: chunk.metadata.imports,
             exported_names: chunk.metadata.exported_names || [],
-            metadata: { source_url: sourceUrl, ...setupMeta },
-            embedding,
+            metadata: { 
+              source_url: sourceUrl, 
+              ...setupMeta,
+              redaction: {
+                action: assessment.action,
+                secretsFound: assessment.metrics.secretsFound,
+                matchedPatterns: assessment.metrics.matchedPatterns,
+                redactionRatio: assessment.metrics.redactionRatio,
+              }
+            },
+            embedding: undefined, // placeholder
           });
         }
 
@@ -346,29 +312,32 @@ Deno.serve(async (req) => {
       let chunkIdx = 0;
       for (const chunk of chunks) {
         chunkIdx++;
-        const { content, isRedacted, redactionCount } = redactSecrets(chunk.text);
-        if (isRedacted) {
-          totalRedactions += redactionCount;
-          console.log(`[REDACTION] doc:${docLabel} chunk ${chunkIdx}: ${redactionCount} secret(s) redacted`);
+        const assessment = assessChunkRedaction(chunk.text);
+        if (assessment.metrics.secretsFound > 0) {
+          totalRedactions += assessment.metrics.secretsFound;
+          console.log(`[REDACTION] doc:${docLabel} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`);
         }
-        const hash = await sha256(content);
+        const hash = await sha256(assessment.contentToStore);
         
-        let embedding: number[] | undefined;
-        if (openAIApiKey) {
-          const vec = await generateEmbedding(content, openAIApiKey);
-          if (vec) embedding = vec;
-        }
-
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `doc:${docLabel}`,
           start_line: chunk.start,
           end_line: chunk.end,
-          content,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: isRedacted,
-          metadata: { file_type: "document", source_url: source_uri || null },
-          embedding,
+          is_redacted: assessment.isRedacted,
+          metadata: { 
+            file_type: "document", 
+            source_url: source_uri || null,
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
+          },
+          embedding: undefined,
         });
       }
     } else if (["confluence", "notion", "google_drive", "sharepoint", "jira", "linear", "openapi_spec", "postman_collection", "figma", "slack_channel", "loom_video", "pagerduty"].includes(source_type)) {
@@ -410,8 +379,26 @@ Deno.serve(async (req) => {
       console.log(`[REDACTION SUMMARY] Total redactions for source ${source_id}: ${totalRedactions}`);
     }
 
-    // Update total
-    await supabase.from("ingestion_jobs").update({ total_chunks: allChunks.length }).eq("id", jobId);
+    // Log summary for observability
+    const redactionSummary = {
+      total: allChunks.length,
+      clean: allChunks.filter(c => !c.metadata?.redaction || c.metadata.redaction.action === 'clean').length,
+      redactedAndIndexed: allChunks.filter(c => c.metadata?.redaction?.action === 'redact_and_index').length,
+      excluded: allChunks.filter(c => c.metadata?.redaction?.action === 'exclude').length,
+    };
+    console.log(`[INGESTION] Redaction summary for source ${source_id}:`, JSON.stringify(redactionSummary));
+
+    // Filter indexable chunks for embedding generation
+    const indexableChunks = allChunks.filter(c => !c.is_redacted);
+    const excludedChunks = allChunks.filter(c => c.is_redacted);
+
+    // Generate embeddings only for indexable chunks (if key exists)
+    if (openAIApiKey && indexableChunks.length > 0) {
+      console.log(`[INGESTION] Generating embeddings for ${indexableChunks.length} indexable chunks...`);
+      for (const chunk of indexableChunks) {
+        chunk.embedding = await generateEmbedding(chunk.content, openAIApiKey) || undefined;
+      }
+    }
 
     // Upsert chunks in batches
     const BATCH_SIZE = 100;

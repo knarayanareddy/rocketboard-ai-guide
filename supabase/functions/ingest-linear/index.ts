@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,15 +30,21 @@ Deno.serve(async (req) => {
 
   try {
     const { pack_id, source_id, source_config } = await req.json();
-    const { api_key, team_id } = source_config || {};
-
-    if (!api_key || !team_id) {
-      return new Response(JSON.stringify({ error: "Missing Linear configuration" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    let { api_key, team_id } = source_config || {};
+
+    // 1. Fetch api_key from Vault if missing
+    if (!api_key) {
+      api_key = await getSourceCredential(supabase, source_id, 'api_key');
+    }
+
+    if (!api_key || !team_id) {
+      return new Response(JSON.stringify({ error: "Missing Linear configuration" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: job } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
     const jobId = job!.id;
@@ -109,12 +117,21 @@ Deno.serve(async (req) => {
       let content = `# Project: ${proj.name}\n\n`;
       content += `**State**: ${proj.state || "Unknown"}\n\n`;
       if (proj.description) content += proj.description + "\n";
-      const hash = await sha256(content);
+      const assessment = assessChunkRedaction(content);
+      const hash = await sha256(assessment.contentToStore);
       chunks.push({
         chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
         path: `linear:${team.name}/${proj.name}`,
-        start_line: 1, end_line: content.split("\n").length,
-        content, content_hash: hash, is_redacted: false, pack_id, source_id,
+        start_line: 1, end_line: assessment.contentToStore.split("\n").length,
+        content: assessment.contentToStore, content_hash: hash, is_redacted: assessment.isRedacted, pack_id, source_id,
+        metadata: {
+          redaction: {
+            action: assessment.action,
+            secretsFound: assessment.metrics.secretsFound,
+            matchedPatterns: assessment.metrics.matchedPatterns,
+            redactionRatio: assessment.metrics.redactionRatio,
+          }
+        }
       });
     }
 
@@ -129,12 +146,21 @@ Deno.serve(async (req) => {
       content += "\n";
       if (issue.description) content += issue.description + "\n";
 
-      const hash = await sha256(content);
+      const assessment = assessChunkRedaction(content);
+      const hash = await sha256(assessment.contentToStore);
       chunks.push({
         chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
         path: `linear:${team.name}/${issue.project?.name || "_"}/${issue.identifier}`,
-        start_line: 1, end_line: content.split("\n").length,
-        content, content_hash: hash, is_redacted: false, pack_id, source_id,
+        start_line: 1, end_line: assessment.contentToStore.split("\n").length,
+        content: assessment.contentToStore, content_hash: hash, is_redacted: assessment.isRedacted, pack_id, source_id,
+        metadata: {
+          redaction: {
+            action: assessment.action,
+            secretsFound: assessment.metrics.secretsFound,
+            matchedPatterns: assessment.metrics.matchedPatterns,
+            redactionRatio: assessment.metrics.redactionRatio,
+          }
+        }
       });
     }
 

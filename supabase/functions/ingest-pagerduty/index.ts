@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +36,12 @@ Deno.serve(async (req) => {
 
   try {
     const { pack_id, source_id, source_config } = await req.json();
-    const {
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    let {
       api_key,
       service_ids = [],
       include_services = true,
@@ -43,15 +50,16 @@ Deno.serve(async (req) => {
       fetch_runbooks = false,
     } = source_config || {};
 
+    // 1. Fetch api_key from Vault if missing
+    if (!api_key) {
+      api_key = await getSourceCredential(supabase, source_id, 'api_key');
+    }
+
     if (!api_key) {
       return new Response(JSON.stringify({ error: "Missing PagerDuty API key" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
 
     const { data: job } = await supabase.from("ingestion_jobs")
       .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
@@ -121,21 +129,28 @@ Deno.serve(async (req) => {
           }
         }
 
-        const hash = await sha256(content);
+        const assessment = assessChunkRedaction(content);
+        const hash = await sha256(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `pagerduty:${service.name}/overview`,
           start_line: 1,
-          end_line: content.split("\n").length,
-          content,
+          end_line: assessment.contentToStore.split("\n").length,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: false,
+          is_redacted: assessment.isRedacted,
           pack_id,
           source_id,
           metadata: {
             service_id: service.id,
             service_name: service.name,
             status: service.status,
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
           },
         });
       }
@@ -179,17 +194,26 @@ Deno.serve(async (req) => {
           content += `- **${policy}**: ${users.join(", ")}\n`;
         }
 
-        const hash = await sha256(content);
+        const assessment = assessChunkRedaction(content);
+        const hash = await sha256(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `pagerduty:oncall/structure`,
           start_line: 1,
-          end_line: content.split("\n").length,
-          content,
+          end_line: assessment.contentToStore.split("\n").length,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: false,
+          is_redacted: assessment.isRedacted,
           pack_id,
           source_id,
+          metadata: {
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
+          }
         });
       } catch (err) {
         console.error("Failed to fetch on-call data:", err);
@@ -247,20 +271,27 @@ Deno.serve(async (req) => {
             content += `\n**Average resolution time**: ${avgResolveTime} minutes\n`;
           }
 
-          const hash = await sha256(content);
+          const assessment = assessChunkRedaction(content);
+          const hash = await sha256(assessment.contentToStore);
           chunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `pagerduty:incidents/patterns`,
             start_line: 1,
-            end_line: content.split("\n").length,
-            content,
+            end_line: assessment.contentToStore.split("\n").length,
+            content: assessment.contentToStore,
             content_hash: hash,
-            is_redacted: false,
+            is_redacted: assessment.isRedacted,
             pack_id,
             source_id,
             metadata: {
               incident_count: incidents.length,
               period_days: 30,
+              redaction: {
+                action: assessment.action,
+                secretsFound: assessment.metrics.secretsFound,
+                matchedPatterns: assessment.metrics.matchedPatterns,
+                redactionRatio: assessment.metrics.redactionRatio,
+              }
             },
           });
         }

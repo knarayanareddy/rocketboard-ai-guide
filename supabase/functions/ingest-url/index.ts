@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -190,16 +191,28 @@ Deno.serve(async (req) => {
         const chunks = chunkWords(pageContent);
         for (const chunk of chunks) {
           chunkIdx++;
-          const hash = await sha256(chunk.text);
+          const assessment = assessChunkRedaction(chunk.text);
+          if (assessment.action === "exclude") continue;
+
+          const hash = await sha256(assessment.contentToStore);
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `url:${baseDomain}${urlPath}`,
             start_line: chunk.start,
             end_line: chunk.end,
-            content: chunk.text,
+            content: assessment.contentToStore,
             content_hash: hash,
-            is_redacted: false,
-            metadata: { source_url: current.url, page_title: title },
+            is_redacted: assessment.isRedacted,
+            metadata: { 
+              source_url: current.url, 
+              page_title: title,
+              redaction: {
+                action: assessment.action,
+                secretsFound: assessment.metrics.secretsFound,
+                matchedPatterns: assessment.metrics.matchedPatterns,
+                redactionRatio: assessment.metrics.redactionRatio,
+              }
+            },
           });
         }
 

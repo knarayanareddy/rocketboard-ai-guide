@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -180,15 +181,18 @@ Deno.serve(async (req) => {
           content += `**Segment ${i + 1}/${videoChunks.length}** (${formatDuration(chunk.start)} - ${formatDuration(chunk.end)})\n\n`;
           content += chunk.text + "\n";
           
-          const hash = await sha256(content);
+          const assessment = assessChunkRedaction(content);
+          if (assessment.action === "exclude") continue;
+
+          const hash = await sha256(assessment.contentToStore);
           chunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `loom:${video.title || video.id}/${i + 1}`,
             start_line: 1,
-            end_line: content.split("\n").length,
-            content,
+            end_line: assessment.contentToStore.split("\n").length,
+            content: assessment.contentToStore,
             content_hash: hash,
-            is_redacted: false,
+            is_redacted: assessment.isRedacted,
             pack_id,
             source_id,
             metadata: {
@@ -198,6 +202,12 @@ Deno.serve(async (req) => {
               segment_index: i,
               segment_start: chunk.start,
               segment_end: chunk.end,
+              redaction: {
+                action: assessment.action,
+                secretsFound: assessment.metrics.secretsFound,
+                matchedPatterns: assessment.metrics.matchedPatterns,
+                redactionRatio: assessment.metrics.redactionRatio,
+              }
             },
           });
         }
@@ -226,15 +236,18 @@ Deno.serve(async (req) => {
         content += `**Segment ${i + 1}/${videoChunks.length}** (${formatDuration(chunk.start)} - ${formatDuration(chunk.end)})\n\n`;
         content += chunk.text + "\n";
         
-        const hash = await sha256(content);
+        const assessment = assessChunkRedaction(content);
+        if (assessment.action === "exclude") continue;
+
+        const hash = await sha256(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `loom:${title}/${i + 1}`,
           start_line: 1,
-          end_line: content.split("\n").length,
-          content,
+          end_line: assessment.contentToStore.split("\n").length,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: false,
+          is_redacted: assessment.isRedacted,
           pack_id,
           source_id,
           metadata: {
@@ -243,6 +256,12 @@ Deno.serve(async (req) => {
             segment_index: i,
             segment_start: chunk.start,
             segment_end: chunk.end,
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
           },
         });
       }

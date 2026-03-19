@@ -7,6 +7,7 @@ import { batchRerankWithLLM } from "./reranker.ts";
 import { verifyGroundedness, verifyClaims } from "./verifier.ts";
 import { canonicalizeCitations } from "./utils/citation-mapper.ts";
 import { resolveSnippets } from "./utils/snippet-resolver.ts";
+import { redactText as sharedRedactText } from "../_shared/secret-patterns.ts";
 
 /**
  * Structural Code Enforcement: Block unauthorized repo code fences.
@@ -70,34 +71,10 @@ setInterval(() => {
 
 const LANGFUSE_SAMPLE_RATE = Number(Deno.env.get("LANGFUSE_SAMPLE_RATE") || "1.0");
 
-// ─── SECRET REDACTION PATTERNS (second-pass) ───
-const REDACTION_PATTERNS = [
-  /AKIA[0-9A-Z]{16}/g,
-  /(?:aws_secret_access_key|aws_secret|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
-  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-  /Bearer\s+[A-Za-z0-9_\-.~+\/]{20,}/g,
-  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
-  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
-  /^(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DB_PASS|API_KEY|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL|DB_PASSWORD)\s*=\s*\S+/gmi,
-  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
-  /sk-[A-Za-z0-9]{32,}/g,
-  /xox[bpas]-[A-Za-z0-9-]{10,}/g,
-  /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
-  /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
-  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
-];
-
+// ─── SECRET REDACTION (shared with ingestion) ───
 function redactText(text: string): { text: string; wasRedacted: boolean } {
-  let result = text;
-  let wasRedacted = false;
-  for (const pattern of REDACTION_PATTERNS) {
-    pattern.lastIndex = 0;
-    const newText = result.replace(pattern, "***REDACTED***");
-    if (newText !== result) wasRedacted = true;
-    result = newText;
-  }
-  return { text: result, wasRedacted };
+  const result = sharedRedactText(text);
+  return { text: result.redactedText, wasRedacted: result.secretsFound > 0 };
 }
 
 function redactSpans(spans: any[]): { spans: any[]; warnings: string[] } {

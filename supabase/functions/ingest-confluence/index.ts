@@ -1,39 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Reuse secret redaction from ingest-source
-const REDACTION_PATTERNS = [
-  /AKIA[0-9A-Z]{16}/g,
-  /(?:aws_secret_access_key|aws_secret|secret_key)\s*[=:]\s*['"]?[A-Za-z0-9/+=]{40}['"]?/gi,
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
-  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-  /Bearer\s+[A-Za-z0-9_\-.~+\/]{20,}/g,
-  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
-  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
-  /^(?:SECRET|PASSWORD|TOKEN|PRIVATE_KEY|DB_PASS|API_KEY|AUTH_SECRET|ENCRYPTION_KEY|DATABASE_URL|DB_PASSWORD)\s*=\s*\S+/gmi,
-  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
-  /sk-[A-Za-z0-9]{32,}/g,
-  /xox[bpas]-[A-Za-z0-9-]{10,}/g,
-  /(?:password|passwd|pwd)\s*[=:]\s*['"]?[^\s'"]{8,}['"]?/gi,
-  /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
-  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
-];
-
-function redactSecrets(text: string): { content: string; isRedacted: boolean } {
-  let redacted = text;
-  let wasRedacted = false;
-  for (const pattern of REDACTION_PATTERNS) {
-    pattern.lastIndex = 0;
-    const newText = redacted.replace(pattern, "***REDACTED***");
-    if (newText !== redacted) wasRedacted = true;
-    redacted = newText;
-  }
-  return { content: redacted, isRedacted: wasRedacted };
-}
+// Redaction now handled by centralized secret-patterns.ts
 
 function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
   const words = text.split(/\s+/);
@@ -192,16 +166,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { base_url, space_key, auth_email, api_token } = source_config;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    let { base_url, space_key, auth_email, api_token } = source_config;
+    
+    // 1. Fetch api_token from Vault if missing
+    if (!api_token) {
+      api_token = await getSourceCredential(supabase, source_id, 'api_token');
+    }
+
     if (!base_url || !space_key || !auth_email || !api_token) {
       return new Response(JSON.stringify({ error: "Missing Confluence credentials" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
 
     // Create ingestion job
     const { data: job, error: jobErr } = await supabase
@@ -234,17 +214,25 @@ Deno.serve(async (req) => {
       const wordChunks = chunkWords(markdown);
       for (const chunk of wordChunks) {
         chunkIdx++;
-        const { content, isRedacted } = redactSecrets(chunk.text);
-        const hash = await sha256(content);
+        const assessment = assessChunkRedaction(chunk.text);
+        const hash = await sha256(assessment.contentToStore);
 
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `confluence:${space_key}/${title}`,
           start_line: chunk.start,
           end_line: chunk.end,
-          content,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: isRedacted,
+          is_redacted: assessment.isRedacted,
+          metadata: {
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
+          }
         });
       }
 

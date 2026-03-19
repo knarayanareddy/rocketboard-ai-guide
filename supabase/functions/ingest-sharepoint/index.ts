@@ -1,34 +1,11 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import mammoth from "https://esm.sh/mammoth@1?bundle";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const REDACTION_PATTERNS = [
-  /AKIA[0-9A-Z]{16}/g,
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
-  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
-  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
-  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
-  /sk-[A-Za-z0-9]{32,}/g,
-  /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
-  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
-];
-
-function redactSecrets(text: string): { content: string; isRedacted: boolean } {
-  let redacted = text;
-  let wasRedacted = false;
-  for (const pattern of REDACTION_PATTERNS) {
-    pattern.lastIndex = 0;
-    const newText = redacted.replace(pattern, "***REDACTED***");
-    if (newText !== redacted) wasRedacted = true;
-    redacted = newText;
-  }
-  return { content: redacted, isRedacted: wasRedacted };
-}
 
 function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -249,17 +226,29 @@ Deno.serve(async (req) => {
       const wordChunks = chunkWords(content);
       for (const chunk of wordChunks) {
         chunkIdx++;
-        const { content: redacted, isRedacted } = redactSecrets(chunk.text);
-        const hash = await sha256(redacted);
+        const assessment = assessChunkRedaction(chunk.text);
+        if (assessment.action === "exclude") continue;
+
+        const hash = await sha256(assessment.contentToStore);
 
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `sharepoint:${document_library || "Documents"}/${file.path}`,
           start_line: chunk.start,
           end_line: chunk.end,
-          content: redacted,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: isRedacted,
+          is_redacted: assessment.isRedacted,
+          metadata: {
+            file_name: file.name,
+            mime_type: file.mimeType,
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
+          }
         });
       }
 

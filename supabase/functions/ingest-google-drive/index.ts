@@ -1,33 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const REDACTION_PATTERNS = [
-  /AKIA[0-9A-Z]{16}/g,
-  /['"]?(?:api[_-]?key|apikey|api[_-]?secret|secret[_-]?key)['"]?\s*[:=]\s*['"][^'"]{16,}['"]/gi,
-  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-  /(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s'"}{]+/gi,
-  /-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+)?PRIVATE\s+KEY-----/g,
-  /gh[pousr]_[A-Za-z0-9_]{36,}/g,
-  /sk-[A-Za-z0-9]{32,}/g,
-  /(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{20,}/g,
-  /(?:secret|token|password|key)\s*[:=]\s*['"]?[A-Za-z0-9+\/=_-]{32,}['"]?/gi,
-];
-
-function redactSecrets(text: string): { content: string; isRedacted: boolean } {
-  let redacted = text;
-  let wasRedacted = false;
-  for (const pattern of REDACTION_PATTERNS) {
-    pattern.lastIndex = 0;
-    const newText = redacted.replace(pattern, "***REDACTED***");
-    if (newText !== redacted) wasRedacted = true;
-    redacted = newText;
-  }
-  return { content: redacted, isRedacted: wasRedacted };
-}
+// Redaction now handled by centralized secret-patterns.ts
 
 function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -224,11 +204,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { folder_id, service_account_key, auth_method } = source_config;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    let { folder_id, service_account_key, auth_method } = source_config;
     if (!folder_id) {
       return new Response(JSON.stringify({ error: "Missing folder ID" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 1. Fetch service_account_key from Vault if needed and missing
+    if (auth_method === "service_account" && !service_account_key) {
+      service_account_key = await getSourceCredential(supabase, source_id, 'service_account_key');
     }
 
     let accessToken: string;
@@ -292,10 +281,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
-
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
       .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
@@ -346,17 +331,25 @@ Deno.serve(async (req) => {
       const wordChunks = chunkWords(content);
       for (const chunk of wordChunks) {
         chunkIdx++;
-        const { content: redacted, isRedacted } = redactSecrets(chunk.text);
-        const hash = await sha256(redacted);
+        const assessment = assessChunkRedaction(chunk.text);
+        const hash = await sha256(assessment.contentToStore);
 
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `gdrive:${fileName}`,
           start_line: chunk.start,
-          end_line: chunk.end,
-          content: redacted,
+          end_line: assessment.contentToStore.split("\n").length,
+          content: assessment.contentToStore,
           content_hash: hash,
-          is_redacted: isRedacted,
+          is_redacted: assessment.isRedacted,
+          metadata: {
+            redaction: {
+              action: assessment.action,
+              secretsFound: assessment.metrics.secretsFound,
+              matchedPatterns: assessment.metrics.matchedPatterns,
+              redactionRatio: assessment.metrics.redactionRatio,
+            }
+          }
         });
       }
 

@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSourceCredential } from "../_shared/credentials.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,15 +36,21 @@ Deno.serve(async (req) => {
 
   try {
     const { pack_id, source_id, source_config } = await req.json();
-    const { base_url, project_key, auth_email, api_token, max_issues = 200, include_epics = true, include_recent = true, include_comments = false, include_resolved = false } = source_config || {};
-
-    if (!base_url || !project_key || !auth_email || !api_token) {
-      return new Response(JSON.stringify({ error: "Missing Jira configuration" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    let { base_url, project_key, auth_email, api_token, max_issues = 200, include_epics = true, include_recent = true, include_comments = false, include_resolved = false } = source_config || {};
+
+    // 1. Fetch api_token from Vault if missing
+    if (!api_token) {
+      api_token = await getSourceCredential(supabase, source_id, 'api_token');
+    }
+
+    if (!base_url || !project_key || !auth_email || !api_token) {
+      return new Response(JSON.stringify({ error: "Missing Jira configuration" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: job } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
     const jobId = job!.id;
@@ -98,17 +106,26 @@ Deno.serve(async (req) => {
         }
       }
 
-      const hash = await sha256(content);
+      const assessment = assessChunkRedaction(content);
+      const hash = await sha256(assessment.contentToStore);
       chunks.push({
         chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
         path: `jira:${project_key}/${issue.key}`,
         start_line: 1,
-        end_line: content.split("\n").length,
-        content,
+        end_line: assessment.contentToStore.split("\n").length,
+        content: assessment.contentToStore,
         content_hash: hash,
-        is_redacted: false,
+        is_redacted: assessment.isRedacted,
         pack_id,
         source_id,
+        metadata: {
+          redaction: {
+            action: assessment.action,
+            secretsFound: assessment.metrics.secretsFound,
+            matchedPatterns: assessment.metrics.matchedPatterns,
+            redactionRatio: assessment.metrics.redactionRatio,
+          }
+        }
       });
 
       if (chunkIdx % 20 === 0) {

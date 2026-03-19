@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { astChunk } from "../_shared/ast-chunker.ts";
+import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,14 +96,17 @@ Deno.serve(async (req) => {
         const chunkBatch = [];
 
         for (const c of chunks) {
-          const embedding = await generateEmbedding(c.text, openAIApiKey);
+          const assessment = assessChunkRedaction(c.text);
+          if (assessment.action === "exclude") continue;
+
+          const embedding = await generateEmbedding(assessment.contentToStore, openAIApiKey);
           chunkBatch.push({
             org_id,
             pack_id,
             source_id: source.id,
             chunk_id: `G-${generation_id.slice(0,8)}-${processedFiles}-${chunkBatch.length}`,
             path: filepath,
-            content: c.text,
+            content: assessment.contentToStore,
             entity_type: c.metadata.entity_type,
             entity_name: c.metadata.entity_name,
             signature: c.metadata.signature,
@@ -110,9 +114,18 @@ Deno.serve(async (req) => {
             line_end: c.metadata.line_end,
             generation_id,
             embedding,
+            is_redacted: assessment.isRedacted,
             imports: c.metadata.imports || [],
             exported_names: c.metadata.exported_names || [],
-            metadata: { ...c.metadata }
+            metadata: { 
+              ...c.metadata,
+              redaction: {
+                action: assessment.action,
+                secretsFound: assessment.metrics.secretsFound,
+                matchedPatterns: assessment.metrics.matchedPatterns,
+                redactionRatio: assessment.metrics.redactionRatio,
+              }
+            }
           });
         }
 
