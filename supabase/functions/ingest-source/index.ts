@@ -3,6 +3,10 @@ import { astChunk } from "../_shared/ast-chunker.ts";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
+import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,11 +115,7 @@ function chunkWords(text: string, wordCount = 500): { start: number; end: number
   return chunks;
 }
 
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// Local sha256 removed in favor of computeContentHash
 
 async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
   if (!apiKey) return null;
@@ -190,8 +190,19 @@ Deno.serve(async (req) => {
   let source_id: string | undefined;
   try {
     const body = await req.json();
-    const { pack_id, source_type, source_uri, document_content, label, source_config } = body;
+    const { pack_id, source_type, source_uri, document_content, label, source_config, org_id } = body;
     source_id = body.source_id;
+
+    // Initialize Trace (Strategic Sampling)
+    const trace = createTrace({
+      serviceName: 'ingest-source',
+      taskType: 'ingestion',
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      sourceId: source_id,
+      orgId: org_id,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
 
     if (!pack_id || !source_id || !source_type) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -203,16 +214,42 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Create ingestion job
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
+        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return new Response(JSON.stringify({ error: cap.error }), {
+        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 3. Create ingestion job
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
-      .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
+      .insert({ 
+        pack_id, 
+        source_id, 
+        status: "processing", 
+        started_at: new Date().toISOString(),
+        retry_count: guard.retry_count || 0
+      })
       .select()
       .single();
     if (jobErr) throw jobErr;
 
-    const jobId = job.id;
-    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[]; entity_type?: string; entity_name?: string; signature?: string; imports?: string[]; exported_names?: string[] }[] = [];
+    let jobId: string | undefined;
+    if (job) jobId = job.id;
+    if (!jobId) throw new Error("Failed to create ingestion job");
+
+    trace.updateMetadata({ jobId });
+    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[]; entity_type?: string; entity_name?: string; signature?: string; imports?: string[]; exported_names?: string[]; ingestion_job_id?: string }[] = [];
     let totalRedactions = 0;
     
     // We will attempt to get an OpenAI API key (or Lovable fallback) for embeddings
@@ -239,15 +276,23 @@ Deno.serve(async (req) => {
       if (!match) throw new Error("Invalid GitHub repo URL");
       const [, owner, repo] = match;
       
-      // 1. Try to get token from Vault
-      let githubToken = await getSourceCredential(supabase, source_id, 'api_token');
-      
-      // 2. Fallback to Env Var (for system-wide or legacy support)
-      if (!githubToken) {
-        githubToken = Deno.env.get("GITHUB_TOKEN");
+      const fetchTreeSpan = trace.startSpan("fetch_tree", { owner, repo });
+      let files: string[] = [];
+      try {
+        // 1. Try to get token from Vault
+        let githubToken = await getSourceCredential(supabase, source_id, 'api_token');
+        
+        // 2. Fallback to Env Var (for system-wide or legacy support)
+        if (!githubToken) {
+          githubToken = Deno.env.get("GITHUB_TOKEN");
+        }
+        
+        files = await fetchGitHubTree(owner, repo.replace(/\.git$/, ""), githubToken || undefined);
+        fetchTreeSpan.end({ count: files.length });
+      } catch (err: any) {
+        fetchTreeSpan.error(err.message);
+        throw err;
       }
-      
-      const files = await fetchGitHubTree(owner, repo.replace(/\.git$/, ""), githubToken || undefined);
 
       // Check for CODEOWNERS
       const codeownersPath = files.find(f => f.endsWith("CODEOWNERS") || f === ".github/CODEOWNERS" || f === "docs/CODEOWNERS");
@@ -282,13 +327,17 @@ Deno.serve(async (req) => {
 
         for (const chunk of astChunks) {
           chunkIdx++;
+          // Check per-run cap
+          if (chunkIdx > getRunCap()) {
+            throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+          }
           const assessment = assessChunkRedaction(chunk.text);
           if (assessment.metrics.secretsFound > 0) {
             totalRedactions += assessment.metrics.secretsFound;
             console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`);
           }
 
-          const hash = await sha256(assessment.contentToStore);
+          const hash = await computeContentHash(assessment.contentToStore);
           
           allChunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
@@ -314,6 +363,7 @@ Deno.serve(async (req) => {
               }
             },
             embedding: undefined, // placeholder
+            ingestion_job_id: jobId,
           });
         }
 
@@ -321,6 +371,12 @@ Deno.serve(async (req) => {
           await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
         }
       }
+      trace.addSpan({ 
+        name: "chunk_summary", 
+        startTime: Date.now(), 
+        endTime: Date.now(), 
+        output: { total_chunks: allChunks.length, total_redactions } 
+      });
     } else if (source_type === "document") {
       const text = document_content || "";
       const docLabel = label || source_uri || "untitled";
@@ -334,7 +390,7 @@ Deno.serve(async (req) => {
           totalRedactions += assessment.metrics.secretsFound;
           console.log(`[REDACTION] doc:${docLabel} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`);
         }
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
         
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
@@ -355,6 +411,7 @@ Deno.serve(async (req) => {
             }
           },
           embedding: undefined,
+          ingestion_job_id: jobId,
         });
       }
     } else if (["confluence", "notion", "google_drive", "sharepoint", "jira", "linear", "openapi_spec", "postman_collection", "figma", "slack_channel", "loom_video", "pagerduty"].includes(source_type)) {
@@ -409,15 +466,21 @@ Deno.serve(async (req) => {
     const indexableChunks = allChunks.filter(c => !c.is_redacted);
     const excludedChunks = allChunks.filter(c => c.is_redacted);
 
-    // Generate embeddings only for indexable chunks (if key exists)
-    if (openAIApiKey && indexableChunks.length > 0) {
-      console.log(`[INGESTION] Generating embeddings for ${indexableChunks.length} indexable chunks...`);
-      for (const chunk of indexableChunks) {
-        chunk.embedding = await generateEmbedding(chunk.content, openAIApiKey) || undefined;
-      }
-    }
+    const embedSpan = trace.startSpan("process_embeddings", { count: allChunks.length });
+
+    // 1. Handle Embeddings (Reuse + Generation)
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      allChunks,
+      openAIApiKey
+    );
+    embedSpan.end({ reusedCount, generatedCount });
+    if (generatedCount > 0) trace.enable(); // Strategic: trace if cost incurred
 
     // Upsert chunks in batches
+    const upsertSpan = trace.startSpan("db_upsert_batch", { total: allChunks.length });
     const BATCH_SIZE = 100;
     let processed = 0;
     for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
@@ -438,6 +501,7 @@ Deno.serve(async (req) => {
       processed += batch.length;
       await supabase.from("ingestion_jobs").update({ processed_chunks: processed }).eq("id", jobId);
     }
+    upsertSpan.end({ processed });
 
     // Update source last_synced_at
     await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
@@ -447,12 +511,23 @@ Deno.serve(async (req) => {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: allChunks.length,
+        indexable_chunks: indexableChunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount,
+        redaction_summary: redactionSummary,
+        trace_id: trace.getTraceId()
+      }
     }).eq("id", jobId);
+
+    // Finalize trace
+    await trace.flush();
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, redactions: totalRedactions }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Ingestion error:", err);
 
     // Mark the job as failed so the UI doesn't show a stuck spinner
@@ -461,20 +536,36 @@ Deno.serve(async (req) => {
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
+      
       if (source_id) {
         await supabase
           .from("ingestion_jobs")
           .update({
             status: "failed",
             completed_at: new Date().toISOString(),
-            error_message: ((err as Error).message ?? "Unknown error").slice(0, 500),
+            error_message: (err.message ?? "Unknown error").slice(0, 500),
+            last_error_at: new Date().toISOString(),
+            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
           })
           .eq("source_id", source_id)
           .eq("status", "processing");
-      }
-    } catch { /* ignore secondary failure */ }
 
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+        // CLEANUP: Delete partial chunks for this failed job
+        if (typeof jobId !== "undefined") {
+          console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
+          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+        }
+      }
+    } catch (innerErr) {
+       console.error("Secondary failure in catch block:", innerErr);
+    }
+
+    if (typeof trace !== "undefined") {
+      trace.setError(err.message).enable();
+      await trace.flush();
+    }
+
+    return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

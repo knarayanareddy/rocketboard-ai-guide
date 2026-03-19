@@ -90,21 +90,21 @@ The central AI orchestration engine. Every request goes through input sanitizati
 - **Zero-knowledge encryption** via `pgcrypto` AES-256 ensures maximum security.
 
 ### 📦 Source Ingestion (13 Connectors)
-Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them for retrieval.
+Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them for retrieval. Every outbound request is protected by a **Titanium SSRF Guard**.
 
-- **GitHub** — repos via OAuth, with webhook-driven staleness detection
-- **Confluence** / **Notion** / **SharePoint** / **Google Drive** — documentation
-- **Slack** / **Linear** / **Jira** / **PagerDuty** — operational context
-- **Figma** / **Loom** / **Postman** / **OpenAPI** — design & API specs
-- **URL** — arbitrary web pages
+- **GitHub** — repos via OAuth, with webhook-driven staleness detection & URL validation.
+- **Confluence** / **Notion** / **SharePoint** / **Google Drive** — documentation with strict host allowlisting.
+- **Slack** / **Linear** / **Jira** / **PagerDuty** — operational context with hardcoded API boundaries.
+- **Figma** / **Loom** / **Postman** / **OpenAPI** — design & API specs with recursive link validation.
+- **URL** — arbitrary web pages with deep-crawl SSRF protection.
 
 ### 🔍 Hybrid Search (pgvector + Full-Text)
 Evidence retrieval uses `hybrid_search_v2` RPC which is **Titanium-Hardened**:
-- **Semantic similarity** via pgvector embeddings
-- **Full-text search** via PostgreSQL `websearch_to_tsquery` (Safe, complex parsing)
-- **AST Meta-tagging** — exact matches for function signatures, exports, and types extracted via tree-sitter
-- **Agentic Multi-Query** — AI generates 3-5 query variants to maximize recall
-- **Defensive Shielding** — 50-span hard caps and query clamping to prevent abuse
+- **Semantic similarity** via pgvector embeddings.
+- **Full-text search** via PostgreSQL `websearch_to_tsquery` (Safe, complex parsing).
+- **AST Meta-tagging** — exact matches for function signatures, exports, and types extracted via **Integrity-Verified** tree-sitter.
+- **Agentic Multi-Query** — AI generates 3-5 query variants to maximize recall.
+- **Defensive Shielding** — SSRF validation for AI-service endpoints, 50-span hard caps, and query clamping.
 
 ### 🎯 Interactive Chat Citations
 AI responses include inline citation badges (`[S1]`, `[S2]`) that are fully interactive:
@@ -247,12 +247,13 @@ supabase/
 
 ## Security
 
-- **JWT Authentication** on all Edge Functions (except legacy `module-chat`)
-- **Rate limiting** — 30 requests/minute per user in `ai-task-router`
-- **Input sanitization** — author instructions capped at 2k chars, evidence spans at 50/100k chars, conversation at 50 messages
-- **Secret redaction** — 12 regex patterns strip AWS keys, JWTs, connection strings, GitHub tokens, API keys before AI processing
-- **RLS** on every Supabase table with **Pack-Scoped** isolation for knowledge chunks
-- **Pack authorization** — author tasks require `author` role, learner tasks require `learner` role
+- **JWT Authentication** on all Edge Functions (except legacy `module-chat`).
+- **Titanium SSRF Guard** — All outbound `fetch()` calls in connectors and AI routing are validated by `parseAndValidateExternalUrl`. Blocks Localhost, Private IPs (RFC 1918), and Link-Local (RFC 3927) bypasses.
+- **Concurrent Job Locking** — Database-backed lease locks prevent reindex jobs for the same pack from racing and corrupting generation pinning.
+- **Supply-Chain Integrity** — Tree-sitter WASM grammars are pinned to v0.1.11, verified with SHA256 hashes, and support local vendoring to eliminate CDN outages.
+- **Rate limiting** — 30 requests/minute per user in `ai-task-router`.
+- **Secret Redaction** — 14 regex patterns (centralized in `secret-patterns.ts`) strip AWS keys, JWTs, connection strings, GitHub tokens, and API keys before AI processing.
+- **RLS** on every Supabase table with **Pack-Scoped** isolation for knowledge chunks.
 
 ---
 

@@ -1,17 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// Local sha256 removed in favor of computeContentHash
 
 function extractTextNodes(node: any, depth = 0): string[] {
   const texts: string[] = [];
@@ -53,6 +52,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     let { file_key, personal_access_token, include_components = true, include_comments = true, include_layer_structure = false } = source_config || {};
 
@@ -75,8 +75,25 @@ Deno.serve(async (req) => {
     const fileName = fileData.name || file_key;
     const pages = fileData.document?.children || [];
 
-    const { data: job } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
-    const jobId = job!.id;
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
+        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return new Response(JSON.stringify({ error: cap.error }), {
+        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: job, error: jobErr } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
+    if (jobErr) throw jobErr;
+    const jobId = job.id;
 
     const chunks: any[] = [];
     let chunkIdx = 0;
@@ -86,6 +103,10 @@ Deno.serve(async (req) => {
 
       for (const frame of topFrames) {
         chunkIdx++;
+        // Check per-run cap
+        if (chunkIdx > getRunCap()) {
+          throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+        }
         let content = `# ${fileName} — ${page.name} / ${frame.name}\n\n`;
         content += `**Type**: ${frame.type}\n`;
 
@@ -116,7 +137,7 @@ Deno.serve(async (req) => {
         }
 
         const assessment = assessChunkRedaction(content);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `figma:${fileName}/${page.name}/${frame.name}`,
@@ -149,7 +170,7 @@ Deno.serve(async (req) => {
             content += "\n";
           }
           const assessment = assessChunkRedaction(content);
-          const hash = await sha256(assessment.contentToStore);
+          const hash = await computeContentHash(assessment.contentToStore);
           chunks.push({
             chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
             path: `figma:${fileName}/comments`,
@@ -170,12 +191,30 @@ Deno.serve(async (req) => {
 
     await supabase.from("ingestion_jobs").update({ total_chunks: chunks.length }).eq("id", jobId);
 
+    // 4. Handle Embeddings (Reuse + Generation)
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      chunks,
+      openAIApiKey
+    );
+
     for (let i = 0; i < chunks.length; i += 100) {
       await supabase.from("knowledge_chunks").upsert(chunks.slice(i, i + 100), { onConflict: "pack_id,chunk_id" });
     }
 
     await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
-    await supabase.from("ingestion_jobs").update({ status: "completed", processed_chunks: chunks.length, completed_at: new Date().toISOString() }).eq("id", jobId);
+    await supabase.from("ingestion_jobs").update({
+      status: "completed",
+      processed_chunks: chunks.length,
+      completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: chunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount
+      }
+    }).eq("id", jobId);
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: chunks.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {

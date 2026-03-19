@@ -2,6 +2,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash, computeDeterministicChunkId } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
+import { normalizeConfluenceHtmlToMarkdown } from "../_shared/content-normalizers.ts";
+import { chunkMarkdownByHeadings } from "../_shared/smart-chunker.ts";
+import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,61 +16,7 @@ const corsHeaders = {
 
 // Redaction now handled by centralized secret-patterns.ts
 
-function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
-  const words = text.split(/\s+/);
-  const chunks: { start: number; end: number; text: string }[] = [];
-  let i = 0;
-  let lineEstimate = 1;
-  while (i < words.length) {
-    const end = Math.min(i + wordCount, words.length);
-    const chunk = words.slice(i, end).join(" ");
-    const lines = chunk.split("\n").length;
-    chunks.push({ start: lineEstimate, end: lineEstimate + lines - 1, text: chunk });
-    lineEstimate += lines;
-    i = end;
-  }
-  return chunks;
-}
-
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Convert Confluence storage format HTML to markdown-ish plain text
-function htmlToMarkdown(html: string): string {
-  let text = html;
-  // Headers
-  text = text.replace(/<h1[^>]*>(.*?)<\/h1>/gi, "\n# $1\n");
-  text = text.replace(/<h2[^>]*>(.*?)<\/h2>/gi, "\n## $1\n");
-  text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, "\n### $1\n");
-  text = text.replace(/<h4[^>]*>(.*?)<\/h4>/gi, "\n#### $1\n");
-  // Code blocks
-  text = text.replace(/<ac:structured-macro[^>]*ac:name="code"[^>]*>[\s\S]*?<ac:plain-text-body><!\[CDATA\[([\s\S]*?)\]\]><\/ac:plain-text-body>[\s\S]*?<\/ac:structured-macro>/gi, "\n```\n$1\n```\n");
-  // Lists
-  text = text.replace(/<li[^>]*>(.*?)<\/li>/gi, "- $1\n");
-  // Paragraphs
-  text = text.replace(/<p[^>]*>(.*?)<\/p>/gi, "$1\n\n");
-  // Line breaks
-  text = text.replace(/<br\s*\/?>/gi, "\n");
-  // Bold/italic
-  text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, "**$1**");
-  text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, "*$1*");
-  // Images
-  text = text.replace(/<ac:image[^>]*>[\s\S]*?<ri:attachment ri:filename="([^"]*)"[^>]*\/>[\s\S]*?<\/ac:image>/gi, "[image: $1]");
-  text = text.replace(/<img[^>]*alt="([^"]*)"[^>]*\/?>/gi, "[image: $1]");
-  text = text.replace(/<img[^>]*\/?>/gi, "[image]");
-  // Strip remaining tags
-  text = text.replace(/<[^>]+>/g, "");
-  // Clean up whitespace
-  text = text.replace(/&nbsp;/g, " ");
-  text = text.replace(/&lt;/g, "<");
-  text = text.replace(/&gt;/g, ">");
-  text = text.replace(/&amp;/g, "&");
-  text = text.replace(/\n{3,}/g, "\n\n");
-  return text.trim();
-}
+// Normalization and chunking moved to shared modules
 
 async function fetchAllPages(baseUrl: string, spaceKey: string, auth: string): Promise<any[]> {
   const pages: any[] = [];
@@ -154,12 +106,27 @@ async function fetchAllPagesV1(baseUrl: string, spaceKey: string, auth: string):
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  let source_id: string | undefined;
+  let jobId: string | undefined;
+  let trace: any;
 
   try {
-    const { pack_id, source_id, source_config } = await req.json();
+    const body = await req.json();
+    source_id = body.source_id;
+    const { pack_id, source_config, org_id } = body;
+
+    // Initialize Trace (Strategic Sampling)
+    trace = createTrace({
+      serviceName: 'ingest-confluence',
+      taskType: 'ingestion',
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      sourceId: source_id,
+      orgId: org_id,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
 
     if (!pack_id || !source_id || !source_config) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -170,6 +137,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     let { base_url, space_key, auth_email, api_token } = source_config;
     
@@ -202,20 +170,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create ingestion job
+    // 3. Create ingestion job
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
-      .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
+      .insert({ 
+        pack_id, 
+        source_id, 
+        status: "processing", 
+        started_at: new Date().toISOString(),
+        retry_count: guard.retry_count || 0
+      })
       .select()
       .single();
     if (jobErr) throw jobErr;
-    const jobId = job.id;
+    jobId = job.id;
+    trace.updateMetadata({ jobId });
 
     const cleanUrl = validatedBaseUrl;
     const auth = btoa(`${auth_email}:${api_token}`);
 
     console.log(`[Confluence] Fetching pages from space ${space_key}...`);
+    const fetchSpan = trace.startSpan("fetch_pages", { space_key });
     const pages = await fetchAllPages(cleanUrl, space_key, auth);
+    fetchSpan.end({ count: pages.length });
     console.log(`[Confluence] Found ${pages.length} pages`);
 
     await supabase.from("ingestion_jobs").update({ total_chunks: pages.length }).eq("id", jobId);
@@ -226,19 +203,25 @@ Deno.serve(async (req) => {
     for (const page of pages) {
       const title = page.title || "Untitled";
       const htmlContent = page.body?.storage?.value || "";
-      const markdown = htmlToMarkdown(htmlContent);
+      const markdown = normalizeConfluenceHtmlToMarkdown(htmlContent);
 
       if (!markdown.trim()) continue;
 
-      const wordChunks = chunkWords(markdown);
-      for (const chunk of wordChunks) {
+      const pagePath = `confluence:${space_key}/${title}`;
+      const structuralChunks = chunkMarkdownByHeadings(markdown);
+      for (const chunk of structuralChunks) {
         chunkIdx++;
+        // Check per-run cap
+        if (chunkIdx > getRunCap()) {
+          throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+        }
         const assessment = assessChunkRedaction(chunk.text);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
+        const chunkId = await computeDeterministicChunkId(pagePath, chunk.start, chunk.end, hash);
 
         allChunks.push({
-          chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
-          path: `confluence:${space_key}/${title}`,
+          chunk_id: chunkId,
+          path: pagePath,
           start_line: chunk.start,
           end_line: chunk.end,
           content: assessment.contentToStore,
@@ -250,7 +233,8 @@ Deno.serve(async (req) => {
               secretsFound: assessment.metrics.secretsFound,
               matchedPatterns: assessment.metrics.matchedPatterns,
               redactionRatio: assessment.metrics.redactionRatio,
-            }
+            },
+            ingestion_job_id: jobId,
           }
         });
       }
@@ -259,6 +243,19 @@ Deno.serve(async (req) => {
         await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
       }
     }
+    trace.addSpan({ name: "chunk_summary", startTime: Date.now(), endTime: Date.now(), output: { total_chunks: allChunks.length, pages_processed: pages.length } });
+
+    // 4. Handle Embeddings (Reuse + Generation)
+    const embedSpan = trace.startSpan("process_embeddings", { count: allChunks.length });
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      allChunks,
+      openAIApiKey
+    );
+    embedSpan.end({ reusedCount, generatedCount });
+    if (generatedCount > 0) trace.enable();
 
     // Upsert chunks in batches
     const BATCH_SIZE = 100;
@@ -285,14 +282,55 @@ Deno.serve(async (req) => {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: allChunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount,
+        trace_id: trace.getTraceId()
+      }
     }).eq("id", jobId);
+
+    await trace.flush();
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, pages: pages.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Confluence ingestion error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      if (source_id) {
+        await supabase
+          .from("ingestion_jobs")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: (err.message ?? "Unknown error").slice(0, 500),
+            last_error_at: new Date().toISOString(),
+            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
+          })
+          .eq("source_id", source_id)
+          .eq("status", "processing");
+
+        // CLEANUP: Delete partial chunks for this failed job
+        if (typeof jobId !== "undefined") {
+          console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
+          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+        }
+      }
+    } catch (innerErr) {
+       console.error("Secondary failure in catch block:", innerErr);
+    }
+
+    if (typeof trace !== "undefined") {
+      trace.setError(err.message).enable();
+      await trace.flush();
+    }
+    return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

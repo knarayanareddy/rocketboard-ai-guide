@@ -55,7 +55,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='source-list']",
         title: "Source Management",
-        content: "After adding a source, click 'Sync' to ingest the content. You'll see the chunk count and can browse individual chunks.",
+        content: "After adding a source, click 'Sync' to ingest. Our **Titanium SSRF Guard** automatically vetting every outbound request, and **SHA256 integrity checks** ensure your code is parsed safely.",
       },
     ],
   },
@@ -109,7 +109,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='review-module-card']",
         title: "Module Review Card",
-        content: "Preview each module, refine it with AI assistance, or regenerate from scratch. Check for warnings and contradictions.",
+        content: "Preview each module, refine with AI, or regenerate. Reindexing is protected by **Concurrent Lease Locks** to ensure your generation pinning never drifts.",
       },
       {
         target: "[data-tour='review-module-card']",

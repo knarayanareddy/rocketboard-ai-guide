@@ -3,6 +3,9 @@ import { astChunk } from "../_shared/ast-chunker.ts";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { computeContentHash } from "../_shared/hash-utils.ts";
+import { getPreviousGenerationEmbeddings } from "../_shared/embedding-reuse.ts";
+import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +60,7 @@ Deno.serve(async (req) => {
 
   let lockToken: string | null = null;
   let pack_id: string | undefined;
+  let generation_id: string = crypto.randomUUID();
 
   try {
     const body = await req.json();
@@ -65,10 +69,19 @@ Deno.serve(async (req) => {
 
     if (!org_id || !pack_id) throw new Error("Missing org_id or pack_id");
 
+    // Initialize Trace (Strategic Sampling)
+    const trace = createTrace({
+      serviceName: 'reindex-orgs',
+      taskType: 'ingestion',
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      orgId: org_id,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
     const githubToken = Deno.env.get("GITHUB_TOKEN");
-    const generation_id = crypto.randomUUID();
 
     // 1. Acquire Lock (P0: Prevent Concurrent Racing)
     const { data, error: lockErr } = await supabase
@@ -90,7 +103,13 @@ Deno.serve(async (req) => {
       org_id,
       pack_id,
       status: "processing",
-      started_at: new Date().toISOString()
+      started_at: new Date().toISOString(),
+      metadata: { 
+        embeddings_reused: 0, 
+        embeddings_generated: 0,
+        total_chunks: 0,
+        indexable_chunks: 0 
+      }
     });
 
     // 3. Get all sources for the pack
@@ -121,21 +140,43 @@ Deno.serve(async (req) => {
       const [, owner, repo] = match;
       const repoName = repo.replace(/\.git$/, "");
       
+      const treeSpan = trace.startSpan("fetch_tree", { owner, repo: repoName });
       const files = await fetchGitHubTree(owner, repoName, githubToken);
+      treeSpan.end({ count: files.length });
       totalFiles += files.length;
 
       for (const filepath of files) {
+        const fileSpan = trace.startSpan("process_file", { path: filepath });
+        console.log(`[Reindex] Processing ${filepath}...`);
         const content = await fetchGitHubFile(owner, repoName, filepath, githubToken);
-        if (!content) continue;
+        if (!content) {
+          fileSpan.end({ status: "skipped_empty" });
+          continue;
+        }
 
         const chunks = await astChunk(content, filepath);
         const chunkBatch = [];
 
-        for (const c of chunks) {
+        const hashes = await Promise.all(chunks.map(c => computeContentHash(assessChunkRedaction(c.text).contentToStore)));
+        const existingEmbeddings = await getPreviousGenerationEmbeddings(supabase, pack_id, hashes);
+        
+        let fileReused = 0;
+        let fileGenerated = 0;
+
+        for (let i = 0; i < chunks.length; i++) {
+          const c = chunks[i];
+          const hash = hashes[i];
           const assessment = assessChunkRedaction(c.text);
           if (assessment.action === "exclude") continue;
 
-          const embedding = await generateEmbedding(assessment.contentToStore, openAIApiKey);
+          let embedding = existingEmbeddings.get(hash);
+          if (embedding) {
+            fileReused++;
+          } else {
+            embedding = await generateEmbedding(assessment.contentToStore, openAIApiKey) || undefined;
+            if (embedding) fileGenerated++;
+          }
+
           chunkBatch.push({
             org_id,
             pack_id,
@@ -143,6 +184,7 @@ Deno.serve(async (req) => {
             chunk_id: `G-${generation_id.slice(0,8)}-${processedFiles}-${chunkBatch.length}`,
             path: filepath,
             content: assessment.contentToStore,
+            content_hash: hash,
             entity_type: c.metadata.entity_type,
             entity_name: c.metadata.entity_name,
             signature: c.metadata.signature,
@@ -164,6 +206,21 @@ Deno.serve(async (req) => {
             }
           });
         }
+        fileSpan.end({ reusedCount: fileReused, generatedCount: fileGenerated, totalChunks: chunks.length });
+        if (fileGenerated > 0) trace.enable();
+
+        // Update global metrics in metadata
+        const { data: currentProgress } = await supabase.from("reindex_progress").select("metadata").eq("pack_id", pack_id).single();
+        const meta = (currentProgress?.metadata as any) || {};
+        await supabase.from("reindex_progress").update({
+          metadata: {
+            ...meta,
+            embeddings_reused: (meta.embeddings_reused || 0) + fileReused,
+            embeddings_generated: (meta.embeddings_generated || 0) + fileGenerated,
+            total_chunks: (meta.total_chunks || 0) + chunks.length,
+            indexable_chunks: (meta.indexable_chunks || 0) + chunkBatch.length
+          }
+        }).eq("pack_id", pack_id);
 
         if (chunkBatch.length > 0) {
           const { error: insErr } = await supabase.from("knowledge_chunks").insert(chunkBatch);
@@ -193,10 +250,19 @@ Deno.serve(async (req) => {
       .eq("pack_id", pack_id)
       .neq("generation_id", generation_id);
 
+    const { data: finalProgress } = await supabase.from("reindex_progress").select("metadata").eq("pack_id", pack_id).single();
+    const finalMeta = (finalProgress?.metadata as any) || {};
+
     await supabase.from("reindex_progress").update({
       status: "completed",
-      completed_at: new Date().toISOString()
+      completed_at: new Date().toISOString(),
+      metadata: { 
+        ...finalMeta, 
+        trace_id: trace.getTraceId() 
+      }
     }).eq("pack_id", pack_id).eq("org_id", org_id);
+
+    await trace.flush();
 
     return new Response(JSON.stringify({ success: true, generation_id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
@@ -204,6 +270,32 @@ Deno.serve(async (req) => {
 
   } catch (err: any) {
     console.error("[Reindex] Fatal:", err);
+    if (typeof trace !== "undefined") {
+      trace.setError(err.message).enable();
+      await trace.flush();
+    }
+
+    try {
+      if (pack_id) {
+        const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        // Mark progress as failed
+        await supabase.from("reindex_progress").update({
+          status: "failed",
+          error_message: (err.message ?? "Unknown internal error").slice(0, 500),
+          completed_at: new Date().toISOString()
+        }).eq("pack_id", pack_id);
+
+        // CLEANUP: Delete partial chunks for this failed generation
+        console.log(`[CLEANUP] Deleting partial chunks for failed generation ${generation_id}`);
+        await supabase.from("knowledge_chunks")
+          .delete()
+          .eq("pack_id", pack_id)
+          .eq("generation_id", generation_id);
+      }
+    } catch (innerErr) {
+      console.error("[Reindex] Secondary failure in catch block:", innerErr);
+    }
+
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });

@@ -116,6 +116,13 @@ export function calculateCost(
   return (inputTokens / 1000) * rates.input + (outputTokens / 1000) * rates.output;
 }
 
+/** Strategic sampling helper */
+export function shouldTrace(forceEnable = false): boolean {
+  if (forceEnable) return true;
+  const rate = parseFloat(Deno.env.get("TRACE_SAMPLE_RATE") || "0.05");
+  return Math.random() < rate;
+}
+
 export function createTrace(metadata: TraceMetadata, options?: { enabled?: boolean }): TraceBuilder {
   return new TraceBuilder(metadata, options?.enabled ?? true);
 }

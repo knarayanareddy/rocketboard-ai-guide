@@ -2,45 +2,49 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash, computeDeterministicChunkId } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
+import { normalizeJiraIssueToMarkdown } from "../_shared/content-normalizers.ts";
+import { chunkMarkdownByHeadings } from "../_shared/smart-chunker.ts";
+import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// Local sha256 removed in favor of computeContentHash
 
-function adfToText(node: any): string {
-  if (!node) return "";
-  if (typeof node === "string") return node;
-  if (node.type === "text") return node.text || "";
-  if (node.type === "hardBreak") return "\n";
-  if (node.type === "heading") {
-    const level = node.attrs?.level || 1;
-    return "#".repeat(level) + " " + (node.content || []).map(adfToText).join("") + "\n\n";
-  }
-  if (node.type === "paragraph") return (node.content || []).map(adfToText).join("") + "\n\n";
-  if (node.type === "bulletList") return (node.content || []).map((c: any) => "- " + adfToText(c)).join("\n") + "\n";
-  if (node.type === "orderedList") return (node.content || []).map((c: any, i: number) => `${i + 1}. ` + adfToText(c)).join("\n") + "\n";
-  if (node.type === "listItem") return (node.content || []).map(adfToText).join("").trim();
-  if (node.type === "codeBlock") return "```\n" + (node.content || []).map(adfToText).join("") + "\n```\n\n";
-  if (node.content) return node.content.map(adfToText).join("");
-  return "";
-}
+// Normalization and chunking moved to shared modules
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let source_id: string | undefined;
+  let jobId: string | undefined;
+  let trace: any;
+
   try {
-    const { pack_id, source_id, source_config } = await req.json();
+    const body = await req.json();
+    source_id = body.source_id;
+    const { pack_id, source_config, org_id } = body;
+
+    // Initialize Trace (Strategic Sampling)
+    trace = createTrace({
+      serviceName: 'ingest-jira',
+      taskType: 'ingestion',
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      sourceId: source_id,
+      orgId: org_id,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     let { base_url, project_key, auth_email, api_token, max_issues = 200, include_epics = true, include_recent = true, include_comments = false, include_resolved = false } = source_config || {};
 
@@ -71,8 +75,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: job } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
-    const jobId = job!.id;
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
+        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return new Response(JSON.stringify({ error: cap.error }), {
+        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: job, error: jobErr } = await supabase.from("ingestion_jobs")
+      .insert({ 
+        pack_id, 
+        source_id, 
+        status: "processing", 
+        started_at: new Date().toISOString(),
+        retry_count: guard.retry_count || 0
+      })
+      .select().single();
+    if (jobErr) throw jobErr;
+    jobId = job.id;
+    trace.updateMetadata({ jobId });
 
     const authHeader = "Basic " + btoa(`${auth_email}:${api_token}`);
     const headers = { Authorization: authHeader, Accept: "application/json" };
@@ -86,7 +116,7 @@ Deno.serve(async (req) => {
     let allIssues: any[] = [];
     let startAt = 0;
     const maxResults = 50;
-
+    const fetchSpan = trace.startSpan("fetch_issues", { jql });
     while (allIssues.length < max_issues) {
       const resp = await fetch(`${validatedBaseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&startAt=${startAt}&fields=summary,description,issuetype,status,priority,labels,components,fixVersions,comment`, { headers });
       if (!resp.ok) throw new Error(`Jira API error: ${resp.status} ${await resp.text()}`);
@@ -95,62 +125,68 @@ Deno.serve(async (req) => {
       if (data.issues.length < maxResults || allIssues.length >= data.total) break;
       startAt += maxResults;
     }
+    fetchSpan.end({ count: allIssues.length });
 
     allIssues = allIssues.slice(0, max_issues);
     await supabase.from("ingestion_jobs").update({ total_chunks: allIssues.length }).eq("id", jobId);
 
-    const chunks: any[] = [];
+    const allChunks: any[] = [];
     let chunkIdx = 0;
 
     for (const issue of allIssues) {
-      chunkIdx++;
-      const fields = issue.fields;
-      let content = `# ${issue.key}: ${fields.summary}\n\n`;
-      content += `**Type**: ${fields.issuetype?.name || "Unknown"}\n`;
-      content += `**Status**: ${fields.status?.name || "Unknown"}\n`;
-      content += `**Priority**: ${fields.priority?.name || "None"}\n`;
-      if (fields.labels?.length) content += `**Labels**: ${fields.labels.join(", ")}\n`;
-      if (fields.components?.length) content += `**Components**: ${fields.components.map((c: any) => c.name).join(", ")}\n`;
-      content += "\n";
+      const markdown = normalizeJiraIssueToMarkdown(issue);
+      const pagePath = `jira:${project_key}/${issue.key}`;
+      const structuralChunks = chunkMarkdownByHeadings(markdown);
 
-      if (fields.description) {
-        content += "## Description\n\n" + adfToText(fields.description) + "\n";
+      for (const chunk of structuralChunks) {
+        chunkIdx++;
+        if (chunkIdx > getRunCap()) throw new Error(`Ingestion cap exceeded (${getRunCap()})`);
+        
+        const assessment = assessChunkRedaction(chunk.text);
+        if (assessment.action === "exclude") continue;
+
+        const hash = await computeContentHash(assessment.contentToStore);
+        const chunkId = await computeDeterministicChunkId(pagePath, chunk.start, chunk.end, hash);
+
+        allChunks.push({
+          chunk_id: chunkId,
+          path: pagePath,
+          start_line: chunk.start,
+          end_line: chunk.end,
+          content: assessment.contentToStore,
+          content_hash: hash,
+          is_redacted: assessment.isRedacted,
+          pack_id,
+          source_id,
+          ingestion_job_id: jobId,
+          metadata: {
+            issue_key: issue.key,
+            issue_type: issue.fields.issuetype?.name,
+            status: issue.fields.status?.name,
+            redaction: assessment.metrics
+          },
+        });
       }
-
-      if (include_comments && fields.comment?.comments?.length) {
-        const recentComments = fields.comment.comments.slice(-5);
-        content += "## Comments\n\n";
-        for (const c of recentComments) {
-          content += `**${c.author?.displayName || "Unknown"}**: ${adfToText(c.body)}\n\n`;
-        }
-      }
-
-      const assessment = assessChunkRedaction(content);
-      const hash = await sha256(assessment.contentToStore);
-      chunks.push({
-        chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
-        path: `jira:${project_key}/${issue.key}`,
-        start_line: 1,
-        end_line: assessment.contentToStore.split("\n").length,
-        content: assessment.contentToStore,
-        content_hash: hash,
-        is_redacted: assessment.isRedacted,
-        pack_id,
-        source_id,
-        metadata: {
-          redaction: {
-            action: assessment.action,
-            secretsFound: assessment.metrics.secretsFound,
-            matchedPatterns: assessment.metrics.matchedPatterns,
-            redactionRatio: assessment.metrics.redactionRatio,
-          }
-        }
-      });
 
       if (chunkIdx % 20 === 0) {
-        await supabase.from("ingestion_jobs").update({ processed_chunks: chunkIdx }).eq("id", jobId);
+        await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
       }
     }
+
+    const chunks = allChunks;
+    trace.addSpan({ name: "chunk_summary", startTime: Date.now(), endTime: Date.now(), output: { total_chunks: chunks.length } });
+
+    // 4. Handle Embeddings (Reuse + Generation)
+    const embedSpan = trace.startSpan("process_embeddings", { count: chunks.length });
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      chunks,
+      openAIApiKey
+    );
+    embedSpan.end({ reusedCount, generatedCount });
+    if (generatedCount > 0) trace.enable();
 
     // Upsert in batches
     for (let i = 0; i < chunks.length; i += 100) {
@@ -159,11 +195,56 @@ Deno.serve(async (req) => {
     }
 
     await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
-    await supabase.from("ingestion_jobs").update({ status: "completed", processed_chunks: chunks.length, completed_at: new Date().toISOString() }).eq("id", jobId);
+    await supabase.from("ingestion_jobs").update({ 
+      status: "completed", 
+      processed_chunks: chunks.length, 
+      completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: chunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount,
+        trace_id: trace.getTraceId()
+      }
+    }).eq("id", jobId);
+
+    await trace.flush();
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: chunks.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Jira ingestion error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      if (source_id) {
+        await supabase
+          .from("ingestion_jobs")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: (err.message ?? "Unknown error").slice(0, 500),
+            last_error_at: new Date().toISOString(),
+            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
+          })
+          .eq("source_id", source_id)
+          .eq("status", "processing");
+
+        // CLEANUP: Delete partial chunks for this failed job
+        if (typeof jobId !== "undefined") {
+          console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
+          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+        }
+      }
+    } catch (innerErr) {
+       console.error("Secondary failure in catch block:", innerErr);
+    }
+
+    if (typeof trace !== "undefined") {
+      trace.setError(err.message).enable();
+      await trace.flush();
+    }
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

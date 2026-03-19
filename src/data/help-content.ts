@@ -279,7 +279,7 @@ Click **Sync** on the source card. RocketBoard will begin parsing your code and 
 ## Automated Safeguards
 
 :::card[Security & Isolation]{🔒}
-Secrets like API keys and tokens are automatically **redacted** during ingestion. Furthermore, all knowledge chunks are protected by **Pack-Scoped RLS**, ensuring zero-leak isolation across teams.
+Secrets like API keys and tokens are automatically **redacted** using centralized patterns. Furthermore, all outbound connection URLs are validated by our **SSRF Guard** to prevent attacks on internal networks. All knowledge chunks are protected by **Pack-Scoped RLS**, ensuring zero-leak isolation across teams.
 :::
 
 :::card[Supported Languages]{📁}
@@ -439,7 +439,11 @@ Click **Browse Chunks** on any source card to audit the individual text segments
 :::
 
 :::card[Privacy & Redaction]{🛡️}
-Secrets (API keys, tokens, passwords) are automatically detected and replaced with \`***REDACTED***\` during the ingestion process.
+Secrets (API keys, tokens, passwords) are automatically detected and replaced with \`***REDACTED***\` during ingestion. This process is centralized and consistent across all 13 connectors.
+:::
+
+:::card[SSRF Protection]{📡}
+Every URL provided to our ingestion engine is vetted against a strict security policy. We block loopback addresses, private IP ranges (RFC 1918), and unapproved protocols to keep your internal infrastructure invisible to the AI.
 :::`,
     relatedArticles: ["src-1", "src-4"],
   },
@@ -1426,5 +1430,46 @@ You can view the raw performance data for every query in the **Analytics** dashb
 
 [UI_ACTION: navigate_sources(Manage Your Sources)]`,
     relatedArticles: ["cc-5", "src-7"],
+  },
+  {
+    id: "tech-2",
+    slug: "ssrf-protection",
+    title: "Understanding SSRF Protection",
+    category: "tech-implementation",
+    audience: ["admin"],
+    tags: ["security", "ssrf", "protection", "edge-functions"],
+    summary: "How RocketBoard protects your internal network from malicious outbound requests.",
+    lastUpdated: "2026-03-25",
+    content: `# SSRF Protection & Network Security 🛡️
+
+RocketBoard takes a "Security-First" approach to outbound networking. When you connect a source or query the AI, our **Titanium SSRF Guard** ensures that no request can be manipulated to target your internal infrastructure.
+
+## The Threat: Server-Side Request Forgery (SSRF)
+In a typical SSRF attack, a malicious actor provides a URL (like \`http://localhost/admin\`) to a server, hoping the server will fetch sensitive data from its internal network.
+
+## Our Defense: Titanium-Hardened Validation
+Every URL that enters our Edge Functions (via connectors, webhooks, or AI routing) passes through \`parseAndValidateExternalUrl\` before any network call is made.
+
+### 🛡️ 1. IP Address Filtering (RFC 1918/3927)
+We explicitly block all requests to:
+- **Loopback**: \`127.0.0.1\`, \`::1\`
+- **Private Networks**: \`10.0.0.0/8\`, \`172.16.0.0/12\`, \`192.168.0.0/16\`
+- **Link-Local**: \`169.254.0.0/16\`
+- **Raw IP Literals**: Only hostnames are allowed by default to prevent IP-obfuscation bypasses.
+
+### 🛡️ 2. Protocol & Credential Stripping
+- **HTTPS Only**: All requests are forced to use TLS unless explicitly overridden for managed dev environments.
+- **No Embedded Credentials**: URLs like \`https://user:pass@host.com\` are rejected to prevent credential-leaking headers.
+
+### 🛡️ 3. Domain Allowlisting
+Connectors like Jira and Confluence are tied to specific suffixes (e.g., \`*.atlassian.net\`). Even if an author provides a different URL, the guard will block it unless it matches the allowlist.
+
+### 🛡️ 4. Concurrent Job Locking
+To prevent race conditions during bulk ingestion, RocketBoard uses **DB-backed lease locks**. This ensures that two reindex jobs for the same pack can never run simultaneously, preventing data corruption and generation-pinning drift.
+
+:::card[Rocket's Pro-Tip]{🚀}
+Your security is our priority. By centralizing these guards in a shared security module, we ensure consistent protection across all 28+ edge functions and 13 connectors.
+:::`,
+    relatedArticles: ["src-1", "src-7"],
   },
 ];

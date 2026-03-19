@@ -1,6 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash, computeDeterministicChunkId } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
+import { normalizeNotionBlocksToMarkdown, richTextToPlain } from "../_shared/content-normalizers.ts";
+import { chunkMarkdownByHeadings } from "../_shared/smart-chunker.ts";
+import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,110 +17,7 @@ const NOTION_VERSION = "2022-06-28";
 
 // Redaction now handled by centralized secret-patterns.ts
 
-function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const chunks: { start: number; end: number; text: string }[] = [];
-  let i = 0;
-  let lineEstimate = 1;
-  while (i < words.length) {
-    const end = Math.min(i + wordCount, words.length);
-    const chunk = words.slice(i, end).join(" ");
-    const lines = chunk.split("\n").length;
-    chunks.push({ start: lineEstimate, end: lineEstimate + lines - 1, text: chunk });
-    lineEstimate += lines;
-    i = end;
-  }
-  return chunks;
-}
-
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Convert Notion blocks to markdown
-function blocksToMarkdown(blocks: any[]): string {
-  const parts: string[] = [];
-  
-  for (const block of blocks) {
-    const type = block.type;
-    
-    switch (type) {
-      case "paragraph":
-        parts.push(richTextToPlain(block.paragraph?.rich_text) + "\n");
-        break;
-      case "heading_1":
-        parts.push(`# ${richTextToPlain(block.heading_1?.rich_text)}\n`);
-        break;
-      case "heading_2":
-        parts.push(`## ${richTextToPlain(block.heading_2?.rich_text)}\n`);
-        break;
-      case "heading_3":
-        parts.push(`### ${richTextToPlain(block.heading_3?.rich_text)}\n`);
-        break;
-      case "bulleted_list_item":
-        parts.push(`- ${richTextToPlain(block.bulleted_list_item?.rich_text)}\n`);
-        break;
-      case "numbered_list_item":
-        parts.push(`1. ${richTextToPlain(block.numbered_list_item?.rich_text)}\n`);
-        break;
-      case "to_do":
-        const checked = block.to_do?.checked ? "☑" : "☐";
-        parts.push(`${checked} ${richTextToPlain(block.to_do?.rich_text)}\n`);
-        break;
-      case "code":
-        const lang = block.code?.language || "";
-        parts.push(`\`\`\`${lang}\n${richTextToPlain(block.code?.rich_text)}\n\`\`\`\n`);
-        break;
-      case "quote":
-        parts.push(`> ${richTextToPlain(block.quote?.rich_text)}\n`);
-        break;
-      case "callout":
-        const icon = block.callout?.icon?.emoji || "💡";
-        parts.push(`${icon} ${richTextToPlain(block.callout?.rich_text)}\n`);
-        break;
-      case "divider":
-        parts.push("---\n");
-        break;
-      case "toggle":
-        parts.push(`▸ ${richTextToPlain(block.toggle?.rich_text)}\n`);
-        break;
-      case "image":
-        const caption = block.image?.caption ? richTextToPlain(block.image.caption) : "image";
-        parts.push(`[image: ${caption}]\n`);
-        break;
-      case "bookmark":
-        const url = block.bookmark?.url || "";
-        parts.push(`[link: ${url}]\n`);
-        break;
-      case "table":
-        // Tables handled by their rows
-        break;
-      case "table_row":
-        const cells = (block.table_row?.cells || []).map((cell: any) => richTextToPlain(cell));
-        parts.push(`| ${cells.join(" | ")} |\n`);
-        break;
-      default:
-        // Skip unsupported blocks
-        break;
-    }
-  }
-  
-  return parts.join("").trim();
-}
-
-function richTextToPlain(richText: any[]): string {
-  if (!richText || !Array.isArray(richText)) return "";
-  return richText.map((rt: any) => {
-    let text = rt.plain_text || "";
-    if (rt.annotations?.bold) text = `**${text}**`;
-    if (rt.annotations?.italic) text = `*${text}*`;
-    if (rt.annotations?.code) text = `\`${text}\``;
-    if (rt.annotations?.strikethrough) text = `~~${text}~~`;
-    return text;
-  }).join("");
-}
+// Normalization and chunking moved to shared modules
 
 function getPageTitle(page: any): string {
   const titleProp = page.properties?.title || page.properties?.Name;
@@ -197,12 +100,27 @@ async function searchAllPages(token: string): Promise<any[]> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  let source_id: string | undefined;
+  let jobId: string | undefined;
+  let trace: any;
 
   try {
-    const { pack_id, source_id, source_config } = await req.json();
+    const body = await req.json();
+    source_id = body.source_id;
+    const { pack_id, source_config, org_id } = body;
+
+    // Initialize Trace (Strategic Sampling)
+    trace = createTrace({
+      serviceName: 'ingest-notion',
+      taskType: 'ingestion',
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      sourceId: source_id,
+      orgId: org_id,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
 
     if (!pack_id || !source_id || !source_config) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -213,6 +131,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     let { integration_token, root_page_id } = source_config;
     
@@ -227,19 +146,43 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
+        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return new Response(JSON.stringify({ error: cap.error }), {
+        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
-      .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
+      .insert({ 
+        pack_id, 
+        source_id, 
+        status: "processing", 
+        started_at: new Date().toISOString(),
+        retry_count: guard.retry_count || 0
+      })
       .select()
       .single();
     if (jobErr) throw jobErr;
-    const jobId = job.id;
+    jobId = job.id;
+    trace.updateMetadata({ jobId });
 
     // Get pages
     let pages: any[];
     if (root_page_id) {
       // Fetch child pages from root
       console.log(`[Notion] Fetching children of page ${root_page_id}...`);
+      const fetchSpan = trace.startSpan("fetch_pages", { root_page_id });
       const blocks = await fetchPageBlocks(root_page_id, integration_token);
       const childPages = blocks.filter((b: any) => b.type === "child_page");
       
@@ -248,9 +191,12 @@ Deno.serve(async (req) => {
       pages = [rootPage, ...await Promise.all(childPages.map((cp: any) =>
         notionFetch(`https://api.notion.com/v1/pages/${cp.id}`, integration_token)
       ))];
+      fetchSpan.end({ count: pages.length });
     } else {
       console.log("[Notion] Searching all accessible pages...");
+      const fetchSpan = trace.startSpan("search_pages");
       pages = await searchAllPages(integration_token);
+      fetchSpan.end({ count: pages.length });
     }
 
     console.log(`[Notion] Found ${pages.length} pages`);
@@ -264,19 +210,25 @@ Deno.serve(async (req) => {
       
       // Fetch page blocks
       const blocks = await fetchPageBlocks(page.id, integration_token);
-      const markdown = blocksToMarkdown(blocks);
+      const markdown = normalizeNotionBlocksToMarkdown(blocks);
 
       if (!markdown.trim()) continue;
 
-      const wordChunks = chunkWords(markdown);
-      for (const chunk of wordChunks) {
+      const pagePath = `notion:${title}`;
+      const structuralChunks = chunkMarkdownByHeadings(markdown);
+      for (const chunk of structuralChunks) {
         chunkIdx++;
+        // Check per-run cap
+        if (chunkIdx > getRunCap()) {
+          throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+        }
         const assessment = assessChunkRedaction(chunk.text);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
+        const chunkId = await computeDeterministicChunkId(pagePath, chunk.start, chunk.end, hash);
 
         allChunks.push({
-          chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
-          path: `notion:${title}`,
+          chunk_id: chunkId,
+          path: pagePath,
           start_line: chunk.start,
           end_line: chunk.end,
           content: assessment.contentToStore,
@@ -289,14 +241,25 @@ Deno.serve(async (req) => {
               matchedPatterns: assessment.metrics.matchedPatterns,
               redactionRatio: assessment.metrics.redactionRatio,
             }
-          }
+          },
+          ingestion_job_id: jobId,
         });
       }
 
-      if (allChunks.length % 30 === 0) {
-        await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
-      }
     }
+    trace.addSpan({ name: "chunk_summary", startTime: Date.now(), endTime: Date.now(), output: { total_chunks: allChunks.length, pages_processed: pages.length } });
+
+    // 4. Handle Embeddings (Reuse + Generation)
+    const embedSpan = trace.startSpan("process_embeddings", { count: allChunks.length });
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      allChunks,
+      openAIApiKey
+    );
+    embedSpan.end({ reusedCount, generatedCount });
+    if (generatedCount > 0) trace.enable();
 
     // Upsert chunks
     const BATCH_SIZE = 100;
@@ -319,14 +282,55 @@ Deno.serve(async (req) => {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: allChunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount,
+        trace_id: trace.getTraceId()
+      }
     }).eq("id", jobId);
+
+    await trace.flush();
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, pages: pages.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Notion ingestion error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      if (source_id) {
+        await supabase
+          .from("ingestion_jobs")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: (err.message ?? "Unknown error").slice(0, 500),
+            last_error_at: new Date().toISOString(),
+            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
+          })
+          .eq("source_id", source_id)
+          .eq("status", "processing");
+
+        // CLEANUP: Delete partial chunks for this failed job
+        if (typeof jobId !== "undefined") {
+          console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
+          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+        }
+      }
+    } catch (innerErr) {
+       console.error("Secondary failure in catch block:", innerErr);
+    }
+
+    if (typeof trace !== "undefined") {
+      trace.setError(err.message).enable();
+      await trace.flush();
+    }
+    return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

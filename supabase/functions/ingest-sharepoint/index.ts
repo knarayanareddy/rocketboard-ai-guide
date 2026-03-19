@@ -1,6 +1,9 @@
 import mammoth from "https://esm.sh/mammoth@1?bundle";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,11 +27,7 @@ function chunkWords(text: string, wordCount = 500): { start: number; end: number
   return chunks;
 }
 
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// Local sha256 removed
 
 async function getGraphAccessToken(tenantId: string, clientId: string, clientSecret: string): Promise<string> {
   const resp = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
@@ -203,6 +202,23 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
+        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return new Response(JSON.stringify({ error: cap.error }), {
+        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
@@ -257,10 +273,14 @@ Deno.serve(async (req) => {
       const wordChunks = chunkWords(content);
       for (const chunk of wordChunks) {
         chunkIdx++;
+        // Check per-run cap
+        if (chunkIdx > getRunCap()) {
+          throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+        }
         const assessment = assessChunkRedaction(chunk.text);
         if (assessment.action === "exclude") continue;
 
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
 
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
@@ -288,6 +308,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 4. Handle Embeddings (Reuse + Generation)
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      allChunks,
+      openAIApiKey
+    );
+
     // Upsert chunks
     const BATCH_SIZE = 100;
     let processed = 0;
@@ -309,6 +338,11 @@ Deno.serve(async (req) => {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: allChunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount
+      }
     }).eq("id", jobId);
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, files: files.length }), {

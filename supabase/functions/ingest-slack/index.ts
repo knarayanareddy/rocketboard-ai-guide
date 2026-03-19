@@ -1,54 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { validateIngestion, checkPackChunkCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash, computeDeterministicChunkId } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
+import { normalizeSlackThreadToMarkdown } from "../_shared/content-normalizers.ts";
+import { fallbackChunkWords } from "../_shared/smart-chunker.ts";
+import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Redaction now handled by centralized secret-patterns.ts
-
-const VALUE_KEYWORDS = [
-  "decision", "architecture", "we decided", "going forward", "convention",
-  "standard", "how to", "runbook", "process", "migration", "deprecated",
-  "breaking change", "announcement", "important", "fyi", "heads up"
-];
-
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Local redactSecrets removed in favor of assessChunkRedaction()
-
-function isHighValueMessage(msg: any): boolean {
-  if (!msg.text) return false;
-  
-  // Has thread replies (discussion)
-  if (msg.reply_count && msg.reply_count >= 2) return true;
-  
-  // Has reactions (engagement)
-  if (msg.reactions && msg.reactions.length >= 2) return true;
-  
-  // Contains code or doc links
-  if (msg.text.match(/github\.com|gitlab\.com|notion\.so|confluence|figma\.com|docs\./i)) return true;
-  
-  // Contains valuable keywords
-  const lowerText = msg.text.toLowerCase();
-  if (VALUE_KEYWORDS.some(kw => lowerText.includes(kw))) return true;
-  
-  // Has file attachments
-  if (msg.files && msg.files.length > 0) return true;
-  
-  return false;
-}
-
-function formatTimestamp(ts: string): string {
-  const date = new Date(parseFloat(ts) * 1000);
-  return date.toISOString().split("T")[0];
-}
 
 async function slackAPI(token: string, method: string, params: Record<string, any> = {}) {
   const url = new URL(`https://slack.com/api/${method}`);
@@ -65,14 +28,31 @@ async function slackAPI(token: string, method: string, params: Record<string, an
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  
+  let source_id: string | undefined;
+  let jobId: string | undefined;
+  let trace: any;
 
   try {
-    const { pack_id, source_id, source_config } = await req.json();
-    
+    const body = await req.json();
+    source_id = body.source_id;
+    const { pack_id, source_config, org_id } = body;
+
+    // Initialize Trace (Strategic Sampling)
+    trace = createTrace({
+      serviceName: 'ingest-slack',
+      taskType: 'ingestion',
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      sourceId: source_id,
+      orgId: org_id,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
-
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
     let {
       bot_token,
       channel_ids = [],
@@ -93,10 +73,34 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: job } = await supabase.from("ingestion_jobs")
-      .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
+        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return new Response(JSON.stringify({ error: cap.error }), {
+        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: job, error: jobErr } = await supabase.from("ingestion_jobs")
+      .insert({ 
+        pack_id, 
+        source_id, 
+        status: "processing", 
+        started_at: new Date().toISOString(),
+        retry_count: guard.retry_count || 0
+      })
       .select().single();
-    const jobId = job!.id;
+    if (jobErr) throw jobErr;
+    jobId = job.id;
+    trace.updateMetadata({ jobId });
 
     // Build user cache for display names
     const userCache: Record<string, string> = {};
@@ -108,22 +112,22 @@ Deno.serve(async (req) => {
     } catch { /* ignore - will use IDs */ }
 
     // Get channel info
-    const channelNames: Record<string, string> = {};
+    const channelInfoCache: Record<string, any> = {};
     for (const channelId of channel_ids) {
       try {
         const info = await slackAPI(bot_token, "conversations.info", { channel: channelId });
-        channelNames[channelId] = info.channel?.name || channelId;
+        channelInfoCache[channelId] = info.channel;
       } catch {
-        channelNames[channelId] = channelId;
+        channelInfoCache[channelId] = { id: channelId, name: channelId };
       }
     }
 
-    const chunks: any[] = [];
+    const allChunks: any[] = [];
     let chunkIdx = 0;
     const oldest = Math.floor((Date.now() - days_back * 24 * 60 * 60 * 1000) / 1000);
 
     for (const channelId of channel_ids) {
-      const channelName = channelNames[channelId];
+      const channelInfo = channelInfoCache[channelId];
       
       // Get pinned messages if requested
       let pinnedTs = new Set<string>();
@@ -142,6 +146,7 @@ Deno.serve(async (req) => {
       let fetchCount = 0;
       const maxFetches = 10; // Max 1000 messages per channel
 
+      const historySpan = trace.startSpan("fetch_history", { channel_id: channelId });
       while (fetchCount < maxFetches) {
         const historyResp = await slackAPI(bot_token, "conversations.history", {
           channel: channelId,
@@ -154,82 +159,97 @@ Deno.serve(async (req) => {
         if (!cursor) break;
         fetchCount++;
       }
+      historySpan.end({ count: messages.length });
 
-      // Filter high-value messages
-      const valuableMessages = messages.filter(msg => {
+      // Filter messages based on criteria
+      const filteredMessages = messages.filter(msg => {
         if (msg.subtype === "channel_join" || msg.subtype === "channel_leave") return false;
         if (pinned_only && !pinnedTs.has(msg.ts)) return false;
         if (threaded_only && !msg.reply_count) return false;
         if (min_reactions > 0 && (!msg.reactions || msg.reactions.length < min_reactions)) return false;
-        return isHighValueMessage(msg);
+        return true; // All messages that pass basic filters are considered for normalization
       });
 
       // Process each valuable message (with threads if applicable)
-      for (const msg of valuableMessages) {
-        let content = "";
-        const date = formatTimestamp(msg.ts);
-        const userName = userCache[msg.user] || "[team member]";
-
-        if (msg.reply_count && msg.reply_count > 0) {
+      for (const mainMsg of filteredMessages) {
+        let thread: any[] = [];
+        if (mainMsg.reply_count && mainMsg.reply_count > 0) {
           // Fetch thread
+          const threadSpan = trace.startSpan("fetch_thread", { channel_id: channelId, ts: mainMsg.ts });
           try {
             const threadResp = await slackAPI(bot_token, "conversations.replies", {
               channel: channelId,
-              ts: msg.ts,
+              ts: mainMsg.ts,
               limit: 50,
             });
-            
-            content = `# Thread in #${channelName} (${date})\n\n`;
-            for (const reply of threadResp.messages || []) {
-              const replyUser = userCache[reply.user] || "[team member]";
-              content += `**${replyUser}**: ${reply.text || ""}\n\n`;
-            }
-          } catch {
-            content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${msg.text || ""}\n`;
+            thread = threadResp.messages || [];
+          } catch (e) {
+            console.warn(`Failed to fetch thread for ${mainMsg.ts} in ${channelId}: ${e.message}`);
+            thread = [mainMsg]; // Fallback to just the main message if thread fetch fails
+          } finally {
+            threadSpan.end({ count: thread.length });
           }
         } else {
-          content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${msg.text || ""}\n`;
+          thread = [mainMsg];
         }
 
-        // Add reaction info
-        if (msg.reactions?.length) {
-          const reactions = msg.reactions.map((r: any) => `:${r.name}: (${r.count})`).join(" ");
-          content += `\nReactions: ${reactions}\n`;
-        }
+        const channelName = channelInfo.name || "unknown-channel";
+        const date = new Date(parseFloat(mainMsg.ts) * 1000).toLocaleDateString();
+        const markdown = normalizeSlackThreadToMarkdown(channelName, date, thread, userCache);
 
-        chunkIdx++;
-        const assessment = assessChunkRedaction(content);
-        const hash = await sha256(assessment.contentToStore);
-        chunks.push({
-          chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
-          path: `slack:${channelName}/${date}/${msg.ts}`,
-          start_line: 1,
-          end_line: assessment.contentToStore.split("\n").length,
-          content: assessment.contentToStore,
-          content_hash: hash,
-          is_redacted: assessment.isRedacted,
-          pack_id,
-          source_id,
-          metadata: {
-            channel_id: channelId,
-            channel_name: channelName,
-            message_ts: msg.ts,
-            reply_count: msg.reply_count || 0,
-            reaction_count: msg.reactions?.length || 0,
-            redaction: {
-              action: assessment.action,
-              secretsFound: assessment.metrics.secretsFound,
-              matchedPatterns: assessment.metrics.matchedPatterns,
-              redactionRatio: assessment.metrics.redactionRatio,
-            }
-          },
-        });
+        const pagePath = `slack:${channelId}/${mainMsg.ts}`;
+        const wordChunks = fallbackChunkWords(markdown);
+
+        for (const chunk of wordChunks) {
+          chunkIdx++;
+          const assessment = assessChunkRedaction(chunk.text);
+          if (assessment.action === "exclude") continue;
+
+          const hash = await computeContentHash(assessment.contentToStore);
+          const chunkId = await computeDeterministicChunkId(pagePath, chunk.start, chunk.end, hash);
+
+          allChunks.push({
+            chunk_id: chunkId,
+            path: pagePath,
+            start_line: chunk.start,
+            end_line: chunk.end,
+            content: assessment.contentToStore,
+            content_hash: hash,
+            is_redacted: assessment.isRedacted,
+            pack_id,
+            source_id,
+            ingestion_job_id: jobId,
+            metadata: {
+              channel_id: channelId,
+              channel_name: channelName,
+              message_ts: mainMsg.ts,
+              reply_count: mainMsg.reply_count || 0,
+              reaction_count: mainMsg.reactions?.length || 0,
+              redaction: assessment.metrics
+            },
+          });
+        }
       }
 
-      await supabase.from("ingestion_jobs").update({ processed_chunks: chunks.length }).eq("id", jobId);
+      await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
     }
 
+    const chunks = allChunks; // for compatibility with downstream code
+
     await supabase.from("ingestion_jobs").update({ total_chunks: chunks.length }).eq("id", jobId);
+    trace.addSpan({ name: "chunk_summary", startTime: Date.now(), endTime: Date.now(), output: { total_chunks: chunks.length, channels: channel_ids.length } });
+
+    // 4. Handle Embeddings (Reuse + Generation)
+    const embedSpan = trace.startSpan("process_embeddings", { count: chunks.length });
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      chunks,
+      openAIApiKey
+    );
+    embedSpan.end({ reusedCount, generatedCount });
+    if (generatedCount > 0) trace.enable();
 
     // Upsert chunks
     for (let i = 0; i < chunks.length; i += 100) {
@@ -241,14 +261,55 @@ Deno.serve(async (req) => {
       status: "completed",
       processed_chunks: chunks.length,
       completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: chunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount,
+        trace_id: trace.getTraceId()
+      }
     }).eq("id", jobId);
+
+    await trace.flush();
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: chunks.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Slack ingestion error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      if (source_id) {
+        await supabase
+          .from("ingestion_jobs")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: (err.message ?? "Unknown error").slice(0, 500),
+            last_error_at: new Date().toISOString(),
+            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
+          })
+          .eq("source_id", source_id)
+          .eq("status", "processing");
+
+        // CLEANUP: Delete partial chunks for this failed job
+        if (typeof jobId !== "undefined") {
+          console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
+          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+        }
+      }
+    } catch (innerErr) {
+       console.error("Secondary failure in catch block:", innerErr);
+    }
+
+    if (typeof trace !== "undefined") {
+      trace.setError(err.message).enable();
+      await trace.flush();
+    }
+    return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

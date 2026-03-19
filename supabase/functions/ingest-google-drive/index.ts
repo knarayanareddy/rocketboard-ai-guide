@@ -1,6 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { computeContentHash } from "../_shared/hash-utils.ts";
+import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,11 +28,7 @@ function chunkWords(text: string, wordCount = 500): { start: number; end: number
   return chunks;
 }
 
-async function sha256(text: string): Promise<string> {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// Local sha256 removed in favor of computeContentHash
 
 // Google service account JWT creation
 async function createServiceAccountJWT(keyData: any): Promise<string> {
@@ -207,6 +206,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     let { folder_id, service_account_key, auth_method } = source_config;
     if (!folder_id) {
@@ -281,6 +281,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
+        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return new Response(JSON.stringify({ error: cap.error }), {
+        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
       .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
@@ -331,8 +347,12 @@ Deno.serve(async (req) => {
       const wordChunks = chunkWords(content);
       for (const chunk of wordChunks) {
         chunkIdx++;
+        // Check per-run cap
+        if (chunkIdx > getRunCap()) {
+          throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+        }
         const assessment = assessChunkRedaction(chunk.text);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
 
         allChunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
@@ -346,17 +366,17 @@ Deno.serve(async (req) => {
             redaction: {
               action: assessment.action,
               secretsFound: assessment.metrics.secretsFound,
-              matchedPatterns: assessment.metrics.matchedPatterns,
-              redactionRatio: assessment.metrics.redactionRatio,
-            }
-          }
-        });
-      }
-
-      if (allChunks.length % 30 === 0) {
-        await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
       }
     }
+
+    // 4. Handle Embeddings (Reuse + Generation)
+    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
+      supabase,
+      pack_id,
+      source_id,
+      allChunks,
+      openAIApiKey
+    );
 
     // Upsert chunks
     const BATCH_SIZE = 100;
@@ -379,6 +399,11 @@ Deno.serve(async (req) => {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
+      metadata: {
+        total_chunks: allChunks.length,
+        embeddings_reused_count: reusedCount,
+        embeddings_generated_count: generatedCount
+      }
     }).eq("id", jobId);
 
     return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, files: files.length }), {

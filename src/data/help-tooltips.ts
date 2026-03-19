@@ -6,9 +6,9 @@ export const HELP_TOOLTIPS = {
     googleDriveOAuth: "Connect with your Google Account to import Google Docs, Sheets, and Drive files. A secure OAuth 2.0 popup handles authentication — your credentials are never stored. Tokens auto-refresh so you only reconnect if you revoke access.",
     documentUpload: "Upload files directly from your computer. Supported formats: PDF, DOCX, XLSX, PPTX, MD, TXT, CSV, HTML, JSON, YAML. Max 50MB per file, up to 20 files at once.",
     documentUrl: "Import content from any public URL. Single page mode fetches just that page. Crawl mode follows internal links to import an entire documentation site.",
-    syncButton: "Re-fetches content from the original source and updates knowledge chunks. Changed files are updated, deleted files are removed, new files are added.",
-    chunkCount: "Knowledge chunks are small, **AST-aware** segments (~100-150 lines of code or ~500 words of text) that the AI uses as evidence when generating onboarding content. Code chunks are parsed to preserve function signatures and classes exactly.",
-    browseChunks: "View the individual text segments extracted from this source. Useful for verifying that the right content was captured.",
+    syncButton: "Re-fetches content from the original source and updates knowledge chunks. Every outbound request is protected by a **Titanium SSRF Guard** that blocks internal network access.",
+    chunkCount: "Knowledge chunks are small, **AST-aware** segments (~100-150 lines of code or ~500 words of text). Our parsers use **SHA256 integrity verification** to ensure supply-chain security.",
+    browseChunks: "View the individual text segments extracted from this source. Reindexing is protected by a **Global Lease Lock** to prevent concurrent state corruption.",
   },
 
   // ─── PLAN PAGE ──────────────────────────────────────
@@ -157,8 +157,8 @@ export const HELP_TOOLTIPS = {
 
   // ─── GLOBAL ─────────────────────────────────────────
   global: {
-    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by **Agentic Multi-Query Hybrid Search v2** (vector + keyword + AST matching) with defensive shielding.",
-    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses follow a **4-stage Zero-Hallucination pipeline**: the AI is forbidden from writing repo code, instead emitting [SNIPPET] placeholders that the server resolves to exact source lines. Every claim is audited and ungrounded content is automatically stripped for 100% precision.",
+    globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K (Mac) / Ctrl+K. Powered by **Titanium-Hardened Hybrid Search** with defensive SSRF shielding.",
+    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses follow a **4-stage Zero-Hallucination pipeline** with automated grounding audits and security-first retrieval.",
     missionControl: "Platform-wide AI assistant. Ask about RocketBoard features, navigation help, onboarding tips, or anything not specific to a single module.",
     packSelector: "Switch between different packs. Each pack has its own sources, content, progress, and team. Your progress is saved separately per pack.",
   },
