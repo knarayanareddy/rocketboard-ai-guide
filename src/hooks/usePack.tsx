@@ -12,6 +12,7 @@ export interface Pack {
   description: string | null;
   language_mode: string;
   pack_version: number;
+  roadmap_enabled: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,7 +57,7 @@ export function PackProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         if (pack) {
-          setCurrentPack(pack as Pack);
+          setCurrentPack(pack as any as Pack);
           setLoading(false);
           return;
         }
@@ -77,7 +78,7 @@ export function PackProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         if (pack) {
-          setCurrentPack(pack as Pack);
+          setCurrentPack(pack as any as Pack);
           localStorage.setItem("rocketboard_current_pack", pack.id);
         }
       }
@@ -131,7 +132,7 @@ export function usePackFromUrl() {
         .eq("id", params.packId)
         .maybeSingle()
         .then(({ data }) => {
-          if (data) ctx.setPack(data as Pack);
+          if (data) ctx.setPack(data as any as Pack);
         });
     }
   }, [params.packId]);

@@ -148,6 +148,7 @@ export function AppSidebar() {
       label: "Your Onboarding",
       items: [
         { title: "Dashboard", url: packPrefix, icon: BarChart3, minLevel: "read_only", end: true },
+        { title: "Roadmap", url: `${packPrefix}/roadmap`, icon: Map, minLevel: "learner", end: false },
         { title: "My Timeline", url: `${packPrefix}/timeline`, icon: Calendar, minLevel: "read_only", end: false },
         { title: "Paths", url: `${packPrefix}/paths`, icon: Route, minLevel: "read_only", end: false },
         { title: "Modules", url: `${packPrefix}/modules`, icon: BookOpen, minLevel: "read_only", end: false },
@@ -169,6 +170,7 @@ export function AppSidebar() {
       items: [
         { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author", end: false },
         { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author", end: false },
+        { title: "Roadmap Builder", url: `${packPrefix}/roadmap-builder`, icon: Layers, minLevel: "author", end: false },
         { title: "Review", url: `${packPrefix}/review`, icon: CheckCircle2, minLevel: "author", end: false },
         { title: "Content Health", url: `${packPrefix}/health`, icon: Activity, minLevel: "author", end: false },
         { title: "Templates", url: "/templates", icon: Layout, minLevel: "admin", end: false },
@@ -256,7 +258,13 @@ export function AppSidebar() {
 
       <SidebarContent data-tour="sidebar-nav">
         {navSections.map((section) => {
-          const visibleItems = section.items.filter((item) => hasPackPermission(item.minLevel));
+          const visibleItems = section.items.filter((item) => {
+            // Feature flag check
+            if (item.title === "Roadmap" || item.title === "Roadmap Builder") {
+              if (!currentPack?.roadmap_enabled) return false;
+            }
+            return hasPackPermission(item.minLevel);
+          });
           if (visibleItems.length === 0) return null;
 
           return (

@@ -44,6 +44,8 @@ import HelpPage from "./pages/HelpPage";
 import SandboxModulePage from "./pages/SandboxModulePage";
 import FaqPage from "./pages/FaqPage";
 import FaqSuggestionsPage from "./pages/FaqSuggestionsPage";
+import RoadmapPage from "./pages/RoadmapPage";
+import RoadmapBuilder from "./pages/RoadmapBuilder";
 
 const queryClient = new QueryClient();
 
@@ -174,6 +176,8 @@ const App = () => (
               <Route path="/packs/:packId/sandbox" element={<ProtectedRoute><InviteAcceptor><SandboxModulePage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/faq" element={<ProtectedRoute><InviteAcceptor><FaqPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/faq-suggestions" element={<ProtectedRoute><InviteAcceptor><FaqSuggestionsPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/roadmap" element={<ProtectedRoute><InviteAcceptor><RoadmapPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/roadmap-builder" element={<ProtectedRoute><InviteAcceptor><RoadmapBuilder /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />

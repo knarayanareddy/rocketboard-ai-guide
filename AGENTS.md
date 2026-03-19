@@ -156,13 +156,17 @@ When adding `ingest-<source>`:
 8) **Tests**
    - Add tests for URL validation and redaction behavior.
 
-### 4.2 Adding a new AI task type (checklist)
-1) Add task type to the frontend envelope builder (`src/lib/envelope-builder.ts`).
-2) Add handler in `ai-task-router`:
-   - Enforce evidence requirements.
-   - Grounded pipeline (Citations + Snippets).
-3) Update telemetry and `rag_metrics` if necessary.
-
+### 4.3 Modifying Roadmap / Playlists (Hardening)
+1) **Integrity**
+   - Circular dependencies must be prevented at the DB level (trigger).
+   - Status transitions must follow allowed paths (blocked -> available -> in_progress -> done).
+2) **Tenancy**
+   - Every read must go through `has_pack_access` or `is_pack_member` RLS.
+   - Every write must check pack ownership/author level.
+3) **QA Verification**
+   - Any change to Roadmap RLS must be verified using the SQL test harness in `supabase/qa/roadmap/`.
+4) **Rollout**
+   - Use the `roadmap_enabled` flag on the `packs` table for a phased rollout.
 ---
 
 ## 5) Verification checklist (must run before final output)
