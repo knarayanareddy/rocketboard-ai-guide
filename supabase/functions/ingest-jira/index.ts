@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +53,24 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing Jira configuration" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // 2. Validate URL (SSRF Protection)
+    let validatedBaseUrl: string;
+    try {
+      const allowedHosts = Deno.env.get("ALLOWED_JIRA_HOSTS")?.split(",") || [];
+      validatedBaseUrl = parseAndValidateExternalUrl(base_url, {
+        allowedHostSuffixes: [".atlassian.net", ...allowedHosts],
+        allowHttps: true,
+      });
+      // Ensure no trailing slash for cleaner concatenation
+      validatedBaseUrl = validatedBaseUrl.replace(/\/$/, "");
+    } catch (err: any) {
+      console.error(`[SSRF BLOCK] Invalid Jira base_url: ${base_url}`, err.message);
+      return new Response(JSON.stringify({ error: "Invalid Jira URL. Only official Atlassian cloud hosts are allowed by default." }), { 
+        status: 400, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
     const { data: job } = await supabase.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
     const jobId = job!.id;
 
@@ -69,7 +88,7 @@ Deno.serve(async (req) => {
     const maxResults = 50;
 
     while (allIssues.length < max_issues) {
-      const resp = await fetch(`${base_url}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&startAt=${startAt}&fields=summary,description,issuetype,status,priority,labels,components,fixVersions,comment`, { headers });
+      const resp = await fetch(`${validatedBaseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&startAt=${startAt}&fields=summary,description,issuetype,status,priority,labels,components,fixVersions,comment`, { headers });
       if (!resp.ok) throw new Error(`Jira API error: ${resp.status} ${await resp.text()}`);
       const data = await resp.json();
       allIssues.push(...data.issues);

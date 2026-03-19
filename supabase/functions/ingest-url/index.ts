@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,8 +90,11 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function fetchPage(url: string): Promise<{ content: string; contentType: string; html: string }> {
-  const resp = await fetch(url, {
+async function fetchPage(url: string, policy: any): Promise<{ content: string; contentType: string; html: string }> {
+  // 1. Validate URL before every fetch
+  const validatedUrl = parseAndValidateExternalUrl(url, policy);
+
+  const resp = await fetch(validatedUrl, {
     headers: { "User-Agent": "RocketBoard-Bot/1.0 (knowledge ingestion)" },
     redirect: "follow",
   });
@@ -102,11 +106,11 @@ async function fetchPage(url: string): Promise<{ content: string; contentType: s
     let content = stripHtml(html);
 
     // If content is suspiciously short (likely a JS-rendered SPA), fall back to Jina Reader
-    // which runs a headless browser and returns clean markdown
     if (content.length < 200) {
       try {
         console.log(`[URL] Content too short (${content.length} chars), trying Jina Reader for ${url}`);
-        const jinaResp = await fetch(`https://r.jina.ai/${url}`, {
+        // IMPORTANT: The embedded URL in r.jina.ai must be the VALIDATED one
+        const jinaResp = await fetch(`https://r.jina.ai/${validatedUrl}`, {
           headers: { "Accept": "text/plain", "User-Agent": "RocketBoard-Bot/1.0" },
           redirect: "follow",
         });
@@ -119,7 +123,6 @@ async function fetchPage(url: string): Promise<{ content: string; contentType: s
         }
       } catch (jinaErr) {
         console.log(`[URL] Jina Reader fallback failed:`, jinaErr);
-        // Continue with original (possibly sparse) content
       }
     }
 
@@ -166,10 +169,28 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
     const jobId = job.id;
 
-    const baseUrlObj = new URL(startUrl);
+    // Public and restricted URL policy
+    const urlPolicy = {
+      allowAnyHost: true,
+      disallowPrivateIPs: true,
+      allowHttp: Deno.env.get("ALLOW_INSECURE_URL_INGESTION") === "true",
+      allowHttps: true,
+    };
+
+    let validatedStartUrl: string;
+    try {
+      validatedStartUrl = parseAndValidateExternalUrl(startUrl, urlPolicy);
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: `Invalid URL: ${err.message}` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const baseUrlObj = new URL(validatedStartUrl);
     const baseDomain = baseUrlObj.hostname;
     const visited = new Set<string>();
-    const queue: { url: string; depth: number }[] = [{ url: startUrl, depth: 0 }];
+    const queue: { url: string; depth: number }[] = [{ url: validatedStartUrl, depth: 0 }];
     const allChunks: any[] = [];
     let chunkIdx = 0;
     let pagesProcessed = 0;
@@ -180,7 +201,7 @@ Deno.serve(async (req) => {
       visited.add(current.url);
 
       try {
-        const { content, contentType, html } = await fetchPage(current.url);
+        const { content, contentType, html } = await fetchPage(current.url, urlPolicy);
         pagesProcessed++;
 
         const title = contentType === "html" ? extractTitle(html) : "";
@@ -230,8 +251,14 @@ Deno.serve(async (req) => {
               if (linkUrl.pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff|ttf|eot)$/i)) continue;
               if (!include_pdfs && linkUrl.pathname.endsWith(".pdf")) continue;
 
-              if (!visited.has(linkUrl.href)) {
+              if (visited.has(linkUrl.href)) continue;
+
+              // Validate link before queuing
+              try {
+                parseAndValidateExternalUrl(linkUrl.href, urlPolicy);
                 queue.push({ url: linkUrl.href, depth: current.depth + 1 });
+              } catch (policyErr: any) {
+                console.warn(`[SSRF SKIP] Link ${linkUrl.href} violated policy: ${policyErr.message}`);
               }
             } catch {
               // invalid URL

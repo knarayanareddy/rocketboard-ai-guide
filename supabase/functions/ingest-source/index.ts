@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { astChunk } from "../_shared/ast-chunker.ts";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -218,7 +219,23 @@ Deno.serve(async (req) => {
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
 
     if (source_type === "github_repo") {
-      const match = source_uri.match(/github\.com\/([^/]+)\/([^/]+)/);
+      // Validate source_uri (SSRF Protection)
+      let validatedUri: string;
+      try {
+        validatedUri = parseAndValidateExternalUrl(source_uri, {
+          allowAnyHost: true,
+          disallowPrivateIPs: true,
+          allowHttps: true,
+        });
+      } catch (err: any) {
+        console.error(`[SSRF BLOCK] Invalid GitHub source_uri: ${source_uri}`, err.message);
+        return new Response(JSON.stringify({ error: `Invalid Source URI: ${err.message}` }), { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        });
+      }
+
+      const match = validatedUri.match(/github\.com\/([^/]+)\/([^/]+)/);
       if (!match) throw new Error("Invalid GitHub repo URL");
       const [, owner, repo] = match;
       

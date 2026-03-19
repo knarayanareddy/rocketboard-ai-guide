@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,7 +47,23 @@ serve(async (req) => {
       text = `Notification: ${messageType}`;
     }
 
-    const res = await fetch(integration.webhook_url, {
+    // Validate webhook_url (SSRF Protection)
+    let validatedWebhookUrl: string;
+    try {
+      validatedWebhookUrl = parseAndValidateExternalUrl(integration.webhook_url, {
+        allowAnyHost: true,
+        disallowPrivateIPs: true,
+        allowHttps: true,
+      });
+    } catch (err: any) {
+      console.error(`[SSRF BLOCK] Invalid Slack webhook_url: ${integration.webhook_url}`, err.message);
+      return new Response(JSON.stringify({ error: `Invalid Slack Webhook URL: ${err.message}` }), { 
+        status: 400, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
+    const res = await fetch(validatedWebhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),

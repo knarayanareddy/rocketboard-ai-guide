@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { astChunk } from "../_shared/ast-chunker.ts";
+import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,8 +55,14 @@ async function fetchGitHubFile(owner: string, repo: string, path: string, token?
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let lockToken: string | null = null;
+  let pack_id: string | undefined;
+
   try {
-    const { org_id, pack_id } = await req.json();
+    const body = await req.json();
+    const { org_id } = body;
+    pack_id = body.pack_id;
+
     if (!org_id || !pack_id) throw new Error("Missing org_id or pack_id");
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -62,7 +70,22 @@ Deno.serve(async (req) => {
     const githubToken = Deno.env.get("GITHUB_TOKEN");
     const generation_id = crypto.randomUUID();
 
-    // 1. Initialize Progress
+    // 1. Acquire Lock (P0: Prevent Concurrent Racing)
+    const { data, error: lockErr } = await supabase
+      .rpc('acquire_pack_lock', { p_pack_id: pack_id, p_lock_name: 'reindex', p_ttl_seconds: 3600 });
+    
+    if (lockErr || !data) {
+      console.warn(`[LOCK REJECT] Job already in progress for pack ${pack_id}`);
+      return new Response(JSON.stringify({ 
+        error: "Reindex already in progress for this pack. Please wait or try again later." 
+      }), {
+        status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    lockToken = data;
+
+    // 2. Initialize Progress
     await supabase.from("reindex_progress").upsert({
       org_id,
       pack_id,
@@ -70,7 +93,7 @@ Deno.serve(async (req) => {
       started_at: new Date().toISOString()
     });
 
-    // 2. Get all sources for the pack
+    // 3. Get all sources for the pack
     const { data: sources, error: sErr } = await supabase.from("pack_sources").select("*").eq("pack_id", pack_id);
     if (sErr) throw sErr;
 
@@ -80,7 +103,20 @@ Deno.serve(async (req) => {
     for (const source of sources) {
       if (source.source_type !== "github_repo") continue; // Simple MVP support
       
-      const match = source.source_uri.match(/github\.com\/([^/]+)\/([^/]+)/);
+      // SSRF Protection
+      let validatedUri: string;
+      try {
+        validatedUri = parseAndValidateExternalUrl(source.source_uri, {
+          allowAnyHost: true,
+          disallowPrivateIPs: true,
+          allowHttps: true,
+        });
+      } catch (err: any) {
+        console.error(`[SSRF BLOCK] Invalid source_uri for pack ${pack_id}: ${source.source_uri}`, err.message);
+        continue;
+      }
+
+      const match = validatedUri.match(/github\.com\/([^/]+)\/([^/]+)/);
       if (!match) continue;
       const [, owner, repo] = match;
       const repoName = repo.replace(/\.git$/, "");
@@ -142,7 +178,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Atomic Swap
+    // 4. Atomic Swap
     const { error: ledgerErr } = await supabase.from("pack_active_generation").upsert({
       org_id,
       pack_id,
@@ -151,7 +187,7 @@ Deno.serve(async (req) => {
     });
     if (ledgerErr) throw ledgerErr;
 
-    // 4. Cleanup old chunks
+    // 5. Cleanup old chunks
     await supabase.from("knowledge_chunks")
       .delete()
       .eq("pack_id", pack_id)
@@ -171,5 +207,18 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
+  } finally {
+    if (lockToken && pack_id) {
+      try {
+        const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await supabase.rpc('release_pack_lock', { 
+          p_pack_id: pack_id, 
+          p_lock_name: 'reindex', 
+          p_lock_token: lockToken 
+        });
+      } catch (releaseErr) {
+        console.error("[LOCK RELEASE FAILED]", releaseErr);
+      }
+    }
   }
 });

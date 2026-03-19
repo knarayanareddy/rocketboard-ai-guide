@@ -1,5 +1,6 @@
 import * as yaml from "https://esm.sh/js-yaml@4";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +41,23 @@ Deno.serve(async (req) => {
 
     let specText = spec_content;
     if (spec_url && !specText) {
-      const resp = await fetch(spec_url);
+      // Validate spec_url (SSRF Protection)
+      let validatedSpecUrl: string;
+      try {
+        validatedSpecUrl = parseAndValidateExternalUrl(spec_url, {
+          allowAnyHost: true,
+          disallowPrivateIPs: true,
+          allowHttps: true,
+        });
+      } catch (err: any) {
+        console.error(`[SSRF BLOCK] Invalid OpenAPI spec_url: ${spec_url}`, err.message);
+        return new Response(JSON.stringify({ error: `Invalid OpenAPI URL: ${err.message}` }), { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        });
+      }
+
+      const resp = await fetch(validatedSpecUrl);
       if (!resp.ok) throw new Error(`Failed to fetch spec: ${resp.status}`);
       specText = await resp.text();
     }

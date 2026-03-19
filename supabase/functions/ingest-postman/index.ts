@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,7 +71,23 @@ Deno.serve(async (req) => {
     if (collection_json) {
       collection = typeof collection_json === "string" ? JSON.parse(collection_json) : collection_json;
     } else if (collection_url && postman_api_key) {
-      const collId = collection_url.replace(/.*\//, "");
+      // Validate collection_url (SSRF Protection)
+      let validatedUrl: string;
+      try {
+        validatedUrl = parseAndValidateExternalUrl(collection_url, {
+          allowAnyHost: true,
+          disallowPrivateIPs: true,
+          allowHttps: true,
+        });
+      } catch (err: any) {
+        console.error(`[SSRF BLOCK] Invalid Postman collection_url: ${collection_url}`, err.message);
+        return new Response(JSON.stringify({ error: `Invalid Postman URL: ${err.message}` }), { 
+          status: 400, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        });
+      }
+
+      const collId = validatedUrl.replace(/.*\//, "");
       const resp = await fetch(`https://api.getpostman.com/collections/${collId}`, {
         headers: { "X-API-Key": postman_api_key },
       });

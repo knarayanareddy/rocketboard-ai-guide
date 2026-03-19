@@ -1,5 +1,20 @@
 import Parser from "https://esm.sh/web-tree-sitter@0.20.8";
 
+const WASM_SHA256: Record<string, string> = {
+  typescript: "8515404dceed38e1ed86aa34b09fcf3379fff1b4ff9dd3967bcd6d1eb5ac3d8f",
+  python: "9056d0fb0c337810d019fae350e8167786119da98f0f282aceae7ab89ee8253b",
+  go: "9963ca89b616eaf04b08a43bc1fb0f07b85395bec313330851f1f1ead2f755b6",
+  rust: "4409921a70d0aa5bec7d1d7ce809a557a8ee1cf6ace901e3ac6a76e62cfea903",
+  java: "637aac4415fb39a211a4f4292d63c66b5ce9c32fa2cd35464af4f681d91b9a1f",
+  javascript: "1c99d4b953d2543bd6b934eb7206118fb732b473cd725ba04f258163b2bd3253",
+};
+
+async function computeSha256(buffer: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 let isParserInitialized = false;
 const languageCache = new Map<string, any>();
 
@@ -15,15 +30,46 @@ async function getLanguage(lang: string) {
   if (languageCache.has(langKey)) return languageCache.get(langKey);
 
   try {
-    const url = `https://esm.sh/tree-sitter-wasms@0.1.11/out/tree-sitter-${langKey}.wasm`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch grammar for ${langKey}`);
-    const buffer = await res.arrayBuffer();
+    let buffer: ArrayBuffer | null = null;
+    const wasmFilename = `tree-sitter-${langKey}.wasm`;
+
+    // 1. Try Local Vendored WASM first (Option C)
+    try {
+      // Use import.meta.url to find relative path in Deno
+      const localUrl = new URL(`./wasm/${wasmFilename}`, import.meta.url);
+      const localRes = await fetch(localUrl);
+      if (localRes.ok) {
+        console.log(`[AST] Loading local grammar for ${langKey}`);
+        buffer = await localRes.arrayBuffer();
+      }
+    } catch (localErr) {
+      // Fallback to remote if local fails or isn't found
+    }
+
+    // 2. Fetch from Remote if not found locally
+    if (!buffer) {
+      const baseUrl = Deno.env.get("TREE_SITTER_WASM_BASE_URL") || "https://esm.sh/tree-sitter-wasms@0.1.11/out";
+      const remoteUrl = `${baseUrl.replace(/\/$/, "")}/${wasmFilename}`;
+      
+      const res = await fetch(remoteUrl);
+      if (!res.ok) throw new Error(`Failed to fetch grammar for ${langKey} from ${remoteUrl}`);
+      buffer = await res.arrayBuffer();
+    }
+
+    // 3. Integrity Verification (Option B)
+    const expectedHash = WASM_SHA256[langKey];
+    if (expectedHash) {
+      const actualHash = await computeSha256(buffer);
+      if (actualHash !== expectedHash) {
+        throw new Error(`Integrity check failed for ${langKey}. Expected ${expectedHash}, got ${actualHash}`);
+      }
+    }
+
     const language = await Parser.Language.load(new Uint8Array(buffer));
     languageCache.set(langKey, language);
     return language;
   } catch (e) {
-    console.error(`[AST] Grammar load failed for ${langKey}:`, e);
+    console.error(`[AST] Grammar load failed for ${langKey}:`, (e as Error).message);
     return null;
   }
 }

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -183,6 +184,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 2. Validate URL (SSRF Protection)
+    let validatedBaseUrl: string;
+    try {
+      const allowedHosts = Deno.env.get("ALLOWED_CONFLUENCE_HOSTS")?.split(",") || [];
+      validatedBaseUrl = parseAndValidateExternalUrl(base_url, {
+        allowedHostSuffixes: [".atlassian.net", ...allowedHosts],
+        allowHttps: true,
+      });
+      // Ensure no trailing slash
+      validatedBaseUrl = validatedBaseUrl.replace(/\/$/, "");
+    } catch (err: any) {
+      console.error(`[SSRF BLOCK] Invalid Confluence base_url: ${base_url}`, err.message);
+      return new Response(JSON.stringify({ error: "Invalid Confluence URL. Only official Atlassian cloud hosts are allowed by default." }), { 
+        status: 400, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
     // Create ingestion job
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
@@ -192,7 +211,7 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
     const jobId = job.id;
 
-    const cleanUrl = base_url.replace(/\/$/, "");
+    const cleanUrl = validatedBaseUrl;
     const auth = btoa(`${auth_email}:${api_token}`);
 
     console.log(`[Confluence] Fetching pages from space ${space_key}...`);

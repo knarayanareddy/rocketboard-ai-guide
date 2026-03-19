@@ -1,5 +1,6 @@
 import mammoth from "https://esm.sh/mammoth@1?bundle";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -171,6 +172,21 @@ Deno.serve(async (req) => {
     if (!site_url || !tenant_id || !client_id || !client_secret) {
       return new Response(JSON.stringify({ error: "Missing SharePoint configuration" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 2. Validate URL (SSRF Protection)
+    try {
+      parseAndValidateExternalUrl(site_url, {
+        allowAnyHost: true,
+        disallowPrivateIPs: true,
+        allowHttps: true,
+      });
+    } catch (err: any) {
+      console.error(`[SSRF BLOCK] Invalid SharePoint site_url: ${site_url}`, err.message);
+      return new Response(JSON.stringify({ error: `Invalid SharePoint URL: ${err.message}` }), { 
+        status: 400, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
