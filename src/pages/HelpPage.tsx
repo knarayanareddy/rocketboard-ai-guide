@@ -13,9 +13,9 @@ import { useRole } from "@/hooks/useRole";
 import { toast } from "sonner";
 
 const ALL_CATEGORIES: HelpCategory[] = [
-  "vs-code-extension",
   "getting-started", "sources", "content-creation", "learning",
   "collaboration", "settings", "troubleshooting", "keyboard-shortcuts", "whats-new",
+  "vs-code-extension",
 ];
 
 const POPULAR_SLUGS = [
@@ -149,7 +149,7 @@ export default function HelpPage() {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-foreground mb-2">❓ RocketBoard Help Center (DEBUG: V1)</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-2">❓ RocketBoard Help Center</h1>
         <p className="text-sm text-muted-foreground mb-6">
           Showing articles for your role ({accessLevelLabel(packAccessLevel)}).
         </p>
@@ -258,7 +258,7 @@ function ArticleFeedback({ articleId, userId }: { articleId: string; userId?: st
   const submit = async (isHelpful: boolean) => {
     if (!userId) return;
     try {
-      await supabase.from("help_feedback" as any).insert({ user_id: userId, article_id: articleId, is_helpful: isHelpful } as any);
+      await supabase.from("help_feedback").insert({ user_id: userId, article_id: articleId, is_helpful: isHelpful });
       setSubmitted(true);
       toast.success("Thanks for your feedback!");
     } catch {
