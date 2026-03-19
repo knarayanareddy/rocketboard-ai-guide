@@ -17,6 +17,7 @@ import { fetchEvidenceSpans } from "@/lib/fetch-spans";
 import { ChatReportDialog } from "@/components/ChatReportDialog";
 import { useNavigate } from "react-router-dom";
 import { CitationBadge } from "@/components/CitationBadge";
+import type { AIErrorCode } from "@/lib/ai-errors";
 
 export interface ReferencedSection {
   module_key: string;
@@ -55,6 +56,9 @@ interface ModuleContext {
 interface ModuleChatPanelProps {
   moduleId: string;
   moduleContext: ModuleContext;
+  openRequest?: { requestId: string; prefill?: string } | null;
+  onOpenChange?: (open: boolean) => void;
+  onAssistantError?: (err: { code: AIErrorCode; message: string }) => void;
 }
 
 async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string, metadata?: any) {
@@ -225,7 +229,13 @@ function MessageSources({
 
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 
-export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProps) {
+export function ModuleChatPanel({ 
+  moduleId, 
+  moduleContext, 
+  openRequest, 
+  onOpenChange, 
+  onAssistantError 
+}: ModuleChatPanelProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { currentPack, currentPackId } = usePack();
@@ -238,6 +248,23 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastProcessedRequestId = useRef<string | null>(null);
+
+  // Handle openRequest from parent
+  useEffect(() => {
+    if (openRequest && openRequest.requestId !== lastProcessedRequestId.current) {
+      lastProcessedRequestId.current = openRequest.requestId;
+      setIsOpen(true);
+      if (openRequest.prefill) {
+        setInput(openRequest.prefill);
+      }
+    }
+  }, [openRequest]);
+
+  // Emit onOpenChange
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
 
   useEffect(() => {
     if (!isOpen || !user || historyLoaded) return;
@@ -342,11 +369,14 @@ export function ModuleChatPanel({ moduleId, moduleContext }: ModuleChatPanelProp
     } catch (e: any) {
       if (e instanceof AIError) {
         setLastError(e);
+        onAssistantError?.({ code: e.code, message: e.message });
       } else {
-        setLastError(new (await import("@/lib/ai-errors")).AIError({
+        const netErr: { code: AIErrorCode; message: string } = {
           code: "network_error",
           message: e.message || "Failed to get response",
-        }));
+        };
+        setLastError(new (await import("@/lib/ai-errors")).AIError(netErr));
+        onAssistantError?.(netErr);
       }
     } finally {
       setIsLoading(false);

@@ -158,7 +158,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='module-header']",
         title: "Welcome to This Module",
-        content: "You'll read through sections at your own pace. Mark each section as read when you're done with it.",
+        content: "You'll read through sections at your own pace. Mark each section as read when you're done. If you get stuck, RocketBoard will proactively offer **Contextual Hints** after 90 seconds of dwell time.",
       },
       {
         target: "[data-tour='module-tabs']",
@@ -212,7 +212,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='chat-message']",
         title: "Grounded Multi-Query Citations",
-        content: "Look for **[S1]**, **[S2]** badges. These are **strictly grounded**: the AI is forbidden from writing code, instead emitting placeholders that the server resolves to exact source lines. Hover for a preview, or click to open the file in the Source Explorer. Trace IDs allow you to audit the retrieval context for every answer.",
+        content: "Look for **[S1]**, **[S2]** badges. These are **strictly grounded**: the AI is forbidden from writing code and must use placeholders. If you 'bounce' (open/close frequently), the system detects your struggle and offers a pre-filled prompt.",
       },
       {
         target: "[data-tour='chat-sources']",

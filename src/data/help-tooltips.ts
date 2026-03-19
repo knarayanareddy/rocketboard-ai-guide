@@ -56,6 +56,7 @@ export const HELP_TOOLTIPS = {
     exerciseAIReview: "Your submission is reviewed by the AI using the module's source evidence. Feedback includes a score and suggestions for improvement. You can revise and resubmit.",
     preTest: "Optional knowledge check before reading the module. If you score 80%+, you can skip directly to the full quiz. Useful for experienced hires who may already know the material.",
     discussionTypes: "Discussion: general conversation about the content. Question: something you need answered (can be marked as resolved). Tip: a helpful insight to share with other learners.",
+    progressiveDisclosure: "RocketBoard proactively monitors your progress. If you get stuck (dwell time > 90s, chat errors, or chat bouncing), a hint will appear to guide you with small steps or pre-filled AI prompts.",
   },
 
   // ─── QUIZ ───────────────────────────────────────────

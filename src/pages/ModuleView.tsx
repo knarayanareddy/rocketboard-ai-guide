@@ -56,6 +56,8 @@ import type { DiscussionThread } from "@/hooks/useDiscussions";
 import { EditableSection } from "@/components/EditableSection";
 import { useContentFreshness } from "@/hooks/useContentFreshness";
 import { useTelemetry } from "@/hooks/useTelemetry";
+import { useContextualHints } from "@/hooks/useContextualHints";
+import { ContextualHintCard } from "@/components/ContextualHintCard";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
@@ -482,6 +484,7 @@ export default function ModuleView() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [codeExplorerOpen, setCodeExplorerOpen] = useState(false);
   const [selectedThread, setSelectedThread] = useState<DiscussionThread | null>(null);
+  const [chatOpenRequest, setChatOpenRequest] = useState<{ requestId: string; prefill?: string } | null>(null);
 
   const { logHelpRequest } = useTelemetry(moduleId || "");
 
@@ -570,6 +573,21 @@ export default function ModuleView() {
   }, [moduleId, startTour, shouldShowTour]);
 
   const readSections = getReadSectionsForModule(moduleId || "");
+
+  const activeSection = useMemo(() => {
+    const sections = isGenerated ? (moduleData?.sections || []) : (staticMod?.sections || []);
+    return sections.find(s => !readSections.has(isGenerated ? (s as any).section_id : (s as any).id)) || sections[0];
+  }, [isGenerated, moduleData, staticMod, readSections]);
+
+  const hintHook = useContextualHints({
+    packId: currentPackId || "",
+    moduleId: moduleId || "",
+    moduleTitle: isGenerated ? moduleData?.title || "" : staticMod?.title || "",
+    sectionId: isGenerated ? (activeSection as any)?.section_id : (activeSection as any)?.id,
+    sectionTitle: isGenerated ? (activeSection as any)?.heading : (activeSection as any)?.title,
+    sectionContent: isGenerated ? (activeSection as any)?.markdown : (activeSection as any)?.content,
+    isSectionRead: readSections.has(isGenerated ? (activeSection as any)?.section_id : (activeSection as any)?.id),
+  });
 
   const totalSections = isGenerated
     ? (moduleData?.sections?.length || 0)
@@ -1349,8 +1367,33 @@ export default function ModuleView() {
                 ? (moduleData?.sections || []).map((s) => ({ title: s.heading, content: s.markdown }))
                 : (staticMod?.sections || []).map((s) => ({ title: s.title, content: s.content })),
             }}
+            openRequest={chatOpenRequest}
+            onOpenChange={(open) => {
+              if (open) hintHook.reportChatOpen();
+              else hintHook.reportChatClose();
+            }}
+            onAssistantError={hintHook.reportError}
           />
         </ProtectedAction>
+
+        {/* Contextual Hint */}
+        <AnimatePresence>
+          {hintHook.activeHint && (
+            <ContextualHintCard
+              hint={hintHook.activeHint}
+              onDismiss={() => hintHook.dismissHint(hintHook.activeHint!.id, true)}
+              onSnooze={() => hintHook.snoozeHint(hintHook.activeHint!.id, 10)}
+              onAskRocket={() => {
+                const requestId = crypto.randomUUID();
+                setChatOpenRequest({ 
+                  requestId, 
+                  prefill: hintHook.buildAskRocketPrompt() 
+                });
+                hintHook.dismissHint(hintHook.activeHint!.id);
+              }}
+            />
+          )}
+        </AnimatePresence>
 
 
 

@@ -149,6 +149,7 @@ Full telemetry tracing for every AI task and ingestion job using our **Unified T
 - **Exercises** — code find, explain, configure, debug, explore challenges
 - **Glossary** with density controls and code-contextualized definitions
 - **Onboarding Paths** — Day 1 & Week 1 step-by-step checklists
+- **Contextual Hints** — Proactive detection of stuck learners (dwell time, chat errors, "bouncing") with escalating guidance and pre-filled AI prompts.
 - **Learner Profiles** — highly personalized AI content adapting to learning style, familiarity, and tone
 - **Ask Your Lead** — curated high-signal questions for 1:1 meetings
 - **Notes & Bookmarks** — personal note-taking with guided prompts

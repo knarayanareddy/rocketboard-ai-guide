@@ -164,6 +164,7 @@ Test your knowledge at the end of each module. If you get stuck, use **Mission C
 :::card[Tips for Success]{💡}
 - Press **Cmd+K** to search everything instantly
 - Use **Rocket Chat** (🚀) on any module page to ask about the specific content
+- **Don't worry about getting stuck!** RocketBoard monitors your progress and will proactively offer contextual hints if you've been on a section for a while or if the AI detects a struggle.
 - Check the **Glossary** for unfamiliar team jargon
 :::`,
     relatedArticles: ["gs-1", "learn-1"],
@@ -1504,5 +1505,47 @@ To prevent race conditions during bulk ingestion, RocketBoard uses **DB-backed l
 Your security is our priority. By centralizing these guards in a shared security module, we ensure consistent protection across all 28+ edge functions and 13 connectors.
 :::`,
     relatedArticles: ["src-1", "src-7"],
+  },
+  {
+    id: "learn-5",
+    slug: "contextual-hints",
+    title: "Contextual Hints & Learning Guidance",
+    category: "learning",
+    audience: ["learner"],
+    tags: ["hints", "guidance", "stuck", "proactive"],
+    summary: "How RocketBoard's proactive hint system helps you when you're stuck.",
+    lastUpdated: "2026-03-19",
+    content: `# Contextual Hints & Guidance 🚀
+    
+RocketBoard is designed to be your adaptive onboarding partner. Our **Contextual Hint Engine** proactively monitors your learning journey to detect when you might need a nudge forward.
+
+## How it works
+
+The system looks for three primary "struggle signals":
+
+:::card[1. Dwell Time]{⏳}
+If you've been on a single section for more than **90 seconds** without marking it as read, RocketBoard will surface a small hint to help you move to the next concept.
+:::
+
+:::card[2. Chat Errors]{⚠️}
+If you experience repeated technical issues with the AI chat (e.g., 2+ errors in 10 minutes), the system will offer a guided way to resolve the blockage.
+:::
+
+:::card[3. Chat Bouncing]{🔄}
+If you open and close the chat panel several times in a short window without sending a message, the AI detects that you might be looking for an answer but aren't sure how to phrase the question.
+:::
+
+## Progressive Disclosure
+
+Hints follow a "Progressive Disclosure" pattern to ensure you still have the "Aha!" moment yourself:
+
+1. **The Nudge**: A small notification appears in the corner with a "Show hint" option.
+2. **The Guided Answer**: If you click "Show hint," the system provides a specific step or explanation.
+3. **Ask Rocket with Context**: If you're still stuck, you can click **"Ask Rocket"**. This opens the chat with a **pre-filled, context-aware question** tailored to the exact section you're reading.
+
+:::card[Privacy & Throttling]{🛡️}
+Hints are designed to be helpful, not annoying. Every hint has a **24-hour cooldown** per section, and you can always **Snooze** or **Dismiss** a hint if you'd prefer to work through it on your own.
+:::`,
+    relatedArticles: ["learn-1", "learn-3"],
   },
 ];
