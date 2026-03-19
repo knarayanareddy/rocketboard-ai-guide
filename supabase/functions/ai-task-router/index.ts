@@ -692,6 +692,7 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
 
     await supabase.from("rag_metrics").insert({
       org_id: pack.org_id,
+      pack_id: pack.pack_id,
       user_id: data.metadata?.userId,
       query: "[chat history or prompt redacted]", 
       task_type: data.metadata?.taskType,

@@ -46,6 +46,8 @@ import FaqPage from "./pages/FaqPage";
 import FaqSuggestionsPage from "./pages/FaqSuggestionsPage";
 import RoadmapPage from "./pages/RoadmapPage";
 import RoadmapBuilder from "./pages/RoadmapBuilder";
+import TrustDashboard from "./pages/TrustDashboard";
+import RequestDrilldown from "./pages/RequestDrilldown";
 
 const queryClient = new QueryClient();
 
@@ -178,6 +180,8 @@ const App = () => (
               <Route path="/packs/:packId/faq-suggestions" element={<ProtectedRoute><InviteAcceptor><FaqSuggestionsPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/roadmap" element={<ProtectedRoute><InviteAcceptor><RoadmapPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/roadmap-builder" element={<ProtectedRoute><InviteAcceptor><RoadmapBuilder /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/trust" element={<ProtectedRoute><InviteAcceptor><TrustDashboard /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/trust/requests/:requestId" element={<ProtectedRoute><InviteAcceptor><RequestDrilldown /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />

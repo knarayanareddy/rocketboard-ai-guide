@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit, HelpCircle, Lightbulb, MapPin, RotateCcw } from "lucide-react";
+import { Rocket, BookOpen, BarChart3, Settings, ChevronRight, LogOut, BookText, Route, MessageSquareMore, Package, Shield, ShieldCheck, Database, Map, Layout, Globe, Plus, CheckCircle2, Search, MessageCircle, Users, Bookmark, Calendar, Activity, BrainCircuit, HelpCircle, Lightbulb, MapPin, RotateCcw, Layers } from "lucide-react";
 import { useTour } from "@/hooks/useTour";
 import { TourOverlay } from "@/components/TourOverlay";
 import { useFaqSuggestions } from "@/hooks/useFaqSuggestions";
@@ -190,6 +190,7 @@ export function AppSidebar() {
           end: false,
           badge: suggestions.length > 0 ? suggestions.length : undefined,
         },
+        { title: "Trust & Quality", url: `${packPrefix}/trust`, icon: ShieldCheck, minLevel: "author", end: false },
         { title: "Members", url: `${packPrefix}/members`, icon: Shield, minLevel: "admin", end: false },
       ],
     },
