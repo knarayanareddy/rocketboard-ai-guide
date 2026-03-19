@@ -13,9 +13,9 @@ import { useRole } from "@/hooks/useRole";
 import { toast } from "sonner";
 
 const ALL_CATEGORIES: HelpCategory[] = [
+  "vs-code-extension",
   "getting-started", "sources", "content-creation", "learning",
   "collaboration", "settings", "troubleshooting", "keyboard-shortcuts", "whats-new",
-  "vs-code-extension",
 ];
 
 const POPULAR_SLUGS = [
@@ -149,7 +149,7 @@ export default function HelpPage() {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-foreground mb-2">❓ RocketBoard Help Center</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-2">❓ RocketBoard Help Center (DEBUG: V1)</h1>
         <p className="text-sm text-muted-foreground mb-6">
           Showing articles for your role ({accessLevelLabel(packAccessLevel)}).
         </p>
