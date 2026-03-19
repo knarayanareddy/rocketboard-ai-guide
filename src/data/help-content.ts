@@ -92,16 +92,16 @@ Ready to see it in action? Use the button below to ask our Mission Control assis
   },
   {
     id: "gs-2",
-    slug: "six-phase-flow",
-    title: "The 6-Phase Setup Flow",
+    slug: "seven-phase-flow",
+    title: "The 7-Phase Setup Flow",
     category: "getting-started",
     audience: ["admin", "author"],
     tags: ["setup", "workflow", "phases"],
     summary: "Step-by-step walkthrough of the complete RocketBoard setup flow.",
-    lastUpdated: "2026-03-01",
-    content: `# The 6-Phase Setup Flow
+    lastUpdated: "2026-03-19",
+    content: `# The 7-Phase Setup Flow
 
-Getting your team ramped up on a new codebase follows this battle-tested six-phase journey.
+Getting your team ramped up on a new codebase follows this battle-tested seven-phase journey.
 
 :::step[Phase 1: Setup]
 Create your organization and your first pack. Invite team members and assign roles (Owner, Admin, Author, Learner, Read Only).
@@ -125,6 +125,10 @@ Learners read modules, take quizzes, complete exercises, explore the glossary, a
 
 :::step[Phase 6: Iteration]
 Re-sync sources when code changes. Check **Content Health** for stale indicators and approve AI-drafted remedies.
+:::
+
+:::step[Phase 7: Observability]{📡}
+Monitor every AI task and ingestion job with **Unified Telemetry**. Audit grounding scores, retrieval latency, and trace failures to the exact source chunk.
 :::`,
     relatedArticles: ["gs-1", "src-1"],
   },
@@ -425,27 +429,56 @@ Choose the **URL** tab to import from a public URL. Use **Crawl mode** to automa
     audience: ["admin", "author"],
     tags: ["chunks", "knowledge", "ingestion"],
     summary: "What chunks are and how they're used.",
-    lastUpdated: "2026-03-01",
+    lastUpdated: "2026-03-19",
     content: `# Understanding Knowledge Chunks
 
 Knowledge chunks are the atomic units of information in RocketBoard, typically representing ~100-150 lines of code or ~500 words of text.
 
-:::card[Why AST-Smart Chunking?]{🧱}
-RocketBoard uses an **AST-aware (Tree-sitter) chunker**. Instead of blind line breaks, it identifies function signatures and logical blocks, ensuring that evidence spans are semantically complete and Titanium-hardened for precise retrieval.
+:::card[Smart Structural Chunking]{🧱}
+RocketBoard uses a **heading-aware chunker**. Instead of blind line breaks, it splits content by Markdown headers (H1-H6) and groups sections logically until the word limit is reached. This preserves technical context and prevents evidence from being cut off mid-paragraph.
 :::
 
-:::card[Browsing Evidence]{🔍}
-Click **Browse Chunks** on any source card to audit the individual text segments stored in the vector database.
+:::card[Deterministic Chunk IDs]{🆔}
+Every chunk is assigned a stable ID based on its document path, line range, and SHA256 content hash. This ensures that re-ingesting content results in an **UPSERT** rather than a duplicate, preserving citation links even as your documentation evolves.
 :::
 
 :::card[Privacy & Redaction]{🛡️}
-Secrets (API keys, tokens, passwords) are automatically detected and replaced with \`***REDACTED***\` during ingestion. This process is centralized and consistent across all 13 connectors.
+Secrets (API keys, tokens, passwords) are automatically detected and replaced with \`***REDACTED***\` during ingestion using centralized security patterns.
 :::
 
-:::card[SSRF Protection]{📡}
-Every URL provided to our ingestion engine is vetted against a strict security policy. We block loopback addresses, private IP ranges (RFC 1918), and unapproved protocols to keep your internal infrastructure invisible to the AI.
+:::card[Cost-Saving Deduplication]{💰}
+By hashing chunk content, RocketBoard can detect unchanged data and reuse existing embeddings, significantly reducing OpenAI/Gemini API costs during repeated syncs.
 :::`,
     relatedArticles: ["src-1", "src-4"],
+  },
+  {
+    id: "src-8",
+    slug: "ingestion-safeguards",
+    title: "Ingestion Safeguards & Recovery",
+    category: "sources",
+    audience: ["admin"],
+    tags: ["safeguards", "cooldown", "recovery", "security"],
+    summary: "How RocketBoard protects your resources during ingestion.",
+    lastUpdated: "2026-03-19",
+    content: `# Ingestion Safeguards & Recovery 🛡️
+
+To prevent runaway API costs and resource abuse, RocketBoard enforces several production-grade safeguards.
+
+## 1. Cooldown Period ⏳
+Every source has a mandatory **1-hour cooldown** between successful syncs. This prevents accidental double-syncs and protects your GitHub/Notion API rate limits.
+*(Author Tip: If a job fails, the cooldown is bypassed so you can retry immediately.)*
+
+## 2. Concurrency Locks 🔒
+Only one reindexing job can run per organization at a time. If two authors attempt to reindex the same pack simultaneously, the second job will wait or be rejected to prevent race conditions.
+
+## 3. Automatic Resilience 🧼
+If an ingestion job fails (e.g., network timeout), RocketBoard automatically:
+1. Marks the job as **failed** with a detailed error message.
+2. Purges all partially written chunks for that specific \`job_id\` from the database.
+3. Allows an **immediate retry** without waiting for the cooldown.
+
+## 4. Tracing & Triggers 📡
+Every ingestion step is instrumented with metadata. You can audit the latency and success rate of your syncs in the **Observability** dashboard, with every chunk mapped back to its parent job.`
   },
 
   // ─── CONTENT CREATION ────────────────────────────

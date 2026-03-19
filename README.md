@@ -93,10 +93,17 @@ The central AI orchestration engine. Every request goes through input sanitizati
 Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them for retrieval. Every outbound request is protected by a **Titanium SSRF Guard**.
 
 - **GitHub** — repos via OAuth, with webhook-driven staleness detection & URL validation.
-- **Confluence** / **Notion** / **SharePoint** / **Google Drive** — documentation with strict host allowlisting.
-- **Slack** / **Linear** / **Jira** / **PagerDuty** — operational context with hardcoded API boundaries.
+- **Confluence** / **Notion** / **SharePoint** / **Google Drive** — documentation with clean Markdown normalization.
+- **Slack** / **Linear** / **Jira** / **PagerDuty** — operational context with **Smart Structural Chunking**.
 - **Figma** / **Loom** / **Postman** / **OpenAPI** — design & API specs with recursive link validation.
 - **URL** — arbitrary web pages with deep-crawl SSRF protection.
+
+| Feature | Description |
+|-----------|-------------|
+| **Smart Structural Chunker** | Heading-aware splitting (H1-H6) ensures semantic context is preserved, avoiding arbitrary data breaks. |
+| **Deterministic Chunk IDs** | Stable IDs based on document path, lines, and content hash enable seamless `UPSERT` and citation stability. |
+| **Ingestion Safeguards** | **Cooldowns** (1-hour) and **Concurrent Lease Locks** prevent API abuse and race conditions. |
+| **Automatic Recovery** | Failed ingestion jobs automatically purge partial data to ensure a clean state for retries. |
 
 ### 🔍 Hybrid Search (pgvector + Full-Text)
 Evidence retrieval uses `hybrid_search_v2` RPC which is **Titanium-Hardened**:
@@ -110,7 +117,7 @@ Evidence retrieval uses `hybrid_search_v2` RPC which is **Titanium-Hardened**:
 AI responses include inline citation badges (`[S1]`, `[S2]`) that are fully interactive:
 - **Hover** for a source code preview
 - **Click** to open the full file in the Source Explorer
-- Bottom-of-response source badges provide quick navigation
+- **Deterministic ID Mapping** — Citations remain stable even across re-ingests due to content-based hashing.
 
 ### 👤 Personalization via Learner Profiles
 - **Role & Experience:** AI adjusts verbosity, code density, and depth dynamically
@@ -119,14 +126,14 @@ AI responses include inline citation badges (`[S1]`, `[S2]`) that are fully inte
 - **Tone Preference:** Direct, Conversational, or Socratic guidance
 
 ### 📊 AI Observability & Quality Monitoring (Phase 7)
-Full telemetry tracing for every AI task using our **Unified Telemetry Wrapper**:
+Full telemetry tracing for every AI task and ingestion job using our **Unified Telemetry Wrapper**:
 - **Strategic Sampling** — 100% trace capture for errors/low-scores, with cost-optimized background sampling for success.
+- **Ingestion Tracing** — Every sync is instrumented with spans for `fetch`, `chunk`, `redact`, `embed`, and `db_upsert`.
 - **Grounding Score** — Professional quality assessment of citation accuracy (0-1).
 - **Strip Rate** — Percentage of ungrounded LLM content automatically redacted.
 - **Retrieval Analytics** — `top1_score`, `avg_relevance`, and `unique_files_count` tracked per request.
 - **Feedback Loop Closure** — User ratings linked to technical traces via persistent `trace_id`.
 - **Local RAG Metrics** — Performance data stored in PostgreSQL `rag_metrics` for out-of-the-box SQL reporting.
-- **Graceful No-op Fallback** — Safe execution even when Langfuse is disabled.
 
 ### 🔄 Content Health & Auto-Remediation
 - **GitHub Webhook** detects pushes that affect cited source files

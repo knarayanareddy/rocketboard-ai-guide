@@ -55,7 +55,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='source-list']",
         title: "Source Management",
-        content: "After adding a source, click 'Sync' to ingest. Our **Titanium SSRF Guard** automatically vetting every outbound request, and **SHA256 integrity checks** ensure your code is parsed safely.",
+        content: "After adding a source, click 'Sync' to ingest. Our **Titanium SSRF Guard** vets every request, and **SHA256 content hashes** enable cost-saving embedding reuse. Successful syncs trigger a **1-hour cooldown** to prevent API abuse.",
       },
     ],
   },
@@ -114,7 +114,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='review-module-card']",
         title: "AI Draft Updates ✨",
-        content: "If source code changes make a module stale, RocketBoard automatically drafts a content fix. Click 'Review AI Draft' to see a side-by-side diff and accept the fix without writing a word.",
+        content: "If source code changes make a module stale, RocketBoard automatically drafts a content fix. Every generation is verified by a **Runtime Grounding Audit** to ensure 100% technical accuracy.",
       },
       {
         target: "[data-tour='preview-button']",
@@ -211,8 +211,8 @@ export const ALL_TOURS: Tour[] = [
       },
       {
         target: "[data-tour='chat-message']",
-        title: "Multi-Query Hybrid Citations",
-        content: "Look for **[S1]**, **[S2]** badges in AI's responses. These are **strictly grounded**: the AI is forbidden from writing code, instead emitting placeholders that the server resolves to exact source lines. Hover for a preview, or click to open the file in the Source Explorer.",
+        title: "Grounded Multi-Query Citations",
+        content: "Look for **[S1]**, **[S2]** badges. These are **strictly grounded**: the AI is forbidden from writing code, instead emitting placeholders that the server resolves to exact source lines. Hover for a preview, or click to open the file in the Source Explorer. Trace IDs allow you to audit the retrieval context for every answer.",
       },
       {
         target: "[data-tour='chat-sources']",
