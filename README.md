@@ -9,9 +9,11 @@
 
 ---
 
-## What is RocketBoard?
+## RocketBoard AI Guide
 
-RocketBoard is an **AI-native onboarding platform** for engineering teams. It ingests your GitHub repos, Confluence docs, Notion pages, and other knowledge sources — then generates structured learning modules, quizzes, glossaries, exercises, and onboarding paths. Every piece of generated content is **grounded in evidence spans** from your actual codebase, with full citation tracking.
+> AI coding agents: read [AGENTS.md](file:///c:/first%20commit/rocketboard-ai-guide/AGENTS.md) first.
+
+RocketBoard is a high-performance, grounded AI onboarding platform designed to help developers master complex codebases with zero hallucinations. It ingests your GitHub repos, Confluence docs, Notion pages, and other knowledge sources — then generates structured learning modules, quizzes, glossaries, exercises, and onboarding paths. Every piece of generated content is **grounded in evidence spans** from your actual codebase, with full citation tracking.
 
 ### Who is it for?
 
