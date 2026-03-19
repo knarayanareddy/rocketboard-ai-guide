@@ -35,6 +35,7 @@ import { format } from "date-fns";
 import { Link, useParams } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { LifecycleHealthPanel } from "@/components/trust/LifecycleHealthPanel";
 
 export default function TrustDashboard() {
   const { packId } = useParams<{ packId: string }>();
@@ -251,6 +252,15 @@ export default function TrustDashboard() {
             </Card>
           </div>
         </div>
+
+        {/* Lifecycle & Retention Health */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+             <Database className="w-5 h-5 text-primary" />
+             <h2 className="text-lg font-bold">Lifecycle & Retention</h2>
+          </div>
+          <LifecycleHealthPanel packId={packId} />
+        </section>
 
         {/* Latest Requests Table */}
         <Card>

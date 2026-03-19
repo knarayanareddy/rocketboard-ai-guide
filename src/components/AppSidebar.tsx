@@ -197,6 +197,7 @@ export function AppSidebar() {
     {
       label: "System",
       items: [
+        { title: "Data Lifecycle", url: `${packPrefix}/settings/lifecycle`, icon: Database, minLevel: "admin", end: false },
         { title: "Settings", url: "/settings", icon: Settings, minLevel: "read_only", end: false },
       ],
     },

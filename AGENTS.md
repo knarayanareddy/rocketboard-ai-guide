@@ -90,6 +90,12 @@ If you change any contract, update **both** the producer and consumer, plus migr
 - `content_hash` (SHA256) must be computed consistently across ingestion paths.
 - If an identical chunk existed in a previous run, reuse its embedding via `supabase/functions/_shared/embedding-reuse.ts`.
 
+**Data Lifecycle Invariants**
+- Purge must be scoped to `(pack_id, source_id)`. Never delete across packs.
+- Every manual or automated deletion must record a row in `lifecycle_audit_events`.
+- Do not delete Vault credentials during source purge.
+- Retention cleanup must respect the `legal_hold` flag.
+
 ---
 
 ## 2) Where to change what (map of the codebase)
