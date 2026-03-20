@@ -7,6 +7,7 @@ import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/inge
 import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
+import { extractSymbols } from "../_shared/symbol-extractor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -186,15 +187,21 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Hoist source_id so the catch block can mark the job as failed
+  // Hoist variables for catch block accessibility
+  let trace: any;
+  let jobId: string | undefined;
+  let githubToken: string | undefined;
   let source_id: string | undefined;
+
   try {
     const body = await req.json();
     const { pack_id, source_type, source_uri, document_content, label, source_config, org_id } = body;
     source_id = body.source_id;
 
+    source_id = body.source_id;
+
     // Initialize Trace (Strategic Sampling)
-    const trace = createTrace({
+    trace = createTrace({
       serviceName: 'ingest-source',
       taskType: 'ingestion',
       requestId: crypto.randomUUID(),
@@ -244,7 +251,6 @@ Deno.serve(async (req) => {
       .single();
     if (jobErr) throw jobErr;
 
-    let jobId: string | undefined;
     if (job) jobId = job.id;
     if (!jobId) throw new Error("Failed to create ingestion job");
 
@@ -280,11 +286,11 @@ Deno.serve(async (req) => {
       let files: string[] = [];
       try {
         // 1. Try to get token from Vault
-        let githubToken = await getSourceCredential(supabase, source_id, 'api_token');
+        githubToken = await getSourceCredential(supabase, source_id, 'api_token');
         
         // 2. Fallback to Env Var (for system-wide or legacy support)
         if (!githubToken) {
-          githubToken = Deno.env.get("GITHUB_TOKEN");
+          githubToken = Deno.env.get("GITHUB_TOKEN") || undefined;
         }
         
         files = await fetchGitHubTree(owner, repo.replace(/\.git$/, ""), githubToken || undefined);
@@ -375,7 +381,7 @@ Deno.serve(async (req) => {
         name: "chunk_summary", 
         startTime: Date.now(), 
         endTime: Date.now(), 
-        output: { total_chunks: allChunks.length, total_redactions } 
+        output: { total_chunks: allChunks.length, total_redactions: totalRedactions } 
       });
     } else if (source_type === "document") {
       const text = document_content || "";
@@ -502,6 +508,75 @@ Deno.serve(async (req) => {
       await supabase.from("ingestion_jobs").update({ processed_chunks: processed }).eq("id", jobId);
     }
     upsertSpan.end({ processed });
+
+    // 2. Populate Graph Tables (symbol_definitions, symbol_references)
+    const graphSpan = trace.startSpan("populate_graph", { total_chunks: allChunks.length });
+    
+    // Clean up existing graph rows for this source to ensure no stale data
+    await supabase.from("symbol_definitions").delete().eq("source_id", source_id);
+    await supabase.from("symbol_references").delete().eq("source_id", source_id);
+
+    const definitionsBatch: any[] = [];
+    const referencesBatch: any[] = [];
+
+    for (const chunk of allChunks) {
+      if (chunk.is_redacted) continue;
+
+      // a. Definitions
+      const symbolsToDefine = new Set<string>();
+      if (chunk.entity_name && chunk.entity_name !== "anonymous" && chunk.entity_name !== "file_scope") {
+        symbolsToDefine.add(chunk.entity_name);
+      }
+      if (chunk.exported_names) {
+        chunk.exported_names.forEach(name => symbolsToDefine.add(name));
+      }
+
+      for (const symbol of symbolsToDefine) {
+        definitionsBatch.push({
+          pack_id,
+          source_id,
+          symbol,
+          chunk_id: chunk.chunk_id,
+          path: chunk.path,
+          line_start: chunk.start_line,
+          line_end: chunk.end_line
+        });
+      }
+
+      // b. References
+      const lang = chunk.path.split(".").pop() || "typescript";
+      const refs = extractSymbols(chunk.content, lang);
+      for (const symbol of refs) {
+        // Skip referencing the symbol that is defined in the same chunk (prevents self-loops)
+        if (symbolsToDefine.has(symbol)) continue;
+
+        referencesBatch.push({
+          pack_id,
+          source_id,
+          symbol,
+          from_chunk_id: chunk.chunk_id,
+          from_path: chunk.path,
+          from_line_start: chunk.start_line,
+          from_line_end: chunk.end_line,
+          confidence: 1.0 // Simple extraction for now
+        });
+      }
+    }
+
+    // Insert batches
+    if (definitionsBatch.length > 0) {
+      for (let i = 0; i < definitionsBatch.length; i += BATCH_SIZE) {
+        const { error } = await supabase.from("symbol_definitions").upsert(definitionsBatch.slice(i, i + BATCH_SIZE));
+        if (error) console.error("[GRAPH] Definitions error:", error);
+      }
+    }
+    if (referencesBatch.length > 0) {
+      for (let i = 0; i < referencesBatch.length; i += BATCH_SIZE) {
+        const { error } = await supabase.from("symbol_references").upsert(referencesBatch.slice(i, i + BATCH_SIZE));
+        if (error) console.error("[GRAPH] References error:", error);
+      }
+    }
+    graphSpan.end({ definitions: definitionsBatch.length, references: referencesBatch.length });
 
     // Update source last_synced_at
     await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);

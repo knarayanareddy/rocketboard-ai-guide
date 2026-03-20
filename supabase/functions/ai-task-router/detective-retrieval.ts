@@ -11,6 +11,7 @@ export interface DetectiveMetrics {
   hops_run: number;
   hop0_count: number;
   hop1_added: number;
+  hop2_added: number;
   symbols_extracted: number;
   rerank_kept: number;
   time_ms: number;
@@ -41,6 +42,7 @@ export async function runDetectiveRetrieval(
   let hopsRun = 0;
   let symbolsExtractedCount = 0;
   let hop1AddedCount = 0;
+  let hop2AddedCount = 0;
 
   const packId = envelope.pack?.pack_id;
   const orgId = envelope.pack?.org_id;
@@ -106,6 +108,40 @@ export async function runDetectiveRetrieval(
       currentSpans = [...currentSpans, ...newSpans].slice(0, options.maxSpansTotal);
     }
 
+    // 4. Hop 2 Retrieval (References - Impact Analysis)
+    // Only run if we still have space and time
+    if (currentSpans.length < options.maxSpansTotal && Date.now() - startTime < options.maxTimeMs) {
+      // Pick top 2 symbols for reference expansion to avoid over-fetching
+      const topSymbolsForRefs = symbols.slice(0, 2);
+      for (const sym of topSymbolsForRefs) {
+        const { data: refSpans, error: refError } = await supabase.rpc("find_references_v1", {
+          p_pack_id: packId,
+          p_symbol: sym,
+          p_limit: 5
+        });
+
+        if (refError) {
+          console.error(`[Detective] Hop 2 RPC error for ${sym}:`, refError);
+          continue;
+        }
+
+        if (refSpans && refSpans.length > 0) {
+          const existingChunkIds = new Set(currentSpans.map(s => s.chunk_id));
+          const newRefSpans = refSpans
+            .filter((s: any) => !existingChunkIds.has(s.chunk_id))
+            .map((s: any) => ({
+              ...s,
+              span_id: "",
+              text: s.content || "", // RPC might return content or snippet
+            }));
+          
+          hop2AddedCount += newRefSpans.length;
+          currentSpans = [...currentSpans, ...newRefSpans].slice(0, options.maxSpansTotal);
+        }
+        if (currentSpans.length >= options.maxSpansTotal) break;
+      }
+    }
+
     // Stop if we hit the cap
     if (currentSpans.length >= options.maxSpansTotal) break;
   }
@@ -128,6 +164,7 @@ export async function runDetectiveRetrieval(
       hops_run: hopsRun,
       hop0_count: hop0Count,
       hop1_added: hop1AddedCount,
+      hop2_added: hop2AddedCount,
       symbols_extracted: symbolsExtractedCount,
       rerank_kept: renumberedSpans.length,
       time_ms: timeMs,

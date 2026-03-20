@@ -1,3 +1,10 @@
+# Cross-cutting acceptance (Required for backend/DB/edge/IDE/MCP)
+- [ ] **AGENTS.md updated**: (“where to change what” / invariants)
+- [ ] **Trust console updated**: (if metrics/schema changed)
+- [ ] **Lifecycle controls safe**: (no dangerous purges/deletions)
+- [ ] **Security review**: (RBAC, SSRF, no secret logs, output caps+redaction)
+- [ ] **CI / Manual QA**: (verified via `scripts/mcp-smoke-test.ts` or `rag-eval`)
+
 # Summary
 <!-- What does this PR change? Keep it short. -->
 

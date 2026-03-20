@@ -211,3 +211,18 @@ When adding `ingest-<source>`:
 
 ## 6) Updating this file
 If you add a connector, change retrieval, or change the router contract, update this `AGENTS.md` in the same PR.
+
+---
+
+## 7) Cross-cutting acceptance checklist (required)
+**Required for all PRs touching backend/DB/edge/IDE/MCP.**
+
+### Checklist items:
+- [ ] **AGENTS.md updated**: (“where to change what” / invariants)
+- [ ] **Trust console updated**: (if metrics/schema changed)
+- [ ] **Lifecycle controls safe**: (no dangerous purges/deletions)
+- [ ] **Security review**: (RBAC, SSRF, no secret logs, output caps+redaction)
+- [ ] **CI / Manual QA**: (verified via `scripts/mcp-smoke-test.ts` or `rag-eval`)
+
+### Release discipline:
+If you forgot to include this checklist in your PR, create a backfill PR to update the documentation and verify the changes.

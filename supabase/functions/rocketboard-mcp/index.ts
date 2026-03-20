@@ -41,6 +41,7 @@ import { GetPackConventionsInputSchema, getPackConventions } from "./tools/get_p
 import { GetTechDocsIndexInputSchema, GetTechDocInputSchema, getTechDocsIndex, getTechDoc } from "./tools/get_tech_docs.ts";
 import { ReportGapInputSchema, reportContentGap } from "./tools/report_content_gap.ts";
 import { ListPackSourcesInputSchema, listPackSources } from "./tools/list_pack_sources.ts";
+import { FindReferencesInputSchema, findReferences } from "./tools/find_references.ts";
 
 // ── Resource schemas (resource tools) ────────────────────────────────────────
 import { GetResourcePackAgentsInputSchema, GetResourceTechDocsIndexInputSchema, GetResourceTechDocInputSchema } from "./resources/pack_resources.ts";
@@ -99,6 +100,7 @@ const TOOL_REGISTRY = [
   { name: "get_tech_doc",           policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
   { name: "report_content_gap",     policy: "mutating",   pack_required: true,  access_level: "learner", rate_limit: "10/day/user/pack" },
   { name: "list_pack_sources",      policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
+  { name: "find_references",       policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
   // Resource tools
   { name: "get_resource_pack_agents",       policy: "read-only", pack_required: true, access_level: "learner", resource_uri: "rocketboard://pack/<id>/agents" },
   { name: "get_resource_techdocs_index",    policy: "read-only", pack_required: true, access_level: "learner", resource_uri: "rocketboard://pack/<id>/techdocs/index" },
@@ -311,7 +313,29 @@ mcpServer.tool(
   },
 );
 
-// 8. Resource tool: get_resource_pack_agents
+// 9. find_references
+mcpServer.tool(
+  "find_references",
+  "Perform a graph-based lookup of references for a given symbol in a pack.",
+  FindReferencesInputSchema.shape,
+  async (args, { request }) => {
+    const ctx = await withToolContext(args, request, {
+      toolName: "find_references",
+      packId: args.pack_id,
+      accessLevel: "learner",
+    });
+    const result = await findReferences(args, {
+      userId: ctx.userId,
+      adminClient: ctx.adminClient,
+      requestId: ctx.requestId,
+    });
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+// 10. Resource tool: get_resource_pack_agents
 mcpServer.tool(
   "get_resource_pack_agents",
   "Resource: rocketboard://pack/<id>/agents — Retrieve pack conventions (AGENTS.md). Same as get_pack_conventions.",
