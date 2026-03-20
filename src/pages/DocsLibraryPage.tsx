@@ -34,7 +34,7 @@ export default function DocsLibraryPage() {
     <DashboardLayout>
       <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8 animate-in fade-in duration-500">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
+          <div data-tour="docs-library-header">
             <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
               <Library className="h-8 w-8 text-primary" />
               Docs Library
@@ -43,9 +43,18 @@ export default function DocsLibraryPage() {
               Explore interactive technical documentation, architecture guides, and runbooks.
             </p>
           </div>
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9 bg-card" placeholder="Search docs..." />
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div data-tour="docs-search-bar" className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9 bg-card" placeholder="Search docs..." />
+            </div>
+            <Link 
+              to={`/packs/${packId}/docs-admin`}
+              data-tour="docs-admin-link"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+            >
+              Manage
+            </Link>
           </div>
         </div>
 
@@ -62,7 +71,7 @@ export default function DocsLibraryPage() {
             <p className="text-muted-foreground mt-1">This pack doesn't have any published docs yet.</p>
           </div>
         ) : (
-          <div className="space-y-10">
+          <div data-tour="docs-grid" className="space-y-10">
             {/* Group by category */}
             {Array.from(new Set(docs?.map(d => d.category || "General"))).map(category => (
               <div key={category} className="space-y-4">

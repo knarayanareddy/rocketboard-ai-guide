@@ -623,7 +623,50 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='add-item-button']",
         title: "Add Items & Dependencies",
-        content: "Add modules, links, or tasks to your playlists. Use the dependency tool to set the required order of learning.",
+        content: "Add modules, Platform Docs, links, or custom tasks to your playlists. Use the dependency tool to set the required order of learning.",
+      },
+    ],
+  },
+  {
+    id: "docs-library-intro",
+    pagePattern: "^/packs/[^/]+/docs$",
+    steps: [
+      {
+        target: "[data-tour='docs-library-header']",
+        title: "Platform Docs Library",
+        content: "Welcome to your interactive documentation library. This is where you can find and read standard operational procedures, internal guides, and technical specifications.",
+      },
+      {
+        target: "[data-tour='docs-search-bar']",
+        title: "Search & Filter",
+        content: "Quickly find documents by typing keywords or filtering by category tags. All documents are synced directly from your team's code repository.",
+      },
+      {
+        target: "[data-tour='docs-grid']",
+        title: "Your Documents",
+        content: "Click on any document card to read it interactively. Completed documents will have a green checkmark indicating you've finished reading them.",
+      },
+      {
+        target: "[data-tour='docs-admin-link']",
+        title: "Manage Content",
+        content: "If you are an author or admin, click the 'Manage' button to sync the latest Markdown files directly from your repository.",
+      },
+    ],
+  },
+  {
+    id: "docs-admin-intro",
+    pagePattern: "^/packs/[^/]+/docs-admin$",
+    requiredRole: "admin",
+    steps: [
+      {
+        target: "[data-tour='docs-admin-header']",
+        title: "Manage Platform Docs",
+        content: "This panel allows you to manually trigger a sync of all Technical Documents from your configured Github repository.",
+      },
+      {
+        target: "[data-tour='docs-sync-button']",
+        title: "Trigger Sync",
+        content: "Click this button to ingest `.txt` or `.md` files residing in your repository's /Technical documents folder. The engine will parse the raw files into structured Markdown blocks and redact any secrets automatically.",
       },
     ],
   },

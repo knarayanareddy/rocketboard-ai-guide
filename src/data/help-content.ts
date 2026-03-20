@@ -1004,6 +1004,40 @@ You can enable or disable Spaced Repetition in your **Settings** panel under "Le
 :::`,
     relatedArticles: ["learn-1"],
   },
+  {
+    id: "learn-8",
+    slug: "interactive-platform-docs",
+    title: "Interactive Platform Docs",
+    category: "learning",
+    audience: ["all"],
+    tags: ["docs", "library", "documentation", "sops", "checklists"],
+    summary: "How to read and track progress in Interactive Platform Docs.",
+    lastUpdated: "2026-03-20",
+    content: `# Interactive Platform Docs 📙
+
+RocketBoard brings your team's standalone markdown and text documents to life natively within the platform.
+
+:::card[The Docs Library]{📚}
+Access the **Docs Library** from your sidebar to see all operational procedures, architectural specs, and internal guides properly categorised and instantly searchable.
+:::
+
+:::step[1. Interactive Reading]{👓}
+Documents are parsed into rich blocks. You'll see properly formatted checklists, code snippets, Mermaid diagrams, and highlight boxes exactly as the author intended.
+:::
+
+:::step[2. Mark as Done]{✅}
+Click **Mark Done** at the bottom of any document to track your completion. Your progress syncs directly with any Roadmap playlists that assign this document to you.
+:::
+
+:::step[3. Ask Rocket]{🚀}
+Don't understand a specific step or acronym? Click the **Ask Rocket** button at the top of the document. This opens a chat window where Rocket will answer questions using the exact context of the document you are currently reading!
+:::
+
+:::card[Rocket's Pro-Tip]{🚀}
+Authors can manually sync the latest changes to these documents directly from your GitHub repository by visiting the **Docs Admin** page.
+:::`,
+    relatedArticles: ["learn-1", "gs-3"],
+  },
 
   // ─── COLLABORATION ───────────────────────────────
   {

@@ -174,7 +174,15 @@ export const HELP_TOOLTIPS = {
   roadmapBuilder: {
     createPlaylist: "A playlist is a collection of requirements for a specific phase. You can have multiple playlists per pack (e.g., 'Core', 'Frontend Branch').",
     assignUser: "Assign a playlist to an individual learner. You can set a custom start date and assign a mentor/lead to oversee their progress.",
-    manageItems: "Add modules, sections, quizzes, or custom tasks to the playlist. Drag to reorder or click the chain icon to set dependencies.",
+    manageItems: "Add modules, sections, quizzes, Platform Docs, or custom tasks to the playlist. Drag to reorder or click the chain icon to set dependencies.",
     dependencyCycle: "The system prevents circular dependencies. An item cannot depend on itself or an item that eventually depends on it.",
+  },
+
+  // ─── PLATFORM DOCS ──────────────────────────────────
+  docs: {
+    librarySearch: "Instantly filter the documents by title, synopsis, or topic.",
+    markDoneButton: "Mark this document as 'Done'. Your progress is saved automatically, and any Roadmap assignments linking to this document will accurately reflect your completion.",
+    askRocketWidget: "Brings up Rocket—an AI assistant with full context of this exact document. Ask clarification questions about confusing steps, and Rocket will answer securely.",
+    syncDocsButton: "Triggers the Edge Function to securely retrieve the latest `.txt` or `.md` files from the configured GitHub repository. The function redacts secrets and reconstructs the documents into interactive React blocks.",
   },
 } as const;
