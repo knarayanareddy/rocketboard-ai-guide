@@ -40,6 +40,7 @@ import { ExplainInputSchema, explainWithEvidence } from "./tools/explain_with_ev
 import { GetPackConventionsInputSchema, getPackConventions } from "./tools/get_pack_conventions.ts";
 import { GetTechDocsIndexInputSchema, GetTechDocInputSchema, getTechDocsIndex, getTechDoc } from "./tools/get_tech_docs.ts";
 import { ReportGapInputSchema, reportContentGap } from "./tools/report_content_gap.ts";
+import { ListPackSourcesInputSchema, listPackSources } from "./tools/list_pack_sources.ts";
 
 // ── Resource schemas (resource tools) ────────────────────────────────────────
 import { GetResourcePackAgentsInputSchema, GetResourceTechDocsIndexInputSchema, GetResourceTechDocInputSchema } from "./resources/pack_resources.ts";
@@ -97,6 +98,7 @@ const TOOL_REGISTRY = [
   { name: "get_tech_docs_index",    policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
   { name: "get_tech_doc",           policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
   { name: "report_content_gap",     policy: "mutating",   pack_required: true,  access_level: "learner", rate_limit: "10/day/user/pack" },
+  { name: "list_pack_sources",      policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
   // Resource tools
   { name: "get_resource_pack_agents",       policy: "read-only", pack_required: true, access_level: "learner", resource_uri: "rocketboard://pack/<id>/agents" },
   { name: "get_resource_techdocs_index",    policy: "read-only", pack_required: true, access_level: "learner", resource_uri: "rocketboard://pack/<id>/techdocs/index" },
@@ -285,6 +287,24 @@ mcpServer.tool(
       accessLevel: "learner",
     });
     const result = await reportContentGap(args, ctx);
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  },
+);
+
+// 8. list_pack_sources
+mcpServer.tool(
+  "list_pack_sources",
+  "List all sources (repos, docs, urls) defined in a specific pack.",
+  ListPackSourcesInputSchema.shape,
+  async (args, { request }) => {
+    const ctx = await withToolContext(args, request, {
+      toolName: "list_pack_sources",
+      packId: args.pack_id,
+      accessLevel: "learner",
+    });
+    const result = await listPackSources(args, ctx);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     };

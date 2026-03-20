@@ -40,3 +40,11 @@ export function useIngestionSummary(packId: string) {
     enabled: !!packId,
   });
 }
+
+export function useFreshnessQueueSummary(packId: string) {
+  return useQuery({
+    queryKey: ["trust", "freshness-queue", packId],
+    queryFn: () => api.fetchFreshnessQueueSummary(packId),
+    enabled: !!packId,
+  });
+}

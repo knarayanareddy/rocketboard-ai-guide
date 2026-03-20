@@ -37,6 +37,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { LifecycleHealthPanel } from "@/components/trust/LifecycleHealthPanel";
 import { AiAuditLogPanel } from "@/components/trust/AiAuditLogPanel";
+// Import hook for freshness queue
+import { useFreshnessQueueSummary } from "@/hooks/useTrustData";
 
 export default function TrustDashboard() {
   const { packId } = useParams<{ packId: string }>();
@@ -48,6 +50,7 @@ export default function TrustDashboard() {
   const { data: timeSeries, isLoading: loadingCharts } = useTrustTimeSeries(packId || "", days, useRaw);
   const { data: requests, isLoading: loadingRequests } = useLatestRequests(packId || "");
   const { data: ingestion } = useIngestionSummary(packId || "");
+  const { data: freshnessQueue } = useFreshnessQueueSummary(packId || "");
 
   if (!packId) return null;
 
@@ -249,6 +252,36 @@ export default function TrustDashboard() {
                     Review Feedback <ChevronRight className="w-3 h-3" />
                   </Link>
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <RefreshCcw className="w-4 h-4 text-primary" />
+                  Universal Freshness Queue
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Pending Triggers</span>
+                  {freshnessQueue?.pending_count !== undefined ? (
+                    <Badge variant={freshnessQueue.pending_count > 0 ? "secondary" : "outline"} className={freshnessQueue.pending_count > 0 ? "bg-blue-500/10 text-blue-500" : ""}>
+                      {freshnessQueue.pending_count} pending
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">--</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                   <span className="text-muted-foreground">Recent Failures</span>
+                   <span className={freshnessQueue?.recent_failures ? "text-red-500 font-medium" : "text-muted-foreground"}>
+                     {freshnessQueue?.recent_failures || 0}
+                   </span>
+                </div>
+                <div className="text-[10px] text-muted-foreground pt-2 border-t mt-2">
+                  Last processed: {freshnessQueue?.last_processed_at ? format(new Date(freshnessQueue.last_processed_at), "MMM d, HH:mm:ss") : "Never"}
+                </div>
               </CardContent>
             </Card>
           </div>

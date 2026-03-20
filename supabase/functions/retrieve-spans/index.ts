@@ -178,19 +178,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    const spans = (chunks || []).map((chunk: any, idx: number) => ({
-      span_id: `S${idx + 1}`,
-      path: chunk.path,
-      chunk_id: chunk.chunk_id || chunk.id,
-      start_line: chunk.line_start,
-      end_line: chunk.line_end,
-      text: chunk.content,
-      metadata: {
-        entity_type: chunk.entity_type,
-        entity_name: chunk.entity_name,
-        signature: chunk.signature
-      }
-    }));
+    // ─── Phase 2: Cross-Repo Path Normalization ───
+    // Prefix paths with source slugs if available to prevent collisions
+    const { data: sources } = await adminClient
+      .from("pack_sources")
+      .select("id, short_slug")
+      .eq("pack_id", pack_id);
+    
+    const slugMap = new Map((sources || []).map(s => [s.id, s.short_slug]));
+
+    const spans = (chunks || []).map((chunk: any, idx: number) => {
+      const slug = slugMap.get(chunk.source_id);
+      const displayPath = slug ? `${slug}/${chunk.path}` : chunk.path;
+
+      return {
+        span_id: `S${idx + 1}`,
+        path: displayPath,
+        chunk_id: chunk.chunk_id || chunk.id,
+        start_line: chunk.line_start,
+        end_line: chunk.line_end,
+        text: chunk.content,
+        metadata: {
+          entity_type: chunk.entity_type,
+          entity_name: chunk.entity_name,
+          signature: chunk.signature,
+          source_id: chunk.source_id,
+          source_slug: slug
+        }
+      };
+    });
 
     // Phase 7: Rich Retrieval Diagnostics
     const scores = (chunks || []).map((c: any) => c.score || 0);

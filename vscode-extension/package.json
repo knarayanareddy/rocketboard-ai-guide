@@ -68,6 +68,14 @@
           "type": "boolean",
           "default": false,
           "description": "Enable verbose tracing for AI requests"
+        },
+        "rocketboard.sourceMappings": {
+          "type": "object",
+          "default": {},
+          "description": "Mapping of source identifiers (slugs or IDs) to local workspace folders. Format: { \"slug\": \"subfolder/path\" or \"/abs/path\" }",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     }

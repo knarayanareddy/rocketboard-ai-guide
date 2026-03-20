@@ -187,3 +187,39 @@ export async function fetchIngestionSummary(packId: string) {
     total_chunks: totalChunks || 0,
   };
 }
+
+export async function fetchFreshnessQueueSummary(packId: string) {
+  const { count: pendingCount, error: pendingErr } = await supabase
+    .from("staleness_check_queue")
+    .select("*", { count: 'exact', head: true })
+    .eq("pack_id", packId)
+    .eq("status", "pending");
+
+  if (pendingErr) throw pendingErr;
+
+  const { data: lastProcessed, error: procErr } = await supabase
+    .from("staleness_check_queue")
+    .select("processed_at, status")
+    .eq("pack_id", packId)
+    .in("status", ["done", "failed"])
+    .order("processed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (procErr) throw procErr;
+
+  const { count: failCount, error: failErr } = await supabase
+    .from("staleness_check_queue")
+    .select("*", { count: 'exact', head: true })
+    .eq("pack_id", packId)
+    .eq("status", "failed")
+    .gte("requested_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+
+  if (failErr) throw failErr;
+
+  return {
+    pending_count: pendingCount || 0,
+    last_processed_at: lastProcessed?.processed_at || null,
+    recent_failures: failCount || 0,
+  };
+}
