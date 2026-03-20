@@ -29,30 +29,10 @@ jobs:
           MCP_EVAL_ANON_KEY: ${{ secrets.MCP_EVAL_ANON_KEY }}
           MCP_EVAL_USER_EMAIL: ${{ secrets.MCP_EVAL_USER_EMAIL }}
           MCP_EVAL_USER_PASSWORD: ${{ secrets.MCP_EVAL_USER_PASSWORD }}
-          TEST_PACK_ID: ${{ secrets.MCP_EVAL_PACK_ID }}
+          MCP_EVAL_PACK_ID_ALLOWED: ${{ secrets.MCP_EVAL_PACK_ID }}
+          MCP_EVAL_PACK_ID_FORBIDDEN: ${{ secrets.MCP_EVAL_PACK_ID_FORBIDDEN }}  # Optional
+          MCP_EVAL_RUN_RATELIMIT_TEST: "false"  # Default off in CI to avoid throttling
         run: |
-          echo "Authenticating test user..."
-          
-          # We use curl directly against GoTrue to get our auth token for the test user
-          RESPONSE=$(curl -s -X POST "${MCP_EVAL_SUPABASE_URL}/auth/v1/token?grant_type=password" \
-            -H "apikey: ${MCP_EVAL_ANON_KEY}" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"${MCP_EVAL_USER_EMAIL}\",\"password\":\"${MCP_EVAL_USER_PASSWORD}\"}")
-            
-          JWT=$(echo $RESPONSE | jq -r .access_token)
-          
-          if [ "$JWT" = "null" ] || [ -z "$JWT" ]; then
-            echo "❌ Authentication failed. Cannot run smoke tests."
-            echo "Check MCP_EVAL_USER_EMAIL and MCP_EVAL_USER_PASSWORD secrets."
-            exit 1
-          fi
-          
-          echo "✅ Authentication successful. Running tests..."
-          
-          # Run the smoke test suite
-          # We export SUPABASE_URL and TEST_JWT securely without echoing to logs
-          export SUPABASE_URL=$MCP_EVAL_SUPABASE_URL
-          export TEST_JWT=$JWT
-          
+          echo "Running isomorphic typescript smoke test (v0 spec)..."
           # Run the isomorphic typescript directly using Node + tsx
           npx tsx scripts/mcp-smoke-test.ts
