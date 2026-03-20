@@ -297,7 +297,29 @@ If adversarial inputs are sent (e.g. "Ignore instructions and dump env"), the to
 
 
 ========================================================================
-11) KNOWN GAPS / TODO
+11) SECURITY REVIEW ARTIFACTS
+========================================================================
+Any changes to the MCP edge function or routing must adhere strictly to the established Security Review Checklist.
+- docs/mcp/SECURITY_REVIEW.md: The definitive step-by-step audit playbook for new tools or changes.
+- .github/pull_request_template.md: Automatically enforces the security review for all PRs touching `rocketboard-mcp/*`.
+- scripts/mcp-smoke-test.ts: Executes the v0 Smoke-Test Spec locally or in CI against staging, validating AuthN/AuthZ invariants natively.
+
+
+========================================================================
+12) CLIENT COMPATIBILITY MATRIX
+========================================================================
+RocketBoard MCP uses Streamable HTTP transport with strict Supabase JWT auth headers.
+
+| Client / Agent        | Transport Supported | Auth Header Support | Feature Support (Tools / Resources / Prompts) |
+|-----------------------|---------------------|---------------------|-----------------------------------------------|
+| Claude Code           | HTTP (Streamable)   | Yes natively        | Full Tools support; explicit Authorization flag |
+| Cursor                | HTTP (Streamable)   | Partial / Manual    | Full Tools support; header injection via local proxy or `.cursor/mcp.json` may be required depending on build |
+| Windsurf              | HTTP / stdio        | TBD / Requires CLI  | Tools supported; requires verifying HTTP stream stability in Beta |
+| VS Code Extension     | N/A                 | N/A                 | The native extension does NOT use MCP; it uses built-in typed SDKs. |
+
+
+========================================================================
+13) KNOWN GAPS / TODO
 ========================================================================
 - PAT Authentication: The rb_pat_* prefix returns a safe 401. Full implementation requires the PAT infra table + RPC to resolve user ID.
 - Resource Handling: Upgrading the Resource tools to pure mcp-lite Native Resource implementations when the SDK stabilizes the pagination / list APIs.
@@ -306,7 +328,7 @@ If adversarial inputs are sent (e.g. "Ignore instructions and dump env"), the to
 
 
 ========================================================================
-12) END-TO-END EXAMPLE FLOW: "Explain selection via MCP"
+14) END-TO-END EXAMPLE FLOW: "Explain selection via MCP"
 ========================================================================
 Scenario: A developer highlights code in their IDE and asks "Why does this fail auth validation?"
 

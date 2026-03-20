@@ -1,0 +1,176 @@
+ROCKETBOARD MCP TOOL CONTRACTS
+
+This document details the exact JSON-RPC / HTTP contracts, schemas, rate limits, and boundary behaviors of all tools deployed in the `rocketboard-mcp` Edge Function.
+
+========================================================================
+1) list_my_packs
+========================================================================
+Description: Returns all packs the authenticated user belongs to.
+Access Level: User-scoped (Authorization Bearer checks JWT globally).
+Rate Limit: 60 requests / min / user.
+
+Input Schema: 
+{} (No arguments required)
+
+Output Schema:
+{
+  "packs": [
+    {
+      "pack_id": "uuid",
+      "title": "string (max 100)",
+      "description": "string (max 500)",
+      "access_level": "learner | author",
+      "org_id": "uuid"
+    }
+  ],
+  "total": "integer"
+}
+Caps/Redaction: Output is hard-capped at 200 packs. No raw chunk text is exposed. No sensitive keys.
+
+
+========================================================================
+2) search_knowledge_base
+========================================================================
+Description: Hybrid semantic + keyword search over a pack's indexed content.
+Access Level: 'learner' on `pack_id`.
+Rate Limit: 60 requests / min / user.
+
+Input Schema:
+{
+  "pack_id": "uuid" (required),
+  "query": "string (max 500)",
+  "max_spans": "integer (1-20, default 10)",
+  "module_key": "string? (max 100, optional)",
+  "track_key": "string? (max 100, optional)"
+}
+
+Output Schema:
+{
+  "spans": [
+    {
+      "span_id": "uuid",
+      "chunk_id": "uuid",
+      "path": "string",
+      "start_line": "integer",
+      "end_line": "integer",
+      "snippet_preview": "string"
+    }
+  ],
+  "total": "integer",
+  "truncated": "boolean"
+}
+Caps/Redaction: `snippet_preview` is strictly capped at 1200 characters and sent through the `_shared/secret-patterns.ts` redaction pipeline.
+
+
+========================================================================
+3) explain_with_evidence
+========================================================================
+Description: Grounded AI answer leveraging the exact RAG pipeline used by the Frontend.
+Access Level: 'learner' on `pack_id`.
+Rate Limit: 20 requests / min / user (Compute-heavy).
+
+Input Schema:
+{
+  "pack_id": "uuid" (required),
+  "question": "string (max 2000)",
+  "context": "string? (max 8000, optional)",
+  "detective_mode": "boolean? (default true)",
+  "max_spans": "integer? (1-20, default 10)"
+}
+
+Output Schema:
+{
+  "answer_markdown": "string (or refusal message)",
+  "evidence_manifest": {
+    "citations": [ { "badge": "string", "path": "string", "chunk_id": "uuid" } ],
+    "spans_used": []
+  },
+  "gate_outcome": { "passed": "boolean", "reason": "string" }
+}
+Caps/Redaction: `answer_markdown` is hard-capped at 12000 characters and subjected to `redactText`. `canonical_response` is explicitly dropped unless debugging as an author.
+
+
+========================================================================
+4) get_pack_conventions
+========================================================================
+Description: Retrieves stitched codebase conventions automatically (always looks for AGENTS.md).
+Access Level: 'learner' on `pack_id`.
+Rate Limit: 60 requests / min / user.
+
+Input Schema:
+{
+  "pack_id": "uuid" (required)
+}
+
+Output Schema:
+{
+  "content": "string",
+  "found": "boolean",
+  "truncated": "boolean"
+}
+Caps/Redaction: Output `content` is purely redacted text, truncated to max 30,000 chars.
+
+
+========================================================================
+5) get_tech_docs_index & get_tech_doc
+========================================================================
+Description: Specialized discovery tools for long-form technical architecture rules stored under 'Technical documents/'.
+Access Level: 'learner' on `pack_id`.
+Rate Limit: 60 requests / min / user.
+
+get_tech_docs_index Input Schema:
+{ "pack_id": "uuid" (required) }
+Output: { "paths": ["string"], "total": "integer" }
+
+get_tech_doc Input Schema:
+{
+  "pack_id": "uuid" (required),
+  "path": "string (max 300) - MUST start with 'Technical documents/'"
+}
+Output: { "content": "string", "found": "boolean", "truncated": "boolean", "path": "string" }
+Validation: Path is statically verified to block directory traversal (`../`), null bytes, or absolute path attempts.
+Caps/Redaction: `content` is redacted and capped to max 50,000 chars.
+
+
+========================================================================
+6) report_content_gap
+========================================================================
+Description: Safe mutation route allowing AI agents to report stale docs directly to pack authors.
+Access Level: 'learner' on `pack_id`.
+Rate Limit: STRICT 10 requests / day / user. Evaluated against Postgres mcp_audit_events table, avoiding edge function spin-up bypasses.
+
+Input Schema:
+{
+  "pack_id": "uuid" (required),
+  "title": "string (max 200)",
+  "description": "string (max 2000)",
+  "file_path": "string? (max 300, optional)",
+  "symbol": "string? (max 200, optional)",
+  "severity": "string ('low'|'med'|'high', default 'low')"
+}
+
+Output Schema:
+{
+  "reported": "boolean"
+}
+
+
+========================================================================
+STATUS CODES & ERROR CODES
+========================================================================
+400 Bad Request
+- code: 'invalid_inputs' (Zod validation failure)
+- code: 'invalid_path' (Anti-traversal failure)
+
+401 Unauthorized
+- code: 'auth_required' (Missing/malformed JWT)
+- code: 'pat_not_configured' (Intentional stub rejection for Personal Access Tokens)
+
+403 Forbidden
+- code: 'pack_access_denied' (Missing 'has_pack_access' policy level)
+
+429 Too Many Requests
+- code: 'rate_limited'
+
+500 Internal Server Error
+- Error details are genericized ("Internal server error") before reaching the client; stack traces are never printed to the tool outputs.
