@@ -54,13 +54,13 @@ serve(async (req: any) => {
           action: "retention_cleanup",
           target_type: "table",
           parameters: { legal_hold: true, dry_run },
-          rows_deleted: { rag_metrics: 0, ingestion_jobs: 0 },
+          rows_deleted: { rag_metrics: 0, ingestion_jobs: 0, ai_audit_events: 0 },
           status: "completed"
         });
         continue;
       }
 
-      const rowsDeleted: any = { rag_metrics: 0, ingestion_jobs: 0 };
+      const rowsDeleted: any = { rag_metrics: 0, ingestion_jobs: 0, ai_audit_events: 0 };
       const now = day_override ? new Date(day_override) : new Date();
 
       // Table: rag_metrics
@@ -110,6 +110,31 @@ serve(async (req: any) => {
           
           if (error) throw error;
           rowsDeleted.ingestion_jobs += (count || 0);
+          hasMore = (count || 0) === 1000;
+        }
+      }
+
+      // Table: ai_audit_events
+      const auditLimitDate = new Date(now);
+      auditLimitDate.setDate(auditLimitDate.getDate() - (policy.retention_audit_days || 90));
+
+      if (dry_run) {
+        const { count } = await supabase.from("ai_audit_events")
+          .select("*", { count: "exact", head: true })
+          .eq("pack_id", pack.id)
+          .lt("created_at", auditLimitDate.toISOString());
+        rowsDeleted.ai_audit_events = count || 0;
+      } else {
+        let hasMore = true;
+        while (hasMore) {
+          const { count, error } = await supabase.from("ai_audit_events")
+            .delete()
+            .eq("pack_id", pack.id)
+            .lt("created_at", auditLimitDate.toISOString())
+            .limit(1000);
+          
+          if (error) throw error;
+          rowsDeleted.ai_audit_events += (count || 0);
           hasMore = (count || 0) === 1000;
         }
       }

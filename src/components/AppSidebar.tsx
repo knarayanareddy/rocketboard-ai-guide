@@ -157,6 +157,7 @@ export function AppSidebar() {
     {
       label: "Explore",
       items: [
+        { title: "Docs Library", url: `${packPrefix}/docs`, icon: BookOpen, minLevel: "read_only", end: false },
         { title: "Glossary", url: `${packPrefix}/glossary`, icon: BookText, minLevel: "read_only", end: false },
         { title: "FAQ", url: `${packPrefix}/faq`, icon: HelpCircle, minLevel: "read_only", end: false },
         { title: "Ask Your Lead", url: `${packPrefix}/ask-lead`, icon: MessageSquareMore, minLevel: "read_only", end: false },
@@ -168,6 +169,7 @@ export function AppSidebar() {
     {
       label: "Content Studio",
       items: [
+        { title: "Docs Admin", url: `${packPrefix}/docs-admin`, icon: Database, minLevel: "author", end: false },
         { title: "Sources", url: `${packPrefix}/sources`, icon: Database, minLevel: "author", end: false },
         { title: "Plan", url: `${packPrefix}/plan`, icon: Map, minLevel: "author", end: false },
         { title: "Roadmap Builder", url: `${packPrefix}/roadmap-builder`, icon: Layers, minLevel: "author", end: false },

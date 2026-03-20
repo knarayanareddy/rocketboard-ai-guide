@@ -14,6 +14,7 @@ export type GroundingAttemptMetrics = {
   citations_verified?: number;            // count of valid unique badges
   snippets_resolved: number;
   evidence_count: number;
+  source_map?: any[];
   warnings?: string[];
 };
 

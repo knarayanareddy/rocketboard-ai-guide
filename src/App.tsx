@@ -49,6 +49,9 @@ import RoadmapBuilder from "./pages/RoadmapBuilder";
 import TrustDashboard from "./pages/TrustDashboard";
 import LifecycleSettings from "./pages/LifecycleSettings";
 import RequestDrilldown from "./pages/RequestDrilldown";
+import DocsLibraryPage from "./pages/DocsLibraryPage";
+import DocDetailPage from "./pages/DocDetailPage";
+import DocsAdminPage from "./pages/DocsAdminPage";
 
 const queryClient = new QueryClient();
 
@@ -184,6 +187,9 @@ const App = () => (
               <Route path="/packs/:packId/trust" element={<ProtectedRoute><InviteAcceptor><TrustDashboard /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/trust/requests/:requestId" element={<ProtectedRoute><InviteAcceptor><RequestDrilldown /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/settings/lifecycle" element={<ProtectedRoute><InviteAcceptor><LifecycleSettings /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/docs" element={<ProtectedRoute><InviteAcceptor><DocsLibraryPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/docs/:slug" element={<ProtectedRoute><InviteAcceptor><DocDetailPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/docs-admin" element={<ProtectedRoute><InviteAcceptor><DocsAdminPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />

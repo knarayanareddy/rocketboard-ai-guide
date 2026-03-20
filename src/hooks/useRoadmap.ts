@@ -5,7 +5,7 @@ import { usePack } from "@/hooks/usePack";
 
 export type RoadmapPhase = 'day_1_30' | 'day_31_60' | 'day_61_90';
 export type RoadmapItemStatus = 'blocked' | 'available' | 'in_progress' | 'done' | 'skipped';
-export type RoadmapItemType = 'module' | 'section' | 'quiz' | 'milestone' | 'task' | 'link';
+export type RoadmapItemType = 'module' | 'section' | 'quiz' | 'milestone' | 'task' | 'link' | 'doc';
 
 export interface RoadmapItem {
   id: string;

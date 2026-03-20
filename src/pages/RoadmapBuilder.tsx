@@ -297,6 +297,7 @@ function AddItemDialog({ playlistId, packId, onSave }: {
   const [title, setTitle] = useState("");
   const [type, setType] = useState<RoadmapItemType>("module");
   const [moduleId, setModuleId] = useState("");
+  const [docSlug, setDocSlug] = useState("");
 
   const { data: genModules = [] } = useQuery({
     queryKey: ["gen_modules_list", packId],
@@ -305,6 +306,20 @@ function AddItemDialog({ playlistId, packId, onSave }: {
         .from("generated_modules")
         .select("id, title")
         .eq("pack_id", packId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!packId,
+  });
+
+  const { data: platformDocs = [] } = useQuery({
+    queryKey: ["pack-docs-list", packId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pack_docs")
+        .select("id, slug, title")
+        .eq("pack_id", packId)
+        .eq("status", "published");
       if (error) throw error;
       return data;
     },
@@ -331,6 +346,7 @@ function AddItemDialog({ playlistId, packId, onSave }: {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="module">AI Module</SelectItem>
+                <SelectItem value="doc">Platform Doc</SelectItem>
                 <SelectItem value="task">Custom Task</SelectItem>
                 <SelectItem value="link">External Link</SelectItem>
                 <SelectItem value="quiz">Quiz</SelectItem>
@@ -363,13 +379,35 @@ function AddItemDialog({ playlistId, packId, onSave }: {
               </Select>
             </div>
           )}
+
+          {type === 'doc' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Linked Document</label>
+              <Select value={docSlug} onValueChange={setDocSlug}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a document..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {platformDocs.map((d: any) => (
+                    <SelectItem key={d.id} value={d.slug}>{d.title}</SelectItem>
+                  ))}
+                  {platformDocs.length === 0 && <p className="p-2 text-xs text-muted-foreground">No docs found.</p>}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button disabled={!title} onClick={() => { 
-            onSave({ playlist_id: playlistId, title, item_type: type, module_id: moduleId || null }); 
+            const payload: any = { playlist_id: playlistId, title, item_type: type };
+            if (type === 'module') payload.module_id = moduleId || null;
+            if (type === 'doc') payload.url = `/packs/${packId}/docs/${docSlug}`;
+            
+            onSave(payload); 
             setOpen(false); 
             setTitle("");
             setModuleId("");
+            setDocSlug("");
           }}>
             Add Item
           </Button>

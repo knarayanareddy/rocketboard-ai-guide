@@ -7,20 +7,16 @@
  * READ-ONLY | Auth: JWT | Pack access: learner
  *
  * SECURITY:
- * - Path MUST start with "Technical documents/" — no exceptions
- * - Path traversal (../ \ null bytes) is blocked
+ * - Reads from pack_docs (which is pre-redacted/sanitized by sync-pack-docs)
  * - Output cap: 50k chars per document
  */
 
 import { z } from "zod";
-import { SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "npm:@supabase/supabase-js@2.45.6";
 import { writeMcpAudit, hashArgs } from "../audit.ts";
-import { stitchAndRedact } from "../redaction.ts";
-import { validatePath } from "../policy.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const TECH_DOCS_PREFIX = "Technical documents/";
 const MAX_DOC_CHARS = 50_000;
 
 // ─── Input schemas ────────────────────────────────────────────────────────────
@@ -47,18 +43,18 @@ export async function getTechDocsIndex(
 
   try {
     const { data, error } = await adminClient
-      .from("knowledge_chunks")
-      .select("path")
+      .from("pack_docs")
+      .select("slug, title")
       .eq("pack_id", args.pack_id)
-      .like("path", `${TECH_DOCS_PREFIX}%`);
+      .eq("status", "published")
+      .order("slug", { ascending: true });
 
     if (error) {
       console.error("[MCP:get_tech_docs_index] DB error:", error.message);
       throw new Error("Failed to list tech docs");
     }
 
-    // Deduplicate paths
-    const paths = [...new Set((data || []).map((r: any) => r.path as string))].sort();
+    const paths = data.map((d: any) => d.slug as string);
 
     await writeMcpAudit(adminClient, {
       requestId,
@@ -95,38 +91,17 @@ export async function getTechDoc(
   const { userId, adminClient, requestId } = ctx;
   const argsHash = await hashArgs(args);
 
-  // Validate path — throws on failure (caught below)
-  let validatedPath: string;
-  try {
-    validatedPath = validatePath(args.path, [TECH_DOCS_PREFIX]);
-  } catch (pathErr) {
-    await writeMcpAudit(adminClient, {
-      requestId,
-      userId,
-      packId: args.pack_id,
-      toolName: "get_tech_doc",
-      argsHash,
-      resultSummary: {},
-      status: "error",
-      errorCode: "invalid_path",
-    });
-    throw pathErr;
-  }
+  const validatedPath = args.path;
 
   try {
-    const { data: chunks, error: dbError } = await adminClient
-      .from("knowledge_chunks")
-      .select("content, line_start")
+    const { data: doc, error: dbError } = await adminClient
+      .from("pack_docs")
+      .select("content_plain, title, slug")
       .eq("pack_id", args.pack_id)
-      .eq("path", validatedPath)
-      .order("line_start", { ascending: true });
+      .eq("slug", validatedPath)
+      .single();
 
-    if (dbError) {
-      console.error("[MCP:get_tech_doc] DB error:", dbError.message);
-      throw new Error("Failed to fetch document");
-    }
-
-    if (!chunks || chunks.length === 0) {
+    if (dbError || !doc) {
       await writeMcpAudit(adminClient, {
         requestId,
         userId,
@@ -136,16 +111,14 @@ export async function getTechDoc(
         resultSummary: { found: false },
         status: "ok",
       });
-      return { content: `Document not found: ${validatedPath}`, found: false, truncated: false, path: validatedPath };
+      return { content: `Document not found: ${validatedPath}. See index.`, found: false, truncated: false, path: validatedPath };
     }
 
-    const { text, truncated, secretsFound } = stitchAndRedact(
-      chunks as Array<{ content: string; line_start: number }>,
-      MAX_DOC_CHARS,
-    );
-
-    if (secretsFound > 0) {
-      console.warn(`[MCP:get_tech_doc] Redacted ${secretsFound} secrets from path=${validatedPath}`);
+    // truncate if needed (though sync-pack-docs enforces limits normally, defense in depth)
+    let text = `# ${doc.title}\n\n${doc.content_plain || ""}`;
+    const truncated = text.length > MAX_DOC_CHARS;
+    if (truncated) {
+      text = text.substring(0, MAX_DOC_CHARS) + "\n\n[TRUNCATED]";
     }
 
     await writeMcpAudit(adminClient, {
@@ -154,7 +127,7 @@ export async function getTechDoc(
       packId: args.pack_id,
       toolName: "get_tech_doc",
       argsHash,
-      resultSummary: { found: true, chunks: chunks.length, chars: text.length, truncated },
+      resultSummary: { found: true, chars: text.length, truncated },
       status: "ok",
     });
 

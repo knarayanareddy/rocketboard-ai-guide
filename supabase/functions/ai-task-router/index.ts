@@ -564,6 +564,7 @@ async function callWithAgenticReview(
       snippetsResolved: m.snippets_resolved,
       citationsFound: m.citations_found,
       uniqueFilesCount: m.unique_files_count,
+      sourceMap: m.source_map,
       groundingGatePassed: decision.ok,
       groundingGateReason: decision.reason_code,
       groundingPolicy: policy
@@ -743,6 +744,83 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
     });
   } catch (e) {
     console.warn("[recordRagMetrics] failed:", e.message);
+  }
+}
+
+// ─── AI AUDIT LOG (Governance & Compliance) ───
+async function sha256(message: string): Promise<string> {
+  const msgUint8 = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function buildEvidenceManifest(retrieval: any, sourceMap: any[] = []): any {
+  const manifest: any = {
+    citations: sourceMap.map((cit, idx) => ({
+      badge: `S${idx + 1}`,
+      chunk_id: cit.chunk_id || "unknown",
+      path: cit.path,
+      start: cit.line_start || cit.start_line,
+      end: cit.line_end || cit.end_line
+    })),
+    spans_used: (retrieval.evidence_spans || []).map((s: any) => ({
+      chunk_id: s.chunk_id || "unknown",
+      path: s.path,
+      start_line: s.line_start || s.start_line,
+      end_line: s.line_end || s.end_line
+    }))
+  };
+  return manifest;
+}
+
+async function recordAiAudit(trace: TraceBuilder, envelope: any, responseMarkdown: string) {
+  try {
+    const data = trace.getData();
+    if (!data.generation) return;
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const gen = data.generation;
+    const task = envelope.task || {};
+    const pack = envelope.pack || {};
+    const context = envelope.context || {};
+    const retrieval = envelope.retrieval || {};
+    
+    // REDACTED PREVIEWS
+    const promptPreview = JSON.stringify(context.conversation?.messages || []).slice(0, 200);
+    const responsePreview = responseMarkdown.slice(0, 200);
+
+    await supabase.from("ai_audit_events").insert({
+      org_id: pack.org_id,
+      pack_id: pack.pack_id,
+      user_id: data.metadata?.userId,
+      
+      task_type: data.metadata?.taskType,
+      request_id: data.metadata?.requestId || task.request_id,
+      trace_id: data.traceId,
+      provider_used: data.metadata?.provider || "default",
+      model_used: gen.model,
+      
+      grounding_gate_passed: gen.groundingGatePassed ?? true,
+      grounding_gate_reason: gen.groundingGateReason || "ok",
+      attempts: gen.attempts || 1,
+      strip_rate: gen.stripRate || 0,
+      citations_found: gen.citationsFound || 0,
+      unique_files_count: gen.uniqueFilesCount || 0,
+      
+      evidence_manifest: buildEvidenceManifest(retrieval, gen.sourceMap || []),
+      
+      prompt_hash: await sha256(JSON.stringify(context.conversation?.messages || [])),
+      response_hash: await sha256(responseMarkdown),
+      prompt_preview: promptPreview,
+      response_preview: responsePreview
+    });
+  } catch (e) {
+    console.warn("[recordAiAudit] failed:", e.message);
   }
 }
 
@@ -935,6 +1013,7 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
           claims_total,
           claims_stripped,
           citations_found: source_map.length,
+          source_map,
           snippets_resolved,
           evidence_count: evidenceSpans.length
         };
@@ -1096,6 +1175,7 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
           claims_total,
           claims_stripped,
           citations_found: source_map.length,
+          source_map,
           snippets_resolved,
           evidence_count: evidenceSpans.length
         };
@@ -1239,6 +1319,7 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
           claims_total,
           claims_stripped,
           citations_found: metrics.citations_found,
+          source_map: [], // Not collected per-item yet, manifest will use evidenceSpans
           snippets_resolved: totalSnippets,
           evidence_count: evidenceSpans.length
         };
@@ -2861,6 +2942,18 @@ serve(async (req) => {
 
     // ─── Record local metrics (Phase 6) ───
     await recordRagMetrics(trace, safeEnvelope);
+
+    // ─── AI Audit Log (Phase 6) ───
+    try {
+      const respClone = result.clone();
+      const body = await respClone.json();
+      const markdown = body.display_response || body.response_markdown || "";
+      if (markdown) {
+        await recordAiAudit(trace, safeEnvelope, markdown);
+      }
+    } catch (e) {
+      console.warn("[serve] AI Audit recording failed:", e.message);
+    }
 
     // ─── Flush telemetry ───
     await trace.flush();

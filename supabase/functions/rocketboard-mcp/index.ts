@@ -338,7 +338,8 @@ mcpServer.tool(
       packId: args.pack_id,
       accessLevel: "learner",
     });
-    const path = `Technical documents/${args.name}`;
+    // The name argument now represents the slug, not a file path
+    const path = args.name;
     const result = await getTechDoc({ pack_id: args.pack_id, path }, ctx);
     return {
       content: [{ type: "text", text: result.content }],

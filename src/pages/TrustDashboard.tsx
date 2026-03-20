@@ -36,6 +36,7 @@ import { Link, useParams } from "react-router-dom";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { LifecycleHealthPanel } from "@/components/trust/LifecycleHealthPanel";
+import { AiAuditLogPanel } from "@/components/trust/AiAuditLogPanel";
 
 export default function TrustDashboard() {
   const { packId } = useParams<{ packId: string }>();
@@ -260,6 +261,15 @@ export default function TrustDashboard() {
              <h2 className="text-lg font-bold">Lifecycle & Retention</h2>
           </div>
           <LifecycleHealthPanel packId={packId} />
+        </section>
+
+        {/* AI Governance Audit Log */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+             <ShieldCheck className="w-5 h-5 text-primary" />
+             <h2 className="text-lg font-bold">AI Governance Audit Log</h2>
+          </div>
+          <AiAuditLogPanel packId={packId} />
         </section>
 
         {/* Latest Requests Table */}

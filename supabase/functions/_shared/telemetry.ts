@@ -34,6 +34,7 @@ export interface GenerationMetrics {
   claimsTotal?: number;
   claimsStripped?: number;
   snippetsResolved?: number;
+  sourceMap?: any[];
 }
 
 export interface SpanEvent {
