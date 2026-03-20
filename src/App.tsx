@@ -52,6 +52,7 @@ import RequestDrilldown from "./pages/RequestDrilldown";
 import DocsLibraryPage from "./pages/DocsLibraryPage";
 import DocDetailPage from "./pages/DocDetailPage";
 import DocsAdminPage from "./pages/DocsAdminPage";
+import ProposalsPage from "./pages/admin/ProposalsPage";
 
 const queryClient = new QueryClient();
 
@@ -190,6 +191,7 @@ const App = () => (
               <Route path="/packs/:packId/docs" element={<ProtectedRoute><InviteAcceptor><DocsLibraryPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/docs/:slug" element={<ProtectedRoute><InviteAcceptor><DocDetailPage /></InviteAcceptor></ProtectedRoute>} />
               <Route path="/packs/:packId/docs-admin" element={<ProtectedRoute><InviteAcceptor><DocsAdminPage /></InviteAcceptor></ProtectedRoute>} />
+              <Route path="/packs/:packId/admin/proposals" element={<ProtectedRoute><InviteAcceptor><ProposalsPage /></InviteAcceptor></ProtectedRoute>} />
 
               {/* Global routes */}
               <Route path="/settings" element={<ProtectedRoute><InviteAcceptor><SettingsPage /></InviteAcceptor></ProtectedRoute>} />
