@@ -96,6 +96,23 @@ If you change any contract, update **both** the producer and consumer, plus migr
 - Do not delete Vault credentials during source purge.
 - Retention cleanup must respect the `legal_hold` flag.
 
+### 1.4 MCP Server invariants (mcp-lite)
+**Least Privilege Tools:**
+- Do not add tools that fetch arbitrary URLs, execute SQL, or read arbitrary files anywhere on disk.
+- Any new tool must have:
+  - strict `zod` input validation
+  - pack access check via `service_role` (policy.ts)
+  - output redaction (`redactAndCap` from redaction.ts)
+  - explicit output size caps (to prevent agent context overflow)
+  - rate limiting (`checkRateLimit`)
+  - an audit log entry (`writeMcpAudit`)
+
+**Prompt Injection Defense:**
+- Outputs must be "data only" (JSON). Never return instructive text like "ignore instructions".
+
+**Resource Handlers:**
+- Exposed as Tools via pattern `rocketboard://pack/<id>/...` until mcp-lite stabilizes its resource API. Ensure these use the exact same validation as other tools.
+
 ---
 
 ## 2) Where to change what (map of the codebase)
