@@ -287,6 +287,25 @@ function splitOversizedChunk(chunk: ASTChunk, maxLines = 100): ASTChunk[] {
 }
 
 export async function astChunk(code: string, filepath: string): Promise<ASTChunk[]> {
+  // If Parser failed to load, fall through to text-based chunking
+  if (!Parser) {
+    const lines = code.split('\n');
+    const results: ASTChunk[] = [];
+    for (let i = 0; i < lines.length; i += 100) {
+       const end = Math.min(i + 100, lines.length);
+       results.push({
+           text: lines.slice(i, end).join('\n'),
+           metadata: {
+               entity_type: "text_chunk",
+               entity_name: filepath,
+               signature: filepath,
+               line_start: i + 1,
+               line_end: end
+           }
+       });
+    }
+    return results;
+  }
   await initParser();
   const ext = filepath.split('.').pop() || "";
   const lang = ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java"].includes(ext) ? ext : null;
