@@ -149,7 +149,7 @@ export default function RoadmapBuilder() {
 
   const addItem = useMutation({
     mutationFn: async (item: any) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("playlist_items")
         .insert(item);
       if (error) throw error;
