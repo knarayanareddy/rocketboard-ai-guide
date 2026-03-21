@@ -971,8 +971,8 @@ You MUST respond with VALID JSON matching this schema:
 
 Return ONLY the JSON object, no markdown fences, no extra text.`;
 
-  const messages = (conversation.messages || []).map((m: any) => ({ role: m.role, content: m.content }));
-  const userPrompt = messages.length > 0 ? JSON.stringify(messages) : "Hello, I have a question.";
+  const chatMessages = (conversation.messages || []).map((m: any) => ({ role: m.role, content: m.content }));
+  const userPrompt = chatMessages.length > 0 ? JSON.stringify(chatMessages) : "Hello, I have a question.";
 
   try {
     const parsed = await callWithAgenticReview(
