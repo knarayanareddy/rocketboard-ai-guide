@@ -113,13 +113,23 @@ export function useSources() {
           source_id: sourceId,
           source_type: sourceType,
           source_uri: sourceUri,
-          label: label,
+          label,
           source_config: sourceConfig,
-          credentials: credentials
+          credentials,
         }
       });
       if (error) throw error;
-      return data;
+
+      const normalizedId = data?.id ?? data?.source_id ?? sourceId;
+      if (!normalizedId) {
+        throw new Error("Source configuration succeeded but no source id was returned");
+      }
+
+      return {
+        ...data,
+        id: normalizedId,
+        source_id: normalizedId,
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pack_sources", currentPackId] });
