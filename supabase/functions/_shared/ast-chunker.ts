@@ -1,19 +1,7 @@
-// Polyfill document.currentScript for web-tree-sitter in Deno edge runtime
-// Must run before the import triggers module evaluation
-if (typeof globalThis.document === "undefined") {
-  (globalThis as any).document = { currentScript: { src: "" } };
-} else if (typeof (globalThis as any).document.currentScript === "undefined") {
-  (globalThis as any).document.currentScript = { src: "" };
-}
+const AST_CHUNKING_ENABLED = Deno.env.get("ENABLE_AST_CHUNKING") === "true";
 
-let Parser: any;
-try {
-  const mod = await import("https://esm.sh/web-tree-sitter@0.20.8");
-  Parser = mod.default;
-} catch (e) {
-  console.warn("[ast-chunker] web-tree-sitter failed to load, AST chunking disabled:", e.message);
-  Parser = null;
-}
+let Parser: any = null;
+let parserLoadAttempted = false;
 
 const WASM_SHA256: Record<string, string> = {
   typescript: "8515404dceed38e1ed86aa34b09fcf3379fff1b4ff9dd3967bcd6d1eb5ac3d8f",
@@ -33,14 +21,71 @@ async function computeSha256(buffer: ArrayBuffer): Promise<string> {
 let isParserInitialized = false;
 const languageCache = new Map<string, any>();
 
+function fallbackTextChunks(code: string, filepath: string): ASTChunk[] {
+  const lines = code.split("\n");
+  const results: ASTChunk[] = [];
+
+  for (let i = 0; i < lines.length; i += 100) {
+    const end = Math.min(i + 100, lines.length);
+    results.push({
+      text: lines.slice(i, end).join("\n"),
+      metadata: {
+        entity_type: "text_chunk",
+        entity_name: filepath,
+        signature: filepath,
+        line_start: i + 1,
+        line_end: end,
+      },
+    });
+  }
+
+  return results;
+}
+
+async function ensureParserLoaded() {
+  if (!AST_CHUNKING_ENABLED) return null;
+  if (Parser || parserLoadAttempted) return Parser;
+
+  parserLoadAttempted = true;
+
+  try {
+    if (typeof globalThis.document === "undefined") {
+      (globalThis as any).document = { currentScript: { src: "" } };
+    } else if (typeof (globalThis as any).document.currentScript === "undefined") {
+      (globalThis as any).document.currentScript = { src: "" };
+    }
+
+    const mod = await import("https://esm.sh/web-tree-sitter@0.20.8");
+    Parser = mod.default;
+  } catch (e) {
+    console.warn("[ast-chunker] web-tree-sitter unavailable, falling back to text chunking:", (e as Error).message);
+    Parser = null;
+  }
+
+  return Parser;
+}
+
 async function initParser() {
-  if (isParserInitialized) return;
-  if (!Parser) throw new Error("web-tree-sitter not available");
-  await Parser.init();
+  if (isParserInitialized) return true;
+  const parserModule = await ensureParserLoaded();
+  if (!parserModule) return false;
+
+  try {
+    await parserModule.init();
+  } catch (e) {
+    console.warn("[ast-chunker] parser init failed, falling back to text chunking:", (e as Error).message);
+    Parser = null;
+    return false;
+  }
+
   isParserInitialized = true;
+  return true;
 }
 
 async function getLanguage(lang: string) {
+  const parserModule = await ensureParserLoaded();
+  if (!parserModule) return null;
+
   // Map tsx -> typescript as they often share the same grammar in WASM distributions
   const langKey = lang === "tsx" ? "typescript" : lang;
   if (languageCache.has(langKey)) return languageCache.get(langKey);
@@ -81,7 +126,7 @@ async function getLanguage(lang: string) {
       }
     }
 
-    const language = await Parser.Language.load(new Uint8Array(buffer));
+    const language = await parserModule.Language.load(new Uint8Array(buffer));
     languageCache.set(langKey, language);
     return language;
   } catch (e) {
@@ -107,7 +152,7 @@ export interface ASTChunk {
   metadata: ChunkMetadata;
 }
 
-function extractImports(tree: Parser.Tree, lang: string): string[] {
+function extractImports(tree: any, lang: string): string[] {
   const imports: string[] = [];
   const root = tree.rootNode;
   
@@ -136,7 +181,7 @@ function extractImports(tree: Parser.Tree, lang: string): string[] {
   return imports;
 }
 
-function extractExportedNames(tree: Parser.Tree, lang: string): { name: string; line: number }[] {
+function extractExportedNames(tree: any, lang: string): { name: string; line: number }[] {
   const exports: { name: string; line: number }[] = [];
   const root = tree.rootNode;
   
@@ -190,7 +235,7 @@ function extractExportedNames(tree: Parser.Tree, lang: string): { name: string; 
   return exports;
 }
 
-function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[], lang: string) {
+function walkAST(node: any, code: string, chunks: ASTChunk[], lang: string) {
   const type = node.type;
   const interestingTypes = [
     "function_declaration", "method_definition", "class_declaration",
@@ -219,7 +264,7 @@ function walkAST(node: Parser.Node, code: string, chunks: ASTChunk[], lang: stri
   }
 }
 
-function extractOrphanCode(root: Parser.Node, code: string, astChunks: ASTChunk[]): ASTChunk[] {
+function extractOrphanCode(root: any, code: string, astChunks: ASTChunk[]): ASTChunk[] {
   const orphans: ASTChunk[] = [];
   const sortedChunks = [...astChunks].sort((a, b) => a.metadata.line_start - b.metadata.line_start);
   
@@ -287,52 +332,20 @@ function splitOversizedChunk(chunk: ASTChunk, maxLines = 100): ASTChunk[] {
 }
 
 export async function astChunk(code: string, filepath: string): Promise<ASTChunk[]> {
-  // If Parser failed to load, fall through to text-based chunking
-  if (!Parser) {
-    const lines = code.split('\n');
-    const results: ASTChunk[] = [];
-    for (let i = 0; i < lines.length; i += 100) {
-       const end = Math.min(i + 100, lines.length);
-       results.push({
-           text: lines.slice(i, end).join('\n'),
-           metadata: {
-               entity_type: "text_chunk",
-               entity_name: filepath,
-               signature: filepath,
-               line_start: i + 1,
-               line_end: end
-           }
-       });
-    }
-    return results;
+  if (!(await initParser())) {
+    return fallbackTextChunks(code, filepath);
   }
-  await initParser();
+
   const ext = filepath.split('.').pop() || "";
   const lang = ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java"].includes(ext) ? ext : null;
   
   if (!lang) {
-    // Fallback for non-code files
-    const lines = code.split('\n');
-    const results: ASTChunk[] = [];
-    for (let i = 0; i < lines.length; i += 100) {
-       const end = Math.min(i + 100, lines.length);
-       results.push({
-           text: lines.slice(i, end).join('\n'),
-           metadata: {
-               entity_type: "text_chunk",
-               entity_name: filepath,
-               signature: filepath,
-               line_start: i + 1,
-               line_end: end
-           }
-       });
-    }
-    return results;
+    return fallbackTextChunks(code, filepath);
   }
 
   const parser = new Parser();
   const grammar = await getLanguage(lang);
-  if (!grammar) return astChunk(code, "fallback.txt"); // fallback to basic chunking
+  if (!grammar) return fallbackTextChunks(code, filepath);
 
   parser.setLanguage(grammar);
   const tree = parser.parse(code);

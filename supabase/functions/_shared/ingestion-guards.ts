@@ -15,17 +15,40 @@ export async function validateIngestion(
 ): Promise<GuardResult> {
   const cooldownSeconds = parseInt(Deno.env.get("INGEST_SOURCE_COOLDOWN_SECONDS") || "3600");
   const serializePack = Deno.env.get("INGEST_PACK_SERIALIZE") !== "false";
+  const staleProcessingSeconds = parseInt(Deno.env.get("INGESTION_STALE_PROCESSING_SECONDS") || "300");
 
   // 1. Check for 'processing' jobs (Concurrency)
   const { data: activeJobs, error: activeErr } = await supabase
     .from("ingestion_jobs")
-    .select("id, source_id, status")
+    .select("id, source_id, status, started_at")
     .eq("pack_id", pack_id)
     .eq("status", "processing");
 
   if (activeErr) throw activeErr;
 
-  if (activeJobs && activeJobs.length > 0) {
+  const staleJobIds = (activeJobs || [])
+    .filter((job) => {
+      if (!job.started_at) return false;
+      return Date.now() - new Date(job.started_at).getTime() > staleProcessingSeconds * 1000;
+    })
+    .map((job) => job.id);
+
+  if (staleJobIds.length > 0) {
+    const { error: staleErr } = await supabase
+      .from("ingestion_jobs")
+      .update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error_message: "Stale processing job reset after runtime failure",
+      })
+      .in("id", staleJobIds);
+
+    if (staleErr) throw staleErr;
+  }
+
+  const blockingJobs = (activeJobs || []).filter((job) => !staleJobIds.includes(job.id));
+
+  if (blockingJobs.length > 0) {
     if (serializePack) {
       return {
         success: false,
@@ -33,7 +56,7 @@ export async function validateIngestion(
         error: "Another ingestion is already in progress for this pack.",
       };
     }
-    if (activeJobs.some(j => j.source_id === source_id)) {
+    if (blockingJobs.some(j => j.source_id === source_id)) {
       return {
         success: false,
         status: 409,
