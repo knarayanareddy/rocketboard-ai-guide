@@ -1085,6 +1085,7 @@ export type Database = {
           id: string
           pack_id: string
           processed_chunks: number | null
+          retry_count: number
           source_id: string | null
           started_at: string | null
           status: string
@@ -1097,6 +1098,7 @@ export type Database = {
           id?: string
           pack_id: string
           processed_chunks?: number | null
+          retry_count?: number
           source_id?: string | null
           started_at?: string | null
           status?: string
@@ -1109,6 +1111,7 @@ export type Database = {
           id?: string
           pack_id?: string
           processed_chunks?: number | null
+          retry_count?: number
           source_id?: string | null
           started_at?: string | null
           status?: string

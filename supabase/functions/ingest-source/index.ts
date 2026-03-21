@@ -198,8 +198,6 @@ Deno.serve(async (req) => {
     const { pack_id, source_type, source_uri, document_content, label, source_config, org_id } = body;
     source_id = body.source_id;
 
-    source_id = body.source_id;
-
     // Initialize Trace (Strategic Sampling)
     trace = createTrace({
       serviceName: 'ingest-source',
