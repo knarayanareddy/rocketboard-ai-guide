@@ -1,3 +1,7 @@
+// Polyfill document.currentScript for web-tree-sitter in Deno edge runtime
+if (typeof globalThis.document === "undefined") {
+  (globalThis as any).document = { currentScript: { src: "" } };
+}
 import Parser from "https://esm.sh/web-tree-sitter@0.20.8";
 
 const WASM_SHA256: Record<string, string> = {
