@@ -55,14 +55,17 @@ export type Database = {
           created_at: string
           depth: string
           experience_level: string | null
+          framework_familiarity: string | null
           glossary_density: string
           id: string
           learner_role: string | null
+          learning_style: string
           max_sections_hint: number
           mermaid_enabled: boolean
           output_language: string
           pack_id: string | null
           target_reading_level: string
+          tone_preference: string
           updated_at: string
           user_id: string
         }
@@ -71,14 +74,17 @@ export type Database = {
           created_at?: string
           depth?: string
           experience_level?: string | null
+          framework_familiarity?: string | null
           glossary_density?: string
           id?: string
           learner_role?: string | null
+          learning_style?: string
           max_sections_hint?: number
           mermaid_enabled?: boolean
           output_language?: string
           pack_id?: string | null
           target_reading_level?: string
+          tone_preference?: string
           updated_at?: string
           user_id: string
         }
@@ -87,14 +93,17 @@ export type Database = {
           created_at?: string
           depth?: string
           experience_level?: string | null
+          framework_familiarity?: string | null
           glossary_density?: string
           id?: string
           learner_role?: string | null
+          learning_style?: string
           max_sections_hint?: number
           mermaid_enabled?: boolean
           output_language?: string
           pack_id?: string | null
           target_reading_level?: string
+          tone_preference?: string
           updated_at?: string
           user_id?: string
         }
