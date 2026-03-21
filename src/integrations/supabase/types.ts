@@ -2558,6 +2558,30 @@ export type Database = {
           },
         ]
       }
+      user_ai_settings: {
+        Row: {
+          byok_config: Json
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          byok_config?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          byok_config?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           id: string
@@ -2598,13 +2622,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_ai_settings_masked: {
+        Row: {
+          byok_config: Json | null
+          created_at: string | null
+          id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          byok_config?: Json | null
+          created_at?: string | null
+          id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          byok_config?: Json | null
+          created_at?: string | null
+          id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_pending_invites: {
         Args: { _email: string; _user_id: string }
         Returns: number
       }
+      clear_byok_provider: { Args: { _provider: string }; Returns: undefined }
       decrement_reply_upvote: { Args: { reply_id: string }; Returns: undefined }
       decrement_thread_upvote: {
         Args: { thread_id: string }
@@ -2671,6 +2719,19 @@ export type Database = {
           similarity: number
           start_line: number
         }[]
+      }
+      save_byok_key: {
+        Args: {
+          _api_key: string
+          _model: string
+          _provider: string
+          _status?: string
+        }
+        Returns: undefined
+      }
+      set_active_byok_provider: {
+        Args: { _model: string; _provider: string }
+        Returns: undefined
       }
     }
     Enums: {
