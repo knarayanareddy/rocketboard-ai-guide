@@ -346,7 +346,7 @@ export default function TrustDashboard() {
                       </td>
                       <td className="py-3 px-4">
                         {req.grounding_gate_passed ? (
-                          <Badge variant="success" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0">Passed</Badge>
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0">Passed</Badge>
                         ) : (
                           <Badge variant="destructive" className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-0">Refused</Badge>
                         )}

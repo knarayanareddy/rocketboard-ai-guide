@@ -315,7 +315,7 @@ function AddItemDialog({ playlistId, packId, onSave }: {
   const { data: platformDocs = [] } = useQuery({
     queryKey: ["pack-docs-list", packId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("pack_docs")
         .select("id, slug, title")
         .eq("pack_id", packId)

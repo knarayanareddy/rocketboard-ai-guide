@@ -16,7 +16,7 @@ export default function ProposalsPage() {
     queryKey: ["proposals", packId],
     queryFn: async () => {
       if (!packId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("change_proposals")
         .select(`
           *,

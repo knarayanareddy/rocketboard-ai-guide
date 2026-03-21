@@ -88,7 +88,7 @@ export default function RequestDrilldown() {
                 <CardTitle className="text-sm font-medium">Model Response</CardTitle>
               </CardHeader>
               <CardContent className="prose prose-invert max-w-none">
-                <MarkdownRenderer content={request.canonical_response || "No response recorded"} />
+                <MarkdownRenderer>{request.canonical_response || "No response recorded"}</MarkdownRenderer>
               </CardContent>
             </Card>
 
