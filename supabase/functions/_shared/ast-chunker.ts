@@ -1,8 +1,19 @@
 // Polyfill document.currentScript for web-tree-sitter in Deno edge runtime
+// Must run before the import triggers module evaluation
 if (typeof globalThis.document === "undefined") {
   (globalThis as any).document = { currentScript: { src: "" } };
+} else if (typeof (globalThis as any).document.currentScript === "undefined") {
+  (globalThis as any).document.currentScript = { src: "" };
 }
-import Parser from "https://esm.sh/web-tree-sitter@0.20.8";
+
+let Parser: any;
+try {
+  const mod = await import("https://esm.sh/web-tree-sitter@0.20.8");
+  Parser = mod.default;
+} catch (e) {
+  console.warn("[ast-chunker] web-tree-sitter failed to load, AST chunking disabled:", e.message);
+  Parser = null;
+}
 
 const WASM_SHA256: Record<string, string> = {
   typescript: "8515404dceed38e1ed86aa34b09fcf3379fff1b4ff9dd3967bcd6d1eb5ac3d8f",
