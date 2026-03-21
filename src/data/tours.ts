@@ -114,7 +114,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='review-module-card']",
         title: "AI Draft Updates ✨",
-        content: "If source code changes make a module stale, RocketBoard automatically drafts a content fix. Every generation is verified by a **Runtime Grounding Audit** to ensure 100% technical accuracy.",
+        content: "If source code changes make a module stale, RocketBoard automatically drafts a content fix. Every generation is verified by a **4-Stage Zero-Hallucination Pipeline** including a Runtime Grounding Audit to ensure 100% technical accuracy.",
       },
       {
         target: "[data-tour='preview-button']",
@@ -212,7 +212,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='chat-message']",
         title: "Grounded Multi-Query Citations",
-        content: "Look for **[S1]**, **[S2]** badges. These are **strictly grounded**: the AI is forbidden from writing code and must use placeholders. If you 'bounce' (open/close frequently), the system detects your struggle and offers a pre-filled prompt.",
+        content: "Look for **[S1]**, **[S2]** badges. These follow a **4-stage Zero-Hallucination pipeline** with automated grounding audits. The AI is forbidden from writing code and must use placeholders. If you 'bounce', the system detects your struggle.",
       },
       {
         target: "[data-tour='chat-sources']",
@@ -666,7 +666,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='docs-sync-button']",
         title: "Trigger Sync",
-        content: "Click this button to ingest `.txt` or `.md` files residing in your repository's /Technical documents folder. The engine will parse the raw files into structured Markdown blocks and redact any secrets automatically.",
+        content: "Click this button to ingest documents from your repository's /Technical documents folder. The engine performs an **Integrity-Verified Audit** against the repository baseline, redacting secrets automatically and assigning a SHA256 script hash to the sync run.",
       },
     ],
   },

@@ -22,7 +22,7 @@ export default function DocsAdminPage() {
         <div className="bg-card border rounded-xl p-8 text-center text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <h2 className="text-xl font-medium text-foreground mb-2">Sync Documentation</h2>
-          <p className="max-w-md mx-auto mb-6">Trigger the sync engine to import and parse Technical documents from the source repository into interactive modules.</p>
+          <p className="max-w-md mx-auto mb-6">Trigger the **Titanium-Hardened** sync engine to import and parse Technical documents from the source repository. Every sync is verified by our automated integrity script with full secret redaction.</p>
           <button data-tour="docs-sync-button" className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
             Sync Repository Docs
           </button>

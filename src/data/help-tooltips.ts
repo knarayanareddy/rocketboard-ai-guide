@@ -6,7 +6,7 @@ export const HELP_TOOLTIPS = {
     googleDriveOAuth: "Connect with your Google Account to import Google Docs, Sheets, and Drive files. A secure OAuth 2.0 popup handles authentication — your credentials are never stored. Tokens auto-refresh so you only reconnect if you revoke access.",
     documentUpload: "Upload files directly from your computer. Supported formats: PDF, DOCX, XLSX, PPTX, MD, TXT, CSV, HTML, JSON, YAML. Max 50MB per file, up to 20 files at once.",
     documentUrl: "Import content from any public URL. Single page mode fetches just that page. Crawl mode follows internal links to import an entire documentation site.",
-    syncButton: "Re-fetches content from the original source and updates knowledge chunks. Includes a **1-hour cooldown** per source and **SHA256 content hashing** for cost-saving embedding reuse.",
+    syncButton: "Re-fetches content from the original source and updates knowledge chunks. Includes a **1-hour cooldown** per source and **SHA256 content hashing** for cost-saving embedding reuse, verified by our technical integrity auditor.",
     chunkCount: "Knowledge chunks are **heading-aware** segments (~100-150 lines of code or ~500 words of text). Our parsers use **deterministic IDs** to ensure citations remain stable across syncs.",
     browseChunks: "View the individual text segments extracted from this source. Reindexing is protected by a **Concurrent Lease Lock** to prevent state corruption.",
   },
@@ -159,7 +159,7 @@ export const HELP_TOOLTIPS = {
   // ─── GLOBAL ─────────────────────────────────────────
   global: {
     globalSearch: "Search across all content: modules, glossary, your notes, code, and chat history. Keyboard shortcut: Cmd+K. Powered by **Titanium-Hardened Hybrid Search** with defensive SSRF shielding and deterministic citation mapping.",
-    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses follow a **4-stage Zero-Hallucination pipeline** with automated grounding audits, trace-level observability, and security-first retrieval.",
+    rocketChat: "Module-specific AI assistant. Ask questions about the current module's content. Responses follow a **4-stage Zero-Hallucination pipeline** with automated grounding audits, trace-level observability, and security-first retrieval from the Titanium-Hardened search engine.",
     missionControl: "Platform-wide AI assistant. Ask about RocketBoard features, navigation help, onboarding tips, or anything not specific to a single module.",
     packSelector: "Switch between different packs. Each pack has its own sources, content, progress, and team. Your progress is saved separately per pack.",
   },

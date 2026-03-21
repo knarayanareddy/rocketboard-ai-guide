@@ -56,7 +56,7 @@ RocketBoard is an **AI-powered Zero-Hallucination RAG platform** that transforms
 ## Your Learning Journey
 
 :::step[1. Ingest]{📦}
-Connect your GitHub repos, Notion docs, and Slack channels. Our **Titanium-Hardened** AST-Aware parser builds a technical map of your knowledge.
+Connect your GitHub repos, Notion docs, and Slack channels. Our **Titanium-Hardened** AST-Aware parser builds a technical map of your knowledge, protected by a 4-Stage Zero-Hallucination Pipeline and grounding audits.
 :::
 
 :::step[2. Plan]{🗺️}
@@ -202,7 +202,7 @@ Re-sync sources when code changes. Check **Content Health** for stale indicators
 :::
 
 :::step[Phase 7: Observability]{📡}
-Monitor every AI task and ingestion job with **Unified Telemetry**. Audit grounding scores, retrieval latency, and trace failures to the exact source chunk.
+Monitor every AI task and ingestion job with **Unified Telemetry**. Audit grounding scores, retrieval latency, and trace failures to the exact source chunk. Every build is verified by our automated technical documentation audit, providing a verified integrity report (Doc 25).
 :::`,
     relatedArticles: ["gs-1", "src-1"],
   },
@@ -518,11 +518,11 @@ Every chunk is assigned a stable ID based on its document path, line range, and 
 :::
 
 :::card[Privacy & Redaction]{🛡️}
-Secrets (API keys, tokens, passwords) are automatically detected and replaced with \`***REDACTED***\` during ingestion using centralized security patterns.
+Secrets (API keys, tokens, passwords) are automatically detected and replaced with \`***REDACTED***\` during ingestion using centralized security patterns. Every ingestion run is verified by our **Titanium-Hardened Integrity Audit**.
 :::
 
 :::card[Cost-Saving Deduplication]{💰}
-By hashing chunk content, RocketBoard can detect unchanged data and reuse existing embeddings, significantly reducing OpenAI/Gemini API costs during repeated syncs.
+By hashing chunk content with **SHA256**, RocketBoard can detect unchanged data and reuse existing embeddings, significantly reducing OpenAI/Gemini API costs during repeated syncs.
 :::`,
     relatedArticles: ["src-1", "src-4"],
   },
@@ -704,8 +704,8 @@ Our "AI Judge" verifies that every citation badge (e.g., [S1]) actually exists i
 The LLM is strictly forbidden from writing code and can only emit placeholders. Our server resolves these placeholders into exact code from the source files, ensuring **Zero Hallucination** in every snippet.
 :::
 
-:::card[Layer 4: Continuous Observability]{📡}
-Every generation is tracked with unified telemetry. Authors can audit the **Grounding Score**, **Strip Rate**, and **Retrieval Relevance** in real-time, closing the loop between AI output and technical performance.
+:::card[Layer 4: Continuous Observability & Auditing]{📡}
+Every generation is tracked with unified telemetry. Authors can audit the **Grounding Score**, **Strip Rate**, and **Retrieval Relevance** in real-time. This is backed by our **Titanium-Hardened Verification Script**, which cryptographically verifies documentation integrity against the repository baseline.
 :::
 
 ## How to use Citations

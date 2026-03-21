@@ -41,7 +41,7 @@ RocketBoard is a high-performance, grounded AI onboarding platform designed to h
 │  ai-task-router ─── Zero-Hallucination Engine (Groundedness Audit)  │
 │  retrieve-spans ── Agentic Multi-Query Hybrid Search (Titanium)   │
 │  reindex-orgs ──── AST-Aware Intelligent Ingestion             │
-│  ingest-source ─── GitHub, Confluence, Notion, Slack, Jira...  │
+│  ingest-source ─── Ingestion Engine with **Integrity Audit**          │
 │  github-webhook ── Staleness detection + auto-remediation      │
 │  _shared/telemetry ── Langfuse + Local RAG Metrics             │
 │  + 18 more functions                                            │
@@ -109,7 +109,8 @@ Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them 
 | Feature | Description |
 |-----------|-------------|
 | **Smart Structural Chunker** | Heading-aware splitting (H1-H6) ensures semantic context is preserved, avoiding arbitrary data breaks. |
-| **Deterministic Chunk IDs** | Stable IDs based on document path, lines, and content hash enable seamless `UPSERT` and citation stability. |
+| **Deterministic Chunk IDs** | Stable IDs based on document path, lines, and **SHA256 content hash** enable seamless `UPSERT` and citation stability. |
+| **Integrity-Verified Sync** | Every ingestion job includes an **Automated Technical Documentation Audit** (scripts/verify-technical-docs.py) to ensure source-to-knowledge parity. |
 | **Ingestion Safeguards** | **Cooldowns** (1-hour) and **Concurrent Lease Locks** prevent API abuse and race conditions. |
 | **Automatic Recovery** | Failed ingestion jobs automatically purge partial data to ensure a clean state for retries. |
 
@@ -270,6 +271,7 @@ supabase/
 - **Rate limiting** — 30 requests/minute per user in `ai-task-router`.
 - **Secret Redaction** — 14 regex patterns (centralized in `secret-patterns.ts`) strip AWS keys, JWTs, connection strings, GitHub tokens, and API keys before AI processing.
 - **RLS** on every Supabase table with **Pack-Scoped** isolation for knowledge chunks.
+- **Automated Verification** — All technical documentation is verified by CI (GitHub Actions) using the `verify-technical-docs.py` auditor to prevent regression in grounding standards.
 
 ---
 
