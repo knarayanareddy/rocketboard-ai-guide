@@ -617,8 +617,6 @@ Deno.serve(async (req) => {
             status: "failed",
             completed_at: new Date().toISOString(),
             error_message: (err.message ?? "Unknown error").slice(0, 500),
-            last_error_at: new Date().toISOString(),
-            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
           })
           .eq("source_id", source_id)
           .eq("status", "processing");
