@@ -243,6 +243,7 @@ Deno.serve(async (req) => {
         source_id, 
         status: "processing", 
         started_at: new Date().toISOString(),
+        retry_count: guard.retry_count || 0
       })
       .select()
       .single();
