@@ -38,11 +38,13 @@ b) Supabase Backend
    - Auth via Supabase Auth (email/magic link, Google OAuth)
    - Edge Functions (Deno runtime) for all AI + ingestion logic
 
-c) RAG Pipeline
+c) RAG Pipeline & Code Graph
    - retrieve-spans: hybrid search endpoint (vector + keyword)
    - ai-task-router: orchestrates all AI generation tasks
    - Grounding gate: enforces minimum citation quality threshold
    - Detective loop: multi-hop retrieval for complex code dependencies
+   - Symbol Graph (Graph v2): stores definitions and references for 
+     deterministic impact analysis and navigation.
    - Reranker: LLM-based reranking of evidence spans
 
 d) Ingestion Connectors (14+)
@@ -50,18 +52,30 @@ d) Ingestion Connectors (14+)
    - Connectors: github, confluence, notion, jira, slack, url, google-drive,
      sharepoint, figma, loom, openapi, postman, pagerduty, linear
    - All use shared chunking, redaction, embedding reuse, and SSRF validation
+   - Deterministic symbol extraction for Graph v2 support
 
-e) VS Code Extension
+e) MCP Server (Model Context Protocol)
+   - rocketboard-mcp: 13 tools/resource tools for AI-native agent exploration.
+   - Allows IDE agents to query conventions, tech docs, and symbol references.
+   - See 21_MCP_Tool_Contracts.txt for full specification.
+
+f) VS Code Extension
    - Allows engineers to query RocketBoard AI from inside their IDE
    - Auth via Supabase session tokens
    - Pack picker, explain selection, citation webview
 
-f) Trust/Quality Console
+g) Trust/Quality Console
    - Admin dashboard for pack authors
    - Shows grounding pass rates, strip rates, latency
+   - Shows reported content gaps (from MCP report_content_gap tool)
    - Shows ingestion health, lifecycle audit trail, AI governance audit log
 
-g) Lifecycle Controls
+h) Docs-in-platform System
+   - sync-pack-docs: stitches and redacts long-form repository docs.
+   - Native block rendering for Mermaid diagrams, checklists, and code.
+   - See 22_Docs_In_Platform_System.txt for technical details.
+
+i) Lifecycle Controls
    - Per-source purge via purge_source_v1 RPC
    - Retention-based automatic cleanup (lifecycle-retention-job cron)
    - lifecycle_audit_events table for full audit trail
@@ -104,7 +118,7 @@ f) BOUNDED INPUTS
 4. REQUEST LIFECYCLE (HAPPY PATH - CHAT)
 -----------------------------------------
 1.  User asks a question in the chat UI (ModuleView.tsx / Index.tsx)
-2.  Frontend calls retrieve-spans edge function with pack_id + query
+2.  Frontend calls retrieve-spans edge function with pack_id + query (supports Graph v2 lookup)
 3.  retrieve-spans:
     a. Validates JWT (Supabase Auth)
     b. Checks pack membership (pack_members table)
@@ -173,6 +187,9 @@ f) BOUNDED INPUTS
   For security details:        see 11_Security_Model_SSRF_Secrets_Credentials_BYOK.txt
   For ingestion:               see 10_Ingestion_Pipeline_and_Connectors.txt
   For lifecycle controls:      see 17_Lifecycle_Controls_Retention_Purge_Audit.txt
+  For MCP contracts:           see 21_MCP_Tool_Contracts.txt
+  For Docs-in-platform:        see 22_Docs_In_Platform_System.txt
+  For process gates:           see 23_Engineering_Process_QA_and_Release_Gates.txt
 
 ================================================================================
 END OF 01_System_Overview.txt

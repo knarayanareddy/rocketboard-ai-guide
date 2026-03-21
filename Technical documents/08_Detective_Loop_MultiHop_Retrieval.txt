@@ -121,8 +121,11 @@ Migration: supabase/migrations/20260401000000_detective_loop.sql
     - GIN index on exported_names (for array overlap queries)
     - idx on (pack_id, entity_name) for definition search
 
-  RPC: definition_search_v1 (SECURITY DEFINER)
+  RPC: find_definitions_v1 (SECURITY DEFINER)
     Matches entity_name ILIKE ANY(symbols) OR exported_names && symbols
+
+  RPC: find_references_v1 (SECURITY DEFINER)
+    Returns all chunks referencing a specific symbol within a pack.
 
 8. SUPPORTED LANGUAGES
 -----------------------

@@ -55,7 +55,7 @@ All routes are defined in App.tsx. Key routes:
   /packs/:packId/glossary        → GlossaryPage.tsx
   /packs/:packId/faq             → FaqPage.tsx
   /packs/:packId/feedback        → FeedbackPage.tsx
-  /packs/:packId/review          → ReviewPage.tsx (content review)
+  /packs/:packId/review          → ReviewPage.tsx (Docs-in-platform review tool)
   /packs/:packId/members         → PackMembersPage.tsx
   /packs/:packId/cohort          → CohortPage.tsx
   /packs/:packId/team            → TeamPage.tsx
@@ -142,7 +142,7 @@ TASK TYPES (envelope.task.type):
   {
     span_id: string,     // 'S1', 'S2', ... assigned by retrieve-spans
     chunk_id: string,    // UUID or chunk_id from knowledge_chunks
-    path: string,        // e.g., 'repo:owner/name/src/foo.ts'
+    path: string,        // e.g., 'repo:owner/name/src/App.tsx'
     text: string,        // content of the span
     start_line?: number,
     end_line?: number,
@@ -167,7 +167,7 @@ TASK TYPES (envelope.task.type):
 
 6. KEY FRONTEND COMPONENTS
 ----------------------------
-  src/components/chat/
+  src/components/
     ChatMessage.tsx          - Renders a single AI message with citation badges
     CitationBadge.tsx        - [S#] inline badge; opens EvidenceSpanViewer
     EvidenceSpanViewer.tsx   - Side panel showing raw evidence span content
@@ -176,6 +176,10 @@ TASK TYPES (envelope.task.type):
   src/components/trust/
     LifecycleHealthPanel.tsx - Shows retention policy + audit trail
     AiAuditLogPanel.tsx      - AI governance audit log with forensic detail modal
+
+  src/components/docs/
+    DocViewer.tsx            - Renders structured blocks (Docs-in-platform)
+    MermaidDiagram.tsx       - Renders Mermaid code from doc blocks
 
   src/components/DashboardLayout.tsx
     Main nav shell, sidebar, breadcrumbs
@@ -231,6 +235,8 @@ TASK TYPES (envelope.task.type):
   For retrieval:          see 06_RAG_Retrieval_and_Hybrid_Search.txt
   For Trust Console:      see 13_Trust_Quality_Console.txt
   For Lifecycle UI:        see 17_Lifecycle_Controls_Retention_Purge_Audit.txt
+  For MCP contracts:       see 21_MCP_Tool_Contracts.txt
+  For Docs-in-platform:    see 22_Docs_In_Platform_System.txt
   For VS Code Extension:  see 16_IDE_VSCode_Extension.txt
 
 ================================================================================

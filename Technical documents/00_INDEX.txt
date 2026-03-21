@@ -3,11 +3,11 @@ ROCKETBOARD TECHNICAL DOCUMENTATION INDEX
 ========================================================================
 RECOMMENDED READ ORDER
 ========================================================================
-- Everyone: 01, 02, 11 (Security model basics)
-- Backend Engineers: 04, 05, 06, 07, 08, 10
-- Frontend Engineers: 03, 16, 13
-- Security & AppSec: 11, 09, 17, 20
-- Platform Operations: 12, 17, 18
+- Everyone: 01, 02, 11 (Security model basics), 23 (Engineering process)
+- Backend Engineers: 04, 05, 06, 07, 08, 10, 21, 22
+- Frontend Engineers: 03, 16, 13, 22
+- Security & AppSec: 11, 09, 17, 20, 23
+- Platform Operations: 12, 17, 18, 23
 
 ========================================================================
 GLOSSARY OF KEY TERMS
@@ -19,128 +19,129 @@ GLOSSARY OF KEY TERMS
 - Generation: A monotonically increasing ID marking a complete re-index or ingestion job. Used for pin/swap visibility.
 - Grounding Gate: The strictly enforced SLO that runs post-LLM generation to verify that technical claims are backed by cited Spans and strips hallucinations.
 - Detective Loop: An iterative multi-hop retrieval process (agentic loop) that rewrites queries based on intermediate evidence.
-- Rollup: Aggregated daily/weekly analytical data (stored in `rag_metrics_rollup`) used for the Trust Dashboard.
+- Symbol Graph (Graph v2): A semantic layer mapping definitions and references for deterministic code navigation (stored in `symbol_definitions`, `symbol_references`).
+- Rollup: Aggregated daily/weekly analytical data (stored in `pack_quality_daily`) used for the Trust Dashboard.
 
 ========================================================================
-DOCUMENT INVENTORY (01..20)
+DOCUMENT INVENTORY (01..23)
 ========================================================================
 
 01_System_Overview.txt
 - Purpose: High-level introduction to the RocketBoard zero-hallucination platform.
 - Audience: All Engineers, PMs.
-- Key Code Paths: / 
 - Last Updated: 2026-03-20
 
 02_Architecture_Diagrams.txt
 - Purpose: ASCII topology diagrams for infrastructure, RAG pipeline, and ingestion.
 - Audience: All Engineers.
-- Key Code Paths: / 
 - Last Updated: 2026-03-20
 
 03_Frontend_App.txt
 - Purpose: React architecture, data fetching, routing, and envelope builder constructs.
 - Audience: Frontend Engineers.
-- Key Code Paths: src/lib/envelope-builder.ts, src/components/
 - Last Updated: 2026-03-20
 
 04_Supabase_DB_Schema_and_RLS.txt
 - Purpose: Postgres tables, relationships, RPCs, and Row Level Security isolation rules.
 - Audience: Backend, Security.
-- Key Code Paths: supabase/migrations/
 - Last Updated: 2026-03-20
 
 05_Edge_Functions_Index.txt
 - Purpose: Catalog and routing patterns of all Supabase Edge Functions.
 - Audience: Backend Engineers.
-- Key Code Paths: supabase/functions/
 - Last Updated: 2026-03-20
 
 06_RAG_Retrieval_and_Hybrid_Search.txt
 - Purpose: Search mechanics, reciprocal rank fusion (RRF), and cross-encoder logic.
 - Audience: Backend, ML/AI.
-- Key Code Paths: supabase/functions/retrieve-spans/
 - Last Updated: 2026-03-20
 
 07_AI_Task_Router_and_Grounding_Pipeline.txt
 - Purpose: The instruction-tuning router logic and prompt assembly.
 - Audience: Backend, ML/AI.
-- Key Code Paths: supabase/functions/ai-task-router/index.ts
 - Last Updated: 2026-03-20
 
 08_Detective_Loop_MultiHop_Retrieval.txt
 - Purpose: Implementation logic for the iterative reasoning (agentic) loop.
 - Audience: Backend, ML/AI.
-- Key Code Paths: supabase/functions/ai-task-router/detective-retrieval.ts
 - Last Updated: 2026-03-20
 
 09_Grounding_Gate_SLO_and_Refusal_Behavior.txt
 - Purpose: Explains the strict citation-verification pipeline and hallucination rejection heuristics.
 - Audience: ML/AI, Security, Product.
-- Key Code Paths: supabase/functions/ai-task-router/grounding-gate.ts
 - Last Updated: 2026-03-20
 
 10_Ingestion_Pipeline_and_Connectors.txt
 - Purpose: Details on the generic sync framework, chunking, and embedding creation.
 - Audience: Backend Engineers.
-- Key Code Paths: supabase/functions/ingest-source/
 - Last Updated: 2026-03-20
 
 11_Security_Model_SSRF_Secrets_Credentials_BYOK.txt
 - Purpose: Threat models and mandatory defensive postures for ingestion and retrieval.
 - Audience: AppSec, Backend, Ops.
-- Key Code Paths: supabase/functions/_shared/secret-patterns.ts, external-url-policy.ts
 - Last Updated: 2026-03-20
 
 12_Observability_Telemetry_RAG_Metrics_Rollups.txt
 - Purpose: Trace collection, DB storage rules, and rollup cron jobs.
 - Audience: Ops, Backend.
-- Key Code Paths: supabase/functions/_shared/telemetry.ts, supabase/functions/rag-metrics-cron/
 - Last Updated: 2026-03-20
 
 13_Trust_Quality_Console.txt
 - Purpose: Explanation of the internal dashboard used by authors to gauge RAG performance.
 - Audience: Frontend, Ops.
-- Key Code Paths: src/pages/TrustDashboard.tsx
 - Last Updated: 2026-03-20
 
 14_RAG_Regression_Test_Harness_CI.txt
 - Purpose: Methodology for establishing evals and preventing grounding regressions.
 - Audience: ML/AI, QA.
-- Key Code Paths: scripts/rag-eval-harness.ts
 - Last Updated: 2026-03-20
 
 15_Roadmaps_Playlists_30_60_90.txt
 - Purpose: Business logic behind the scoped onboarding progression tracks.
 - Audience: Backend, Frontend.
-- Key Code Paths: src/components/roadmap/
 - Last Updated: 2026-03-20
 
 16_IDE_VSCode_Extension.txt
 - Purpose: Architecture of the local VS Code environment, QuickPick, and WebView routing.
 - Audience: Frontend, Integrations.
-- Key Code Paths: extension/src/
 - Last Updated: 2026-03-20
 
 17_Lifecycle_Controls_Retention_Purge_Audit.txt
 - Purpose: Governance over chunk purging, legal holds, and data deletion audits.
 - Audience: Security, Legal, Ops.
-- Key Code Paths: supabase/functions/lifecycle-retention-job/
 - Last Updated: 2026-03-20
 
 18_Operational_Runbooks.txt
 - Purpose: Emergency response, debugging workflows, and kill-switches.
 - Audience: Ops, On-call Engineers.
-- Key Code Paths: / 
 - Last Updated: 2026-03-20
 
 19_Known_Gaps_Tech_Debt_and_Roadmap.txt
 - Purpose: Outstanding implementation gaps and future feature planning.
 - Audience: All Engineers, PMs.
-- Key Code Paths: / 
 - Last Updated: 2026-03-20
 
 20_MCP_Server_Technical_Documentation.txt
 - Purpose: Deep technical documentation for the MCP Server runtime and security posture.
 - Audience: Backend, Security, Agent Developers.
-- Key Code Paths: supabase/functions/rocketboard-mcp/
+- Last Updated: 2026-03-20
+
+21_MCP_Tool_Contracts.txt
+- Purpose: Exact JSON-RPC contracts for all 13 model-native tools.
+- Audience: Backend, Agent Developers.
+- Last Updated: 2026-03-20
+
+22_Docs_In_Platform_System.txt
+- Purpose: Technical specification of the native repository-documentation sync and block-rendering system.
+- Audience: Fullstack Engineers.
+- Last Updated: 2026-03-20
+
+23_Engineering_Process_QA_and_Release_Gates.txt
+- Purpose: Standardized PR workflows, QA index, and mandatory release gates.
+- Audience: All Engineers, Security.
+- Last Updated: 2026-03-20
+
+24_Doc_Change_Report.txt
+- Purpose: Audit and quantification of the documentation restoration and enhancement process.
+- Audience: Authors, Engineering Lead.
 - Last Updated: 2026-03-20

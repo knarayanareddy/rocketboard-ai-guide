@@ -135,9 +135,14 @@ Function: batchRerankWithLLM(queryText, spans)
   recordRagMetrics(supabase, data):
     INSERT INTO rag_metrics (...)
     Captures: request_id, task_type, retrieval metrics, generation metrics,
-    grounding gate outcome, strip rate, citations found, latency.
+    grounding gate outcome, grounding_gate_passed, strip rate, citations found, latency.
 
   recordAiAudit(supabase, data):
+    Step C: Hop 1 RPC (find_definitions_v1)
+    Params: (p_org_id, p_pack_id, symbols[], p_match_count=15)
+    Returns: chunks where entity_name ILIKE ANY(symbols) OR exported_names && symbols
+    
+    Alternatively, Graph v2 uses: find_references_v1(p_pack_id, p_symbol)
     INSERT INTO ai_audit_events (...)
     Captures: user_id, pack_id, org_id, task_type, request_id, trace_id,
     evidence_manifest (full citation → chunk_id mapping), 

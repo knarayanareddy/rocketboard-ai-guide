@@ -49,17 +49,17 @@ TABLE: pack_sources
   Purpose: Tracks connected data sources per pack
   Security: Vault credentials stored separately, never in config
 
-2. KNOWLEDGE CHUNKS (Core RAG Table)
---------------------------------------
+2. KNOWLEDGE & CODE GRAPH (Graph v2)
+-------------------------------------
 
-TABLE: knowledge_chunks
+TABLE: knowledge_data_table
   Columns:
     id UUID PK DEFAULT gen_random_uuid()
     pack_id UUID FK packs (NOT NULL)
     source_id UUID FK pack_sources (NOT NULL)
     org_id UUID (NOT NULL)
     chunk_id TEXT (NOT NULL)        -- e.g., 'C00001' (per-ingestion run ID)
-    path TEXT (NOT NULL)             -- e.g., 'repo:owner/name/src/foo.ts'
+    path TEXT (NOT NULL)             -- e.g., 'repo:owner/name/src/App.tsx'
     content TEXT                     -- chunk text (may be redacted inline)
     embedding VECTOR(1536)           -- OpenAI text-embedding-3-small
     fts TSVECTOR                     -- full-text search index (auto-generated)
@@ -95,6 +95,30 @@ TABLE: knowledge_chunks
     idx on (pack_id, entity_name)    -- for definition_search_v1
     idx on exports + imports         -- for graph expansion in hybrid_search_v2
 
+TABLE: symbol_definitions
+  Columns:
+    pack_id UUID FK packs (NOT NULL)
+    source_id UUID FK pack_sources (NOT NULL)
+    symbol TEXT (NOT NULL)
+    chunk_id TEXT (NOT NULL)
+    path TEXT (NOT NULL)
+    line_start INT, line_end INT
+  PRIMARY KEY (pack_id, symbol, chunk_id)
+  Purpose: Maps symbols to their definition chunk.
+  Index: (pack_id, symbol)
+
+TABLE: symbol_references
+  Columns:
+    pack_id UUID FK packs (NOT NULL)
+    source_id UUID FK pack_sources (NOT NULL)
+    symbol TEXT (NOT NULL)
+    chunk_id TEXT (NOT NULL)
+    path TEXT (NOT NULL)
+    line_start INT, line_end INT
+  PRIMARY KEY (pack_id, symbol, chunk_id)
+  Purpose: Maps chunks to the symbols they reference.
+  Index: (pack_id, symbol)
+
 3. INGESTION TABLES
 --------------------
 
@@ -113,7 +137,31 @@ TABLE: pack_active_generation
   Purpose: Tracks the currently active chunk generation per pack.
            hybrid_search_v2 uses this to filter stale chunks.
 
-4. RAG METRICS AND OBSERVABILITY
+4. DOCS-IN-PLATFORM TABLES
+---------------------------
+
+TABLE: pack_docs
+  Columns: id UUID PK, pack_id UUID FK packs, slug TEXT, title TEXT,
+           status TEXT ('draft'|'published'), content_plain TEXT,
+           created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+  UNIQUE (pack_id, slug)
+
+TABLE: pack_doc_blocks
+  Columns: id UUID PK, doc_id UUID FK pack_docs, sort_order INT,
+           block_type TEXT ('heading'|'paragraph'|'code'|'mermaid'|'list'|'checklist'),
+           content_raw TEXT, metadata JSONB
+  Index: (doc_id, sort_order)
+
+TABLE: pack_doc_progress
+  Columns: id UUID PK, doc_id UUID FK pack_docs, user_id UUID FK auth.users,
+           completed_block_ids UUID[], last_viewed_at TIMESTAMPTZ
+  UNIQUE (doc_id, user_id)
+
+TABLE: pack_doc_edges
+  Columns: from_doc_id UUID, to_doc_id UUID, edge_type TEXT ('prerequisite'|'reference')
+  PRIMARY KEY (from_doc_id, to_doc_id)
+
+5. RAG METRICS AND OBSERVABILITY
 ----------------------------------
 
 TABLE: rag_metrics
@@ -140,7 +188,7 @@ TABLE: pack_quality_daily (rollup table)
   Unique constraints: (pack_id, day)
   RLS: pack authors/admins can SELECT
 
-5. AI AUDIT LOG
+6. AI AUDIT LOG
 ----------------
 
 TABLE: ai_audit_events
@@ -162,7 +210,7 @@ TABLE: ai_audit_events
     idx on (request_id)
     idx on (user_id, created_at DESC)
 
-6. LIFECYCLE TABLES
+7. LIFECYCLE TABLES
 --------------------
 
 TABLE: pack_lifecycle_policies
@@ -183,7 +231,7 @@ TABLE: lifecycle_audit_events
            error_message TEXT, created_at TIMESTAMPTZ
   RLS: pack authors/admins can SELECT only
 
-7. ROADMAP / PLAYLIST TABLES
+8. ROADMAP / PLAYLIST TABLES
 ------------------------------
 
 TABLE: playlists
@@ -230,7 +278,7 @@ VIEW: view_playlist_item_state
   - computed_due_date, computed_unlock_date
   - is_blocked_by_dependency (bool)
 
-8. KEY RPC FUNCTIONS
+9. KEY RPC FUNCTIONS
 ----------------------
 
 RPC: hybrid_search_v2
@@ -252,6 +300,16 @@ RPC: definition_search_v1
   Security: SECURITY DEFINER; used by detective loop (Hop 1)
   Purpose: Finds function/class definitions by name for multi-hop retrieval
 
+RPC: find_definitions_v1
+  Params: (p_pack_id UUID, p_symbols TEXT[])
+  Returns: TABLE of definition matches from symbol_definitions.
+  Security: SECURITY DEFINER; called by detective loop (Hop 1).
+
+RPC: find_references_v1
+  Params: (p_pack_id UUID, p_symbol TEXT)
+  Returns: TABLE of reference matches from symbol_references.
+  Security: SECURITY DEFINER; called by detective loop (Hop 2) or MCP.
+
 RPC: purge_source_v1
   Params: (p_pack_id UUID, p_source_id UUID, p_actor_user_id UUID)
   Returns: JSONB { knowledge_chunks: N, ingestion_jobs: N }
@@ -271,7 +329,51 @@ RPC: is_pack_member(user_id UUID, pack_id UUID)
   Returns: BOOLEAN
   Purpose: Simpler membership check (any role). Used by playlist/content RLS.
 
-9. MIGRATION CONVENTIONS
+10. GRAPH V2 TABLES
+---------------------
+
+TABLE: graph_nodes
+  Columns: id UUID PK, pack_id UUID FK packs, node_type TEXT,
+           content_hash TEXT, content_plain TEXT, content_embedding VECTOR(1536),
+           metadata JSONB, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+  RLS: pack members can SELECT
+
+TABLE: graph_edges
+  Columns: from_node_id UUID FK graph_nodes, to_node_id UUID FK graph_nodes,
+           edge_type TEXT, metadata JSONB, created_at TIMESTAMPTZ
+  PRIMARY KEY (from_node_id, to_node_id, edge_type)
+  RLS: pack members can SELECT
+
+11. DOCS-IN-PLATFORM TABLES
+-----------------------------
+
+TABLE: pack_docs_v2
+  Columns: id UUID PK, pack_id UUID FK packs, slug TEXT, title TEXT,
+           status TEXT ('draft'|'published'), content_plain TEXT,
+           created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+  UNIQUE (pack_id, slug)
+  RLS: pack members can SELECT; authors/admins can ALL
+
+TABLE: pack_doc_blocks_v2
+  Columns: id UUID PK, doc_id UUID FK pack_docs_v2, sort_order INT,
+           block_type TEXT ('heading'|'paragraph'|'code'|'mermaid'|'list'|'checklist'),
+           content_raw TEXT, metadata JSONB
+  Index: (doc_id, sort_order)
+  RLS: pack members can SELECT; authors/admins can ALL
+
+TABLE: pack_doc_progress_v2
+  Columns: id UUID PK, doc_id UUID FK pack_docs_v2, user_id UUID FK auth.users,
+           completed_block_ids UUID[], last_viewed_at TIMESTAMPTZ
+  UNIQUE (doc_id, user_id)
+  RLS: learners manage own; authors view all
+
+TABLE: pack_doc_edges_v2
+  Columns: from_doc_id UUID FK pack_docs_v2, to_doc_id UUID FK pack_docs_v2,
+           edge_type TEXT ('prerequisite'|'reference')
+  PRIMARY KEY (from_doc_id, to_doc_id)
+  RLS: pack members can SELECT; authors/admins can ALL
+
+12. MIGRATION CONVENTIONS
 --------------------------
   - ALL migrations are in supabase/migrations/ with timestamp prefix YYYYMMDDHHMMSS_
   - NEVER edit an old migration. Always create a new file.
@@ -281,7 +383,7 @@ RPC: is_pack_member(user_id UUID, pack_id UUID)
   - Use CREATE OR REPLACE for functions (idempotent).
   - Every new table must have RLS enabled (ALTER TABLE ... ENABLE ROW LEVEL SECURITY).
 
-10. KEY INVARIANTS
+13. KEY INVARIANTS
 -------------------
   - knowledge_chunks is_redacted=true chunks NEVER appear in hybrid_search_v2.
   - Purge is always source-scoped: WHERE pack_id=? AND source_id=? on all deletes.
@@ -293,10 +395,11 @@ RPC: is_pack_member(user_id UUID, pack_id UUID)
 11. HOW TO TEST
 ----------------
   1.  Apply all migrations on a fresh DB: supabase db reset
-  2.  Verify hybrid_search_v2 returns redacted=false chunks only
-  3.  Verify purge_source_v1 is idempotent (call twice, no error)
-  4.  Verify has_pack_access('learner_uid', pack_id, 'author') returns false
-  5.  Check supabase/qa/lifecycle/ for repeatable lifecycle RLS test scripts
+  2.  Verify `find_references_v1` returns rows from `symbol_references`.
+  3.  Verify hybrid_search_v2 returns redacted=false chunks only
+  4.  Verify purge_source_v1 is idempotent (call twice, no error)
+  5.  Verify has_pack_access('learner_uid', pack_id, 'author') returns false
+  6.  Check supabase/qa/lifecycle/ for repeatable lifecycle RLS test scripts
 
 ================================================================================
 END OF 04_Supabase_DB_Schema_and_RLS.txt

@@ -182,6 +182,27 @@ Debt 4: Missing test coverage for grounding gate
   Phase 8:  Multi-org pack sharing
   Phase 9:  VS Code OAuth login flow
   Phase 10: Alert webhooks for quality SLO violations
+  Phase 11: Language-specific AST parsers for Symbol Graph (Graph v2)
+  Phase 12: Integrated Slack notifications for `report_content_gap`
+  Phase 13: Bulk "Publish all" for Docs-in-platform Review page
+
+6. RECENT GAPS (NEW)
+--------------------
+Gap 15: Symbol Extractor Regex Limitations
+- Status: PARTIAL.
+- Description: Shared symbol extractor uses regex; lacks full AST context for language-specific overloading.
+- Risk: Potential false positives during `find_references`.
+- Priority: Medium (requires language-specific parser integration v3).
+
+Gap 16: MCP Tool Size Caps
+- Status: PARTIAL.
+- Description: Large document retrievals in MCP tools may exceed context limits.
+- Risk: Agent truncation or refusal.
+- Priority: Low (Current 50k char cap is sufficient for most docs).
+
+Gap 17: Docs-in-platform Stitching Order
+- Status: PARTIAL.
+- Description: `sync-pack-docs` relies on chunk creation order; lacks explicit `order_by` if chunks are split across multiple ingestion jobs.
 
 ================================================================================
 END OF 19_Known_Gaps_Tech_Debt_and_Roadmap.txt

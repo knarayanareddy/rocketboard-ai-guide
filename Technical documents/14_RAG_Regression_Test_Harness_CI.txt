@@ -34,7 +34,7 @@ retrieval + grounding pipeline meets minimum scores.
       {
         "id": "auth-001",
         "query": "How does JWT authentication work?",
-        "expected_paths": ["src/auth/", "supabase/functions/"],  // expected file paths
+        "expected_paths": ["src/pages/", "supabase/functions/"],  // expected file paths
         "min_citations": 1,
         "min_grounding_score": 0.80
       }

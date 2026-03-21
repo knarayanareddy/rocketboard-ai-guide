@@ -75,6 +75,7 @@ Related Code Paths:
     strip_rate FLOAT          — claims_stripped / claims_total
     grounding_gate_passed BOOL — final gate decision
     grounding_gate_reason TEXT — reason_code from GroundingDecision
+    hop2_added INT            — count of chunks added via symbol reference expansion
     attempts INT              — number of agentic retries
     total_latency_ms INT      — end-to-end request time
 
@@ -112,7 +113,13 @@ Related Code Paths:
   
   Time windows: 7, 30, 90 days (controlled by UI day selector)
 
-5. TRACE CORRELATION
+5. CONTENT GAP REPORTING
+-------------------------
+  - Source: report_content_gap MCP tool.
+  - Target: pack_quality_daily (as a 'gap_count' metric) and Quality panel in UI.
+  - Purpose: Closes the observability loop by allowing agents to flag stale data.
+
+6. TRACE CORRELATION
 ---------------------
   trace_id in rag_metrics → links to Langfuse trace for full agentic loop detail
   trace_id in ai_audit_events → same trace_id for forensic correlation
@@ -122,13 +129,15 @@ Related Code Paths:
     /packs/:packId/trust/requests/:requestId → RequestDrilldown.tsx
     Shows: task type, outcome, evidence used, timing breakdown
 
-6. OBSERVABILITY GAPS (current state)
+7. OBSERVABILITY GAPS (current state)
 ---------------------------------------
   - No structured alerting (no PagerDuty/Slack alerts triggered by rag_metrics anomalies)
   - Rollup cron is manual/on-demand; no automated nightly cron in production by default
   - Embedding generation cost is not currently captured in rag_metrics
 
-7. HOW TO TROUBLESHOOT VIA METRICS
+  Step 7: Check knowledge_chunks count for the pack (are there chunks to retrieve?)
+
+8. HOW TO TROUBLESHOOT VIA METRICS
 -------------------------------------
   Step 1: Open TrustDashboard → check pass rate and refusal rate trends
   Step 2: Switch to "Raw (debug)" mode; check specific failed requests

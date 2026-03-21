@@ -48,6 +48,10 @@ Access: Only users with role='author' or role='admin' for the pack can view
   Ingestion Health: from ingestion_jobs table
     → useIngestionSummary(packId) — recent jobs + total chunk count
 
+  Content Gaps: from report_content_gap MCP tool
+    → Agents report stale/missing data; authors view these in the Quality panel.
+    → See 21_MCP_Tool_Contracts.txt for tool spec.
+
 3. TIME WINDOW SELECTOR
 ------------------------
   Options: 7 days, 30 days, 90 days
@@ -118,6 +122,7 @@ Access: Only users with role='author' or role='admin' for the pack can view
       - gate_passed, attempts, strip_rate, unique_files_count, reason
     Tab 3 — Evidence Manifest:
       - Table: badge | path | lines | chunk ID prefix
+      - Note: includes Graph v2 spans added via reference expansion.
     Tab 4 — Data Integrity:
       - prompt_hash (first 12 chars shown), prompt_preview
       - response_hash (first 12 chars shown), response_preview
@@ -140,6 +145,7 @@ Access: Only users with role='author' or role='admin' for the pack can view
   6. Navigate to AI Governance Audit Log section
   7. Click an event row → verify forensic modal opens with evidence manifest
   8. Log in as learner → verify /packs/:packId/trust returns 403 or empty state
+  9. Verify 'graph' retrieval_method appears for requests using symbol lookups.
 
 ================================================================================
 END OF 13_Trust_Quality_Console.txt

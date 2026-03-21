@@ -191,6 +191,23 @@ Step 3: Verify
   -- The connector will call getSourceCredential(supabase, source_id, 'api_token')
   -- and receive the decrypted value. Test by triggering ingestion.
 
+RUNBOOK 07: SYNCING DOCS-IN-PLATFORM
+-------------------------------------
+Goal: Push changes from technical documents/ in repo to the UI.
+1. Run `ingest-source` for the GitHub pack source to updated chunks.
+2. Trigger `sync-pack-docs` via the Review Dashboard or CLI.
+3. Verify new blocks in `pack_doc_blocks`:
+   SELECT * FROM pack_doc_blocks WHERE doc_id IN (SELECT id FROM pack_docs WHERE pack_id=?);
+4. Set doc status to 'published' once verified in UI.
+
+RUNBOOK 08: VERIFYING GRAPH INTEGRITY (Graph v2)
+-----------------------------------------------
+Goal: Ensure `find_references` works for a specific symbol.
+1. Find symbol in definitions: `SELECT * FROM symbol_definitions WHERE symbol='foo' AND pack_id=?`.
+2. Check references Table: `SELECT * FROM symbol_references WHERE symbol='foo' AND pack_id=?`.
+3. If empty, verify `symbol-extractor.ts` regex isn't blocking the name in shared lib.
+4. Manually trigger `find_references_v1` RPC to verify BLEND logic.
+
 ================================================================================
 END OF 18_Operational_Runbooks.txt
 ================================================================================

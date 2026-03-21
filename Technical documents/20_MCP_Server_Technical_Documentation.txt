@@ -6,8 +6,7 @@ This document provides deep, implementation-accurate documentation for the Rocke
 AUDIENCE
 Backend Engineers, AI Agents, AppSec Champions, and Platform Operators.
 
-LAST UPDATED
-2026-03-20
+Last Updated: 2026-03-20
 
 SOURCE OF TRUTH PATHS
 - Core Function: supabase/functions/rocketboard-mcp/

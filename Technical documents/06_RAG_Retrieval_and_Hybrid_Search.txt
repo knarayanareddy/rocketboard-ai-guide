@@ -42,7 +42,7 @@ Two retrieval mechanisms exist:
     "spans": [
       {
         "span_id": "S1",         // assigned sequentially
-        "path": "repo:owner/name/src/foo.ts",
+        "path": "repo:owner/name/src/App.tsx",
         "chunk_id": "uuid",
         "start_line": 10,
         "end_line": 45,

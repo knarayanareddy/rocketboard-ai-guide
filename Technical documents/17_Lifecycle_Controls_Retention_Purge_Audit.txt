@@ -138,7 +138,16 @@ All AI functionality is independent of rollups and lifecycle state.
   Note: ai_audit_events themselves are the AI governance audit trail.
         Their cleanup is intentionally conservative (1 year default).
 
-7. LIFECYCLE UI (LifecycleSettings.tsx)
+  Note: ai_audit_events themselves are the AI governance audit trail.
+        Their cleanup is intentionally conservative (1 year default).
+
+7. DOCS-IN-PLATFORM RETENTION
+-----------------------------
+  - The `sync-pack-docs` edge function writes 'sync_docs' to the lifecycle audit trail.
+  - Currently, `pack_docs` do not automatically expire; authors manage lifecycle via Draft/Published status.
+  - See 22_Docs_In_Platform_System.txt for sync details.
+
+8. LIFECYCLE UI (LifecycleSettings.tsx)
 -----------------------------------------
   Route: /packs/:packId/settings/lifecycle
   Access: Author/admin only
@@ -232,6 +241,10 @@ All AI functionality is independent of rollups and lifecycle state.
   Issue: legal_hold active but needed to run cleanup
   Cause: legal_hold=true was set
   Fix: Authorized admin must explicitly set legal_hold=false before cleanup can run
+
+  Issue: sync_docs not appearing in audit
+  Cause: Only successful syncs are logged by the dispatcher.
+  Fix: Check edge function logs for sync-pack-docs.
 
 ================================================================================
 END OF 17_Lifecycle_Controls_Retention_Purge_Audit.txt
