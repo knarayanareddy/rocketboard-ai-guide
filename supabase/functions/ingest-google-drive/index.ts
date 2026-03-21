@@ -366,6 +366,9 @@ Deno.serve(async (req) => {
             redaction: {
               action: assessment.action,
               secretsFound: assessment.metrics.secretsFound,
+            }
+          }
+        });
       }
     }
 
