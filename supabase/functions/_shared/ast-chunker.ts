@@ -1,4 +1,19 @@
-import Parser from "https://esm.sh/web-tree-sitter@0.20.8";
+// Polyfill document.currentScript for web-tree-sitter in Deno edge runtime
+// Must run before the import triggers module evaluation
+if (typeof globalThis.document === "undefined") {
+  (globalThis as any).document = { currentScript: { src: "" } };
+} else if (typeof (globalThis as any).document.currentScript === "undefined") {
+  (globalThis as any).document.currentScript = { src: "" };
+}
+
+let Parser: any;
+try {
+  const mod = await import("https://esm.sh/web-tree-sitter@0.20.8");
+  Parser = mod.default;
+} catch (e) {
+  console.warn("[ast-chunker] web-tree-sitter failed to load, AST chunking disabled:", e.message);
+  Parser = null;
+}
 
 const WASM_SHA256: Record<string, string> = {
   typescript: "8515404dceed38e1ed86aa34b09fcf3379fff1b4ff9dd3967bcd6d1eb5ac3d8f",
@@ -20,6 +35,7 @@ const languageCache = new Map<string, any>();
 
 async function initParser() {
   if (isParserInitialized) return;
+  if (!Parser) throw new Error("web-tree-sitter not available");
   await Parser.init();
   isParserInitialized = true;
 }
@@ -271,6 +287,25 @@ function splitOversizedChunk(chunk: ASTChunk, maxLines = 100): ASTChunk[] {
 }
 
 export async function astChunk(code: string, filepath: string): Promise<ASTChunk[]> {
+  // If Parser failed to load, fall through to text-based chunking
+  if (!Parser) {
+    const lines = code.split('\n');
+    const results: ASTChunk[] = [];
+    for (let i = 0; i < lines.length; i += 100) {
+       const end = Math.min(i + 100, lines.length);
+       results.push({
+           text: lines.slice(i, end).join('\n'),
+           metadata: {
+               entity_type: "text_chunk",
+               entity_name: filepath,
+               signature: filepath,
+               line_start: i + 1,
+               line_end: end
+           }
+       });
+    }
+    return results;
+  }
   await initParser();
   const ext = filepath.split('.').pop() || "";
   const lang = ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java"].includes(ext) ? ext : null;
