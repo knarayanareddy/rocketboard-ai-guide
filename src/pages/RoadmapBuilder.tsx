@@ -131,7 +131,7 @@ export default function RoadmapBuilder() {
 
   const assignPlaylist = useMutation({
     mutationFn: async ({ playlistId, learnerId }: { playlistId: string, learnerId: string }) => {
-       const { error } = await supabase
+       const { error } = await (supabase as any)
         .from("playlist_assignments")
         .insert({
           pack_id: packId,
