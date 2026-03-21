@@ -29,7 +29,7 @@ export function ProposalCard({ proposal, isAuthor, onUpdate }: ProposalCardProps
         updates.approved_at = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("change_proposals")
         .update(updates)
         .eq("id", proposal.id);
@@ -101,7 +101,6 @@ export function ProposalCard({ proposal, isAuthor, onUpdate }: ProposalCardProps
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Metadata Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs p-3 rounded-lg bg-muted/30 border border-border/50">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -131,7 +130,6 @@ export function ProposalCard({ proposal, isAuthor, onUpdate }: ProposalCardProps
           )}
         </div>
 
-        {/* Diff Viewer */}
         <div className="rounded-lg border bg-zinc-950 overflow-hidden">
           <div className="bg-zinc-900 px-3 py-1.5 border-b border-zinc-800 flex items-center justify-between">
             <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Unified Patch</span>

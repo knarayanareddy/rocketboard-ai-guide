@@ -31,65 +31,67 @@ export interface PackQualityDaily {
   avg_detective_time_ms: number;
 }
 
+const emptyTrustSummary: TrustSummary = {
+  total_requests: 0,
+  pass_rate: 0,
+  refusal_rate: 0,
+  retry_rate: 0,
+  p95_latency: 0,
+  avg_strip_rate: 0,
+  avg_citations: 0,
+  detective_usage: 0,
+  detective_yield: 0,
+};
+
 export async function fetchTrustSummary(packId: string, days: number = 7, useRaw: boolean = false): Promise<TrustSummary> {
   if (!useRaw) {
-    const { data: rollups, error } = await supabase
+    const { data: rollups, error } = await (supabase as any)
       .from("pack_quality_daily")
       .select("*")
       .eq("pack_id", packId)
       .gte("day", new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
     if (!error && rollups && rollups.length > 0) {
-      const total = rollups.reduce((acc, r) => acc + r.total_requests, 0);
-      const passed = rollups.reduce((acc, r) => acc + r.gate_passed, 0);
-      const retried = rollups.reduce((acc, r) => acc + r.retry_requests, 0);
-      const detectiveTotal = rollups.reduce((acc, r) => acc + r.detective_requests, 0);
+      const total = rollups.reduce((acc: number, r: any) => acc + r.total_requests, 0);
+      const passed = rollups.reduce((acc: number, r: any) => acc + r.gate_passed, 0);
+      const retried = rollups.reduce((acc: number, r: any) => acc + r.retry_requests, 0);
+      const detectiveTotal = rollups.reduce((acc: number, r: any) => acc + r.detective_requests, 0);
       
       return {
         total_requests: total,
         pass_rate: (passed / total) * 100,
         refusal_rate: ((total - passed) / total) * 100,
         retry_rate: (retried / total) * 100,
-        p95_latency: rollups.reduce((acc, r) => Math.max(acc, r.p95_total_latency_ms || 0), 0),
-        avg_strip_rate: rollups.reduce((acc, r) => acc + (r.avg_strip_rate * r.total_requests), 0) / total,
-        avg_citations: rollups.reduce((acc, r) => acc + (r.avg_citations_found * r.total_requests), 0) / total,
+        p95_latency: rollups.reduce((acc: number, r: any) => Math.max(acc, r.p95_total_latency_ms || 0), 0),
+        avg_strip_rate: rollups.reduce((acc: number, r: any) => acc + (r.avg_strip_rate * r.total_requests), 0) / total,
+        avg_citations: rollups.reduce((acc: number, r: any) => acc + (r.avg_citations_found * r.total_requests), 0) / total,
         detective_usage: (detectiveTotal / total) * 100,
         detective_yield: detectiveTotal > 0 
-          ? rollups.reduce((acc, r) => acc + (r.avg_expanded_chunks_added * r.detective_requests), 0) / detectiveTotal 
+          ? rollups.reduce((acc: number, r: any) => acc + (r.avg_expanded_chunks_added * r.detective_requests), 0) / detectiveTotal 
           : 0,
       };
     }
   }
 
   // Fallback to raw metrics
-  const { data, error: rawError } = await supabase
+  const { data, error: rawError } = await (supabase as any)
     .from("rag_metrics")
     .select("*")
     .eq("pack_id", packId)
     .gte("created_at", new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
 
-  if (error) throw error;
+  if (rawError) throw rawError;
   if (!data || data.length === 0) {
-    return {
-      total_requests: 0,
-      pass_rate: 0,
-      refusal_rate: 0,
-      retry_rate: 0,
-      p95_latency: 0,
-      avg_strip_rate: 0,
-      avg_citations: 0,
-      detective_usage: 0,
-      detective_yield: 0,
-    };
+    return { ...emptyTrustSummary };
   }
 
-  const passed = data.filter((m) => m.grounding_gate_passed).length;
+  const passed = data.filter((m: any) => m.grounding_gate_passed).length;
   const total = data.length;
-  const retried = data.filter((m) => m.attempts > 1).length;
-  const detectiveUsed = data.filter((m) => m.detective_enabled).length;
-  const detectiveData = data.filter((m) => m.detective_enabled);
+  const retried = data.filter((m: any) => m.attempts > 1).length;
+  const detectiveUsed = data.filter((m: any) => m.detective_enabled).length;
+  const detectiveData = data.filter((m: any) => m.detective_enabled);
 
-  const latencies = data.map((m) => m.total_latency_ms || 0).sort((a, b) => a - b);
+  const latencies = data.map((m: any) => m.total_latency_ms || 0).sort((a: number, b: number) => a - b);
   const p95 = latencies[Math.floor(latencies.length * 0.95)] || 0;
 
   return {
@@ -98,18 +100,18 @@ export async function fetchTrustSummary(packId: string, days: number = 7, useRaw
     refusal_rate: ((total - passed) / total) * 100,
     retry_rate: (retried / total) * 100,
     p95_latency: p95,
-    avg_strip_rate: data.reduce((acc, m) => acc + (m.strip_rate || 0), 0) / total,
-    avg_citations: data.reduce((acc, m) => acc + (m.citations_found || 0), 0) / total,
+    avg_strip_rate: data.reduce((acc: number, m: any) => acc + (m.strip_rate || 0), 0) / total,
+    avg_citations: data.reduce((acc: number, m: any) => acc + (m.citations_found || 0), 0) / total,
     detective_usage: (detectiveUsed / total) * 100,
     detective_yield: detectiveUsed > 0 
-      ? detectiveData.reduce((acc, m) => acc + (m.expanded_chunks_added || 0), 0) / detectiveUsed 
+      ? detectiveData.reduce((acc: number, m: any) => acc + (m.expanded_chunks_added || 0), 0) / detectiveUsed 
       : 0,
   };
 }
 
 export async function fetchTrustTimeSeries(packId: string, days: number = 7, useRaw: boolean = false) {
   if (!useRaw) {
-    const { data: rollups, error } = await supabase
+    const { data: rollups, error } = await (supabase as any)
       .from("pack_quality_daily")
       .select("*")
       .eq("pack_id", packId)
@@ -117,7 +119,7 @@ export async function fetchTrustTimeSeries(packId: string, days: number = 7, use
       .order("day", { ascending: true });
 
     if (!error && rollups && rollups.length > 0) {
-      return rollups.map(r => ({
+      return rollups.map((r: any) => ({
         created_at: r.day,
         total_requests: r.total_requests,
         grounding_gate_passed: r.gate_passed,
@@ -129,7 +131,7 @@ export async function fetchTrustTimeSeries(packId: string, days: number = 7, use
     }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("rag_metrics")
     .select("created_at, grounding_gate_passed, strip_rate, total_latency_ms, expanded_chunks_added, detective_enabled")
     .eq("pack_id", packId)
@@ -137,13 +139,11 @@ export async function fetchTrustTimeSeries(packId: string, days: number = 7, use
     .order("created_at", { ascending: true });
 
   if (error) throw error;
-  
-  // Group by day/hour depending on range
-  return data; // For now return raw, can be aggregated in hook or component
+  return data;
 }
 
 export async function fetchLatestRequests(packId: string, limit: number = 50, offset: number = 0) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("rag_metrics")
     .select("*")
     .eq("pack_id", packId)
@@ -155,7 +155,7 @@ export async function fetchLatestRequests(packId: string, limit: number = 50, of
 }
 
 export async function fetchRequestDetail(requestId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("rag_metrics")
     .select("*")
     .eq("request_id", requestId)
@@ -189,7 +189,7 @@ export async function fetchIngestionSummary(packId: string) {
 }
 
 export async function fetchFreshnessQueueSummary(packId: string) {
-  const { count: pendingCount, error: pendingErr } = await supabase
+  const { count: pendingCount, error: pendingErr } = await (supabase as any)
     .from("staleness_check_queue")
     .select("*", { count: 'exact', head: true })
     .eq("pack_id", packId)
@@ -197,7 +197,7 @@ export async function fetchFreshnessQueueSummary(packId: string) {
 
   if (pendingErr) throw pendingErr;
 
-  const { data: lastProcessed, error: procErr } = await supabase
+  const { data: lastProcessed, error: procErr } = await (supabase as any)
     .from("staleness_check_queue")
     .select("processed_at, status")
     .eq("pack_id", packId)
@@ -208,7 +208,7 @@ export async function fetchFreshnessQueueSummary(packId: string) {
 
   if (procErr) throw procErr;
 
-  const { count: failCount, error: failErr } = await supabase
+  const { count: failCount, error: failErr } = await (supabase as any)
     .from("staleness_check_queue")
     .select("*", { count: 'exact', head: true })
     .eq("pack_id", packId)
