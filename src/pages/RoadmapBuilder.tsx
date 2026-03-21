@@ -172,7 +172,7 @@ export default function RoadmapBuilder() {
              <AssignDialog 
               members={members} 
               playlists={playlists} 
-              onAssign={(playlistId, learnerId) => assignPlaylist.mutate({ playlistId, learnerId })} 
+              onAssign={(playlistId: any, learnerId: any) => assignPlaylist.mutate({ playlistId, learnerId })} 
               data-tour="assign-user"
             />
              <CreatePlaylistDialog onSave={(t, p) => createPlaylist.mutate({ title: t, phase: p })} data-tour="create-playlist" />
