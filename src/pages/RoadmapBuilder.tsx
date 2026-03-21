@@ -466,7 +466,7 @@ function CreatePlaylistDialog({ onSave }: { onSave: (title: string, phase: Roadm
   );
 }
 
-function AssignDialog({ members, onAssign }: { members: any[], onAssign: (uid: string) => void }) {
+function AssignDialog({ members, playlists, onAssign }: { members: any[], playlists?: any[], onAssign: (...args: any[]) => void }) {
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState("");
 
