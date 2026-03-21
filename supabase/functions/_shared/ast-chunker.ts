@@ -35,6 +35,7 @@ const languageCache = new Map<string, any>();
 
 async function initParser() {
   if (isParserInitialized) return;
+  if (!Parser) throw new Error("web-tree-sitter not available");
   await Parser.init();
   isParserInitialized = true;
 }
