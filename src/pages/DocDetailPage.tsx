@@ -8,20 +8,17 @@ import { DocBlockRenderer, DocBlock } from "@/components/docs/DocBlockRenderer";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { GlobalChatPanel } from "@/components/chat/GlobalChatPanel"; // Assume we trigger contextual chat via an event or prop
 
 export default function DocDetailPage() {
   const { packId, slug } = useParams<{ packId: string, slug: string }>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [askRocketOpen, setAskRocketOpen] = useState(false);
-
   // Fetch Doc Metadata
   const { data: doc, isLoading: docLoading } = useQuery({
     queryKey: ["pack-doc", packId, slug],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("pack_docs")
         .select(`*, pack_doc_progress(*)`)
         .eq("pack_id", packId)
@@ -38,7 +35,7 @@ export default function DocDetailPage() {
   const { data: blocks, isLoading: blocksLoading } = useQuery({
     queryKey: ["pack-doc-blocks", doc?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("pack_doc_blocks")
         .select("*")
         .eq("doc_id", doc.id)
@@ -50,7 +47,7 @@ export default function DocDetailPage() {
   });
 
   // TOC generation
-  const headings = blocks?.filter(b => b.block_type === 'heading') || [];
+  const headings = blocks?.filter((b: DocBlock) => b.block_type === 'heading') || [];
 
   // Progress tracking
   const progress = doc?.pack_doc_progress?.find((p: any) => p.user_id === user?.id);
@@ -60,12 +57,12 @@ export default function DocDetailPage() {
     mutationFn: async (markAsDone: boolean) => {
       const newStatus = markAsDone ? 'done' : 'in_progress';
       if (progress) {
-        return supabase
+        return (supabase as any)
           .from("pack_doc_progress")
           .update({ status: newStatus, completed_at: markAsDone ? new Date().toISOString() : null })
           .eq("id", progress.id);
       } else {
-        return supabase
+        return (supabase as any)
           .from("pack_doc_progress")
           .insert({
             doc_id: doc.id,
@@ -84,7 +81,6 @@ export default function DocDetailPage() {
   });
 
   const handleOpenContextualChat = () => {
-    // Basic event emission to trigger the global chat with pre-filled context
     window.dispatchEvent(new CustomEvent("open-global-chat", {
       detail: { initialPrompt: `Can you explain the conceptual details of the document "${doc?.title}"?` }
     }));
@@ -176,7 +172,7 @@ export default function DocDetailPage() {
             ) : blocks?.length === 0 ? (
               <p className="text-muted-foreground italic">This document is empty.</p>
             ) : (
-              blocks?.map((block) => (
+              blocks?.map((block: DocBlock) => (
                 <DocBlockRenderer key={block.id} block={block} />
               ))
             )}
@@ -191,10 +187,10 @@ export default function DocDetailPage() {
               {headings.length === 0 && (
                 <li className="text-muted-foreground opacity-50">No headings</li>
               )}
-              {headings.map((h, i) => (
+              {headings.map((h: any, i: number) => (
                 <li key={i}>
                   <a href="#" className="text-muted-foreground hover:text-primary transition-colors line-clamp-2 leading-tight">
-                    {h.payload.text}
+                    {h.payload?.text}
                   </a>
                 </li>
               ))}

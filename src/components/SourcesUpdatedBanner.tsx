@@ -22,7 +22,9 @@ export function SourcesUpdatedBanner() {
 
   const isOutdated = useMemo(() => {
     if (!sources.length || !modules.length) return false;
-    const latestSync = Math.max(...sources.filter(s => s.last_synced_at).map(s => new Date(s.last_synced_at!).getTime()));
+    const syncedSources = sources.filter((s: any) => s.last_synced_at);
+    if (syncedSources.length === 0) return false;
+    const latestSync = Math.max(...syncedSources.map((s: any) => new Date(s.last_synced_at).getTime()));
     if (!latestSync) return false;
     const latestGen = Math.max(...modules.map(m => new Date(m.created_at).getTime()));
     return latestSync > latestGen;

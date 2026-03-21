@@ -14,7 +14,7 @@ export default function DocsLibraryPage() {
   const { data: docs, isLoading } = useQuery({
     queryKey: ["pack-docs", packId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("pack_docs")
         .select(`
           id, slug, title, summary, category, tags, status, updated_at,
@@ -72,12 +72,11 @@ export default function DocsLibraryPage() {
           </div>
         ) : (
           <div data-tour="docs-grid" className="space-y-10">
-            {/* Group by category */}
-            {Array.from(new Set(docs?.map(d => d.category || "General"))).map(category => (
+            {Array.from(new Set(docs?.map((d: any) => d.category || "General"))).map((category: any) => (
               <div key={category} className="space-y-4">
                 <h2 className="text-xl font-semibold text-foreground/90 border-b pb-2">{category}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {docs?.filter(d => (d.category || "General") === category).map(doc => {
+                  {docs?.filter((d: any) => (d.category || "General") === category).map((doc: any) => {
                     const progress = doc.pack_doc_progress?.[0]?.status;
                     return (
                       <Link 

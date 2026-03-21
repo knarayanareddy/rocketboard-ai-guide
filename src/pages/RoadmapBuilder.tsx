@@ -49,7 +49,7 @@ export default function RoadmapBuilder() {
   const { data: playlists = [], isLoading: playlistsLoading } = useQuery({
     queryKey: ["builder_playlists", packId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("playlists")
         .select(`*, items:playlist_items(*)`)
         .eq("pack_id", packId)
@@ -108,7 +108,7 @@ export default function RoadmapBuilder() {
 
   const createPlaylist = useMutation({
     mutationFn: async ({ title, phase }: { title: string, phase: RoadmapPhase }) => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("playlists")
         .insert({
           pack_id: packId,
@@ -131,7 +131,7 @@ export default function RoadmapBuilder() {
 
   const assignPlaylist = useMutation({
     mutationFn: async ({ playlistId, learnerId }: { playlistId: string, learnerId: string }) => {
-       const { error } = await supabase
+       const { error } = await (supabase as any)
         .from("playlist_assignments")
         .insert({
           pack_id: packId,
@@ -149,7 +149,7 @@ export default function RoadmapBuilder() {
 
   const addItem = useMutation({
     mutationFn: async (item: any) => {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("playlist_items")
         .insert(item);
       if (error) throw error;
@@ -172,7 +172,7 @@ export default function RoadmapBuilder() {
              <AssignDialog 
               members={members} 
               playlists={playlists} 
-              onAssign={(playlistId, learnerId) => assignPlaylist.mutate({ playlistId, learnerId })} 
+              onAssign={(playlistId: any, learnerId: any) => assignPlaylist.mutate({ playlistId, learnerId })} 
               data-tour="assign-user"
             />
              <CreatePlaylistDialog onSave={(t, p) => createPlaylist.mutate({ title: t, phase: p })} data-tour="create-playlist" />
@@ -315,7 +315,7 @@ function AddItemDialog({ playlistId, packId, onSave }: {
   const { data: platformDocs = [] } = useQuery({
     queryKey: ["pack-docs-list", packId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("pack_docs")
         .select("id, slug, title")
         .eq("pack_id", packId)
@@ -466,7 +466,7 @@ function CreatePlaylistDialog({ onSave }: { onSave: (title: string, phase: Roadm
   );
 }
 
-function AssignDialog({ members, onAssign }: { members: any[], onAssign: (uid: string) => void }) {
+function AssignDialog({ members, playlists, onAssign }: { members: any[], playlists?: any[], onAssign: (...args: any[]) => void }) {
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState("");
 
