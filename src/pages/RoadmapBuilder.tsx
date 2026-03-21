@@ -49,7 +49,7 @@ export default function RoadmapBuilder() {
   const { data: playlists = [], isLoading: playlistsLoading } = useQuery({
     queryKey: ["builder_playlists", packId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("playlists")
         .select(`*, items:playlist_items(*)`)
         .eq("pack_id", packId)
