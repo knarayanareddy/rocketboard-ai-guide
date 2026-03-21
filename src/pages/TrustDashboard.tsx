@@ -221,7 +221,7 @@ export default function TrustDashboard() {
                   {ingestion?.latest_jobs.map((job) => (
                     <div key={job.id} className="flex items-center justify-between text-xs p-2 rounded bg-muted/30">
                       <span className="truncate max-w-[120px]">{job.id.split('-')[0]}</span>
-                      <Badge variant={job.status === 'completed' ? 'success' : 'outline'} className="text-[9px] h-4">
+                      <Badge variant={job.status === 'completed' ? 'secondary' : 'outline'} className={`text-[9px] h-4 ${job.status === 'completed' ? 'bg-green-500/10 text-green-500' : ''}`}>
                         {job.status}
                       </Badge>
                     </div>
