@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { pack_id, source_type, source_uri, document_content, label, source_config, org_id } = body;
+    const { pack_id, source_type, source_uri, document_content, label, source_config, org_id, module_key, track_key } = body;
     source_id = body.source_id;
 
     // Initialize Trace (Strategic Sampling)
@@ -253,7 +253,26 @@ Deno.serve(async (req) => {
     if (!jobId) throw new Error("Failed to create ingestion job");
 
     trace.updateMetadata({ jobId });
-    let allChunks: { chunk_id: string; path: string; start_line: number; end_line: number; content: string; content_hash: string; is_redacted: boolean; metadata?: Record<string, any>; embedding?: number[]; entity_type?: string; entity_name?: string; signature?: string; imports?: string[]; exported_names?: string[]; ingestion_job_id?: string }[] = [];
+    let allChunks: { 
+      chunk_id: string; 
+      path: string; 
+      start_line: number; 
+      end_line: number; 
+      content: string; 
+      content_hash: string; 
+      is_redacted: boolean; 
+      metadata?: Record<string, any>; 
+      embedding?: number[]; 
+      entity_type?: string; 
+      entity_name?: string; 
+      signature?: string; 
+      imports?: string[]; 
+      exported_names?: string[]; 
+      ingestion_job_id?: string;
+      generation_id?: string;
+      module_key?: string | null;
+      track_key?: string | null;
+    }[] = [];
     let totalRedactions = 0;
     
     // We will attempt to get an OpenAI API key (or Lovable fallback) for embeddings
@@ -368,6 +387,9 @@ Deno.serve(async (req) => {
             },
             embedding: undefined, // placeholder
             ingestion_job_id: jobId,
+            generation_id: jobId, // Explicitly map jobId to generation_id
+            module_key: module_key || null,
+            track_key: track_key || null,
           });
         }
 
@@ -416,6 +438,9 @@ Deno.serve(async (req) => {
           },
           embedding: undefined,
           ingestion_job_id: jobId,
+          generation_id: jobId, // Explicitly map jobId to generation_id
+          module_key: module_key || null,
+          track_key: track_key || null,
         });
       }
     } else if (["confluence", "notion", "google_drive", "sharepoint", "jira", "linear", "openapi_spec", "postman_collection", "figma", "slack_channel", "loom_video", "pagerduty"].includes(source_type)) {
@@ -578,6 +603,14 @@ Deno.serve(async (req) => {
 
     // Update source last_synced_at
     await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+
+    // ─── Atomic Swap (Flip active generation) ───
+    await supabase.from("pack_active_generation").upsert({
+      org_id,
+      pack_id,
+      active_generation_id: jobId,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "org_id,pack_id" });
 
     // Mark job completed
     await supabase.from("ingestion_jobs").update({
