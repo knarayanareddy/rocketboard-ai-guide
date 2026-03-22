@@ -31,9 +31,9 @@ serve(async (req: any) => {
 
     // 1. Author Access Check
     const { data: hasAccess } = await supabase.rpc("has_pack_access", {
-      u_id: user.id,
-      p_id: pack_id,
-      p_role: "author"
+      _user_id: user.id,
+      _pack_id: pack_id,
+      _min_level: "author"
     });
 
     if (!hasAccess) throw new Error("Insufficient permissions (Author required)");
