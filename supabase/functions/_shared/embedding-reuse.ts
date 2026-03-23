@@ -90,12 +90,20 @@ export async function getPreviousGenerationEmbeddings(
 }
 
 /**
- * Generates an embedding for the given text using OpenAI.
+ * Generates an embedding for the given text. Supports OpenAI and Lovable Gateway.
  */
 export async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
   if (!apiKey) return null;
+  
+  const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+  const useLovableGateway = !openAIApiKey && !!Deno.env.get("LOVABLE_API_KEY");
+  
   try {
-    const res = await fetch("https://api.openai.com/v1/embeddings", {
+    const url = useLovableGateway
+      ? "https://ai.gateway.lovable.dev/v1/embeddings"
+      : "https://api.openai.com/v1/embeddings";
+
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -106,7 +114,12 @@ export async function generateEmbedding(text: string, apiKey: string): Promise<n
         model: "text-embedding-3-small"
       })
     });
-    if (!res.ok) return null;
+    
+    if (!res.ok) {
+      console.error(`[EMBEDDING] Error from ${url}:`, await res.text());
+      return null;
+    }
+    
     const data = await res.json();
     return data.data[0].embedding;
   } catch (err) {
