@@ -158,10 +158,19 @@ export async function processEmbeddingsWithReuse(
     if (openAIApiKey) {
       const remainingToIndex = indexableChunks.filter(c => !c.embedding);
       if (remainingToIndex.length > 0) {
-        for (const chunk of remainingToIndex) {
-          // Note: chunk.content refers to assessment.contentToStore
-          chunk.embedding = await generateEmbedding(chunk.content, openAIApiKey) || undefined;
-          if (chunk.embedding) generatedCount++;
+        // Parallelize embedding generation in batches to avoid overwhelming the gateway/API
+        const EMBEDDING_BATCH_SIZE = 20;
+        for (let i = 0; i < remainingToIndex.length; i += EMBEDDING_BATCH_SIZE) {
+          const batch = remainingToIndex.slice(i, i + EMBEDDING_BATCH_SIZE);
+          await Promise.all(
+            batch.map(async (chunk) => {
+              const vector = await generateEmbedding(chunk.content, openAIApiKey);
+              if (vector) {
+                chunk.embedding = vector;
+                generatedCount++;
+              }
+            })
+          );
         }
       }
     }
