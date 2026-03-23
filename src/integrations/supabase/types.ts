@@ -1687,6 +1687,7 @@ export type Database = {
           id: string
           module_key: string
           original_content: string
+          pack_id: string | null
           proposed_content: string
           section_id: string
           status: string
@@ -1697,6 +1698,7 @@ export type Database = {
           id?: string
           module_key: string
           original_content: string
+          pack_id?: string | null
           proposed_content: string
           section_id: string
           status?: string
@@ -1707,11 +1709,20 @@ export type Database = {
           id?: string
           module_key?: string
           original_content?: string
+          pack_id?: string | null
           proposed_content?: string
           section_id?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "module_remediations_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       module_templates: {
         Row: {
