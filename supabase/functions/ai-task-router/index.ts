@@ -625,14 +625,13 @@ async function authenticateRequest(req: Request): Promise<{ userId: string } | R
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await supabase.auth.getClaims(token);
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (error || !data?.claims) {
+  if (error || !user) {
     return errorResponse(401, { error: "Unauthorized: invalid token" });
   }
 
-  return { userId: data.claims.sub as string };
+  return { userId: user.id };
 }
 
 // ─── PACK ACCESS AUTHORIZATION ───
