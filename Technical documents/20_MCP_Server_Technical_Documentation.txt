@@ -316,6 +316,40 @@ RocketBoard MCP uses Streamable HTTP transport with strict Supabase JWT auth hea
 | Windsurf              | HTTP / stdio        | TBD / Requires CLI  | Tools supported; requires verifying HTTP stream stability in Beta |
 | VS Code Extension     | N/A                 | N/A                 | The native extension does NOT use MCP; it uses built-in typed SDKs. |
 
+### CLIENT CONNECTION EXAMPLES
+
+**--- Claude Code ---**
+Claude Code natively supports remote HTTP endpoints and custom headers. 
+Run this in your terminal to connect Claude Code to the MCP Server:
+
+```bash
+claude mcp add rocketboard-mcp https://<project-ref>.supabase.co/functions/v1/rocketboard-mcp/mcp --header "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+*(For local development, replace the URL with: `http://localhost:54321/functions/v1/rocketboard-mcp/mcp`)*
+
+**--- Cursor ---**
+Cursor expects MCP servers to communicate over standard input/output (stdio) by executing a local process. Because RocketBoard MCP requires a remote HTTP connection with strict Bearer token headers, you must use a bridge tool (like `@smithery/cli` or a custom proxy script) in your `.cursor/mcp.json`.
+
+Example `.cursor/mcp.json` using a proxy utility to inject headers:
+```json
+{
+  "mcpServers": {
+    "rocketboard-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "https://<project-ref>.supabase.co/functions/v1/rocketboard-mcp/mcp",
+        "--header",
+        "Authorization: Bearer <YOUR_JWT_TOKEN>"
+      ]
+    }
+  }
+}
+```
+*(Note: If Cursor adds native remote streamable HTTP support in the future, you will be able to supply the bearer token natively without calling npx).*
+
 
 ========================================================================
 13) KNOWN GAPS / TODO
