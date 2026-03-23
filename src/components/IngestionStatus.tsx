@@ -14,7 +14,7 @@ export function IngestionStatus() {
     <div className="space-y-2">
       {activeJobs.map((job) => {
         const progress = job.total_chunks > 0
-          ? Math.round((job.processed_chunks / job.total_chunks) * 100)
+          ? Math.min(100, Math.round((job.processed_chunks / job.total_chunks) * 100))
           : 0;
 
         return (

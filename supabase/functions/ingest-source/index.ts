@@ -3,7 +3,7 @@ import { astChunk } from "../_shared/ast-chunker.ts";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
-import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import { validateIngestion, checkPackChunkCap, getRunCap, updateHeartbeat } from "../_shared/ingestion-guards.ts";
 import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
@@ -353,7 +353,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      await supabase.from("ingestion_jobs").update({ total_chunks: files.length * 2 }).eq("id", jobId);
+      // Initially estimate total_chunks as files.length (one chunk per file minimum)
+      // We will update this with the exact count after astChunking is complete.
+      await supabase.from("ingestion_jobs").update({ total_chunks: files.length }).eq("id", jobId);
 
       let chunkIdx = 0;
       const PARALLEL_BATCH_SIZE = 5;
@@ -428,9 +430,15 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Update progress reliably after every batch
-        await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
+        // Update progress and heartbeat reliably after every batch
+        await supabase.from("ingestion_jobs").update({ 
+          processed_chunks: allChunks.length,
+          last_heartbeat_at: new Date().toISOString()
+        }).eq("id", jobId);
       }
+      
+      // Now that we have the exact chunk count, update total_chunks before slow embedding generation
+      await supabase.from("ingestion_jobs").update({ total_chunks: allChunks.length }).eq("id", jobId);
       trace.addSpan({ 
         name: "chunk_summary", 
         startTime: Date.now(), 
@@ -562,7 +570,10 @@ Deno.serve(async (req) => {
       }
 
       processed += batch.length;
-      await supabase.from("ingestion_jobs").update({ processed_chunks: processed }).eq("id", jobId);
+      await supabase.from("ingestion_jobs").update({ 
+        processed_chunks: processed,
+        last_heartbeat_at: new Date().toISOString()
+      }).eq("id", jobId);
     }
     upsertSpan.end({ processed });
 

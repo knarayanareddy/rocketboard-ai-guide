@@ -80,13 +80,20 @@ Prioritize snippets that show definitions, implementations, or specific configur
        return { ...s, relevance_score: scoreData?.score || 0 };
     });
 
-    // 3. Filter by relevance threshold (e.g. >= 3) and sort
+    // 3. Filter by relevance threshold (e.g. >= 1) and sort
+    // We lowered this from 3 to 1 to be more inclusive for broad synthesis tasks.
     const filtered = scoredSpans
-      .filter(s => s.relevance_score >= 3)
+      .filter(s => s.relevance_score >= 1)
       .sort((a, b) => b.relevance_score - a.relevance_score);
 
-    console.log(`[RERANKER] Input: ${spans.length}, Output: ${filtered.length}, Top Score: ${filtered[0]?.relevance_score}`);
-    return filtered;
+    // 4. Safety Fallback: If filtering is too aggressive but we had input, 
+    // return the top 5 ranked spans regardless of score to prevent "no evidence" failure.
+    const finalSpans = (filtered.length === 0 && spansToProcess.length > 0)
+      ? scoredSpans.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, 5)
+      : filtered;
+
+    console.log(`[RERANKER] Input: ${spans.length}, Output: ${finalSpans.length}, Top Score: ${finalSpans[0]?.relevance_score}`);
+    return finalSpans;
 
   } catch (err) {
     console.error("[RERANKER] Fatal error:", err);

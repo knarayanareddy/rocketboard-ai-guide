@@ -20,7 +20,7 @@ export async function validateIngestion(
   // 1. Check for 'processing' jobs (Concurrency)
   const { data: activeJobs, error: activeErr } = await supabase
     .from("ingestion_jobs")
-    .select("id, source_id, status, started_at")
+    .select("id, source_id, status, started_at, last_heartbeat_at")
     .eq("pack_id", pack_id)
     .eq("status", "processing");
 
@@ -28,8 +28,9 @@ export async function validateIngestion(
 
   const staleJobIds = (activeJobs || [])
     .filter((job) => {
-      if (!job.started_at) return false;
-      return Date.now() - new Date(job.started_at).getTime() > staleProcessingSeconds * 1000;
+      const referenceTime = job.last_heartbeat_at || job.started_at;
+      if (!referenceTime) return false;
+      return Date.now() - new Date(referenceTime).getTime() > staleProcessingSeconds * 1000;
     })
     .map((job) => job.id);
 
@@ -98,6 +99,20 @@ export async function validateIngestion(
   }
 
   return { success: true, retry_count: currentRetryCount };
+}
+
+export async function updateHeartbeat(
+  supabase: SupabaseClient,
+  jobId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("ingestion_jobs")
+    .update({ last_heartbeat_at: new Date().toISOString() })
+    .eq("id", jobId);
+  
+  if (error) {
+    console.error(`[HEARTBEAT ERROR] Failed to update heartbeat for job ${jobId}:`, error);
+  }
 }
 
 export async function checkPackChunkCap(

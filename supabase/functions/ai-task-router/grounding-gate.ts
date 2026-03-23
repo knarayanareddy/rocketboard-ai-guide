@@ -75,7 +75,7 @@ export function evaluateGroundingGate(
       ok: false,
       should_retry: false,
       reason_code: "no_evidence",
-      user_message: "I couldn't find any relevant code or documentation to answer your question."
+      user_message: "I couldn't find any relevant code or documentation to provide a grounded answer. Please ensure your sources are indexed."
     };
   }
 
