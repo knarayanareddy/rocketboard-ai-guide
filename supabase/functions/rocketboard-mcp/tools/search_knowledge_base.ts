@@ -53,11 +53,18 @@ export interface EvidenceSpanPreview {
 // ─── Embedding helper ──────────────────────────────────────────────────────────
 
 async function generateEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+  const openAIKey = Deno.env.get("OPENAI_API_KEY") || "";
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
+  const apiKey = openAIKey || lovableKey;
   if (!apiKey) return null;
 
+  const useLovableGateway = !openAIKey && !!lovableKey;
+  const url = useLovableGateway
+    ? "https://ai.gateway.lovable.dev/v1/embeddings"
+    : "https://api.openai.com/v1/embeddings";
+
   try {
-    const res = await fetch("https://api.openai.com/v1/embeddings", {
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
