@@ -608,15 +608,7 @@ export default function PlanPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
 
-  if (!hasPackPermission("author")) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">You need author access to view module plans.</p>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  // Permission guard moved after all hooks (React rules of hooks)
 
   const displayPlan = livePlan;
   const isApproved = plan?.status === "approved" || plan?.status === "generating" || plan?.status === "completed";
@@ -694,6 +686,16 @@ export default function PlanPage() {
       return { ...prev, module_plan: arrayMove(prev.module_plan, oldIdx, newIdx) };
     });
   }, []);
+
+  if (!hasPackPermission("author")) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">You need author access to view module plans.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const handleGenerate = async () => {
     setPlanError(null);
