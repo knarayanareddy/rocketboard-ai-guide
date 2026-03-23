@@ -339,63 +339,80 @@ Deno.serve(async (req) => {
       await supabase.from("ingestion_jobs").update({ total_chunks: files.length * 2 }).eq("id", jobId);
 
       let chunkIdx = 0;
-      for (const filepath of files) {
-        let fileContent = await fetchGitHubFile(owner, repo.replace(/\.git$/, ""), filepath, githubToken || undefined);
-        if (!fileContent) continue;
+      const PARALLEL_BATCH_SIZE = 10;
+      
+      for (let i = 0; i < files.length; i += PARALLEL_BATCH_SIZE) {
+        const batchFiles = files.slice(i, i + PARALLEL_BATCH_SIZE);
+        
+        // Fetch files in parallel
+        const fetchResults = await Promise.all(
+          batchFiles.map(async (filepath) => {
+            try {
+              const fileContent = await fetchGitHubFile(owner, repo.replace(/\.git$/, ""), filepath, githubToken || undefined);
+              return { filepath, fileContent };
+            } catch (err) {
+              console.error(`Failed to fetch ${filepath}:`, err);
+              return { filepath, fileContent: "" };
+            }
+          })
+        );
 
-        const astChunks = await astChunk(fileContent, filepath);
-        const repoName = repo.replace(/\.git$/, "");
-        const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
-        const setupMeta = getSetupMetadata(filepath);
+        for (const { filepath, fileContent } of fetchResults) {
+          if (!fileContent) continue;
 
-        for (const chunk of astChunks) {
-          chunkIdx++;
-          // Check per-run cap
-          if (chunkIdx > getRunCap()) {
-            throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+          const astChunks = await astChunk(fileContent, filepath);
+          const repoName = repo.replace(/\.git$/, "");
+          const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
+          const setupMeta = getSetupMetadata(filepath);
+
+          for (const chunk of astChunks) {
+            chunkIdx++;
+            // Check per-run cap
+            if (chunkIdx > getRunCap()) {
+              throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+            }
+            const assessment = assessChunkRedaction(chunk.text);
+            if (assessment.metrics.secretsFound > 0) {
+              totalRedactions += assessment.metrics.secretsFound;
+              console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`);
+            }
+
+            const hash = await computeContentHash(assessment.contentToStore);
+            
+            allChunks.push({
+              chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
+              path: `repo:${owner}/${repoName}/${filepath}`,
+              start_line: chunk.metadata.line_start,
+              end_line: chunk.metadata.line_end,
+              content: assessment.contentToStore,
+              content_hash: hash,
+              is_redacted: assessment.isRedacted,
+              entity_type: chunk.metadata.entity_type,
+              entity_name: chunk.metadata.entity_name,
+              signature: chunk.metadata.signature,
+              imports: chunk.metadata.imports,
+              exported_names: chunk.metadata.exported_names || [],
+              metadata: { 
+                source_url: sourceUrl, 
+                ...setupMeta,
+                redaction: {
+                  action: assessment.action,
+                  secretsFound: assessment.metrics.secretsFound,
+                  matchedPatterns: assessment.metrics.matchedPatterns,
+                  redactionRatio: assessment.metrics.redactionRatio,
+                }
+              },
+              embedding: undefined, // placeholder
+              ingestion_job_id: jobId,
+              generation_id: jobId, // Explicitly map jobId to generation_id
+              module_key: module_key || null,
+              track_key: track_key || null,
+            });
           }
-          const assessment = assessChunkRedaction(chunk.text);
-          if (assessment.metrics.secretsFound > 0) {
-            totalRedactions += assessment.metrics.secretsFound;
-            console.log(`[REDACTION] ${filepath} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`);
-          }
-
-          const hash = await computeContentHash(assessment.contentToStore);
-          
-          allChunks.push({
-            chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
-            path: `repo:${owner}/${repoName}/${filepath}`,
-            start_line: chunk.metadata.line_start,
-            end_line: chunk.metadata.line_end,
-            content: assessment.contentToStore,
-            content_hash: hash,
-            is_redacted: assessment.isRedacted,
-            entity_type: chunk.metadata.entity_type,
-            entity_name: chunk.metadata.entity_name,
-            signature: chunk.metadata.signature,
-            imports: chunk.metadata.imports,
-            exported_names: chunk.metadata.exported_names || [],
-            metadata: { 
-              source_url: sourceUrl, 
-              ...setupMeta,
-              redaction: {
-                action: assessment.action,
-                secretsFound: assessment.metrics.secretsFound,
-                matchedPatterns: assessment.metrics.matchedPatterns,
-                redactionRatio: assessment.metrics.redactionRatio,
-              }
-            },
-            embedding: undefined, // placeholder
-            ingestion_job_id: jobId,
-            generation_id: jobId, // Explicitly map jobId to generation_id
-            module_key: module_key || null,
-            track_key: track_key || null,
-          });
         }
 
-        if (allChunks.length % 50 === 0) {
-          await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
-        }
+        // Update progress reliably after every batch
+        await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
       }
       trace.addSpan({ 
         name: "chunk_summary", 
