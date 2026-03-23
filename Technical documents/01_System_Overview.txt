@@ -51,7 +51,8 @@ d) Ingestion Connectors (14+)
    - ingest-source: dispatcher routing to specific connectors
    - Connectors: github, confluence, notion, jira, slack, url, google-drive,
      sharepoint, figma, loom, openapi, postman, pagerduty, linear
-   - All use shared chunking, redaction, embedding reuse, and SSRF validation
+   - All use shared chunking, redaction, embedding reuse, and SSRF validation.
+   - Active monitoring via heartbeats (30s) and support for job cancellation.
    - Deterministic symbol extraction for Graph v2 support
 
 e) MCP Server (Model Context Protocol)
@@ -123,7 +124,7 @@ f) BOUNDED INPUTS
     a. Validates JWT (Supabase Auth)
     b. Checks pack membership (pack_members table)
     c. Generates embedding via OpenAI text-embedding-3-small
-    d. Calls hybrid_search_v2 RPC → vector + keyword search
+    d. Calls hybrid_search_v2 RPC (default threshold 0.5, supporting 0.3)
     e. Returns evidence spans [{span_id, path, text, start_line, end_line}]
 4.  Frontend builds an envelope (envelope-builder.ts) with task, pack, context,
     retrieval (evidence spans), conversation history, limits

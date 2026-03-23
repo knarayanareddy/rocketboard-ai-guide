@@ -34,7 +34,8 @@ Two retrieval mechanisms exist:
     "query": "string",       // required, max 500 chars
     "max_spans": 10,         // optional, default 10, clamped to [1, 50]
     "module_key": "string",  // optional — filter to this module's chunks
-    "track_key": "string"    // optional — filter to this track's chunks
+    "track_key": "string",   // optional — filter to this track's chunks
+    "match_threshold": 0.5   // optional — min cosine similarity (0.0 to 1.0)
   }
 
   Response Schema:
@@ -83,10 +84,10 @@ Two retrieval mechanisms exist:
      LIMIT p_match_count * 2
   
   c) FTS Matches (PostgreSQL full-text search):
-     SELECT id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts, to_tsquery('simple', ?)) DESC)
+     SELECT id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts, websearch_to_tsquery('english', ?)) DESC)
      FROM knowledge_chunks
      WHERE org_id=? AND pack_id=? AND is_redacted=false
-       AND fts @@ to_tsquery('simple', p_query_text)
+       AND fts @@ websearch_to_tsquery('english', p_query_text)
      LIMIT p_match_count * 2
   
   d) RRF Merge (Reciprocal Rank Fusion, k=60 by default):

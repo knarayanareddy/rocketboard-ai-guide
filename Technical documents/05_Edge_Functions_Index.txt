@@ -40,7 +40,7 @@ reindex-orgs             | Service    | YES                | Bulk reindex for or
 list-my-packs            | JWT (user) | YES                | Lists packs accessible to a user
 search-content           | JWT (user) | NO                 | Content search across pack
 configure-source         | JWT (user) | YES                | Configure connector settings
-send-email               | JWT (user) | NO                 | Transactional email (rate-limited)
+send-email               | JWT (user) | NO                 | Transactional email (JWT required)
 send-slack-message       | Service    | NO                 | Internal slack notification
 sync-feedback-to-langfuse| Service    | YES                | Sync user feedback to Langfuse
 module-chat              | JWT (user) | YES                | Module-scoped chat (thin wrapper)
@@ -97,6 +97,7 @@ rocketboard-mcp          | JWT (user) | YES                | MCP Server (13 tool
   Caps:
     - query: max 500 chars
     - max_spans: clamped to [1, 50], defaults to 10
+    - match_threshold: optional float (0.0 to 1.0), defaults to 0.5
   Dependencies:
     - hybrid_search_v2 RPC
     - OpenAI text-embedding-3-small (for vector part)
@@ -112,6 +113,8 @@ rocketboard-mcp          | JWT (user) | YES                | MCP Server (13 tool
   Request:
     { pack_id, source_id, source_type, source_uri?, document_content?,
       label?, source_config?, org_id }
+  Heartbeats: Every 30s during long runs; keeps job status 'processing'.
+  Cancellation: Checks if status='cancelled' every 50 chunks; halts if true.
   source_type routing:
     - github_repo → inline processing in ingest-source
     - document    → inline processing in ingest-source

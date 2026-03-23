@@ -88,23 +88,16 @@ Step 4: Check evidence quality
   If count=0 → run ingestion
   If avg_chunk_size < 200 → chunks may be too small; check AST chunker
 
-Step 5: Re-run retrieval manually
-  POST /functions/v1/retrieve-spans
-  { pack_id, query: "what was failing?", max_spans: 10 }
-  Check: are the spans relevant? empty?
-
-Step 6: Check Langfuse (if enabled)
-  Use trace_id from rag_metrics to find the full agentic loop trace in Langfuse.
-  Examine: span by span what happened in each attempt.
-
 RUNBOOK 03: RECOVERING FROM INGESTION FAILURE
 ----------------------------------------------
 Goal: Clean up a stuck or failed ingestion job and restart cleanly.
 
 Step 1: Find stuck jobs
-  SELECT id, pack_id, source_id, status, started_at
+  SELECT id, pack_id, source_id, status, started_at, last_heartbeat_at
   FROM ingestion_jobs
-  WHERE status='processing' AND started_at < NOW() - INTERVAL '30 minutes';
+  WHERE status='processing' 
+    AND (last_heartbeat_at < NOW() - INTERVAL '2 minutes' 
+         OR (last_heartbeat_at IS NULL AND started_at < NOW() - INTERVAL '30 minutes'));
 
 Step 2: Check for partial chunks
   SELECT COUNT(*) FROM knowledge_chunks WHERE ingestion_job_id=:job_id;
@@ -115,6 +108,21 @@ Step 3: Manual cleanup (if needed)
   UPDATE ingestion_jobs SET status='failed', error_message='Manual cleanup'
   WHERE id=:job_id;
   COMMIT;
+
+RUNBOOK 03b: CANCELLING A RUNNING JOB
+------------------------------------
+Goal: Gracefully stop an ingestion job that is taking too long.
+
+Step 1: Update job status to 'cancelled'
+  UPDATE ingestion_jobs SET status='cancelled' WHERE id=:job_id;
+  
+Step 2: Verify stop
+  Monitor `processed_chunks` for :job_id. It should stop incrementing 
+  within 50 chunks. Chunks for this job_id will be auto-deleted by the 
+  ingestion loop before exiting.
+
+Step 3: Manual cleanup (optional)
+  Same as RUNBOOK 03 Step 3 if the auto-cleanup fails.
 
 Step 4: Restart ingestion
   POST /functions/v1/ingest-source

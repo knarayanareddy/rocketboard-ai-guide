@@ -1,5 +1,5 @@
-// DEPRECATED: Use ai-task-router instead. Kept for backward compatibility.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,11 +7,72 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function authenticateRequest(req: Request): Promise<{ userId: string } | Response> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized: missing Bearer token" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } }
+  );
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized: invalid token" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  return { userId: user.id };
+}
+
+async function checkPackAccess(userId: string, packId: string): Promise<Response | null> {
+  if (!packId) return null;
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  const { data, error } = await supabase.rpc("has_pack_access", {
+    _user_id: userId,
+    _pack_id: packId,
+    _min_level: "learner",
+  });
+
+  if (error || !data) {
+    return new Response(JSON.stringify({ error: "Forbidden: Not authorized for this pack." }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, moduleContext } = await req.json();
+    // JWT Authentication
+    const authResult = await authenticateRequest(req);
+    if (authResult instanceof Response) return authResult;
+    const { userId } = authResult;
+
+    const { messages, moduleContext, packId } = await req.json();
+
+    // Pack Authorization
+    const accessDenied = await checkPackAccess(userId, packId || moduleContext?.packId);
+    if (accessDenied) return accessDenied;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 

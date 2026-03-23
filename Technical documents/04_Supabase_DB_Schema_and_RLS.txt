@@ -124,8 +124,9 @@ TABLE: symbol_references
 
 TABLE: ingestion_jobs
   Columns: id UUID PK, pack_id UUID FK packs, source_id UUID FK pack_sources,
-           status TEXT ('processing'|'completed'|'failed'),
+           status TEXT ('processing'|'completed'|'failed'|'cancelled'),
            started_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+           last_heartbeat_at TIMESTAMPTZ,
            total_chunks INT, processed_chunks INT,
            retry_count INT DEFAULT 0, last_error_at TIMESTAMPTZ,
            last_error_message TEXT, error_message TEXT,
@@ -273,6 +274,15 @@ TABLE: playlist_item_progress
            last_event_at TIMESTAMPTZ, note TEXT
   RLS: learners manage own; authors view all
 
+TABLE: module_remediations
+  Columns: id UUID PK, pack_id UUID FK packs (NOT NULL), module_key TEXT, 
+           section_id TEXT, original_content TEXT, proposed_content TEXT,
+           status TEXT ('pending'|'accepted'|'rejected'), created_at TIMESTAMPTZ
+  Purpose: Tracks AI-proposed fixes for stale/low-quality module content.
+  RLS: 
+    - SELECT/UPDATE/DELETE: Restricted to pack authors/admins via has_pack_access.
+    - No public read or write access.
+
 VIEW: view_playlist_item_state
   Joins assignments + items + progress to compute:
   - computed_due_date, computed_unlock_date
@@ -377,7 +387,8 @@ TABLE: pack_doc_edges_v2
 --------------------------
   - ALL migrations are in supabase/migrations/ with timestamp prefix YYYYMMDDHHMMSS_
   - NEVER edit an old migration. Always create a new file.
-  - NEVER add USING(true) or WITH CHECK(true) for non-SELECT operations.
+  - NEVER add USING(true) or WITH CHECK(true) for non-SELECT operations for authenticated users.
+  - Every table MUST have a specific owner/author policy if it contains proprietary data.
   - Use SECURITY DEFINER for RPCs; revoke PUBLIC execute; grant only service_role.
   - Always add IF NOT EXISTS for tables/indexes.
   - Use CREATE OR REPLACE for functions (idempotent).

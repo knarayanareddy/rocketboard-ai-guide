@@ -112,6 +112,11 @@ For each source, the pipeline always follows this order:
     metadata: { total_chunks, indexable_chunks, embeddings_reused_count,
                 embeddings_generated_count, redaction_summary, trace_id }
 
+  Operational Controls (Heartbeats & Cancellation):
+    - Heartbeat: Updates `last_heartbeat_at` every 30s to prevent stale job detection.
+    - Cancellation: Ingest loop checks `status` every 50 chunks. If 'cancelled', 
+      it stops fetching, cleans up partial data, and exits.
+
   On failure:
     ingestion_jobs status → 'failed' with error_message
     DELETE knowledge_chunks WHERE ingestion_job_id = failed_job_id (cleanup)
@@ -216,8 +221,10 @@ Each connector follows the same security checklist:
   - Credentials are NEVER stored in pack_sources.config. Only non-secret
     settings (URLs, space keys, usernames, IDs) go there.
   - ALL external URLs in connector code must go through parseAndValidateExternalUrl().
-  - Chunk cleanup on failed ingestion always uses ingestion_job_id scoping,
-    never pack_id alone.
+  - Chunk cleanup on failed or cancelled ingestion always uses 
+    ingestion_job_id scoping.
+  - processed_chunks tracks real-time progress, total_chunks is updated 
+    after the final fetch to ensure accuracy.
   - processEmbeddingsWithReuse() is always called BEFORE the DB upsert to
     ensure embeddings are populated.
 

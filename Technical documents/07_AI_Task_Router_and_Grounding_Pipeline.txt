@@ -56,9 +56,10 @@ Default policy:
   mode: 'retry_then_refuse'
   applies_to_tasks: 'chat,global_chat,generate_module,refine_module,generate_quiz'
 
-If taskType is NOT in applies_to_tasks list → mode is forced to 'off'.
-This means generate_glossary, generate_paths, module_planner etc. do not
-have a grounding gate by default.
+If taskType is NOT in applies_to_tasks list → mode is forced to 'off' by default.
+Note: generate_glossary, generate_paths, module_planner etc. use a relaxed
+match_threshold (0.3) to ensure better recall for supporting content,
+even if the formal grounding gate is off.
 
 3. RERANKING
 ------------
