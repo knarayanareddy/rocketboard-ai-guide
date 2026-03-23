@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
   let requestId = "unknown";
   try {
     const body = await req.json();
-    const { pack_id, query, max_spans = 10, module_key, track_key } = body;
+    const { pack_id, query, max_spans = 10, module_key, track_key, match_threshold } = body;
 
     // ─── Phase 6: Observability — create trace ── Correlate with router requestId
     trace = createTrace({
@@ -172,6 +172,7 @@ Deno.serve(async (req) => {
       p_query_text: clampedQuery,
       p_query_embedding: embedding,
       p_match_count: clampedMaxSpans,
+      p_match_threshold: match_threshold !== undefined ? Number(match_threshold) : undefined,
       p_module_key: module_key || null,
       p_track_key: track_key || null
     });

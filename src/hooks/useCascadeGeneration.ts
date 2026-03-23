@@ -238,7 +238,7 @@ export function useCascadeGeneration() {
           "glossary terms definitions technical vocabulary",
           { packTitle: currentPack?.title, packDescription: currentPack?.description, taskType: "generate_glossary" }
         );
-        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, glossaryQueries, 25).catch(() => []);
+        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, glossaryQueries, 25, { match_threshold: 0.2 }).catch(() => []);
         const envelope = buildGenerateGlossaryEnvelope({
           auth: authInfo(), pack: packInfo(), evidenceSpans: spans,
         });
@@ -266,7 +266,7 @@ export function useCascadeGeneration() {
           "setup onboarding getting started environment configuration",
           { packTitle: currentPack?.title, packDescription: currentPack?.description, taskType: "generate_paths" }
         );
-        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, pathsQueries, 25).catch(() => []);
+        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, pathsQueries, 25, { match_threshold: 0.2 }).catch(() => []);
         const envelope = buildGeneratePathsEnvelope({
           auth: authInfo(), pack: packInfo(), evidenceSpans: spans,
         });
@@ -293,7 +293,7 @@ export function useCascadeGeneration() {
           "team process architecture decisions workflow onboarding culture",
           { packTitle: currentPack?.title, packDescription: currentPack?.description, taskType: "generate_ask_lead" }
         );
-        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, askLeadQueries, 25).catch(() => []);
+        const spans = await fetchEvidenceSpansMultiQuery(currentPackId, askLeadQueries, 25, { match_threshold: 0.2 }).catch(() => []);
         const envelope = buildGenerateAskLeadEnvelope({
           auth: authInfo(), pack: packInfo(), evidenceSpans: spans,
         });

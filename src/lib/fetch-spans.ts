@@ -5,7 +5,7 @@ export async function fetchEvidenceSpans(
   packId: string,
   query: string,
   maxSpans: number = 10,
-  extraParams?: { module_key?: string; track_key?: string },
+  extraParams?: { module_key?: string; track_key?: string; match_threshold?: number },
 ): Promise<EvidenceSpan[]> {
   try {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -45,7 +45,7 @@ export async function fetchEvidenceSpansMultiQuery(
   packId: string,
   queries: string[],
   maxSpans: number = 20,
-  extraParams?: { module_key?: string; track_key?: string },
+  extraParams?: { module_key?: string; track_key?: string; match_threshold?: number },
 ): Promise<EvidenceSpan[]> {
   const uniqueQueries = [...new Set(queries.filter(Boolean))];
   if (uniqueQueries.length === 0) return [];
