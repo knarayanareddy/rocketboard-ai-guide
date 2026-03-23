@@ -177,7 +177,10 @@ export async function processEmbeddingsWithReuse(
 
           // Heartbeat every few batches during the slow embedding phase
           if (jobId && (i / EMBEDDING_BATCH_SIZE) % 5 === 0) {
-            await updateHeartbeat(supabase, jobId);
+            const status = await updateHeartbeat(supabase, jobId);
+            if (status && status !== "processing") {
+              throw new Error(`Job ${jobId} is no longer processing (status: ${status}), aborting embeddings.`);
+            }
           }
         }
       }

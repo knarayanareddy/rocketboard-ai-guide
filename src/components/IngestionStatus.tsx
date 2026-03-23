@@ -2,7 +2,7 @@ import { Loader2, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import { useIngestion } from "@/hooks/useIngestion";
 
 export function IngestionStatus() {
-  const { jobs, hasActiveJob } = useIngestion();
+  const { jobs, hasActiveJob, cancelIngestion } = useIngestion();
 
   const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "processing");
   const recentCompleted = jobs.filter((j) => j.status === "completed").slice(0, 3);
@@ -26,6 +26,13 @@ export function IngestionStatus() {
                 <Clock className="w-3.5 h-3.5 text-muted-foreground" />
               )}
               <span className="text-xs font-medium text-foreground capitalize">{job.status}</span>
+              <button
+                onClick={() => cancelIngestion.mutate(job.id)}
+                disabled={cancelIngestion.isPending}
+                className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-destructive/30 text-destructive/80 hover:bg-destructive/10 transition-colors disabled:opacity-50"
+              >
+                {cancelIngestion.isPending ? "Stopping..." : "Stop"}
+              </button>
               <span className="text-xs text-muted-foreground ml-auto">
                 {Math.min(job.processed_chunks, job.total_chunks)}/{job.total_chunks} chunks
               </span>

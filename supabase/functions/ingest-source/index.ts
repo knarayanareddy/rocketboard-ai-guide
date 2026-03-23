@@ -433,11 +433,24 @@ Deno.serve(async (req) => {
         }
 
         // Update progress and heartbeat reliably after every batch
-        await updateHeartbeat(supabase, jobId, { processed_chunks: allChunks.length });
+        const status = await updateHeartbeat(supabase, jobId, { processed_chunks: allChunks.length });
+        if (status && status !== "processing") {
+          console.log(`[CANCEL] Job ${jobId} status is ${status}, aborting ingestion.`);
+          return new Response(JSON.stringify({ error: "Ingestion cancelled by user" }), {
+            status: 499, // Client Closed Request / Cancelled
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
       
       // Now that we have the exact chunk count, update total_chunks before slow embedding generation
-      await updateHeartbeat(supabase, jobId, { total_chunks: allChunks.length });
+      const finalStatus = await updateHeartbeat(supabase, jobId, { total_chunks: allChunks.length });
+      if (finalStatus && finalStatus !== "processing") {
+        return new Response(JSON.stringify({ error: "Ingestion cancelled by user" }), {
+          status: 499,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       trace.addSpan({ 
         name: "chunk_summary", 
         startTime: Date.now(), 
@@ -570,7 +583,14 @@ Deno.serve(async (req) => {
       }
 
       processed += batch.length;
-      await updateHeartbeat(supabase, jobId, { processed_chunks: processed });
+      const status = await updateHeartbeat(supabase, jobId, { processed_chunks: processed });
+      if (status && status !== "processing") {
+         console.log(`[CANCEL] Job ${jobId} status is ${status}, aborting upsert batch.`);
+         return new Response(JSON.stringify({ error: "Ingestion cancelled by user" }), {
+           status: 499,
+           headers: { ...corsHeaders, "Content-Type": "application/json" },
+         });
+      }
     }
     upsertSpan.end({ processed });
 

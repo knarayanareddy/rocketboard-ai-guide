@@ -96,8 +96,25 @@ export function useIngestion(sourceId?: string) {
     },
   });
 
+  const cancelIngestion = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { error } = await supabase
+        .from("ingestion_jobs")
+        .update({ 
+          status: "failed", 
+          completed_at: new Date().toISOString(),
+          error_message: "Cancelled by user" 
+        })
+        .eq("id", jobId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ingestion_jobs", currentPackId] });
+    },
+  });
+
   const latestJob = jobs[0] ?? null;
   const hasActiveJob = jobs.some((j) => j.status === "pending" || j.status === "processing");
 
-  return { jobs, isLoading, triggerIngestion, latestJob, hasActiveJob };
+  return { jobs, isLoading, triggerIngestion, cancelIngestion, latestJob, hasActiveJob };
 }

@@ -105,18 +105,22 @@ export async function updateHeartbeat(
   supabase: SupabaseClient,
   jobId: string,
   data: Record<string, number | string | null> = {}
-): Promise<void> {
-  const { error } = await supabase
+): Promise<string | null> {
+  const { data: updatedJob, error } = await supabase
     .from("ingestion_jobs")
     .update({ 
       last_heartbeat_at: new Date().toISOString(),
       ...data
     })
-    .eq("id", jobId);
+    .eq("id", jobId)
+    .select("status")
+    .maybeSingle();
   
   if (error) {
     console.error(`[HEARTBEAT ERROR] Failed to update heartbeat for job ${jobId}:`, error);
   }
+
+  return updatedJob?.status || null;
 }
 
 export async function checkPackChunkCap(
