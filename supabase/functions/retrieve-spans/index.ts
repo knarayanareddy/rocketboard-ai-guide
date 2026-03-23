@@ -146,12 +146,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+    const embeddingKey = openAIApiKey || lovableApiKey;
+    const useLovableGateway = !openAIApiKey && !!lovableApiKey;
     let embedding = null;
 
-    if (openAIApiKey) {
+    if (embeddingKey) {
       const embedSpan = trace.startSpan("generate-embedding");
-      embedding = await generateEmbedding(clampedQuery, openAIApiKey);
+      embedding = await generateEmbedding(clampedQuery, embeddingKey, useLovableGateway);
       embedSpan.end({ success: !!embedding });
     }
 
