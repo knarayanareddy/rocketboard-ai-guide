@@ -1,10 +1,10 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { storeSourceCredential } from "../_shared/credentials.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
 /**
  * Edge Function to securely configure or update a source.
@@ -12,12 +12,19 @@ const corsHeaders = {
  * Meta-data is stored in pack_sources.source_config, while credentials
  * are moved to Supabase Vault via store_source_credential.
  */
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
+    // 1. Authenticate user
+    const { userId } = await requireUser(req);
+
+    // 2. Parse request
+    const body = await readJson(req);
     const { 
       pack_id, 
       source_id, 
@@ -26,22 +33,19 @@ Deno.serve(async (req) => {
       label, 
       source_config,
       credentials 
-    } = await req.json();
+    } = body;
 
     if (!pack_id || !source_type) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(400, "bad_request", "Missing required fields (pack_id, source_type)", {}, corsHeaders);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    // 3. Authorize pack access (Author or higher)
+    const serviceClient = createServiceClient();
+    await requirePackRole(serviceClient, pack_id, userId, "author");
 
     let targetSourceId = source_id;
 
-    // 1. Upsert the pack_source record (without credentials)
+    // 4. Upsert the pack_source record (without credentials)
     const sourceData = {
       pack_id,
       source_type,
@@ -51,13 +55,13 @@ Deno.serve(async (req) => {
     };
 
     if (targetSourceId) {
-      const { error: updateErr } = await supabase
+      const { error: updateErr } = await serviceClient
         .from("pack_sources")
         .update(sourceData)
         .eq("id", targetSourceId);
       if (updateErr) throw updateErr;
     } else {
-      const { data: newSource, error: insertErr } = await supabase
+      const { data: newSource, error: insertErr } = await serviceClient
         .from("pack_sources")
         .insert(sourceData)
         .select()
@@ -66,13 +70,13 @@ Deno.serve(async (req) => {
       targetSourceId = newSource.id;
     }
 
-    // 2. Store credentials in Vault if provided
+    // 5. Store credentials in Vault if provided
     if (credentials && typeof credentials === 'object') {
       for (const [type, value] of Object.entries(credentials)) {
         if (value && typeof value === 'string') {
           console.log(`[CONFIGURE-SOURCE] Storing credential ${type} for source ${targetSourceId}`);
           await storeSourceCredential(
-            supabase,
+            serviceClient,
             targetSourceId,
             value,
             type,
@@ -82,18 +86,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ 
+    return json(200, { 
       success: true, 
       source_id: targetSourceId 
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }, corsHeaders);
 
-  } catch (err) {
-    console.error("[CONFIGURE-SOURCE] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (error: any) {
+    if (error.response) return error.response;
+    
+    console.error("[CONFIGURE-SOURCE] Error:", error.message);
+    return jsonError(500, "internal_error", error.message, {}, corsHeaders);
   }
 });
