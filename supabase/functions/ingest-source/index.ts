@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { astChunk } from "../_shared/ast-chunker.ts";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
@@ -9,24 +9,14 @@ import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 import { extractSymbols } from "../_shared/symbol-extractor.ts";
 
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
+
 const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
 const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
-
-function getCorsHeaders(origin: string | null) {
-  const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-  
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  } else {
-    headers["Access-Control-Allow-Origin"] = "*"; // Fallback for ingestion
-  }
-  
-  return headers;
-}
 
 // Redaction now handled by centralized secret-patterns.ts
 
@@ -196,12 +186,20 @@ async function fetchGitHubFile(owner: string, repo: string, path: string, token?
   return await resp.text();
 }
 
-Deno.serve(async (req) => {
-  const origin = req.headers.get("Origin");
-  const corsHeaders = getCorsHeaders(origin);
+serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
 
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const origin = req.headers.get("Origin");
+
+  // Implement STRICT_CORS logic
+  if (Deno.env.get("STRICT_CORS") === "true") {
+    if (origin && !allowedOrigins.includes(origin)) {
+      console.error(`[STRICT_CORS] Forbidden origin: ${origin}`);
+      return jsonError(403, "forbidden_origin", `Origin ${origin} is not allowlisted`, {}, corsHeaders);
+    }
   }
 
   // Hoist variables for catch block accessibility
@@ -211,9 +209,20 @@ Deno.serve(async (req) => {
   let source_id: string | undefined;
 
   try {
-    const body = await req.json();
+    const body = await readJson(req);
     const { pack_id, source_type, source_uri, document_content, label, source_config, org_id, module_key, track_key } = body;
     source_id = body.source_id;
+
+    if (!pack_id || !source_id || !source_type) {
+      return jsonError(400, "bad_request", "Missing required fields (pack_id, source_id, source_type)", {}, corsHeaders);
+    }
+
+    // 1. Authenticate user
+    const { userId } = await requireUser(req);
+
+    // 2. Authorize pack access (Need 'author' level)
+    const serviceClient = createServiceClient();
+    await requirePackRole(serviceClient, pack_id, userId, "author");
 
     // Initialize Trace (Strategic Sampling)
     trace = createTrace({
@@ -226,58 +235,20 @@ Deno.serve(async (req) => {
       environment: Deno.env.get("ENVIRONMENT") || "production",
     }, { enabled: shouldTrace() });
 
-    if (!pack_id || !source_id || !source_type) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
-
-    // 0. Verify Auth (JWT required since config.toml:verify_jwt=true)
-    const authHeader = req.headers.get("Authorization")!; // Guaranteed by verify_jwt=true if we are here
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (authErr || !user) {
-      console.error("[AUTH ERROR] Missing or invalid user JWT");
-      return new Response(JSON.stringify({ error: "Unauthorized: Invalid JWT" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 1. Verify Pack Access (Need 'author' level)
-    const { data: hasAccess, error: accessErr } = await supabase.rpc("has_pack_access", {
-      _user_id: user.id,
-      _pack_id: pack_id,
-      _min_level: 'author'
-    });
-
-    if (accessErr || !hasAccess) {
-      console.error(`[ACCESS DENIED] User ${user.id} lacks 'author' access to pack ${pack_id}`);
-      return new Response(JSON.stringify({ error: "Forbidden: You do not have 'author' access to this pack" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // 1. Check Ingestion Guards (Cooldown, Concurrency)
-    const guard = await validateIngestion(supabase, pack_id, source_id);
+    // 3. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(serviceClient, pack_id, source_id);
     if (!guard.success) {
-      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
-        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(guard.status, { error: guard.error, next_allowed_at: guard.next_allowed_at }, corsHeaders);
     }
 
     // 2. Check Pack-level Chunk Cap
-    const cap = await checkPackChunkCap(supabase, pack_id);
+    const cap = await checkPackChunkCap(serviceClient, pack_id);
     if (!cap.success) {
-      return new Response(JSON.stringify({ error: cap.error }), {
-        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(cap.status, { error: cap.error }, corsHeaders);
     }
 
     // 3. Create ingestion job
-    const { data: job, error: jobErr } = await supabase
+    const { data: job, error: jobErr } = await serviceClient
       .from("ingestion_jobs")
       .insert({ 
         pack_id, 
@@ -324,16 +295,13 @@ Deno.serve(async (req) => {
       let validatedUri: string;
       try {
         validatedUri = parseAndValidateExternalUrl(source_uri, {
-          allowAnyHost: true,
+          allowedHosts: ["github.com"],
           disallowPrivateIPs: true,
           allowHttps: true,
         });
       } catch (err: any) {
         console.error(`[SSRF BLOCK] Invalid GitHub source_uri: ${source_uri}`, err.message);
-        return new Response(JSON.stringify({ error: `Invalid Source URI: ${err.message}` }), { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
+        return jsonError(400, "bad_request", `Invalid Source URI: ${err.message}`, {}, corsHeaders);
       }
 
       const match = validatedUri.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -344,7 +312,7 @@ Deno.serve(async (req) => {
       let files: string[] = [];
       try {
         // 1. Try to get token from Vault
-        githubToken = await getSourceCredential(supabase, source_id, 'api_token');
+        githubToken = await getSourceCredential(serviceClient, source_id, 'api_token');
         
         // 2. Fallback to Env Var (for system-wide or legacy support)
         if (!githubToken) {
@@ -371,7 +339,7 @@ Deno.serve(async (req) => {
               owner_ids: r.owners,
               metadata: { source: codeownersPath }
             }));
-            await supabase.from("knowledge_owners").upsert(ownersToInsert, { onConflict: "pack_id,path_pattern" });
+            await serviceClient.from("knowledge_owners").upsert(ownersToInsert, { onConflict: "pack_id,path_pattern" });
             console.log(`[CODEOWNERS] Parsed ${rules.length} rules from ${codeownersPath}`);
           }
         }
@@ -379,7 +347,7 @@ Deno.serve(async (req) => {
 
       // Initially estimate total_chunks as files.length (one chunk per file minimum)
       // We will update this with the exact count after astChunking is complete.
-      await supabase.from("ingestion_jobs").update({ total_chunks: files.length }).eq("id", jobId);
+      await serviceClient.from("ingestion_jobs").update({ total_chunks: files.length }).eq("id", jobId);
 
       let chunkIdx = 0;
       const PARALLEL_BATCH_SIZE = 5;
@@ -453,27 +421,21 @@ Deno.serve(async (req) => {
             });
           }
           // Ensure total_chunks is set for document type as well
-          await updateHeartbeat(supabase, jobId, { total_chunks: allChunks.length });
+          await updateHeartbeat(serviceClient, jobId, { total_chunks: allChunks.length });
         }
 
         // Update progress and heartbeat reliably after every batch
-        const status = await updateHeartbeat(supabase, jobId, { processed_chunks: allChunks.length });
+        const status = await updateHeartbeat(serviceClient, jobId, { processed_chunks: allChunks.length });
         if (status && status !== "processing") {
           console.log(`[CANCEL] Job ${jobId} status is ${status}, aborting ingestion.`);
-          return new Response(JSON.stringify({ error: "Ingestion cancelled by user" }), {
-            status: 499, // Client Closed Request / Cancelled
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return jsonError(499, "cancelled", "Ingestion cancelled by user", {}, corsHeaders);
         }
       }
       
       // Now that we have the exact chunk count, update total_chunks before slow embedding generation
-      const finalStatus = await updateHeartbeat(supabase, jobId, { total_chunks: allChunks.length });
+      const finalStatus = await updateHeartbeat(serviceClient, jobId, { total_chunks: allChunks.length });
       if (finalStatus && finalStatus !== "processing") {
-        return new Response(JSON.stringify({ error: "Ingestion cancelled by user" }), {
-          status: 499,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonError(499, "cancelled", "Ingestion cancelled by user", {}, corsHeaders);
       }
       trace.addSpan({ 
         name: "chunk_summary", 
@@ -531,10 +493,10 @@ Deno.serve(async (req) => {
         loom_video: "ingest-loom",
       };
       const functionName = functionNameMap[source_type] || `ingest-${source_type}`;
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceClientUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
-      const routeResp = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+      const routeResp = await fetch(`${serviceClientUrl}/functions/v1/${functionName}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -549,9 +511,7 @@ Deno.serve(async (req) => {
       }
 
       const result = await routeResp.json();
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(200, result, corsHeaders);
     } else {
       throw new Error(`Unsupported source_type: ${source_type}`);
     }
@@ -577,7 +537,7 @@ Deno.serve(async (req) => {
 
     // 1. Handle Embeddings (Reuse + Generation)
     const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
-      supabase,
+      serviceClient,
       pack_id,
       source_id,
       allChunks,
@@ -598,7 +558,7 @@ Deno.serve(async (req) => {
         ...c,
       }));
 
-      const { error: upsertErr } = await supabase
+      const { error: upsertErr } = await serviceClient
         .from("knowledge_chunks")
         .upsert(batch, { onConflict: "pack_id,chunk_id" });
 
@@ -607,13 +567,10 @@ Deno.serve(async (req) => {
       }
 
       processed += batch.length;
-      const status = await updateHeartbeat(supabase, jobId, { processed_chunks: processed });
+      const status = await updateHeartbeat(serviceClient, jobId, { processed_chunks: processed });
       if (status && status !== "processing") {
          console.log(`[CANCEL] Job ${jobId} status is ${status}, aborting upsert batch.`);
-         return new Response(JSON.stringify({ error: "Ingestion cancelled by user" }), {
-           status: 499,
-           headers: { ...corsHeaders, "Content-Type": "application/json" },
-         });
+         return jsonError(499, "cancelled", "Ingestion cancelled by user", {}, corsHeaders);
       }
     }
     upsertSpan.end({ processed });
@@ -622,8 +579,8 @@ Deno.serve(async (req) => {
     const graphSpan = trace.startSpan("populate_graph", { total_chunks: allChunks.length });
     
     // Clean up existing graph rows for this source to ensure no stale data
-    await supabase.from("symbol_definitions").delete().eq("source_id", source_id);
-    await supabase.from("symbol_references").delete().eq("source_id", source_id);
+    await serviceClient.from("symbol_definitions").delete().eq("source_id", source_id);
+    await serviceClient.from("symbol_references").delete().eq("source_id", source_id);
 
     const definitionsBatch: any[] = [];
     const referencesBatch: any[] = [];
@@ -683,7 +640,7 @@ Deno.serve(async (req) => {
           const offset = i + (j * GRAPH_UPSERT_BATCH_SIZE);
           if (offset < definitionsBatch.length) {
             const batch = definitionsBatch.slice(offset, offset + GRAPH_UPSERT_BATCH_SIZE);
-            group.push(supabase.from("symbol_definitions").upsert(batch));
+            group.push(serviceClient.from("symbol_definitions").upsert(batch));
           }
         }
         if (group.length > 0) await Promise.all(group);
@@ -697,7 +654,7 @@ Deno.serve(async (req) => {
           const offset = i + (j * GRAPH_UPSERT_BATCH_SIZE);
           if (offset < referencesBatch.length) {
             const batch = referencesBatch.slice(offset, offset + GRAPH_UPSERT_BATCH_SIZE);
-            group.push(supabase.from("symbol_references").upsert(batch));
+            group.push(serviceClient.from("symbol_references").upsert(batch));
           }
         }
         if (group.length > 0) await Promise.all(group);
@@ -706,10 +663,10 @@ Deno.serve(async (req) => {
     graphSpan.end({ definitions: definitionsBatch.length, references: referencesBatch.length });
 
     // Update source last_synced_at
-    await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
 
     // ─── Atomic Swap (Flip active generation) ───
-    await supabase.from("pack_active_generation").upsert({
+    await serviceClient.from("pack_active_generation").upsert({
       org_id,
       pack_id,
       active_generation_id: jobId,
@@ -717,7 +674,7 @@ Deno.serve(async (req) => {
     }, { onConflict: "org_id,pack_id" });
 
     // Mark job completed
-    await updateHeartbeat(supabase, jobId, {
+    await updateHeartbeat(serviceClient, jobId, {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
@@ -734,21 +691,16 @@ Deno.serve(async (req) => {
     // Finalize trace
     await trace.flush();
 
-    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, redactions: totalRedactions }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(200, { success: true, job_id: jobId, chunks: allChunks.length, redactions: totalRedactions }, corsHeaders);
   } catch (err: any) {
     console.error("Ingestion error:", err);
 
     // Mark the job as failed so the UI doesn't show a stuck spinner
     try {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
+      const serviceClient = createServiceClient();
       
       if (source_id) {
-        await supabase
+        await serviceClient
           .from("ingestion_jobs")
           .update({
             status: "failed",
@@ -761,7 +713,7 @@ Deno.serve(async (req) => {
         // CLEANUP: Delete partial chunks for this failed job
         if (typeof jobId !== "undefined") {
           console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
-          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+          await serviceClient.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
         }
       }
     } catch (innerErr) {
@@ -773,8 +725,6 @@ Deno.serve(async (req) => {
       await trace.flush();
     }
 
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });
