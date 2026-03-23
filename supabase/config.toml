@@ -1,74 +1,73 @@
 project_id = "ersqhobqaptsxqclawcc"
 
 [functions.module-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-source]
-verify_jwt = false
+verify_jwt = true
 
 [functions.retrieve-spans]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-task-router]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-slack-message]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.search-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-staleness]
-verify_jwt = false
+verify_jwt = true
 
 [functions.google-oauth-callback]
 verify_jwt = false
 
 [functions.ingest-google-drive]
-verify_jwt = false
+verify_jwt = true
 
 [functions.list-my-packs]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-confluence]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-figma]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-jira]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-linear]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-loom]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-notion]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-openapi]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-pagerduty]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-postman]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-sharepoint]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-slack]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-url]
-verify_jwt = false
+verify_jwt = true
 
 [functions.reindex-orgs]
-verify_jwt = false
-
+verify_jwt = true

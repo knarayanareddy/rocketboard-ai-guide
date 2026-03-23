@@ -236,6 +236,30 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    // 0. Verify Auth (JWT required since config.toml:verify_jwt=true)
+    const authHeader = req.headers.get("Authorization")!; // Guaranteed by verify_jwt=true if we are here
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (authErr || !user) {
+      console.error("[AUTH ERROR] Missing or invalid user JWT");
+      return new Response(JSON.stringify({ error: "Unauthorized: Invalid JWT" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 1. Verify Pack Access (Need 'author' level)
+    const { data: hasAccess, error: accessErr } = await supabase.rpc("has_pack_access", {
+      _user_id: user.id,
+      _pack_id: pack_id,
+      _min_level: 'author'
+    });
+
+    if (accessErr || !hasAccess) {
+      console.error(`[ACCESS DENIED] User ${user.id} lacks 'author' access to pack ${pack_id}`);
+      return new Response(JSON.stringify({ error: "Forbidden: You do not have 'author' access to this pack" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // 1. Check Ingestion Guards (Cooldown, Concurrency)
     const guard = await validateIngestion(supabase, pack_id, source_id);
     if (!guard.success) {

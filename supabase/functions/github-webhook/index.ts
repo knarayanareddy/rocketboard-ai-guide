@@ -6,6 +6,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function hexToUint8Array(hex: string): Uint8Array {
+  const view = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < view.length; i++) {
+    view[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+  }
+  return view;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -15,12 +23,48 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // GitHub sends events as POST
+    const signature = req.headers.get("x-hub-signature-256");
     const event = req.headers.get("x-github-event");
+    
     if (event !== "push") {
       return new Response(JSON.stringify({ message: "Ignored event" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const payload = await req.json();
+    // 1. Verify Signature
+    const webhookSecret = Deno.env.get("GITHUB_WEBHOOK_SECRET");
+    if (!webhookSecret) {
+      console.warn("[WEBHOOK WARNING] GITHUB_WEBHOOK_SECRET not set, bypassing signature check (INSECURE)");
+    } else if (!signature) {
+      console.error("[WEBHOOK ERROR] Missing x-hub-signature-256 header");
+      return new Response(JSON.stringify({ error: "Missing signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    } else {
+      const bodyText = await req.text();
+      const hmac = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(webhookSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"]
+      );
+      const isVerified = await crypto.subtle.verify(
+        "HMAC",
+        hmac,
+        hexToUint8Array(signature.replace("sha256=", "")).buffer,
+        new TextEncoder().encode(bodyText)
+      );
+
+      if (!isVerified) {
+        console.error("[WEBHOOK ERROR] Invalid HMAC signature");
+        return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      
+      // Since we already consumed the body text, we need to parse it
+      var payload = JSON.parse(bodyText);
+    }
+
+    if (typeof payload === 'undefined') {
+       var payload = await req.json();
+    }
     const repoUrl = payload.repository?.html_url;
 
     if (!repoUrl) {
