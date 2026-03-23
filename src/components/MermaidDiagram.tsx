@@ -23,7 +23,7 @@ export function MermaidDiagram({ code }: MermaidDiagramProps) {
     mermaid.initialize({
       startOnLoad: false,
       theme: resolvedMode === "dark" ? "dark" : "default",
-      securityLevel: "loose",
+      securityLevel: "strict",
       fontFamily: "inherit",
     });
     // Generate a fresh ID for each render to avoid mermaid caching issues
