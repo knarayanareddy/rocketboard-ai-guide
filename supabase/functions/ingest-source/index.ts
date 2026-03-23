@@ -9,10 +9,24 @@ import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 import { extractSymbols } from "../_shared/symbol-extractor.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
+const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
+
+function getCorsHeaders(origin: string | null) {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+  
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  } else {
+    headers["Access-Control-Allow-Origin"] = "*"; // Fallback for ingestion
+  }
+  
+  return headers;
+}
 
 // Redaction now handled by centralized secret-patterns.ts
 
@@ -183,6 +197,9 @@ async function fetchGitHubFile(owner: string, repo: string, path: string, token?
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -605,27 +622,33 @@ Deno.serve(async (req) => {
 
     // Insert batches in parallel to save time
     const GRAPH_UPSERT_BATCH_SIZE = 500;
-    const upsertPromises = [];
+    const DB_CONCURRENCY = 5;
 
     if (definitionsBatch.length > 0) {
-      for (let i = 0; i < definitionsBatch.length; i += GRAPH_UPSERT_BATCH_SIZE) {
-        const batch = definitionsBatch.slice(i, i + GRAPH_UPSERT_BATCH_SIZE);
-        upsertPromises.push(supabase.from("symbol_definitions").upsert(batch));
+      for (let i = 0; i < definitionsBatch.length; i += GRAPH_UPSERT_BATCH_SIZE * DB_CONCURRENCY) {
+        const group = [];
+        for (let j = 0; j < DB_CONCURRENCY; j++) {
+          const offset = i + (j * GRAPH_UPSERT_BATCH_SIZE);
+          if (offset < definitionsBatch.length) {
+            const batch = definitionsBatch.slice(offset, offset + GRAPH_UPSERT_BATCH_SIZE);
+            group.push(supabase.from("symbol_definitions").upsert(batch));
+          }
+        }
+        if (group.length > 0) await Promise.all(group);
       }
     }
     
     if (referencesBatch.length > 0) {
-      for (let i = 0; i < referencesBatch.length; i += GRAPH_UPSERT_BATCH_SIZE) {
-        const batch = referencesBatch.slice(i, i + GRAPH_UPSERT_BATCH_SIZE);
-        upsertPromises.push(supabase.from("symbol_references").upsert(batch));
-      }
-    }
-
-    if (upsertPromises.length > 0) {
-      // Process in smaller parallel chunks to avoid DB connection exhaustion
-      const DB_CONCURRENCY = 5;
-      for (let i = 0; i < upsertPromises.length; i += DB_CONCURRENCY) {
-        await Promise.all(upsertPromises.slice(i, i + DB_CONCURRENCY));
+      for (let i = 0; i < referencesBatch.length; i += GRAPH_UPSERT_BATCH_SIZE * DB_CONCURRENCY) {
+        const group = [];
+        for (let j = 0; j < DB_CONCURRENCY; j++) {
+          const offset = i + (j * GRAPH_UPSERT_BATCH_SIZE);
+          if (offset < referencesBatch.length) {
+            const batch = referencesBatch.slice(offset, offset + GRAPH_UPSERT_BATCH_SIZE);
+            group.push(supabase.from("symbol_references").upsert(batch));
+          }
+        }
+        if (group.length > 0) await Promise.all(group);
       }
     }
     graphSpan.end({ definitions: definitionsBatch.length, references: referencesBatch.length });
