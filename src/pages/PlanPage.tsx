@@ -687,6 +687,16 @@ export default function PlanPage() {
     });
   }, []);
 
+  if (!hasPackPermission("author")) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">You need author access to view module plans.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const handleGenerate = async () => {
     setPlanError(null);
     try {
