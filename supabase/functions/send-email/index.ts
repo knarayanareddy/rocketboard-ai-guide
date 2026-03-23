@@ -1,17 +1,17 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { getBearerToken } from "../_shared/authz.ts";
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     const supabaseClient = createClient(
@@ -19,26 +19,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     );
 
-    // Get the session or user object
-    const authHeader = req.headers.get('Authorization')!;
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
+    // 1. Get the session or user object securely
+    const token = getBearerToken(req);
+    if (!token) {
+      return jsonError(401, "unauthorized", "Missing Authorization header", {}, corsHeaders);
+    }
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
 
     if (userError || !user) {
       console.error('Authentication error:', userError);
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonError(401, "unauthorized", "Unauthorized", {}, corsHeaders);
     }
 
-    const { to, subject, html, userId, type } = await req.json();
+    // 2. Parse request
+    const { to, subject, html, userId, type } = await readJson(req);
 
     if (!RESEND_API_KEY) {
       throw new Error('RESEND_API_KEY is not configured. Please add it to your Supabase project secrets.');
     }
 
+    // 3. Optional: Check notification preferences (requires Admin access)
     if (userId && type) {
-      // Check notification preferences
       const supabaseAdmin = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -52,20 +54,21 @@ serve(async (req) => {
 
       if (prefs) {
         if (type === 'invite' && !prefs.email_invites) {
-          return new Response(JSON.stringify({ skipped: true, reason: 'user preference' }), { headers: corsHeaders });
+          return json(200, { skipped: true, reason: 'user preference' }, corsHeaders);
         }
         if (type === 'module_published' && !prefs.email_module_published) {
-          return new Response(JSON.stringify({ skipped: true, reason: 'user preference' }), { headers: corsHeaders });
+          return json(200, { skipped: true, reason: 'user preference' }, corsHeaders);
         }
         if (type === 'milestone' && !prefs.email_milestones) {
-          return new Response(JSON.stringify({ skipped: true, reason: 'user preference' }), { headers: corsHeaders });
+          return json(200, { skipped: true, reason: 'user preference' }, corsHeaders);
         }
         if (type === 'weekly_digest' && !prefs.email_weekly_digest) {
-          return new Response(JSON.stringify({ skipped: true, reason: 'user preference' }), { headers: corsHeaders });
+          return json(200, { skipped: true, reason: 'user preference' }, corsHeaders);
         }
       }
     }
 
+    // 4. Deliver email
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -85,13 +88,10 @@ serve(async (req) => {
       throw new Error(`Resend API error: ${JSON.stringify(resData)}`);
     }
 
-    return new Response(JSON.stringify({ success: true, data: resData }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error: unknown) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json(200, { success: true, data: resData }, corsHeaders);
+
+  } catch (error: any) {
+    console.error(`[INTERNAL ERROR] ${error.message}`);
+    return jsonError(500, "internal_error", error.message, {}, corsHeaders);
   }
 });
