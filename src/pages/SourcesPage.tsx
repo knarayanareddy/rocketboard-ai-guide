@@ -123,7 +123,8 @@ export default function SourcesPage() {
     }
   }, [searchParams, addOpen, setSearchParams]);
 
-    // Celebration: detect when a job completes
+  // Celebration: detect when a job completes
+  useEffect(() => {
     const completedJobs = jobs.filter(j => j.status === "completed");
     const failedJobs = jobs.filter(j => j.status === "failed");
     const activeJobs = jobs.filter(j => j.status === "pending" || j.status === "processing");
@@ -153,13 +154,12 @@ export default function SourcesPage() {
     toast.success(`✅ Synced! ${totalChunks} knowledge chunks indexed`);
 
     // Check if this is the first ever sync for the pack
-    // ONLY show CTA if no failures and no active work remaining
-    const allSources = sources.filter(s => s.last_synced_at);
+    const allSources = sources.filter((s: any) => s.last_synced_at);
     const isFirst = allSources.length <= 1 && !plan;
     if (isFirst && failedJobs.length === 0 && activeJobs.length === 0) {
       setShowFirstSyncCTA(true);
     }
-
+  }, [jobs, chunkCounts, sources, plan]);
   // Store chunk counts before sync
   useEffect(() => {
     if (Object.keys(chunkCounts).length > 0) {
