@@ -272,11 +272,13 @@ export class TraceBuilder {
       // Add the LLM generation observation
       if (this.data.generation) {
         const gen = this.data.generation;
+        const enableRaw = Deno.env.get("ENABLE_RAW_TELEMETRY") === "true";
+        
         trace.generation({
           name: "llm-call",
           model: gen.model,
-          input: gen.input,
-          output: gen.output,
+          input: enableRaw ? gen.input : "[redacted: ENABLE_RAW_TELEMETRY not true]",
+          output: enableRaw ? gen.output : "[redacted: ENABLE_RAW_TELEMETRY not true]",
           // Accurate model timing: end of trace minus model latency
           startTime: new Date(this.data.endTime! - gen.latencyMs),
           endTime: new Date(this.data.endTime!),

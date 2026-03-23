@@ -155,3 +155,33 @@ export function parseAndValidateExternalUrl(input: string, customPolicy: Partial
   // Return canonical string
   return url.toString();
 }
+
+/**
+ * A secure fetch wrapper that handles redirects manually and validates 
+ * each redirect Location against the SSRF policy before following it.
+ * This prevents attackers from bypassing host checks by returning 302s to internal IPs.
+ */
+export async function safeFetch(url: string, init: RequestInit = {}, customPolicy: Partial<URLPolicy> = {}): Promise<Response> {
+  let currentUrl = parseAndValidateExternalUrl(url, customPolicy);
+  let attempts = 0;
+  const maxRedirects = 5;
+
+  while (attempts < maxRedirects) {
+    attempts++;
+    const response = await fetch(currentUrl, { ...init, redirect: "manual" });
+    
+    // Intercept redirects (301, 302, 303, 307, 308)
+    if (response.status >= 300 && response.status < 400 && response.headers.has("location")) {
+      const location = response.headers.get("location")!;
+      // Resolve relative redirects against the current URL
+      const nextUrl = new URL(location, currentUrl).toString();
+      
+      // CRITICAL: Validate the new redirect target against the SSRF policy
+      currentUrl = parseAndValidateExternalUrl(nextUrl, customPolicy);
+    } else {
+      return response;
+    }
+  }
+  
+  throw new Error(`safeFetch: Too many redirects (max ${maxRedirects})`);
+}

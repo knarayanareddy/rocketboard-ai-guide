@@ -1,16 +1,16 @@
 project_id = "ersqhobqaptsxqclawcc"
 
 [functions.module-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-source]
 verify_jwt = false
 
 [functions.retrieve-spans]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-task-router]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-slack-message]
 verify_jwt = false
@@ -19,7 +19,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.search-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-staleness]
 verify_jwt = false
@@ -31,7 +31,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.list-my-packs]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-confluence]
 verify_jwt = false

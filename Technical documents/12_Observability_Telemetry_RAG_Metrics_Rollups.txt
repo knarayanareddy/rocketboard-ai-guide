@@ -44,11 +44,17 @@ Related Code Paths:
     If keys not set:
       → Falls back to console.log output (development mode)
 
-  Sampling:
+  Sampling & Data Privacy:
     LANGFUSE_SAMPLE_RATE env var (0.0 to 1.0, default 1.0)
     shouldTrace() → boolean (random-based sampling)
     Ingestion: defaults to disabled (shouldTrace()); enabled if cost incurred
       (i.e., embeddings were generated). This conserves Langfuse quota.
+
+    Data Privacy / Exfiltration Protection:
+    Raw LLM prompts (containing evidence spans) and model outputs are strictly 
+    REDACTED from Langfuse generation traces by default to prevent source code 
+    leakage. They are only emitted if the ENABLE_RAW_TELEMETRY="true" environment 
+    variable is explicitly set.
 
 2. RAG METRICS TABLE
 ---------------------
