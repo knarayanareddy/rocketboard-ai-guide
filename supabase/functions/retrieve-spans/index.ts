@@ -18,10 +18,13 @@ function getCorsHeaders(origin: string | null) {
   return headers;
 }
 
-async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
+async function generateEmbedding(text: string, apiKey: string, useLovableGateway: boolean): Promise<number[] | null> {
   if (!apiKey) return null;
   try {
-    const res = await fetch("https://api.openai.com/v1/embeddings", {
+    const url = useLovableGateway
+      ? "https://ai.gateway.lovable.dev/v1/embeddings"
+      : "https://api.openai.com/v1/embeddings";
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -33,7 +36,7 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
       })
     });
     if (!res.ok) {
-      console.error("OpenAI Embedding error:", await res.text());
+      console.error("Embedding error:", await res.text());
       return null;
     }
     const data = await res.json();
