@@ -10,7 +10,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.ai-task-router]
-verify_jwt = true
+verify_jwt = false
+
+[functions.github-webhook]
+verify_jwt = false
 
 [functions.send-slack-message]
 verify_jwt = true
