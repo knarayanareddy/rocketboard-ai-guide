@@ -18,10 +18,13 @@ function getCorsHeaders(origin: string | null) {
   return headers;
 }
 
-async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
+async function generateEmbedding(text: string, apiKey: string, useLovableGateway: boolean): Promise<number[] | null> {
   if (!apiKey) return null;
   try {
-    const res = await fetch("https://api.openai.com/v1/embeddings", {
+    const url = useLovableGateway
+      ? "https://ai.gateway.lovable.dev/v1/embeddings"
+      : "https://api.openai.com/v1/embeddings";
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -33,7 +36,7 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
       })
     });
     if (!res.ok) {
-      console.error("OpenAI Embedding error:", await res.text());
+      console.error("Embedding error:", await res.text());
       return null;
     }
     const data = await res.json();
@@ -143,12 +146,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+    const embeddingKey = openAIApiKey || lovableApiKey;
+    const useLovableGateway = !openAIApiKey && !!lovableApiKey;
     let embedding = null;
 
-    if (openAIApiKey) {
+    if (embeddingKey) {
       const embedSpan = trace.startSpan("generate-embedding");
-      embedding = await generateEmbedding(clampedQuery, openAIApiKey);
+      embedding = await generateEmbedding(clampedQuery, embeddingKey, useLovableGateway);
       embedSpan.end({ success: !!embedding });
     }
 
