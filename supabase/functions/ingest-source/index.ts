@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
       await supabase.from("ingestion_jobs").update({ total_chunks: files.length * 2 }).eq("id", jobId);
 
       let chunkIdx = 0;
-      const PARALLEL_BATCH_SIZE = 10;
+      const PARALLEL_BATCH_SIZE = 5;
       
       for (let i = 0; i < files.length; i += PARALLEL_BATCH_SIZE) {
         const batchFiles = files.slice(i, i + PARALLEL_BATCH_SIZE);

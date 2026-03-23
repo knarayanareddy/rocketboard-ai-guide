@@ -159,7 +159,7 @@ export async function processEmbeddingsWithReuse(
       const remainingToIndex = indexableChunks.filter(c => !c.embedding);
       if (remainingToIndex.length > 0) {
         // Parallelize embedding generation in batches to avoid overwhelming the gateway/API
-        const EMBEDDING_BATCH_SIZE = 20;
+        const EMBEDDING_BATCH_SIZE = 5;
         for (let i = 0; i < remainingToIndex.length; i += EMBEDDING_BATCH_SIZE) {
           const batch = remainingToIndex.slice(i, i + EMBEDDING_BATCH_SIZE);
           await Promise.all(
