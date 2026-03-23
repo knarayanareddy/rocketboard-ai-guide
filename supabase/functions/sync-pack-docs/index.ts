@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     const { data: hasAccess, error: accessError } = await adminClient.rpc("has_pack_access", {
       _user_id: user.id,
       _pack_id: pack_id,
-      _required_level: "author",
+      _min_level: "author",
     });
 
     if (accessError || !hasAccess) {
