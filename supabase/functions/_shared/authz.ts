@@ -35,12 +35,25 @@ export async function requireUser(req: Request) {
 
 export function requireInternal(req: Request) {
   const secret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
-  const provided = req.headers.get("X-Rocketboard-Internal");
+  const providedSecret = req.headers.get("X-Rocketboard-Internal");
 
-  if (!secret || provided !== secret) {
-    // Note: Do not enforce yet as per Task 1 instructions.
-    // This helper is provided for future hardening.
-    return false;
+  if (secret && providedSecret === secret) {
+    return { success: true };
   }
-  return true;
+
+  // Backward compatibility: allow Service Role Bearer token with a deprecation warning
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const authHeader = req.headers.get("Authorization");
+  
+  if (serviceKey && authHeader === `Bearer ${serviceKey}`) {
+    console.warn("[DEPRECATION] Internal endpoint called with Service Role key. Please use X-Rocketboard-Internal header.");
+    return { success: true };
+  }
+
+  return {
+    success: false,
+    status: 401,
+    code: "unauthorized",
+    message: "This endpoint is restricted to internal callers. Missing or invalid secret.",
+  };
 }

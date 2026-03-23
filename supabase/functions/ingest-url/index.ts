@@ -1,6 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
-import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { parseAndValidateExternalUrl, safeFetch } from "../_shared/external-url-policy.ts";
 import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
 import { computeContentHash, computeDeterministicChunkId } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
@@ -8,19 +7,22 @@ import { normalizeUrlHtmlToMarkdown } from "../_shared/content-normalizers.ts";
 import { chunkMarkdownByHeadings } from "../_shared/smart-chunker.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requireInternal } from "../_shared/authz.ts";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-rocketboard-internal",
 };
 
 // Normalization and chunking moved to shared modules
 
 async function fetchPage(url: string, policy: any): Promise<{ content: string; contentType: string; html: string }> {
   const validatedUrl = parseAndValidateExternalUrl(url, policy);
-  const resp = await fetch(validatedUrl, {
+  const resp = await safeFetch(validatedUrl, {
     headers: { "User-Agent": "RocketBoard-Bot/1.0 (knowledge ingestion)" },
-    redirect: "follow",
-  });
+  }, policy);
+  
   if (!resp.ok) throw new Error(`Failed to fetch ${url}: ${resp.status}`);
   const contentType = resp.headers.get("content-type") || "";
   const html = await resp.text();
@@ -29,10 +31,9 @@ async function fetchPage(url: string, policy: any): Promise<{ content: string; c
     let content = normalizeUrlHtmlToMarkdown(html);
     if (content.length < 200) {
       try {
-        const jinaResp = await fetch(`https://r.jina.ai/${validatedUrl}`, {
+        const jinaResp = await safeFetch(`https://r.jina.ai/${validatedUrl}`, {
           headers: { "Accept": "text/plain", "User-Agent": "RocketBoard-Bot/1.0" },
-          redirect: "follow",
-        });
+        }, policy);
         if (jinaResp.ok) {
           const jinaContent = await jinaResp.text();
           if (jinaContent.length > content.length) {
@@ -47,7 +48,13 @@ async function fetchPage(url: string, policy: any): Promise<{ content: string; c
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+
+  // 1. Internal Auth Gate (with legacy fallback)
+  const auth = await requireInternal(req);
+  if (!auth.success) {
+    return jsonError(auth.status, auth.code, auth.message, {}, corsHeaders);
+  }
 
   // Hoist for catch scope
   let source_id: string | undefined;
@@ -55,7 +62,7 @@ Deno.serve(async (req) => {
   let trace: any;
 
   try {
-    const body = await req.json();
+    const body = await readJson(req);
     const {
       pack_id,
       startUrl,
@@ -79,27 +86,23 @@ Deno.serve(async (req) => {
     }, { enabled: shouldTrace() });
 
     if (!pack_id || !source_id || !startUrl) {
-      throw new Error("Missing required fields: pack_id, source_id, or startUrl");
+      return jsonError(400, "bad_request", "Missing required fields: pack_id, source_id, or startUrl", {}, corsHeaders);
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+    const serviceClient = createServiceClient();
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
 
-    const guard = await validateIngestion(supabase, pack_id, source_id);
+    const guard = await validateIngestion(serviceClient, pack_id, source_id);
     if (!guard.success) {
-      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
-        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(guard.status, { error: guard.error, next_allowed_at: guard.next_allowed_at }, corsHeaders);
     }
 
-    const cap = await checkPackChunkCap(supabase, pack_id);
+    const cap = await checkPackChunkCap(serviceClient, pack_id);
     if (!cap.success) {
-      return new Response(JSON.stringify({ error: cap.error }), {
-        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(cap.status, { error: cap.error }, corsHeaders);
     }
 
-    const { data: job, error: jobErr } = await supabase
+    const { data: job, error: jobErr } = await serviceClient
       .from("ingestion_jobs")
       .insert({
         pack_id,
@@ -193,7 +196,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        await supabase.from("ingestion_jobs").update({
+        await serviceClient.from("ingestion_jobs").update({
           processed_chunks: pagesProcessed,
           total_chunks: pagesProcessed + queue.length,
         }).eq("id", jobId);
@@ -205,19 +208,19 @@ Deno.serve(async (req) => {
     }
 
     const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
-      supabase, pack_id, source_id, allChunks, openAIApiKey
+      serviceClient, pack_id, source_id, allChunks, openAIApiKey
     );
     if (generatedCount > 0) trace.enable();
 
     const BATCH_SIZE = 100;
     for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
       const batch = allChunks.slice(i, i + BATCH_SIZE).map(c => ({ pack_id, source_id, ...c }));
-      await supabase.from("knowledge_chunks").upsert(batch, { onConflict: "pack_id,chunk_id" });
+      await serviceClient.from("knowledge_chunks").upsert(batch, { onConflict: "pack_id,chunk_id" });
     }
 
-    await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
 
-    await supabase.from("ingestion_jobs").update({
+    await serviceClient.from("ingestion_jobs").update({
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
@@ -225,16 +228,14 @@ Deno.serve(async (req) => {
     }).eq("id", jobId);
 
     await trace.flush();
-    return new Response(JSON.stringify({ success: true, job_id: jobId, pages: pagesProcessed, chunks: allChunks.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    return json(200, { success: true, job_id: jobId, pages: pagesProcessed, chunks: allChunks.length }, corsHeaders);
 
   } catch (err: any) {
     console.error("URL ingestion fatal error:", err);
     try {
-      const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const serviceClient = createServiceClient();
       if (source_id) {
-        await supabase.from("ingestion_jobs").update({
+        await serviceClient.from("ingestion_jobs").update({
           status: "failed",
           completed_at: new Date().toISOString(),
           error_message: (err.message || "Unknown error").slice(0, 500),
@@ -244,17 +245,29 @@ Deno.serve(async (req) => {
 
         if (jobId) {
           console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
-          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+          await serviceClient.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
         }
       }
-    } catch (e) { console.error("Secondary error:", e); }
+    } catch (e) {
+      console.error("Secondary error in catch block:", e);
+    }
 
     if (trace) {
       trace.setError(err.message).enable();
       await trace.flush();
     }
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });
+
+function extractLinks(html: string, baseUrl: string): string[] {
+  const links: string[] = [];
+  const regex = /<a[^>]+href=["']([^"']+)["']/gi;
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    try {
+      links.push(new URL(match[1], baseUrl).toString());
+    } catch { /* skip invalid links */ }
+  }
+  return links;
+}
