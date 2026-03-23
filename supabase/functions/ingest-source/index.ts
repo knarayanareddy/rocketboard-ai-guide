@@ -603,17 +603,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Insert batches
+    // Insert batches in parallel to save time
+    const GRAPH_UPSERT_BATCH_SIZE = 500;
+    const upsertPromises = [];
+
     if (definitionsBatch.length > 0) {
-      for (let i = 0; i < definitionsBatch.length; i += BATCH_SIZE) {
-        const { error } = await supabase.from("symbol_definitions").upsert(definitionsBatch.slice(i, i + BATCH_SIZE));
-        if (error) console.error("[GRAPH] Definitions error:", error);
+      for (let i = 0; i < definitionsBatch.length; i += GRAPH_UPSERT_BATCH_SIZE) {
+        const batch = definitionsBatch.slice(i, i + GRAPH_UPSERT_BATCH_SIZE);
+        upsertPromises.push(supabase.from("symbol_definitions").upsert(batch));
       }
     }
+    
     if (referencesBatch.length > 0) {
-      for (let i = 0; i < referencesBatch.length; i += BATCH_SIZE) {
-        const { error } = await supabase.from("symbol_references").upsert(referencesBatch.slice(i, i + BATCH_SIZE));
-        if (error) console.error("[GRAPH] References error:", error);
+      for (let i = 0; i < referencesBatch.length; i += GRAPH_UPSERT_BATCH_SIZE) {
+        const batch = referencesBatch.slice(i, i + GRAPH_UPSERT_BATCH_SIZE);
+        upsertPromises.push(supabase.from("symbol_references").upsert(batch));
+      }
+    }
+
+    if (upsertPromises.length > 0) {
+      // Process in smaller parallel chunks to avoid DB connection exhaustion
+      const DB_CONCURRENCY = 5;
+      for (let i = 0; i < upsertPromises.length; i += DB_CONCURRENCY) {
+        await Promise.all(upsertPromises.slice(i, i + DB_CONCURRENCY));
       }
     }
     graphSpan.end({ definitions: definitionsBatch.length, references: referencesBatch.length });
