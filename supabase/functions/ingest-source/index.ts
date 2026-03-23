@@ -428,17 +428,16 @@ Deno.serve(async (req) => {
               track_key: track_key || null,
             });
           }
+          // Ensure total_chunks is set for document type as well
+          await updateHeartbeat(supabase, jobId, { total_chunks: allChunks.length });
         }
 
         // Update progress and heartbeat reliably after every batch
-        await supabase.from("ingestion_jobs").update({ 
-          processed_chunks: allChunks.length,
-          last_heartbeat_at: new Date().toISOString()
-        }).eq("id", jobId);
+        await updateHeartbeat(supabase, jobId, { processed_chunks: allChunks.length });
       }
       
       // Now that we have the exact chunk count, update total_chunks before slow embedding generation
-      await supabase.from("ingestion_jobs").update({ total_chunks: allChunks.length }).eq("id", jobId);
+      await updateHeartbeat(supabase, jobId, { total_chunks: allChunks.length });
       trace.addSpan({ 
         name: "chunk_summary", 
         startTime: Date.now(), 
@@ -545,7 +544,8 @@ Deno.serve(async (req) => {
       pack_id,
       source_id,
       allChunks,
-      openAIApiKey
+      openAIApiKey,
+      jobId
     );
     embedSpan.end({ reusedCount, generatedCount });
     if (generatedCount > 0) trace.enable(); // Strategic: trace if cost incurred
@@ -570,10 +570,7 @@ Deno.serve(async (req) => {
       }
 
       processed += batch.length;
-      await supabase.from("ingestion_jobs").update({ 
-        processed_chunks: processed,
-        last_heartbeat_at: new Date().toISOString()
-      }).eq("id", jobId);
+      await updateHeartbeat(supabase, jobId, { processed_chunks: processed });
     }
     upsertSpan.end({ processed });
 
@@ -676,19 +673,19 @@ Deno.serve(async (req) => {
     }, { onConflict: "org_id,pack_id" });
 
     // Mark job completed
-    await supabase.from("ingestion_jobs").update({
+    await updateHeartbeat(supabase, jobId, {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
-      metadata: {
+      metadata: JSON.stringify({
         total_chunks: allChunks.length,
         indexable_chunks: indexableChunks.length,
         embeddings_reused_count: reusedCount,
         embeddings_generated_count: generatedCount,
         redaction_summary: redactionSummary,
         trace_id: trace.getTraceId()
-      }
-    }).eq("id", jobId);
+      })
+    });
 
     // Finalize trace
     await trace.flush();

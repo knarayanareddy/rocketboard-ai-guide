@@ -128,6 +128,8 @@ export async function generateEmbedding(text: string, apiKey: string): Promise<n
   }
 }
 
+import { updateHeartbeat } from "./ingestion-guards.ts";
+
 /**
  * Processes a batch of chunks: attempts reuse then generates missing embeddings.
  * Updates chunks in-place.
@@ -137,7 +139,8 @@ export async function processEmbeddingsWithReuse(
   pack_id: string,
   source_id: string,
   chunks: any[],
-  openAIApiKey: string
+  openAIApiKey: string,
+  jobId?: string
 ): Promise<{ reusedCount: number; generatedCount: number }> {
   const indexableChunks = chunks.filter(c => !c.is_redacted);
   let reusedCount = 0;
@@ -171,6 +174,11 @@ export async function processEmbeddingsWithReuse(
               }
             })
           );
+
+          // Heartbeat every few batches during the slow embedding phase
+          if (jobId && (i / EMBEDDING_BATCH_SIZE) % 5 === 0) {
+            await updateHeartbeat(supabase, jobId);
+          }
         }
       }
     }

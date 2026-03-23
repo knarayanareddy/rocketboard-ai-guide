@@ -103,11 +103,15 @@ export async function validateIngestion(
 
 export async function updateHeartbeat(
   supabase: SupabaseClient,
-  jobId: string
+  jobId: string,
+  data: Record<string, number | string | null> = {}
 ): Promise<void> {
   const { error } = await supabase
     .from("ingestion_jobs")
-    .update({ last_heartbeat_at: new Date().toISOString() })
+    .update({ 
+      last_heartbeat_at: new Date().toISOString(),
+      ...data
+    })
     .eq("id", jobId);
   
   if (error) {

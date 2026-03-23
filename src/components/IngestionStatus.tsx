@@ -27,7 +27,7 @@ export function IngestionStatus() {
               )}
               <span className="text-xs font-medium text-foreground capitalize">{job.status}</span>
               <span className="text-xs text-muted-foreground ml-auto">
-                {job.processed_chunks}/{job.total_chunks} chunks
+                {Math.min(job.processed_chunks, job.total_chunks)}/{job.total_chunks} chunks
               </span>
             </div>
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
