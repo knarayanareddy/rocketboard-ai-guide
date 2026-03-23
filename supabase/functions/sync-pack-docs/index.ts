@@ -212,10 +212,10 @@ Deno.serve(async (req) => {
     // Fetch chunks
     const { data: chunks, error: chunksError } = await adminClient
       .from("knowledge_chunks")
-      .select("path, content, line_start")
+      .select("path, content, start_line")
       .eq("pack_id", pack_id)
       .order("path", { ascending: true })
-      .order("line_start", { ascending: true });
+      .order("start_line", { ascending: true });
 
     if (chunksError) {
       throw new Error(`Failed to fetch chunks: ${chunksError.message}`);
