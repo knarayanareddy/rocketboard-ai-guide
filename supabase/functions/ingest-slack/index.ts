@@ -31,6 +31,7 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const supabase = createServiceClient();
   
   let source_id: string | undefined;
   let jobId: string | undefined;
@@ -190,7 +191,7 @@ Deno.serve(async (req) => {
               limit: 50,
             });
             thread = threadResp.messages || [];
-          } catch (e) {
+          } catch (e: any) {
             console.warn(`Failed to fetch thread for ${mainMsg.ts} in ${channelId}: ${e.message}`);
             thread = [mainMsg]; // Fallback to just the main message if thread fetch fails
           } finally {
@@ -280,37 +281,8 @@ Deno.serve(async (req) => {
 
     return json(200, { success: true, job_id: jobId, chunks: chunks.length }, corsHeaders);
   } catch (err: any) {
+    if (err.response) return err.response;
     console.error("Slack ingestion error:", err);
-
-    try {
-      const serviceClient = createServiceClient();
-      if (source_id) {
-        await serviceClient
-          .from("ingestion_jobs")
-          .update({
-            status: "failed",
-            completed_at: new Date().toISOString(),
-            error_message: (err.message ?? "Unknown error").slice(0, 500),
-            last_error_at: new Date().toISOString(),
-            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
-          })
-          .eq("source_id", source_id)
-          .eq("status", "processing");
-
-        // CLEANUP: Delete partial chunks for this failed job
-        if (typeof jobId !== "undefined") {
-          console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
-          await serviceClient.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
-        }
-      }
-    } catch (innerErr) {
-       console.error("Secondary failure in catch block:", innerErr);
-    }
-
-    if (typeof trace !== "undefined") {
-      trace.setError(err.message).enable();
-      await trace.flush();
-    }
     return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

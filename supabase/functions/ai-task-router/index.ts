@@ -2774,11 +2774,11 @@ async function handleValidateKey(envelope: any, headers: Record<string, string>)
 }
 
 // ─── MAIN HANDLER ───
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
+  const currentCorsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
   const corsResponse = handleCorsPreflight(req, ALLOWED_ORIGINS);
   if (corsResponse) return corsResponse;
 
-  const currentCorsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
 
   // ─── AUTHENTICATION (Phase 1) ───
   // (Redundant call removed; handled by authenticateRequest inside try/catch)
@@ -2939,6 +2939,8 @@ serve(async (req) => {
     return result;
 
   } catch (e: any) {
+    if (e.response) return e.response;
+    
     console.error("ai-task-router error:", e);
     trace.setError(e.message || "Unknown error");
     await trace.flush();

@@ -113,6 +113,7 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const supabase = createServiceClient();
 
   let source_id: string | undefined;
   let jobId: string | undefined;
@@ -176,6 +177,18 @@ Deno.serve(async (req) => {
         status: 400, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
+    }
+
+    // 1. Check Ingestion Guards (Cooldown, Concurrency)
+    const guard = await validateIngestion(supabase, pack_id, source_id);
+    if (!guard.success) {
+      return jsonError(guard.status, "ingestion_restricted", guard.error || "Ingestion restricted", { next_allowed_at: guard.next_allowed_at }, corsHeaders);
+    }
+
+    // 2. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(supabase, pack_id);
+    if (!cap.success) {
+      return jsonError(cap.status, "cap_exceeded", cap.error || "Chunk cap exceeded", {}, corsHeaders);
     }
 
     // 3. Create ingestion job
@@ -304,42 +317,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
+    if (err.response) return err.response;
     console.error("Confluence ingestion error:", err);
-
-    try {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
-      if (source_id) {
-        await supabase
-          .from("ingestion_jobs")
-          .update({
-            status: "failed",
-            completed_at: new Date().toISOString(),
-            error_message: (err.message ?? "Unknown error").slice(0, 500),
-            last_error_at: new Date().toISOString(),
-            last_error_message: (err.message ?? "Unknown error").slice(0, 500),
-          })
-          .eq("source_id", source_id)
-          .eq("status", "processing");
-
-        // CLEANUP: Delete partial chunks for this failed job
-        if (typeof jobId !== "undefined") {
-          console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
-          await serviceClient.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
-        }
-      }
-    } catch (innerErr) {
-       console.error("Secondary failure in catch block:", innerErr);
-    }
-
-    if (typeof trace !== "undefined") {
-      trace.setError(err.message).enable();
-      await trace.flush();
-    }
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

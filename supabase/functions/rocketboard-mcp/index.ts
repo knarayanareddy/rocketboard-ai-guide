@@ -24,8 +24,8 @@
  */
 
 import { Hono } from "hono";
-import { createClient } from "@supabase/supabase-js";
 import { McpServer } from "@supabase/mcp-utils";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { z } from "zod";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -84,9 +84,7 @@ function checkRateLimit(userId: string, bucket: string, maxPerMin: number): bool
 // ─── Supabase admin client (singleton) ───────────────────────────────────────
 
 function getAdminClient() {
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false },
-  });
+  return createServiceClient();
 }
 
 // ─── Tool registry (for /registry self-check) ─────────────────────────────────

@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const supabase = createServiceClient();
 
   try {
     const body = await readJson(req, corsHeaders);
@@ -225,8 +226,9 @@ Deno.serve(async (req) => {
     }).eq("id", jobId);
 
     return json(200, { success: true, job_id: jobId, chunks: chunks.length }, corsHeaders);
-  } catch (err) {
+  } catch (err: any) {
+    if (err.response) return err.response;
     console.error("Figma ingestion error:", err);
-    return jsonError(500, "internal_error", (err as Error).message, {}, corsHeaders);
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

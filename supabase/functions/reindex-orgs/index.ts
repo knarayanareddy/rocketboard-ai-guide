@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
   let lockToken: string | null = null;
   let pack_id: string | undefined;
   let generation_id: string = crypto.randomUUID();
+  let trace: any;
 
   try {
     const body = await readJson(req, corsHeaders);
@@ -83,7 +84,7 @@ Deno.serve(async (req) => {
     await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
 
     // Initialize Trace (Strategic Sampling)
-    const trace = createTrace({
+    trace = createTrace({
       serviceName: 'reindex-orgs',
       taskType: 'ingestion',
       requestId: crypto.randomUUID(),
@@ -166,7 +167,7 @@ Deno.serve(async (req) => {
         const chunkBatch = [];
 
         const hashes = await Promise.all(chunks.map(c => computeContentHash(assessChunkRedaction(c.text).contentToStore)));
-        const existingEmbeddings = await getPreviousGenerationEmbeddings(supabase, pack_id, hashes);
+        const existingEmbeddings = await getPreviousGenerationEmbeddings(serviceClient, pack_id, hashes);
         
         let fileReused = 0;
         let fileGenerated = 0;
@@ -275,6 +276,7 @@ Deno.serve(async (req) => {
     return json(200, { success: true, generation_id }, corsHeaders);
 
   } catch (err: any) {
+    if (err.response) return err.response;
     console.error("[Reindex] Fatal:", err);
     if (typeof trace !== "undefined") {
       trace.setError(err.message).enable();

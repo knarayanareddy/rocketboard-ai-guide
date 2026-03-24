@@ -194,6 +194,7 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const supabase = createServiceClient();
 
   try {
     const body = await readJson(req, corsHeaders);
@@ -237,7 +238,7 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const supabaseTmp = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const supabaseTmp = createServiceClient();
       const { data: tokenRow, error: tokenErr } = await supabaseTmp
         .from("google_oauth_tokens")
         .select("access_token, refresh_token, expires_at")
@@ -414,8 +415,9 @@ Deno.serve(async (req) => {
     }).eq("id", jobId);
 
     return json(200, { success: true, job_id: jobId, chunks: allChunks.length, files: files.length }, corsHeaders);
-  } catch (err) {
+  } catch (err: any) {
+    if (err.response) return err.response;
     console.error("Google Drive ingestion error:", err);
-    return jsonError(500, "internal_error", (err as Error).message, {}, corsHeaders);
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

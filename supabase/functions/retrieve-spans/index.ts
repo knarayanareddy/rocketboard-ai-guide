@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { createTrace } from "../_shared/telemetry.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
@@ -36,7 +34,7 @@ async function generateEmbedding(text: string, apiKey: string, useLovableGateway
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const allowedOrigins = parseAllowedOrigins();
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;
