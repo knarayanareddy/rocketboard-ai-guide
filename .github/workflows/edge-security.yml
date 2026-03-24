@@ -12,6 +12,8 @@ env:
 jobs:
   audit-edge:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,10 +31,19 @@ jobs:
       - name: Get changed Edge files
         id: files
         if: github.event_name == 'pull_request'
+        shell: bash
         run: |
-          # Compute changed .ts files in supabase/functions compared to main
-          CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep '^supabase/functions/.*\.ts$' | tr '\n' ',' | sed 's/,$//')
-          echo "paths=$CHANGED_FILES" >> $GITHUB_OUTPUT
+          # Robustly find changed .ts files under supabase/functions
+          # Using || true to prevent grep from failing the step if no files match
+          RAW_FILES=$(git diff --name-only origin/main...HEAD | grep '^supabase/functions/.*\.ts$' || true)
+          # Clean up: join into comma-separated list
+          CSV_PATHS=$(echo "$RAW_FILES" | tr '\n' ',' | sed 's/,$//' | sed 's/^,//')
+          echo "paths=$CSV_PATHS" >> $GITHUB_OUTPUT
+          
+      - name: Verify Environment
+        run: |
+          echo "Changed files detected: ${{ steps.files.outputs.paths }}"
+          [ -z "${{ steps.files.outputs.paths }}" ] && echo "Notice: No Edge functions identified for focused audit."
 
       - name: Run Edge Security Audit
         env:
