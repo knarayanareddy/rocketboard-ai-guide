@@ -1,31 +1,24 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Local corsHeaders removed
 
-serve(async (req: any) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const supabase = createServiceClient();
 
     const authHeader = req.headers.get("Authorization");
     const cronToken = Deno.env.get("CRON_AUTH_TOKEN");
     
     if (authHeader !== `Bearer ${cronToken}`) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+      return jsonError(401, "unauthorized", "Invalid cron token", {}, corsHeaders);
     }
 
     const { pack_id, dry_run = false, day_override } = await readJson(req, corsHeaders).catch(() => ({}));
@@ -153,15 +146,9 @@ serve(async (req: any) => {
       summary.push({ pack_id: pack.id, rows_deleted: rowsDeleted });
     }
 
-    return new Response(JSON.stringify({ success: true, dry_run, summary }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    return json(200, { success: true, dry_run, summary }, corsHeaders);
   } catch (err: any) {
     console.error("[lifecycle-retention] Fatal Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

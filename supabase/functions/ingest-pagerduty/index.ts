@@ -1,15 +1,13 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
 import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
-import { readJson } from "../_shared/http.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
 // Local sha256 removed
 
@@ -32,24 +30,36 @@ async function pagerDutyAPI(apiKey: string, endpoint: string, params: Record<str
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const { pack_id, source_id, source_config } = await readJson(req, corsHeaders);
+    const body = await readJson(req, corsHeaders);
+    const { pack_id, source_id, source_config } = body;
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
-
-    let {
-      api_key,
+    const {
+      api_key: config_api_key,
       service_ids = [],
       include_services = true,
       include_oncall = true,
       include_incidents = true,
       fetch_runbooks = false,
     } = source_config || {};
+
+    const serviceClient = createServiceClient();
+
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Authorize pack access (Author or higher)
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
+
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+
+    let api_key = config_api_key;
 
     // 1. Fetch api_key from Vault if missing
     if (!api_key) {
@@ -78,7 +88,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: job, error: jobErr } = await supabase.from("ingestion_jobs")
+    const { data: job, error: jobErr } = await serviceClient.from("ingestion_jobs")
       .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
       .select().single();
     if (jobErr) throw jobErr;
@@ -152,7 +162,7 @@ Deno.serve(async (req) => {
         }
 
         const assessment = assessChunkRedaction(content);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `pagerduty:${service.name}/overview`,
@@ -217,7 +227,7 @@ Deno.serve(async (req) => {
         }
 
         const assessment = assessChunkRedaction(content);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `pagerduty:oncall/structure`,
@@ -331,14 +341,14 @@ Deno.serve(async (req) => {
       openAIApiKey
     );
 
-    await supabase.from("ingestion_jobs").update({ total_chunks: chunks.length }).eq("id", jobId);
+    await serviceClient.from("ingestion_jobs").update({ total_chunks: chunks.length }).eq("id", jobId);
 
     for (let i = 0; i < chunks.length; i += 100) {
-      await supabase.from("knowledge_chunks").upsert(chunks.slice(i, i + 100), { onConflict: "pack_id,chunk_id" });
+      await serviceClient.from("knowledge_chunks").upsert(chunks.slice(i, i + 100), { onConflict: "pack_id,chunk_id" });
     }
 
-    await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
-    await supabase.from("ingestion_jobs").update({
+    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+    await serviceClient.from("ingestion_jobs").update({
       status: "completed",
       processed_chunks: chunks.length,
       completed_at: new Date().toISOString(),
@@ -349,13 +359,9 @@ Deno.serve(async (req) => {
       }
     }).eq("id", jobId);
 
-    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: chunks.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(200, { success: true, job_id: jobId, chunks: chunks.length }, corsHeaders);
   } catch (err) {
     console.error("PagerDuty ingestion error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", (err as Error).message, {}, corsHeaders);
   }
 });

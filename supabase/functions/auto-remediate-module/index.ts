@@ -1,23 +1,18 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
-import { readJson } from "../_shared/http.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     const { pack_id, changed_files, compare_url } = await readJson(req, corsHeaders);
 
     if (!pack_id || !compare_url) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return jsonError(400, "bad_request", "Missing required fields", {}, corsHeaders);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

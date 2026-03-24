@@ -1,9 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// CORS now handled by centralized cors.ts
 
 // HTML page returned after OAuth completes — closes the popup and signals the parent
 function successPage(email: string): string {
@@ -43,9 +41,11 @@ function errorPage(message: string): string {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -121,12 +121,9 @@ Deno.serve(async (req) => {
     const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
 
     // Store token in DB
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const serviceClient = createServiceClient();
 
-    const { error: upsertErr } = await supabase
+    const { error: upsertErr } = await serviceClient
       .from("google_oauth_tokens")
       .upsert({
         user_id: state, // state = user_id passed from the frontend

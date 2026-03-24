@@ -38,16 +38,10 @@ jobs:
           RAW_FILES=$(git diff --name-only origin/main...HEAD | grep '^supabase/functions/.*\.ts$' || true)
           # Clean up: join into comma-separated list
           CSV_PATHS=$(echo "$RAW_FILES" | tr '\n' ',' | sed 's/,$//' | sed 's/^,//')
-          echo "paths=$CSV_PATHS" >> $GITHUB_OUTPUT
-          
-      - name: Verify Environment
-        run: |
-          echo "Changed files detected: ${{ steps.files.outputs.paths }}"
-          [ -z "${{ steps.files.outputs.paths }}" ] && echo "Notice: No Edge functions identified for focused audit."
+          echo "EDGE_AUDIT_PATHS=$CSV_PATHS" >> $GITHUB_ENV
+          echo "Changed Edge TS files: $CSV_PATHS"
 
       - name: Run Edge Security Audit
-        env:
-          EDGE_AUDIT_PATHS: ${{ steps.files.outputs.paths }}
         run: npm run audit:edge
         
       - name: Run Lint
@@ -55,3 +49,20 @@ jobs:
         
       - name: Run Tests
         run: npm test
+
+  deno-check:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Deno Format Check
+        run: deno fmt --check supabase/functions
+      - name: Deno Type Check
+        run: |
+          # Check shared lib AND any directory containing an index.ts
+          find supabase/functions -name "index.ts" -not -path "*/_shared/*" | xargs -I {} deno check {}
+          deno check supabase/functions/_shared/*.ts

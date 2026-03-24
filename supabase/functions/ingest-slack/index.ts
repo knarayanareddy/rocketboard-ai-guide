@@ -1,4 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { validateIngestion, checkPackChunkCap } from "../_shared/ingestion-guards.ts";
@@ -7,12 +6,11 @@ import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 import { normalizeSlackThreadToMarkdown } from "../_shared/content-normalizers.ts";
 import { fallbackChunkWords } from "../_shared/smart-chunker.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
-import { readJson } from "../_shared/http.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
 async function slackAPI(token: string, method: string, params: Record<string, any> = {}) {
   const url = new URL(`https://slack.com/api/${method}`);
@@ -28,7 +26,11 @@ async function slackAPI(token: string, method: string, params: Record<string, an
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
   
   let source_id: string | undefined;
   let jobId: string | undefined;
@@ -38,6 +40,13 @@ Deno.serve(async (req) => {
     const body = await readJson(req, corsHeaders);
     source_id = body.source_id;
     const { pack_id, source_config, org_id } = body;
+
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Authorize pack access (Author or higher)
+    const serviceClient = createServiceClient();
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
 
     // Initialize Trace (Strategic Sampling)
     trace = createTrace({
@@ -50,9 +59,6 @@ Deno.serve(async (req) => {
       environment: Deno.env.get("ENVIRONMENT") || "production",
     }, { enabled: shouldTrace() });
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
     let {
       bot_token,
@@ -90,7 +96,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: job, error: jobErr } = await supabase.from("ingestion_jobs")
+    const { data: job, error: jobErr } = await serviceClient.from("ingestion_jobs")
       .insert({ 
         pack_id, 
         source_id, 
@@ -232,12 +238,12 @@ Deno.serve(async (req) => {
         }
       }
 
-      await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
+      await serviceClient.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
     }
 
     const chunks = allChunks; // for compatibility with downstream code
 
-    await supabase.from("ingestion_jobs").update({ total_chunks: chunks.length }).eq("id", jobId);
+    await serviceClient.from("ingestion_jobs").update({ total_chunks: chunks.length }).eq("id", jobId);
     trace.addSpan({ name: "chunk_summary", startTime: Date.now(), endTime: Date.now(), output: { total_chunks: chunks.length, channels: channel_ids.length } });
 
     // 4. Handle Embeddings (Reuse + Generation)
@@ -254,11 +260,11 @@ Deno.serve(async (req) => {
 
     // Upsert chunks
     for (let i = 0; i < chunks.length; i += 100) {
-      await supabase.from("knowledge_chunks").upsert(chunks.slice(i, i + 100), { onConflict: "pack_id,chunk_id" });
+      await serviceClient.from("knowledge_chunks").upsert(chunks.slice(i, i + 100), { onConflict: "pack_id,chunk_id" });
     }
 
-    await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
-    await supabase.from("ingestion_jobs").update({
+    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+    await serviceClient.from("ingestion_jobs").update({
       status: "completed",
       processed_chunks: chunks.length,
       completed_at: new Date().toISOString(),
@@ -272,19 +278,14 @@ Deno.serve(async (req) => {
 
     await trace.flush();
 
-    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: chunks.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(200, { success: true, job_id: jobId, chunks: chunks.length }, corsHeaders);
   } catch (err: any) {
     console.error("Slack ingestion error:", err);
 
     try {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      );
+      const serviceClient = createServiceClient();
       if (source_id) {
-        await supabase
+        await serviceClient
           .from("ingestion_jobs")
           .update({
             status: "failed",
@@ -299,7 +300,7 @@ Deno.serve(async (req) => {
         // CLEANUP: Delete partial chunks for this failed job
         if (typeof jobId !== "undefined") {
           console.log(`[CLEANUP] Deleting partial chunks for failed job ${jobId}`);
-          await supabase.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
+          await serviceClient.from("knowledge_chunks").delete().eq("ingestion_job_id", jobId);
         }
       }
     } catch (innerErr) {
@@ -310,8 +311,6 @@ Deno.serve(async (req) => {
       trace.setError(err.message).enable();
       await trace.flush();
     }
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

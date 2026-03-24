@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
 import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 

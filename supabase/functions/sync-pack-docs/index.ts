@@ -1,14 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.45.6";
 import { redactText } from "../_shared/secret-patterns.ts";
 import { encodeHex } from "jsr:@std/encoding@1.0.5/hex";
-import { readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// CORS now handled by centralized cors.ts
 
 // Extremely naive but deterministic block parser for V1
 function parseBlocks(content: string) {
@@ -166,52 +165,32 @@ function determineCategory(filename: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const allowedOrigins = parseAllowedOrigins();
+  const corsPreflight = handleCorsPreflight(req, allowedOrigins);
+  if (corsPreflight) return corsPreflight;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const { pack_id, mode = "execute", source_prefix = "Technical documents/", include_agents = true } = await readJson(req, corsHeaders);
+    const body = await readJson(req, corsHeaders);
+    const { pack_id, mode = "execute", source_prefix = "Technical documents/", include_agents = true } = body;
 
-    if (!pack_id) throw new Error("pack_id is required");
-
-    // Supabase client initialization
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      {
-        auth: { persistSession: false },
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
-        },
-      }
-    );
-
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
-
-    // Verify JWT
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) throw new Error("Unauthorized");
-
-    // Enforce Author status using RPC (which runs correctly with service_role mapping)
-    const { data: hasAccess, error: accessError } = await adminClient.rpc("has_pack_access", {
-      _user_id: user.id,
-      _pack_id: pack_id,
-      _min_level: "author",
-    });
-
-    if (accessError || !hasAccess) {
-      throw new Error("Forbidden: Must be pack author to sync docs");
+    if (!pack_id) {
+      return jsonError(400, "bad_request", "pack_id is required", {}, corsHeaders);
     }
+
+    const serviceClient = createServiceClient();
+
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Authorize pack access (Author or higher)
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
 
     console.log(`[sync-pack-docs] Starting sync for pack: ${pack_id}`);
 
     // Fetch chunks
-    const { data: chunks, error: chunksError } = await adminClient
+    const { data: chunks, error: chunksError } = await serviceClient
       .from("knowledge_chunks")
       .select("path, content, start_line")
       .eq("pack_id", pack_id)
@@ -246,9 +225,7 @@ Deno.serve(async (req) => {
         const redacted = redactText(fullText);
         summary.files.push({ path, chunks: contents.length, final_chars: redacted.redactedText.length });
       }
-      return new Response(JSON.stringify({ status: "dry_run", summary }), {
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
+      return json(200, { status: "dry_run", summary }, corsHeaders);
     }
 
     // Execute Mode: Upsert to pack_docs
@@ -272,9 +249,9 @@ Deno.serve(async (req) => {
       const textHash = encodeHex(hashBuffer);
 
       // Check existing doc
-      const { data: existingDoc } = await adminClient
+      const { data: existingDoc } = await serviceClient
         .from("pack_docs")
-        .select("id, version, summary")
+        .select("id, version")
         .eq("pack_id", pack_id)
         .eq("slug", slug)
         .single();
@@ -283,13 +260,10 @@ Deno.serve(async (req) => {
       let newVersion = 1;
 
       if (existingDoc) {
-        // Simple hash check hack - normally we'd store the hash, but for V1 we just compare if the length drastically changed, 
-        // wait, we can just always update for now, or use `content_plain` comparison.
-        // For absolute safety and simplicity, we just trigger an update.
         docId = existingDoc.id;
         newVersion = existingDoc.version + 1;
         
-        const { error: updError } = await adminClient
+        const { error: updError } = await serviceClient
           .from("pack_docs")
           .update({
             content_plain: redactedText,
@@ -301,7 +275,7 @@ Deno.serve(async (req) => {
         if (updError) throw new Error(`Update doc failed: ${updError.message}`);
         summary.docs_updated++;
       } else {
-        const { data: newDoc, error: insError } = await adminClient
+        const { data: newDoc, error: insError } = await serviceClient
           .from("pack_docs")
           .insert({
             pack_id,
@@ -311,10 +285,10 @@ Deno.serve(async (req) => {
             content_plain: redactedText,
             source_path: dbPath,
             source_type: "repo_import",
-            format: "md", // treat everything as MD blocks mostly
+            format: "md",
             status: "published",
-            created_by: user.id,
-            owner_user_id: user.id
+            created_by: userId,
+            owner_user_id: userId
           })
           .select("id")
           .single();
@@ -325,7 +299,7 @@ Deno.serve(async (req) => {
       }
 
       // Re-create blocks (destructive sync)
-      await adminClient.from("pack_doc_blocks").delete().eq("doc_id", docId);
+      await serviceClient.from("pack_doc_blocks").delete().eq("doc_id", docId);
       
       if (docBlocks.length > 0) {
         const blocksToInsert = docBlocks.map((b, i) => ({
@@ -335,7 +309,7 @@ Deno.serve(async (req) => {
           payload: b.payload
         }));
         
-        const { error: blkError } = await adminClient.from("pack_doc_blocks").insert(blocksToInsert);
+        const { error: blkError } = await serviceClient.from("pack_doc_blocks").insert(blocksToInsert);
         if (blkError) console.error("Block insert error", blkError);
       }
 
@@ -343,24 +317,19 @@ Deno.serve(async (req) => {
     }
 
     // Audit log
-    const { error: auditError } = await adminClient.from('lifecycle_audit_events').insert({
+    const { error: auditError } = await serviceClient.from('lifecycle_audit_events').insert({
       pack_id,
-      user_id: user.id,
+      user_id: userId,
       action: 'sync_docs',
       status: 'success',
       details: summary
     });
     if (auditError) console.error("Audit fail", auditError);
 
-    return new Response(JSON.stringify({ status: "success", summary }), {
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return json(200, { status: "success", summary }, corsHeaders);
 
   } catch (error: any) {
     console.error("[sync-pack-docs] Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: error.message.includes('Unauthorized') || error.message.includes('Forbidden') ? 403 : 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return jsonError(500, "internal_error", error.message, {}, corsHeaders);
   }
 });

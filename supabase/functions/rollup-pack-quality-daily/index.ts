@@ -1,16 +1,15 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Local corsHeaders removed
 
-serve(async (req: any) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -23,16 +22,10 @@ serve(async (req: any) => {
       (cronToken && authHeader === `Bearer ${cronToken}`);
 
     if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+      return jsonError(401, "unauthorized", "Invalid credentials", {}, corsHeaders);
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      serviceKey ?? ""
-    );
+    const supabase = createServiceClient();
 
     const { pack_id, day_from, day_to, dry_run = false } = await readJson(req, corsHeaders).catch(() => ({}));
 
@@ -58,9 +51,7 @@ serve(async (req: any) => {
         .gte("created_at", from)
         .lte("created_at", to + "T23:59:59");
       
-      return new Response(JSON.stringify({ dry_run: true, data, error }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(200, { dry_run: true, data, error }, corsHeaders);
     }
 
     // Perform idempotent rollup via RPC
@@ -74,18 +65,13 @@ serve(async (req: any) => {
       throw error;
     }
 
-    return new Response(JSON.stringify({ 
+    return json(200, { 
       success: true, 
       range: { from, to },
       processed_at: new Date().toISOString()
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }, corsHeaders);
   } catch (err: any) {
     console.error("[rollup-v1] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

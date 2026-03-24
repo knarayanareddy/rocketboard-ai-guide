@@ -209,7 +209,7 @@ serve(async (req) => {
   let source_id: string | undefined;
 
   try {
-    const body = await readJson(req);
+    const body = await readJson(req, corsHeaders);
     const { pack_id, source_type, source_uri, document_content, label, source_config, org_id, module_key, track_key } = body;
     source_id = body.source_id;
 

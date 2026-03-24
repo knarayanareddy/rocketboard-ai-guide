@@ -1,6 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { createTrace, calculateCost } from "../_shared/telemetry.ts";
 import type { TraceBuilder } from "../_shared/telemetry.ts";
 import { batchRerankWithLLM } from "./reranker.ts";
@@ -19,7 +17,10 @@ import type {
 } from "./grounding-gate.ts";
 import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
 import { requireUser } from "../_shared/authz.ts";
-import { safeFetch } from "../_shared/external-url-policy.ts";
+import { safeFetch, parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { sharedRedactText } from "../_shared/secret-patterns.ts";
 
 const ALLOWED_ORIGINS = parseAllowedOrigins();
 
@@ -213,9 +214,7 @@ function structuredError(requestId: string, errorCode: string, message: string, 
 }
 
 function jsonResponse(body: object, headers: Record<string, string>) {
-  return new Response(JSON.stringify(body), {
-    headers: { ...headers, "Content-Type": "application/json" },
-  });
+  return json(200, body, headers);
 }
 
 function unsupportedTask(requestId: string, taskType: string, headers: Record<string, string>) {
@@ -335,7 +334,7 @@ async function resolveAIConfig(userId: string): Promise<AIConfig> {
   };
 
   try {
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const sb = createServiceClient();
     const { data: userRow } = await sb.from("user_ai_settings").select("byok_config").eq("user_id", userId).maybeSingle();
     
     if (userRow?.byok_config?.active_provider) {
@@ -618,22 +617,9 @@ async function callWithAgenticReview(
   };
 }
 
-// ─── JWT AUTHENTICATION ───
-async function authenticateRequest(req: Request, headers: Record<string, string>): Promise<{ userId: string } | Response> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return errorResponse(401, { error: "Unauthorized: missing Bearer token" }, headers);
-  }
-  const token = authHeader.replace("Bearer ", "");
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!
-  );
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) {
-    return errorResponse(401, { error: "Unauthorized: invalid token" }, headers);
-  }
-  return { userId: user.id };
+async function authenticateRequest(req: Request, headers: Record<string, string>): Promise<{ userId: string }> {
+  const { userId } = await requireUser(req, headers);
+  return { userId };
 }
 
 // ─── PACK ACCESS AUTHORIZATION ───
@@ -651,10 +637,7 @@ async function checkPackAccess(userId: string, envelope: any, headers: Record<st
   if (!packId) return null; // Some tasks may not need a pack
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase = createServiceClient();
 
     const minLevel = AUTHOR_TASKS.has(taskType) ? "author" : "learner";
     const { data: hasAccess, error } = await supabase.rpc("has_pack_access", {
@@ -683,10 +666,7 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
     const data = trace.getData();
     if (!data.generation) return;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase = createServiceClient();
 
     const gen = data.generation;
     const task = envelope.task || {};
@@ -789,10 +769,7 @@ async function recordAiAudit(trace: TraceBuilder, envelope: any, responseMarkdow
     const data = trace.getData();
     if (!data.generation) return;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase = createServiceClient();
 
     const gen = data.generation;
     const task = envelope.task || {};
