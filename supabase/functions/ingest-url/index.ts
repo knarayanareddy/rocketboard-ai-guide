@@ -119,7 +119,16 @@ Deno.serve(async (req) => {
     trace.updateMetadata({ jobId });
 
     const urlPolicy = {
-      allowAnyHost: true,
+      allowedHostSuffixes: [
+        "github.com",
+        "atlassian.net",
+        "notion.so",
+        "slack.com",
+        "microsoft.com",
+        "google.com",
+        "readme.io",
+        "gitbook.com"
+      ],
       disallowPrivateIPs: true,
       allowHttp: Deno.env.get("ALLOW_INSECURE_URL_INGESTION") === "true",
       allowHttps: true,
