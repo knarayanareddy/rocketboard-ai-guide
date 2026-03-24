@@ -21,7 +21,7 @@ serve(async (req) => {
 
   try {
     // 1. Authenticate user
-    const { userId } = await requireUser(req);
+    const { userId } = await requireUser(req, corsHeaders);
 
     // 2. Parse request
     const body = await readJson(req);
@@ -41,7 +41,7 @@ serve(async (req) => {
 
     // 3. Authorize pack access (Author or higher)
     const serviceClient = createServiceClient();
-    await requirePackRole(serviceClient, pack_id, userId, "author");
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
 
     let targetSourceId = source_id;
 

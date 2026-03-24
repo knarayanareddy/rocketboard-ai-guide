@@ -218,11 +218,11 @@ serve(async (req) => {
     }
 
     // 1. Authenticate user
-    const { userId } = await requireUser(req);
+    const { userId } = await requireUser(req, corsHeaders);
 
     // 2. Authorize pack access (Need 'author' level)
     const serviceClient = createServiceClient();
-    await requirePackRole(serviceClient, pack_id, userId, "author");
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
 
     // Initialize Trace (Strategic Sampling)
     trace = createTrace({

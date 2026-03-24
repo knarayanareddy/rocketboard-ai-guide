@@ -6,6 +6,28 @@ import { requireUser } from "../_shared/authz.ts";
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
+// In-memory rate limiting: 5 emails per 10 minutes per user
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_EMAILS_PER_WINDOW = 5;
+const rateLimitMap = new Map<string, { count: number; lastReset: number }>();
+
+function checkRateLimit(userId: string): { allowed: boolean; remaining?: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  if (!entry || (now - entry.lastReset) > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(userId, { count: 1, lastReset: now });
+    return { allowed: true, remaining: MAX_EMAILS_PER_WINDOW - 1 };
+  }
+
+  if (entry.count >= MAX_EMAILS_PER_WINDOW) {
+    return { allowed: false };
+  }
+
+  entry.count += 1;
+  return { allowed: true, remaining: MAX_EMAILS_PER_WINDOW - entry.count };
+}
+
 serve(async (req) => {
   const allowedOrigins = parseAllowedOrigins();
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
@@ -15,10 +37,25 @@ serve(async (req) => {
 
   try {
     // 1. Get the session or user object securely
-    const { userId: authedUserId } = await requireUser(req);
+    const { userId: authedUserId } = await requireUser(req, corsHeaders);
+
+    // 1.1 Rate limiting check
+    const rateLimit = checkRateLimit(authedUserId);
+    if (!rateLimit.allowed) {
+      return jsonError(429, "rate_limit_exceeded", "Too many emails sent. Please try again later.", {}, corsHeaders);
+    }
 
     // 2. Parse request
     const { to, subject, html, userId, type } = await readJson(req);
+
+    // 2.1 Allow raw HTML gate
+    const allowRawHtml = Deno.env.get("ALLOW_RAW_EMAIL_HTML") !== "false";
+    const safeTypes = ["invite", "module_published", "milestone", "weekly_digest"];
+    
+    if (!allowRawHtml && html && !safeTypes.includes(type)) {
+      console.warn(`[SECURITY] Raw HTML email rejected for user ${authedUserId} (type: ${type})`);
+      return jsonError(403, "security_violation", "Raw HTML is restricted for this email type.", {}, corsHeaders);
+    }
 
     if (!RESEND_API_KEY) {
       throw new Error('RESEND_API_KEY is not configured. Please add it to your Supabase project secrets.');

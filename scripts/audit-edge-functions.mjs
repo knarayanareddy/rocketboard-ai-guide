@@ -48,8 +48,8 @@ function auditFile(dirName, filePath) {
   }
 
   // Check Service Role usage without guards
-  const usesServiceRole = content.includes('SUPABASE_SERVICE_ROLE_KEY');
-  const hasAuthGuard = content.includes('requireUser(') || content.includes('requireInternal(');
+  const usesServiceRole = content.includes('SUPABASE_SERVICE_ROLE_KEY') || content.includes('createServiceClient');
+  const hasAuthGuard = content.includes('requireUser(') || content.includes('requireInternal(') || content.includes('authenticateRequest(');
 
   if (usesServiceRole && !hasAuthGuard && !AUTH_GUARD_ALLOWLIST.includes(dirName)) {
     issues.push('Uses SUPABASE_SERVICE_ROLE_KEY but lacks requireUser() or requireInternal() guard.');
@@ -73,12 +73,30 @@ function main() {
   for (const dir of dirs) {
     if (dir === '_shared') continue;
 
-    const indexPath = path.join(FUNCTIONS_DIR, dir, 'index.ts');
-    if (fs.existsSync(indexPath)) {
+    const dirPath = path.join(FUNCTIONS_DIR, dir);
+    if (!fs.statSync(dirPath).isDirectory()) continue;
+
+    const files = [];
+    const walk = (d) => {
+      const list = fs.readdirSync(d);
+      for (const item of list) {
+        const fullPath = path.join(d, item);
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          walk(fullPath);
+        } else if (item.endsWith('.ts')) {
+          files.push(fullPath);
+        }
+      }
+    };
+    walk(dirPath);
+
+    for (const filePath of files) {
       filesChecked++;
-      const issues = auditFile(dir, indexPath);
+      const issues = auditFile(dir, filePath);
       if (issues.length > 0) {
-        console.error(`\n[!] Issues found in ${dir}/index.ts:`);
+        const relativePath = path.relative(FUNCTIONS_DIR, filePath);
+        console.error(`\n[!] Issues found in ${relativePath}:`);
         issues.forEach(issue => console.error(`  - ${issue}`));
         totalIssues += issues.length;
       }
