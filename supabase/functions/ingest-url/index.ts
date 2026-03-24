@@ -51,10 +51,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
 
   // 1. Internal Auth Gate (with legacy fallback)
-  const auth = await requireInternal(req);
-  if (!auth.success) {
-    return jsonError(auth.status, auth.code, auth.message, {}, corsHeaders);
-  }
+  const internal = requireInternal(req, corsHeaders);
+  if (!internal.success) return internal.response;
 
   // Hoist for catch scope
   let source_id: string | undefined;
