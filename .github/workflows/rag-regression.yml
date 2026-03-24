@@ -13,6 +13,8 @@ jobs:
   rag-regression:
     name: RAG Regression Suite
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
     steps:
       - name: Checkout
@@ -21,9 +23,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-          cache-dependency-path: './rag-eval/package-lock.json'
+          cache-dependency-path: './rag-eval/package.json'
 
       - name: Install Dependencies
         working-directory: ./rag-eval

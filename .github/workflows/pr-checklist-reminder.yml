@@ -12,6 +12,8 @@ on:
 jobs:
   check-checklist:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     permissions:
       pull-requests: write
     steps:
@@ -27,7 +29,7 @@ jobs:
 
       - name: Post Comment
         if: steps.check.outputs.missing == 'true'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             github.rest.issues.createComment({
