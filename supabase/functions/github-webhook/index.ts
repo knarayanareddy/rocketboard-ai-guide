@@ -1,10 +1,10 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
 function hexToUint8Array(hex: string): Uint8Array {
   const view = new Uint8Array(hex.length / 2);
@@ -14,29 +14,41 @@ function hexToUint8Array(hex: string): Uint8Array {
   return view;
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const serviceClient = createServiceClient();
 
     // GitHub sends events as POST
     const signature = req.headers.get("x-hub-signature-256");
     const event = req.headers.get("x-github-event");
-    
+
     if (event !== "push") {
-      return new Response(JSON.stringify({ message: "Ignored event" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json(200, { message: "Ignored event" }, corsHeaders);
     }
 
     // 1. Verify Signature
     const webhookSecret = Deno.env.get("GITHUB_WEBHOOK_SECRET");
     if (!webhookSecret) {
-      console.warn("[WEBHOOK WARNING] GITHUB_WEBHOOK_SECRET not set, bypassing signature check (INSECURE)");
+      console.warn(
+        "[WEBHOOK WARNING] GITHUB_WEBHOOK_SECRET not set, bypassing signature check (INSECURE)",
+      );
     } else if (!signature) {
       console.error("[WEBHOOK ERROR] Missing x-hub-signature-256 header");
-      return new Response(JSON.stringify({ error: "Missing signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return jsonError(
+        401,
+        "unauthorized",
+        "Missing signature",
+        {},
+        corsHeaders,
+      );
     } else {
       const bodyText = await req.text();
       const hmac = await crypto.subtle.importKey(
@@ -44,31 +56,39 @@ serve(async (req) => {
         new TextEncoder().encode(webhookSecret),
         { name: "HMAC", hash: "SHA-256" },
         false,
-        ["verify"]
+        ["verify"],
       );
       const isVerified = await crypto.subtle.verify(
         "HMAC",
         hmac,
         hexToUint8Array(signature.replace("sha256=", "")).buffer,
-        new TextEncoder().encode(bodyText)
+        new TextEncoder().encode(bodyText),
       );
 
       if (!isVerified) {
         console.error("[WEBHOOK ERROR] Invalid HMAC signature");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return jsonError(
+          401,
+          "unauthorized",
+          "Invalid signature",
+          {},
+          corsHeaders,
+        );
       }
-      
-      // Since we already consumed the body text, we need to parse it
+
       var payload = JSON.parse(bodyText);
     }
 
-    if (typeof payload === 'undefined') {
-       var payload = await req.json();
+    if (typeof payload === "undefined") {
+      payload = await readJson(req, corsHeaders);
     }
     const repoUrl = payload.repository?.html_url;
 
     if (!repoUrl) {
-      return new Response(JSON.stringify({ error: "Invalid payload" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Invalid payload" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Find all packs that use this repository as a source
@@ -79,8 +99,10 @@ serve(async (req) => {
 
     if (sErr) throw sErr;
 
-    const packIds = [...new Set((sources || []).map(s => s.pack_id))];
-    console.log(`[WEBHOOK] Push to ${repoUrl} affects ${packIds.length} pack(s)`);
+    const packIds = [...new Set((sources || []).map((s) => s.pack_id))];
+    console.log(
+      `[WEBHOOK] Push to ${repoUrl} affects ${packIds.length} pack(s)`,
+    );
 
     const commits = payload.commits || [];
     const changedFiles = new Set<string>();
@@ -97,7 +119,10 @@ serve(async (req) => {
       // 1. Mark as stale
       await fetch(`${supabaseUrl}/functions/v1/check-staleness`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceKey}`,
+        },
         body: JSON.stringify({ pack_id: packId }),
       });
       console.log(`[WEBHOOK] Triggered staleness check for pack ${packId}`);
@@ -106,18 +131,27 @@ serve(async (req) => {
       if (changedFilesList.length > 0 && compareUrl) {
         await fetch(`${supabaseUrl}/functions/v1/auto-remediate-module`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-          body: JSON.stringify({ pack_id: packId, changed_files: changedFilesList, compare_url: compareUrl }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            pack_id: packId,
+            changed_files: changedFilesList,
+            compare_url: compareUrl,
+          }),
         });
         console.log(`[WEBHOOK] Triggered auto-remediation for pack ${packId}`);
       }
     }
 
-    return new Response(JSON.stringify({ success: true, affected_packs: packIds.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(
+      200,
+      { success: true, affected_packs: packIds.length },
+      corsHeaders,
+    );
   } catch (err: any) {
     console.error("Webhook error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

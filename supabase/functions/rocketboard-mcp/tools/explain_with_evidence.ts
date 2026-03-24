@@ -18,7 +18,7 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 import { redactAndCap } from "../redaction.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -32,7 +32,10 @@ const MAX_ANSWER_CHARS = 30_000;
 
 export const ExplainInputSchema = z.object({
   pack_id: z.string().uuid("pack_id must be a valid UUID"),
-  question: z.string().min(1).max(MAX_QUESTION_LENGTH, `question must be ≤ ${MAX_QUESTION_LENGTH} chars`),
+  question: z.string().min(1).max(
+    MAX_QUESTION_LENGTH,
+    `question must be ≤ ${MAX_QUESTION_LENGTH} chars`,
+  ),
   context: z.string().max(MAX_CONTEXT_LENGTH).optional(),
   detective_mode: z.boolean().default(true),
   max_spans: z.number().int().min(1).max(MAX_SPANS).default(10),
@@ -45,8 +48,18 @@ export type ExplainInput = z.infer<typeof ExplainInputSchema>;
 // ─── Output type ─────────────────────────────────────────────────────────────
 
 export interface EvidenceManifest {
-  citations: Array<{ badge: string; path: string; start_line: number; end_line: number; chunk_id: string }>;
-  spans_used: Array<{ chunk_id: string; path: string; start_line: number; end_line: number }>;
+  citations: Array<
+    {
+      badge: string;
+      path: string;
+      start_line: number;
+      end_line: number;
+      chunk_id: string;
+    }
+  >;
+  spans_used: Array<
+    { chunk_id: string; path: string; start_line: number; end_line: number }
+  >;
 }
 
 export interface ExplainResult {
@@ -59,13 +72,20 @@ export interface ExplainResult {
 // ─── Embedding helper ─────────────────────────────────────────────────────────
 
 async function generateEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY") || Deno.env.get("LOVABLE_API_KEY") || "";
+  const apiKey = Deno.env.get("OPENAI_API_KEY") ||
+    Deno.env.get("LOVABLE_API_KEY") || "";
   if (!apiKey) return null;
   try {
     const res = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-      body: JSON.stringify({ input: text.replace(/\n/g, " "), model: "text-embedding-3-small" }),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        input: text.replace(/\n/g, " "),
+        model: "text-embedding-3-small",
+      }),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -103,15 +123,18 @@ export async function explainWithEvidence(
     const clampedQuery = args.question.slice(0, 500); // embed only first 500 chars
     const embedding = await generateEmbedding(clampedQuery);
 
-    const { data: chunks, error: rpcError } = await adminClient.rpc("hybrid_search_v2", {
-      p_org_id: pack.org_id,
-      p_pack_id: args.pack_id,
-      p_query_text: clampedQuery,
-      p_query_embedding: embedding,
-      p_match_count: Math.min(args.max_spans, MAX_SPANS),
-      p_module_key: null,
-      p_track_key: null,
-    });
+    const { data: chunks, error: rpcError } = await adminClient.rpc(
+      "hybrid_search_v2",
+      {
+        p_org_id: pack.org_id,
+        p_pack_id: args.pack_id,
+        p_query_text: clampedQuery,
+        p_query_embedding: embedding,
+        p_match_count: Math.min(args.max_spans, MAX_SPANS),
+        p_module_key: null,
+        p_track_key: null,
+      },
+    );
 
     if (rpcError) {
       console.error(`[MCP:explain] hybrid_search_v2 error:`, rpcError.message);
@@ -127,7 +150,11 @@ export async function explainWithEvidence(
       end_line: c.line_end,
       text: c.content,
       score: c.score ?? 0,
-      metadata: { entity_type: c.entity_type, entity_name: c.entity_name, signature: c.signature },
+      metadata: {
+        entity_type: c.entity_type,
+        entity_name: c.entity_name,
+        signature: c.signature,
+      },
     }));
 
     // ── Step B: Forward to ai-task-router ────────────────────────────────
@@ -135,7 +162,9 @@ export async function explainWithEvidence(
       `${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-task-router`;
 
     const userMessage = args.context
-      ? `${args.question}\n\n[Additional context]\n${args.context.slice(0, MAX_CONTEXT_LENGTH)}`
+      ? `${args.question}\n\n[Additional context]\n${
+        args.context.slice(0, MAX_CONTEXT_LENGTH)
+      }`
       : args.question;
 
     const envelope = {
@@ -161,7 +190,11 @@ export async function explainWithEvidence(
 
     if (!routerRes.ok) {
       const errText = await routerRes.text().catch(() => "unknown");
-      console.error(`[MCP:explain] Router returned ${routerRes.status}: ${errText.slice(0, 200)}`);
+      console.error(
+        `[MCP:explain] Router returned ${routerRes.status}: ${
+          errText.slice(0, 200)
+        }`,
+      );
       throw new Error(`AI router failed with status ${routerRes.status}`);
     }
 
@@ -169,17 +202,24 @@ export async function explainWithEvidence(
 
     // ── Step C: Extract safe output fields ───────────────────────────────
     // Never return canonical_response unless debug + author
-    const rawAnswer: string = routerData.display_response ?? routerData.answer ?? "";
-    const showCanonical = args.debug && (accessLevel === "author" || accessLevel === "admin");
+    const rawAnswer: string = routerData.display_response ??
+      routerData.answer ?? "";
+    const showCanonical = args.debug &&
+      (accessLevel === "author" || accessLevel === "admin");
     const finalAnswer = showCanonical
       ? (routerData.canonical_response ?? rawAnswer)
       : rawAnswer;
 
-    const { text: answer_markdown, truncated } = redactAndCap(finalAnswer, MAX_ANSWER_CHARS);
+    const { text: answer_markdown, truncated } = redactAndCap(
+      finalAnswer,
+      MAX_ANSWER_CHARS,
+    );
 
     // Parse evidence manifest from router — use safe defaults if missing
     const sourceMap: Record<string, any> = routerData.source_map ?? {};
-    const citations = Object.entries(sourceMap).map(([badge, span]: [string, any]) => ({
+    const citations = Object.entries(sourceMap).map((
+      [badge, span]: [string, any],
+    ) => ({
       badge,
       path: span.path ?? "",
       start_line: span.start_line ?? 0,
@@ -215,7 +255,12 @@ export async function explainWithEvidence(
       status: "ok",
     });
 
-    return { answer_markdown, evidence_manifest: { citations, spans_used: spansUsed }, gate_outcome: gateOutcome, truncated };
+    return {
+      answer_markdown,
+      evidence_manifest: { citations, spans_used: spansUsed },
+      gate_outcome: gateOutcome,
+      truncated,
+    };
   } catch (err) {
     await writeMcpAudit(adminClient, {
       requestId,

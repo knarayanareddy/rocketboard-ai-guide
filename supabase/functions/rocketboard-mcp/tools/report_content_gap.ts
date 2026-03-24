@@ -15,7 +15,7 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -29,8 +29,14 @@ const DAILY_RATE_LIMIT = 10;
 
 export const ReportGapInputSchema = z.object({
   pack_id: z.string().uuid("pack_id must be a valid UUID"),
-  title: z.string().min(1).max(MAX_TITLE_LENGTH, `title must be ≤ ${MAX_TITLE_LENGTH} chars`),
-  description: z.string().min(1).max(MAX_DESC_LENGTH, `description must be ≤ ${MAX_DESC_LENGTH} chars`),
+  title: z.string().min(1).max(
+    MAX_TITLE_LENGTH,
+    `title must be ≤ ${MAX_TITLE_LENGTH} chars`,
+  ),
+  description: z.string().min(1).max(
+    MAX_DESC_LENGTH,
+    `description must be ≤ ${MAX_DESC_LENGTH} chars`,
+  ),
   file_path: z.string().max(MAX_PATH_LENGTH).optional(),
   symbol: z.string().max(MAX_SYMBOL_LENGTH).optional(),
   severity: z.enum(["low", "med", "high"]).default("low"),
@@ -57,7 +63,10 @@ async function checkDailyRateLimit(
 
     if (error) {
       // On error, allow the request (fail-open for rate limiting — not security critical)
-      console.warn("[MCP:report_gap] Rate limit check failed, allowing:", error.message);
+      console.warn(
+        "[MCP:report_gap] Rate limit check failed, allowing:",
+        error.message,
+      );
       return true;
     }
 
@@ -89,26 +98,32 @@ export async function reportContentGap(
       status: "error",
       errorCode: "rate_limited",
     });
-    throw Object.assign(new Error("Daily report limit reached (10/day per pack). Try again tomorrow."), {
-      code: "rate_limited",
-    });
+    throw Object.assign(
+      new Error(
+        "Daily report limit reached (10/day per pack). Try again tomorrow.",
+      ),
+      {
+        code: "rate_limited",
+      },
+    );
   }
 
   try {
-    const { error: insertError } = await adminClient.from("content_feedback").insert({
-      pack_id: args.pack_id,
-      user_id: userId,
-      feedback_type: "content_gap",
-      payload: {
-        title: args.title,
-        description: args.description,
-        file_path: args.file_path ?? null,
-        symbol: args.symbol ?? null,
-        severity: args.severity,
-        source: "mcp",
-        request_id: requestId,
-      },
-    });
+    const { error: insertError } = await adminClient.from("content_feedback")
+      .insert({
+        pack_id: args.pack_id,
+        user_id: userId,
+        feedback_type: "content_gap",
+        payload: {
+          title: args.title,
+          description: args.description,
+          file_path: args.file_path ?? null,
+          symbol: args.symbol ?? null,
+          severity: args.severity,
+          source: "mcp",
+          request_id: requestId,
+        },
+      });
 
     if (insertError) {
       console.error("[MCP:report_gap] Insert failed:", insertError.message);
@@ -127,7 +142,8 @@ export async function reportContentGap(
 
     return {
       reported: true,
-      message: "Content gap reported successfully. The pack owner will be notified.",
+      message:
+        "Content gap reported successfully. The pack owner will be notified.",
     };
   } catch (err) {
     if ((err as any).code === "rate_limited") throw err;

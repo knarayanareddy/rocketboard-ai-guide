@@ -13,7 +13,7 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "npm:@supabase/supabase-js@2.45.6";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -87,7 +87,9 @@ export async function getTechDocsIndex(
 export async function getTechDoc(
   args: GetTechDocInput,
   ctx: { userId: string; adminClient: SupabaseClient; requestId: string },
-): Promise<{ content: string; found: boolean; truncated: boolean; path: string }> {
+): Promise<
+  { content: string; found: boolean; truncated: boolean; path: string }
+> {
   const { userId, adminClient, requestId } = ctx;
   const argsHash = await hashArgs(args);
 
@@ -111,7 +113,12 @@ export async function getTechDoc(
         resultSummary: { found: false },
         status: "ok",
       });
-      return { content: `Document not found: ${validatedPath}. See index.`, found: false, truncated: false, path: validatedPath };
+      return {
+        content: `Document not found: ${validatedPath}. See index.`,
+        found: false,
+        truncated: false,
+        path: validatedPath,
+      };
     }
 
     // truncate if needed (though sync-pack-docs enforces limits normally, defense in depth)

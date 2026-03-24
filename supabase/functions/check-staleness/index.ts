@@ -1,35 +1,28 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const { userId } = await requireUser(req, corsHeaders);
+    const { pack_id } = await readJson(req, corsHeaders);
 
-    // Verify user
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader ?? "" } },
-    });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const { pack_id } = await req.json();
     if (!pack_id) {
-      return new Response(JSON.stringify({ error: "pack_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return jsonError(400, "bad_request", "pack_id required", {}, corsHeaders);
     }
 
-    const serviceClient = createClient(supabaseUrl, serviceKey);
+    const serviceClient = createServiceClient();
 
     // Get all content_freshness rows for this pack
     const { data: freshnessRows, error: fErr } = await serviceClient
@@ -39,7 +32,9 @@ serve(async (req) => {
 
     if (fErr) throw fErr;
     if (!freshnessRows || freshnessRows.length === 0) {
-      return new Response(JSON.stringify({ stale_count: 0, checked: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ stale_count: 0, checked: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Collect all referenced chunk IDs
@@ -55,7 +50,9 @@ serve(async (req) => {
       .eq("pack_id", pack_id)
       .in("chunk_id", Array.from(allChunkIds));
 
-    const currentHashes = new Map((chunks ?? []).map((c: any) => [c.chunk_id, c.content_hash]));
+    const currentHashes = new Map(
+      (chunks ?? []).map((c: any) => [c.chunk_id, c.content_hash]),
+    );
 
     let staleCount = 0;
     for (const row of freshnessRows) {
@@ -84,10 +81,12 @@ serve(async (req) => {
       }).eq("id", row.id);
     }
 
-    return new Response(JSON.stringify({ stale_count: staleCount, checked: freshnessRows.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(
+      200,
+      { stale_count: staleCount, checked: freshnessRows.length },
+      corsHeaders,
+    );
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

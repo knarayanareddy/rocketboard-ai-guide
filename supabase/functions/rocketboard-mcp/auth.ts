@@ -25,7 +25,10 @@ export interface AuthResult {
 
 export class McpAuthError extends Error {
   constructor(
-    public readonly code: "missing_token" | "invalid_token" | "pat_not_configured",
+    public readonly code:
+      | "missing_token"
+      | "invalid_token"
+      | "pat_not_configured",
     message: string,
   ) {
     super(message);
@@ -43,7 +46,10 @@ export async function authenticateRequest(req: Request): Promise<AuthResult> {
   const authHeader = req.headers.get("Authorization");
 
   if (!authHeader?.startsWith("Bearer ")) {
-    throw new McpAuthError("missing_token", "Authorization: Bearer <token> is required");
+    throw new McpAuthError(
+      "missing_token",
+      "Authorization: Bearer <token> is required",
+    );
   }
 
   const token = authHeader.slice("Bearer ".length).trim();
@@ -73,7 +79,10 @@ export async function authenticateRequest(req: Request): Promise<AuthResult> {
 
   if (error || !user) {
     // Log masked info only — never the token value
-    console.warn("[MCP:auth] JWT validation failed. Reason:", error?.message ?? "no user");
+    console.warn(
+      "[MCP:auth] JWT validation failed. Reason:",
+      error?.message ?? "no user",
+    );
     throw new McpAuthError("invalid_token", "Invalid or expired token");
   }
 
@@ -88,9 +97,10 @@ export async function authenticateRequest(req: Request): Promise<AuthResult> {
  * Converts a McpAuthError into a JSON Response with the appropriate HTTP status.
  */
 export function authErrorResponse(err: McpAuthError): Response {
-  const status = err.code === "missing_token" || err.code === "pat_not_configured"
-    ? 401
-    : 401;
+  const status =
+    err.code === "missing_token" || err.code === "pat_not_configured"
+      ? 401
+      : 401;
 
   return new Response(
     JSON.stringify({ error: "Unauthorized", detail: err.message }),

@@ -1,20 +1,22 @@
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
 import { Langfuse } from "npm:langfuse@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Local corsHeaders removed
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const payload = await req.json();
+    const payload = await readJson(req, corsHeaders);
     console.log("[sync-feedback] Received payload:", payload);
 
     // Supabase Webhooks send the row in payload.record
@@ -22,15 +24,14 @@ serve(async (req) => {
     const { trace_id, rating, feedback_text, category } = record;
 
     if (!trace_id) {
-      return new Response(JSON.stringify({ skipped: "No trace_id found in record" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(200, { skipped: "No trace_id found in record" }, corsHeaders);
     }
 
     const langfuse = new Langfuse({
       publicKey: Deno.env.get("LANGFUSE_PUBLIC_KEY")!,
       secretKey: Deno.env.get("LANGFUSE_SECRET_KEY")!,
-      baseUrl: Deno.env.get("LANGFUSE_BASE_URL") || "https://cloud.langfuse.com",
+      baseUrl: Deno.env.get("LANGFUSE_BASE_URL") ||
+        "https://cloud.langfuse.com",
     });
 
     // Map rating/category to numeric score if possible
@@ -38,7 +39,7 @@ serve(async (req) => {
     let scoreValue = 0;
     if (rating === "positive") scoreValue = 1;
     if (rating === "negative") scoreValue = -1;
-    
+
     // We can also emit a boolean score for "has-comment"
     if (feedback_text) {
       await langfuse.score({
@@ -58,14 +59,13 @@ serve(async (req) => {
 
     await langfuse.shutdownAsync();
 
-    return new Response(JSON.stringify({ success: true, trace_id, score: scoreValue }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
+    return json(
+      200,
+      { success: true, trace_id, score: scoreValue },
+      corsHeaders,
+    );
+  } catch (err: any) {
     console.error("[sync-feedback] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

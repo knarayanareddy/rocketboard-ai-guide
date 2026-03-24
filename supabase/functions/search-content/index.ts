@@ -1,113 +1,79 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.98.0";
 import { createTrace } from "../_shared/telemetry.ts";
-
-const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
-const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
-
-function getCorsHeaders(origin: string | null) {
-  const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-  
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
-  
-  return headers;
-}
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
 Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
   const startTime = Date.now();
-  const origin = req.headers.get("Origin");
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: getCorsHeaders(origin) });
-  }
 
-  let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
+  let trace = createTrace({ taskType: "startup", requestId: "unknown" }, {
+    enabled: false,
+  });
   let requestId = "unknown";
+
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
-      });
-    }
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
-      });
-    }
-    const userId = claimsData.claims.sub;
-    
-    // Phase 7: Late-bind userId to trace
-    trace.updateMetadata({ userId });
-
-    const body = await req.json();
+    // 2. Parse request
+    const body = await readJson(req, corsHeaders).catch(() => ({}));
     const { pack_id, query, filters, limit = 10 } = body;
 
-    requestId = body.request_id || body.trace_id || req.headers.get("x-request-id") || crypto.randomUUID();
+    requestId = body.request_id || body.trace_id ||
+      req.headers.get("x-request-id") || crypto.randomUUID();
     trace = createTrace({
-        taskType: "search-content",
-        requestId,
-        userId,
-        packId: pack_id,
-        serviceName: "retrieval",
+      taskType: "search-content",
+      requestId,
+      userId,
+      packId: pack_id,
+      serviceName: "retrieval",
     });
 
     if (!pack_id || !query || query.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: "pack_id and query are required", trace_id: requestId }),
-        { status: 400, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
-      );
+      return jsonError(400, "bad_request", "pack_id and query are required", {
+        trace_id: requestId,
+      }, corsHeaders);
     }
 
     const safeLimit = Math.min(Math.max(limit, 1), 25);
     const clampedQuery = query.trim().slice(0, 500);
 
     if (clampedQuery.length === 0) {
-      return new Response(
-        JSON.stringify({ modules: [], glossary: [], notes: [], chatHistory: [], sourceChunks: [] }),
-        { headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
-      );
+      return json(200, {
+        modules: [],
+        glossary: [],
+        notes: [],
+        chatHistory: [],
+        sourceChunks: [],
+      }, corsHeaders);
     }
 
-    const activeFilters = filters && filters.length > 0 ? filters : ["modules", "glossary", "notes", "chatHistory", "sourceChunks"];
+    const activeFilters = filters && filters.length > 0
+      ? filters
+      : ["modules", "glossary", "notes", "chatHistory", "sourceChunks"];
 
-    // Use service role for the FTS queries since we verify membership
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const serviceClient = createServiceClient();
+
+    // 3. Authorize pack access (Learner or higher)
+    const { org_id } = await requirePackRole(
+      serviceClient,
+      pack_id,
+      userId,
+      "learner",
+      corsHeaders,
     );
 
-    // Verify pack membership
-    const { data: membership } = await serviceClient
-      .from("pack_members")
-      .select("org_id")
-      .eq("pack_id", pack_id)
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (!membership) {
-      return new Response(JSON.stringify({ error: "Not a pack member" }), {
-        status: 403,
-        headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
-      });
-    }
-
-    const org_id = membership.org_id;
     const results: Record<string, unknown[]> = {
       modules: [],
       glossary: [],
@@ -128,10 +94,10 @@ Deno.serve(async (req) => {
             p_pack_id: pack_id,
             p_query_text: clampedQuery,
             p_query_embedding: null,
-            p_match_count: safeLimit
+            p_match_count: safeLimit,
           });
           rpcSpan.end({ count: data?.length || 0 });
-          
+
           if (data) {
             results.sourceChunks = data.map((r: any) => ({
               chunkId: r.id,
@@ -139,10 +105,10 @@ Deno.serve(async (req) => {
               snippet: makeSnippet(r.content, clampedQuery),
             }));
           }
-        })()
+        })(),
       );
     }
-
+    // ... other search logic remains same ...
     if (activeFilters.includes("modules")) {
       promises.push(
         (async () => {
@@ -160,7 +126,10 @@ Deno.serve(async (req) => {
               for (const sec of sections) {
                 const heading = sec.heading || "";
                 const md = sec.markdown || "";
-                if (heading.toLowerCase().includes(lowerQ) || md.toLowerCase().includes(lowerQ)) {
+                if (
+                  heading.toLowerCase().includes(lowerQ) ||
+                  md.toLowerCase().includes(lowerQ)
+                ) {
                   matched.push({
                     moduleKey: mod.module_key,
                     moduleTitle: mod.title,
@@ -172,14 +141,20 @@ Deno.serve(async (req) => {
                 }
               }
               // Also check title/description
-              if (mod.title?.toLowerCase().includes(lowerQ) || mod.description?.toLowerCase().includes(lowerQ)) {
+              if (
+                mod.title?.toLowerCase().includes(lowerQ) ||
+                mod.description?.toLowerCase().includes(lowerQ)
+              ) {
                 if (!matched.some((m: any) => m.moduleKey === mod.module_key)) {
                   matched.push({
                     moduleKey: mod.module_key,
                     moduleTitle: mod.title,
                     sectionId: null,
                     sectionHeading: null,
-                    snippet: makeSnippet(mod.description || mod.title, clampedQuery),
+                    snippet: makeSnippet(
+                      mod.description || mod.title,
+                      clampedQuery,
+                    ),
                   });
                 }
               }
@@ -187,7 +162,7 @@ Deno.serve(async (req) => {
             }
             results.modules = matched.slice(0, safeLimit);
           }
-        })()
+        })(),
       );
     }
 
@@ -207,7 +182,7 @@ Deno.serve(async (req) => {
               .filter(
                 (t: any) =>
                   (t.term || "").toLowerCase().includes(lowerQ) ||
-                  (t.definition || "").toLowerCase().includes(lowerQ)
+                  (t.definition || "").toLowerCase().includes(lowerQ),
               )
               .slice(0, safeLimit)
               .map((t: any) => ({
@@ -217,7 +192,7 @@ Deno.serve(async (req) => {
               }));
             results.glossary = matched;
           }
-        })()
+        })(),
       );
     }
 
@@ -229,7 +204,10 @@ Deno.serve(async (req) => {
             .select("module_id, section_id, content")
             .eq("user_id", userId)
             .eq("pack_id", pack_id)
-            .textSearch("content", clampedQuery, { type: "websearch", config: "simple" })
+            .textSearch("content", clampedQuery, {
+              type: "websearch",
+              config: "simple",
+            })
             .limit(safeLimit);
           if (data) {
             results.notes = data.map((r: any) => ({
@@ -238,7 +216,7 @@ Deno.serve(async (req) => {
               snippet: makeSnippet(r.content, clampedQuery),
             }));
           }
-        })()
+        })(),
       );
     }
 
@@ -250,7 +228,10 @@ Deno.serve(async (req) => {
             .select("module_id, content, role")
             .eq("user_id", userId)
             .eq("pack_id", pack_id)
-            .textSearch("content", clampedQuery, { type: "websearch", config: "simple" })
+            .textSearch("content", clampedQuery, {
+              type: "websearch",
+              config: "simple",
+            })
             .limit(safeLimit);
           if (data) {
             results.chatHistory = data.map((r: any) => ({
@@ -260,43 +241,29 @@ Deno.serve(async (req) => {
               snippet: makeSnippet(r.content, clampedQuery),
             }));
           }
-        })()
+        })(),
       );
     }
 
     await Promise.allSettled(promises);
 
-    // Phase 7: Rich Retrieval Diagnostics
-    const scores = (results.matches || []).map((m: any) => m.score || 0);
-    const top1Score = scores.length > 0 ? Math.max(...scores) : 0;
-    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-    const uniqueFiles = new Set((results.matches || []).map((m: any) => m.path)).size;
-
     const latency_ms = Date.now() - startTime;
-    
-    trace.updateMetadata({
-      top1_score: top1Score,
-      avg_score: avgScore,
-      unique_files_count: uniqueFiles,
-    });
-
     await trace.flush();
 
-    return new Response(JSON.stringify({ 
-        ...results,
-        trace_id: requestId,
-        latency_ms
-    }), {
-      headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    console.error("Search error:", err);
-    trace.setError((err as Error).message);
+    return json(200, {
+      ...results,
+      trace_id: requestId,
+      latency_ms,
+    }, corsHeaders);
+  } catch (error: any) {
+    if (error.response) return error.response;
+
+    console.error("Search error:", error);
+    trace.setError(error.message);
     await trace.flush();
-    return new Response(
-      JSON.stringify({ error: "Internal server error", trace_id: requestId }),
-      { status: 500, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } }
-    );
+    return jsonError(500, "internal_error", "Internal server error", {
+      trace_id: requestId,
+    }, corsHeaders);
   }
 });
 
@@ -305,7 +272,10 @@ function makeSnippet(text: string, query: string, contextChars = 80): string {
   const lower = text.toLowerCase();
   const qLower = query.toLowerCase().split(/\s+/)[0] || query.toLowerCase();
   const idx = lower.indexOf(qLower);
-  if (idx === -1) return text.slice(0, contextChars * 2) + (text.length > contextChars * 2 ? "…" : "");
+  if (idx === -1) {
+    return text.slice(0, contextChars * 2) +
+      (text.length > contextChars * 2 ? "…" : "");
+  }
   const start = Math.max(0, idx - contextChars);
   const end = Math.min(text.length, idx + qLower.length + contextChars);
   let snippet = text.slice(start, end);

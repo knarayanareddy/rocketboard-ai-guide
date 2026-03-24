@@ -23,8 +23,15 @@ export const TRUNCATION_MARKER = "\n…[TRUNCATED]…";
 export function redactAndCap(
   text: string,
   maxChars: number,
-): { text: string; redacted: boolean; truncated: boolean; secretsFound: number } {
-  if (!text) return { text: "", redacted: false, truncated: false, secretsFound: 0 };
+): {
+  text: string;
+  redacted: boolean;
+  truncated: boolean;
+  secretsFound: number;
+} {
+  if (!text) {
+    return { text: "", redacted: false, truncated: false, secretsFound: 0 };
+  }
 
   const result = redactText(text);
   const { redactedText, secretsFound } = result;
@@ -32,13 +39,24 @@ export function redactAndCap(
   const wasRedacted = secretsFound > 0;
 
   if (redactedText.length <= maxChars) {
-    return { text: redactedText, redacted: wasRedacted, truncated: false, secretsFound };
+    return {
+      text: redactedText,
+      redacted: wasRedacted,
+      truncated: false,
+      secretsFound,
+    };
   }
 
   // Hard cap: truncate at maxChars (leaving room for the marker)
   const cutAt = maxChars - TRUNCATION_MARKER.length;
-  const truncated = redactedText.slice(0, Math.max(0, cutAt)) + TRUNCATION_MARKER;
-  return { text: truncated, redacted: wasRedacted, truncated: true, secretsFound };
+  const truncated = redactedText.slice(0, Math.max(0, cutAt)) +
+    TRUNCATION_MARKER;
+  return {
+    text: truncated,
+    redacted: wasRedacted,
+    truncated: true,
+    secretsFound,
+  };
 }
 
 /**
@@ -84,5 +102,9 @@ export function stitchAndRedact(
   const sorted = [...chunks].sort((a, b) => a.line_start - b.line_start);
   const combined = sorted.map((c) => c.content).join("\n");
   const result = redactAndCap(combined, maxChars);
-  return { text: result.text, truncated: result.truncated, secretsFound: result.secretsFound };
+  return {
+    text: result.text,
+    truncated: result.truncated,
+    secretsFound: result.secretsFound,
+  };
 }

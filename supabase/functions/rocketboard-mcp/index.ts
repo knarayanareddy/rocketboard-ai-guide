@@ -24,46 +24,94 @@
  */
 
 import { Hono } from "hono";
-import { createClient } from "@supabase/supabase-js";
 import { McpServer } from "@supabase/mcp-utils";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { z } from "zod";
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
-import { authenticateRequest, McpAuthError, authErrorResponse } from "./auth.ts";
-import { checkPackAccess, McpAccessError, accessErrorResponse } from "./policy.ts";
-import { writeMcpAudit, hashArgs, auditError } from "./audit.ts";
+import {
+  authenticateRequest,
+  authErrorResponse,
+  McpAuthError,
+} from "./auth.ts";
+import {
+  accessErrorResponse,
+  checkPackAccess,
+  McpAccessError,
+} from "./policy.ts";
+import { auditError, hashArgs, writeMcpAudit } from "./audit.ts";
 
 // ── Tool handlers ─────────────────────────────────────────────────────────────
-import { ListMyPacksInputSchema, listMyPacks } from "./tools/list_my_packs.ts";
-import { SearchInputSchema, searchKnowledgeBase } from "./tools/search_knowledge_base.ts";
-import { ExplainInputSchema, explainWithEvidence } from "./tools/explain_with_evidence.ts";
-import { GetPackConventionsInputSchema, getPackConventions } from "./tools/get_pack_conventions.ts";
-import { GetTechDocsIndexInputSchema, GetTechDocInputSchema, getTechDocsIndex, getTechDoc } from "./tools/get_tech_docs.ts";
-import { ReportGapInputSchema, reportContentGap } from "./tools/report_content_gap.ts";
-import { ListPackSourcesInputSchema, listPackSources } from "./tools/list_pack_sources.ts";
-import { FindReferencesInputSchema, findReferences } from "./tools/find_references.ts";
+import { listMyPacks, ListMyPacksInputSchema } from "./tools/list_my_packs.ts";
+import {
+  SearchInputSchema,
+  searchKnowledgeBase,
+} from "./tools/search_knowledge_base.ts";
+import {
+  ExplainInputSchema,
+  explainWithEvidence,
+} from "./tools/explain_with_evidence.ts";
+import {
+  getPackConventions,
+  GetPackConventionsInputSchema,
+} from "./tools/get_pack_conventions.ts";
+import {
+  getTechDoc,
+  GetTechDocInputSchema,
+  getTechDocsIndex,
+  GetTechDocsIndexInputSchema,
+} from "./tools/get_tech_docs.ts";
+import {
+  reportContentGap,
+  ReportGapInputSchema,
+} from "./tools/report_content_gap.ts";
+import {
+  listPackSources,
+  ListPackSourcesInputSchema,
+} from "./tools/list_pack_sources.ts";
+import {
+  findReferences,
+  FindReferencesInputSchema,
+} from "./tools/find_references.ts";
 
 // ── Resource schemas (resource tools) ────────────────────────────────────────
-import { GetResourcePackAgentsInputSchema, GetResourceTechDocsIndexInputSchema, GetResourceTechDocInputSchema } from "./resources/pack_resources.ts";
+import {
+  GetResourcePackAgentsInputSchema,
+  GetResourceTechDocInputSchema,
+  GetResourceTechDocsIndexInputSchema,
+} from "./resources/pack_resources.ts";
 
 // ─── Environment + config ─────────────────────────────────────────────────────
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RATE_LIMIT_PER_MIN = parseInt(Deno.env.get("MCP_RATE_LIMIT_PER_MIN") ?? "60", 10);
-const EXPLAIN_RATE_LIMIT_PER_MIN = parseInt(Deno.env.get("MCP_EXPLAIN_RATE_LIMIT_PER_MIN") ?? "20", 10);
+const RATE_LIMIT_PER_MIN = parseInt(
+  Deno.env.get("MCP_RATE_LIMIT_PER_MIN") ?? "60",
+  10,
+);
+const EXPLAIN_RATE_LIMIT_PER_MIN = parseInt(
+  Deno.env.get("MCP_EXPLAIN_RATE_LIMIT_PER_MIN") ?? "20",
+  10,
+);
 
 // ─── In-memory rate limiter ───────────────────────────────────────────────────
 // Map: userId => { [toolBucket]: { count, resetAt } }
 
-const rateLimitStore = new Map<string, Record<string, { count: number; resetAt: number }>>();
+const rateLimitStore = new Map<
+  string,
+  Record<string, { count: number; resetAt: number }>
+>();
 
 /**
  * Checks rate limit for a user+bucket.
  * Returns true if allowed, false if rate-limited.
  */
-function checkRateLimit(userId: string, bucket: string, maxPerMin: number): boolean {
+function checkRateLimit(
+  userId: string,
+  bucket: string,
+  maxPerMin: number,
+): boolean {
   const now = Date.now();
   let userMap = rateLimitStore.get(userId);
   if (!userMap) {
@@ -84,27 +132,96 @@ function checkRateLimit(userId: string, bucket: string, maxPerMin: number): bool
 // ─── Supabase admin client (singleton) ───────────────────────────────────────
 
 function getAdminClient() {
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false },
-  });
+  return createServiceClient();
 }
 
 // ─── Tool registry (for /registry self-check) ─────────────────────────────────
 
 const TOOL_REGISTRY = [
-  { name: "list_my_packs",          policy: "read-only",  pack_required: false, rate_limit: RATE_LIMIT_PER_MIN },
-  { name: "search_knowledge_base",  policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
-  { name: "explain_with_evidence",  policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: EXPLAIN_RATE_LIMIT_PER_MIN },
-  { name: "get_pack_conventions",   policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
-  { name: "get_tech_docs_index",    policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
-  { name: "get_tech_doc",           policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
-  { name: "report_content_gap",     policy: "mutating",   pack_required: true,  access_level: "learner", rate_limit: "10/day/user/pack" },
-  { name: "list_pack_sources",      policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
-  { name: "find_references",       policy: "read-only",  pack_required: true,  access_level: "learner", rate_limit: RATE_LIMIT_PER_MIN },
+  {
+    name: "list_my_packs",
+    policy: "read-only",
+    pack_required: false,
+    rate_limit: RATE_LIMIT_PER_MIN,
+  },
+  {
+    name: "search_knowledge_base",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: RATE_LIMIT_PER_MIN,
+  },
+  {
+    name: "explain_with_evidence",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: EXPLAIN_RATE_LIMIT_PER_MIN,
+  },
+  {
+    name: "get_pack_conventions",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: RATE_LIMIT_PER_MIN,
+  },
+  {
+    name: "get_tech_docs_index",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: RATE_LIMIT_PER_MIN,
+  },
+  {
+    name: "get_tech_doc",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: RATE_LIMIT_PER_MIN,
+  },
+  {
+    name: "report_content_gap",
+    policy: "mutating",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: "10/day/user/pack",
+  },
+  {
+    name: "list_pack_sources",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: RATE_LIMIT_PER_MIN,
+  },
+  {
+    name: "find_references",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    rate_limit: RATE_LIMIT_PER_MIN,
+  },
   // Resource tools
-  { name: "get_resource_pack_agents",       policy: "read-only", pack_required: true, access_level: "learner", resource_uri: "rocketboard://pack/<id>/agents" },
-  { name: "get_resource_techdocs_index",    policy: "read-only", pack_required: true, access_level: "learner", resource_uri: "rocketboard://pack/<id>/techdocs/index" },
-  { name: "get_resource_techdoc",           policy: "read-only", pack_required: true, access_level: "learner", resource_uri: "rocketboard://pack/<id>/techdocs/<name>" },
+  {
+    name: "get_resource_pack_agents",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    resource_uri: "rocketboard://pack/<id>/agents",
+  },
+  {
+    name: "get_resource_techdocs_index",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    resource_uri: "rocketboard://pack/<id>/techdocs/index",
+  },
+  {
+    name: "get_resource_techdoc",
+    policy: "read-only",
+    pack_required: true,
+    access_level: "learner",
+    resource_uri: "rocketboard://pack/<id>/techdocs/<name>",
+  },
 ];
 
 // ─── MCP Server Setup ─────────────────────────────────────────────────────────
@@ -149,7 +266,9 @@ async function withToolContext<TArgs>(
       args,
       errorCode: "rate_limited",
     });
-    throw Object.assign(new Error("Too many requests. Try again later."), { code: "rate_limited" });
+    throw Object.assign(new Error("Too many requests. Try again later."), {
+      code: "rate_limited",
+    });
   }
 
   // 3. Pack access check
@@ -177,7 +296,9 @@ mcpServer.tool(
   "List all packs the authenticated user is a member of.",
   ListMyPacksInputSchema.shape,
   async (args, { request }) => {
-    const ctx = await withToolContext(args, request, { toolName: "list_my_packs" });
+    const ctx = await withToolContext(args, request, {
+      toolName: "list_my_packs",
+    });
     const result = await listMyPacks(args, ctx);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
@@ -418,7 +539,8 @@ mcpApp.get("/registry", (c) => {
     server: "rocketboard-mcp",
     version: "1.0.0",
     tools: TOOL_REGISTRY,
-    note: "policy=read-only tools do not mutate data; policy=mutating tools write to pack-scoped tables only",
+    note:
+      "policy=read-only tools do not mutate data; policy=mutating tools write to pack-scoped tables only",
   });
 });
 
@@ -428,7 +550,8 @@ mcpApp.options("/mcp", (c) => {
     status: 204,
     headers: {
       "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, Mcp-Session-Id",
+      "Access-Control-Allow-Headers":
+        "Content-Type, Authorization, Mcp-Session-Id",
     },
   });
 });
@@ -454,7 +577,11 @@ app.onError((err, c) => {
   if (err instanceof McpAccessError) return accessErrorResponse(err);
 
   if (code === "rate_limited") {
-    return c.json({ error: "Too many requests", code: "rate_limited", message: err.message }, 429);
+    return c.json({
+      error: "Too many requests",
+      code: "rate_limited",
+      message: err.message,
+    }, 429);
   }
 
   // Zod validation errors

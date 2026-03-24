@@ -1,18 +1,29 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
-import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import {
+  checkPackChunkCap,
+  getRunCap,
+  validateIngestion,
+} from "../_shared/ingestion-guards.ts";
 import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
 // Local sha256 removed
 
-async function pagerDutyAPI(apiKey: string, endpoint: string, params: Record<string, any> = {}) {
+async function pagerDutyAPI(
+  apiKey: string,
+  endpoint: string,
+  params: Record<string, any> = {},
+) {
   const url = new URL(`https://api.pagerduty.com${endpoint}`);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined) url.searchParams.set(k, String(v));
@@ -31,54 +42,102 @@ async function pagerDutyAPI(apiKey: string, endpoint: string, params: Record<str
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const { pack_id, source_id, source_config } = await req.json();
+    const body = await readJson(req, corsHeaders);
+    const { pack_id, source_id, source_config } = body;
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+    if (!pack_id || !source_id || !source_config) {
+      return jsonError(
+        400,
+        "bad_request",
+        "Missing required fields (pack_id, source_id, source_config)",
+        {},
+        corsHeaders,
+      );
+    }
 
-    let {
-      api_key,
+    const {
+      api_key: config_api_key,
       service_ids = [],
       include_services = true,
       include_oncall = true,
       include_incidents = true,
       fetch_runbooks = false,
-    } = source_config || {};
+    } = source_config;
+
+    const serviceClient = createServiceClient();
+    const supabase = serviceClient;
+
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Authorize pack access (Author or higher)
+    await requirePackRole(
+      serviceClient,
+      pack_id,
+      userId,
+      "author",
+      corsHeaders,
+    );
+
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+
+    let api_key = config_api_key;
 
     // 1. Fetch api_key from Vault if missing
     if (!api_key) {
-      api_key = await getSourceCredential(supabase, source_id, 'api_key');
+      api_key = await getSourceCredential(supabase, source_id, "api_key");
     }
 
     if (!api_key) {
-      return new Response(JSON.stringify({ error: "Missing PagerDuty API key" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(
+        400,
+        "bad_request",
+        "Missing PagerDuty API key",
+        {},
+        corsHeaders,
+      );
     }
 
     // 1. Check Ingestion Guards (Cooldown, Concurrency)
     const guard = await validateIngestion(supabase, pack_id, source_id);
     if (!guard.success) {
-      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
-        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(
+        guard.status || 403,
+        "ingestion_restricted",
+        guard.error || "Ingestion restricted",
+        { next_allowed_at: guard.next_allowed_at },
+        corsHeaders,
+      );
     }
 
     // 2. Check Pack-level Chunk Cap
     const cap = await checkPackChunkCap(supabase, pack_id);
     if (!cap.success) {
-      return new Response(JSON.stringify({ error: cap.error }), {
-        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(
+        cap.status || 403,
+        "cap_exceeded",
+        cap.error || "Chunk cap exceeded",
+        {},
+        corsHeaders,
+      );
     }
 
-    const { data: job, error: jobErr } = await supabase.from("ingestion_jobs")
-      .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
+    const { data: job, error: jobErr } = await serviceClient.from(
+      "ingestion_jobs",
+    )
+      .insert({
+        pack_id,
+        source_id,
+        status: "processing",
+        started_at: new Date().toISOString(),
+      })
       .select().single();
     if (jobErr) throw jobErr;
     const jobId = job.id;
@@ -88,9 +147,11 @@ Deno.serve(async (req) => {
 
     if (include_services) {
       // Fetch services
-      const servicesResp = await pagerDutyAPI(api_key, "/services", { limit: 100 });
+      const servicesResp = await pagerDutyAPI(api_key, "/services", {
+        limit: 100,
+      });
       let services = servicesResp.services || [];
-      
+
       // Filter by service_ids if provided
       if (service_ids.length > 0) {
         services = services.filter((s: any) => service_ids.includes(s.id));
@@ -100,58 +161,78 @@ Deno.serve(async (req) => {
         chunkIdx++;
         // Check per-run cap
         if (chunkIdx > getRunCap()) {
-          throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+          throw new Error(
+            `Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`,
+          );
         }
         let content = `# Service: ${service.name}\n\n`;
         content += `**ID**: ${service.id}\n`;
         content += `**Status**: ${service.status}\n`;
-        if (service.description) content += `**Description**: ${service.description}\n`;
+        if (service.description) {
+          content += `**Description**: ${service.description}\n`;
+        }
         content += "\n";
 
         // Escalation policy
         if (service.escalation_policy) {
           content += `## Escalation Policy\n\n`;
-          content += `**Policy**: ${service.escalation_policy.summary || service.escalation_policy.name || "Unknown"}\n`;
+          content += `**Policy**: ${
+            service.escalation_policy.summary ||
+            service.escalation_policy.name || "Unknown"
+          }\n`;
         }
 
         // Integrations
         if (service.integrations?.length) {
           content += `\n## Integrations\n\n`;
           for (const int of service.integrations) {
-            content += `- ${int.summary || int.type || "Unknown integration"}\n`;
+            content += `- ${
+              int.summary || int.type || "Unknown integration"
+            }\n`;
           }
         }
 
         // Runbook URL
         if (service.auto_resolve_timeout) {
-          content += `\nAuto-resolve timeout: ${service.auto_resolve_timeout / 60} minutes\n`;
+          content += `\nAuto-resolve timeout: ${
+            service.auto_resolve_timeout / 60
+          } minutes\n`;
         }
 
         // Runbook notes (fetched from Notes API when fetch_runbooks is enabled)
         if (fetch_runbooks) {
           try {
-            const notesResp = await pagerDutyAPI(api_key, `/services/${service.id}/notes`);
+            const notesResp = await pagerDutyAPI(
+              api_key,
+              `/services/${service.id}/notes`,
+            );
             const notes = notesResp.notes || [];
             const runbookNotes = notes.filter((note: any) => {
               const text = note.content || "";
-              return text.includes("http") || text.includes("runbook") || text.includes("playbook") ||
-                     text.includes("steps") || text.includes("procedure");
+              return text.includes("http") || text.includes("runbook") ||
+                text.includes("playbook") ||
+                text.includes("steps") || text.includes("procedure");
             });
             if (runbookNotes.length > 0) {
               content += `\n## Runbook Notes\n\n`;
               for (const note of runbookNotes.slice(0, 10)) {
                 const author = note.user?.summary || "Unknown";
-                const created = note.created_at ? new Date(note.created_at).toLocaleDateString() : "";
+                const created = note.created_at
+                  ? new Date(note.created_at).toLocaleDateString()
+                  : "";
                 content += `**${author}** (${created}):\n${note.content}\n\n`;
               }
             }
           } catch (err) {
-            console.error(`[PagerDuty] Failed to fetch notes for service ${service.id}:`, err);
+            console.error(
+              `[PagerDuty] Failed to fetch notes for service ${service.id}:`,
+              err,
+            );
           }
         }
 
         const assessment = assessChunkRedaction(content);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `pagerduty:${service.name}/overview`,
@@ -171,7 +252,7 @@ Deno.serve(async (req) => {
               secretsFound: assessment.metrics.secretsFound,
               matchedPatterns: assessment.metrics.matchedPatterns,
               redactionRatio: assessment.metrics.redactionRatio,
-            }
+            },
           },
         });
       }
@@ -180,8 +261,14 @@ Deno.serve(async (req) => {
     if (include_oncall) {
       // Fetch escalation policies and on-call schedules
       try {
-        const policiesResp = await pagerDutyAPI(api_key, "/escalation_policies", { limit: 50 });
-        const oncallsResp = await pagerDutyAPI(api_key, "/oncalls", { limit: 100 });
+        const policiesResp = await pagerDutyAPI(
+          api_key,
+          "/escalation_policies",
+          { limit: 50 },
+        );
+        const oncallsResp = await pagerDutyAPI(api_key, "/oncalls", {
+          limit: 100,
+        });
 
         chunkIdx++;
         let content = `# On-Call Structure\n\n`;
@@ -194,8 +281,12 @@ Deno.serve(async (req) => {
           content += `Escalation rules:\n`;
           for (let i = 0; i < (policy.escalation_rules || []).length; i++) {
             const rule = policy.escalation_rules[i];
-            const targets = (rule.targets || []).map((t: any) => t.summary || t.type).join(", ");
-            content += `${i + 1}. After ${rule.escalation_delay_in_minutes} min → ${targets}\n`;
+            const targets = (rule.targets || []).map((t: any) =>
+              t.summary || t.type
+            ).join(", ");
+            content += `${
+              i + 1
+            }. After ${rule.escalation_delay_in_minutes} min → ${targets}\n`;
           }
           content += "\n";
         }
@@ -216,7 +307,7 @@ Deno.serve(async (req) => {
         }
 
         const assessment = assessChunkRedaction(content);
-        const hash = await sha256(assessment.contentToStore);
+        const hash = await computeContentHash(assessment.contentToStore);
         chunks.push({
           chunk_id: `C${String(chunkIdx).padStart(5, "0")}`,
           path: `pagerduty:oncall/structure`,
@@ -233,8 +324,8 @@ Deno.serve(async (req) => {
               secretsFound: assessment.metrics.secretsFound,
               matchedPatterns: assessment.metrics.matchedPatterns,
               redactionRatio: assessment.metrics.redactionRatio,
-            }
-          }
+            },
+          },
         });
       } catch (err) {
         console.error("Failed to fetch on-call data:", err);
@@ -244,7 +335,8 @@ Deno.serve(async (req) => {
     if (include_incidents) {
       // Fetch recent incidents for pattern analysis
       try {
-        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          .toISOString();
         const incidentsResp = await pagerDutyAPI(api_key, "/incidents", {
           since,
           limit: 100,
@@ -266,7 +358,8 @@ Deno.serve(async (req) => {
           for (const inc of incidents) {
             const serviceName = inc.service?.summary || "Unknown";
             byService[serviceName] = (byService[serviceName] || 0) + 1;
-            byUrgency[inc.urgency || "unknown"] = (byUrgency[inc.urgency || "unknown"] || 0) + 1;
+            byUrgency[inc.urgency || "unknown"] =
+              (byUrgency[inc.urgency || "unknown"] || 0) + 1;
 
             if (inc.created_at && inc.resolved_at) {
               const created = new Date(inc.created_at).getTime();
@@ -277,7 +370,9 @@ Deno.serve(async (req) => {
           }
 
           content += `## By Service\n\n`;
-          const sortedServices = Object.entries(byService).sort((a, b) => b[1] - a[1]);
+          const sortedServices = Object.entries(byService).sort((a, b) =>
+            b[1] - a[1]
+          );
           for (const [service, count] of sortedServices.slice(0, 10)) {
             content += `- **${service}**: ${count} incidents\n`;
           }
@@ -289,7 +384,8 @@ Deno.serve(async (req) => {
 
           if (resolvedCount > 0) {
             const avgResolveTime = Math.round(totalResolveTime / resolvedCount);
-            content += `\n**Average resolution time**: ${avgResolveTime} minutes\n`;
+            content +=
+              `\n**Average resolution time**: ${avgResolveTime} minutes\n`;
           }
 
           const assessment = assessChunkRedaction(content);
@@ -312,7 +408,7 @@ Deno.serve(async (req) => {
                 secretsFound: assessment.metrics.secretsFound,
                 matchedPatterns: assessment.metrics.matchedPatterns,
                 redactionRatio: assessment.metrics.redactionRatio,
-              }
+              },
             },
           });
         }
@@ -327,34 +423,47 @@ Deno.serve(async (req) => {
       pack_id,
       source_id,
       chunks,
-      openAIApiKey
+      openAIApiKey,
     );
 
-    await supabase.from("ingestion_jobs").update({ total_chunks: chunks.length }).eq("id", jobId);
+    await serviceClient.from("ingestion_jobs").update({
+      total_chunks: chunks.length,
+    }).eq("id", jobId);
 
     for (let i = 0; i < chunks.length; i += 100) {
-      await supabase.from("knowledge_chunks").upsert(chunks.slice(i, i + 100), { onConflict: "pack_id,chunk_id" });
+      await serviceClient.from("knowledge_chunks").upsert(
+        chunks.slice(i, i + 100),
+        { onConflict: "pack_id,chunk_id" },
+      );
     }
 
-    await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
-    await supabase.from("ingestion_jobs").update({
+    await serviceClient.from("pack_sources").update({
+      last_synced_at: new Date().toISOString(),
+    }).eq("id", source_id);
+    await serviceClient.from("ingestion_jobs").update({
       status: "completed",
       processed_chunks: chunks.length,
       completed_at: new Date().toISOString(),
       metadata: {
         total_chunks: chunks.length,
         embeddings_reused_count: reusedCount,
-        embeddings_generated_count: generatedCount
-      }
+        embeddings_generated_count: generatedCount,
+      },
     }).eq("id", jobId);
 
-    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: chunks.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(
+      200,
+      { success: true, job_id: jobId, chunks: chunks.length },
+      corsHeaders,
+    );
   } catch (err) {
     console.error("PagerDuty ingestion error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(
+      500,
+      "internal_error",
+      (err as Error).message,
+      {},
+      corsHeaders,
+    );
   }
 });

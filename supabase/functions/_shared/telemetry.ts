@@ -1,6 +1,6 @@
 /**
  * _shared/telemetry.ts
- * 
+ *
  * Shared Langfuse telemetry wrapper for all Supabase Edge Functions.
  * Provides structured tracing for AI tasks with domain-specific metadata.
  *
@@ -29,7 +29,7 @@ export interface GenerationMetrics {
   latencyMs: number;
   costUsd?: number;
   groundingScore?: number; // Phase 6: RAG Observability
-  attempts?: number;       // Phase 6: Agentic Review tracking
+  attempts?: number; // Phase 6: Agentic Review tracking
   stripRate?: number;
   claimsTotal?: number;
   claimsStripped?: number;
@@ -89,8 +89,9 @@ async function getLangfuseClient() {
     _langfuseClient = new Langfuse({
       secretKey: Deno.env.get("LANGFUSE_SECRET_KEY")!,
       publicKey: Deno.env.get("LANGFUSE_PUBLIC_KEY")!,
-      baseUrl: Deno.env.get("LANGFUSE_BASE_URL") || "https://cloud.langfuse.com",
-      flushAt: 10,      // Relaxed flushing (critical for edge functions)
+      baseUrl: Deno.env.get("LANGFUSE_BASE_URL") ||
+        "https://cloud.langfuse.com",
+      flushAt: 10, // Relaxed flushing (critical for edge functions)
       flushInterval: 0, // No batching delay
     });
     return _langfuseClient;
@@ -110,11 +111,12 @@ const COST_PER_1K_TOKENS: Record<string, { input: number; output: number }> = {
 export function calculateCost(
   model: string,
   inputTokens: number,
-  outputTokens: number
+  outputTokens: number,
 ): number {
   const rates = COST_PER_1K_TOKENS[model];
   if (!rates) return 0;
-  return (inputTokens / 1000) * rates.input + (outputTokens / 1000) * rates.output;
+  return (inputTokens / 1000) * rates.input +
+    (outputTokens / 1000) * rates.output;
 }
 
 /** Strategic sampling helper */
@@ -124,7 +126,10 @@ export function shouldTrace(forceEnable = false): boolean {
   return Math.random() < rate;
 }
 
-export function createTrace(metadata: TraceMetadata, options?: { enabled?: boolean }): TraceBuilder {
+export function createTrace(
+  metadata: TraceMetadata,
+  options?: { enabled?: boolean },
+): TraceBuilder {
   return new TraceBuilder(metadata, options?.enabled ?? true);
 }
 
@@ -158,13 +163,17 @@ export class TraceBuilder {
 
   /** Start a span and return a handle to end it later */
   startSpan(name: string, input?: Record<string, unknown>): SpanHandle {
-    if (!this.enabled) return new SpanHandle({ name, startTime: Date.now() }, false);
+    if (!this.enabled) {
+      return new SpanHandle({ name, startTime: Date.now() }, false);
+    }
     const event: SpanEvent = { name, startTime: Date.now(), input };
     this.data.spans.push(event);
     return new SpanHandle(event, true);
   }
 
-  setGeneration(metrics: GenerationMetrics & { input?: unknown; output?: unknown }): this {
+  setGeneration(
+    metrics: GenerationMetrics & { input?: unknown; output?: unknown },
+  ): this {
     if (!this.enabled) return this;
     this.data.generation = metrics;
     return this;
@@ -223,13 +232,13 @@ export class TraceBuilder {
         spanCount: this.data.spans.length,
         generation: this.data.generation
           ? {
-              model: this.data.generation.model,
-              inputTokens: this.data.generation.inputTokens,
-              outputTokens: this.data.generation.outputTokens,
-              latencyMs: this.data.generation.latencyMs,
-              groundingScore: this.data.generation.groundingScore,
-              attempts: this.data.generation.attempts,
-            }
+            model: this.data.generation.model,
+            inputTokens: this.data.generation.inputTokens,
+            outputTokens: this.data.generation.outputTokens,
+            latencyMs: this.data.generation.latencyMs,
+            groundingScore: this.data.generation.groundingScore,
+            attempts: this.data.generation.attempts,
+          }
           : null,
         error: this.data.errorMessage || null,
       }));
@@ -238,8 +247,9 @@ export class TraceBuilder {
 
     try {
       // Use service-specific name if provided, otherwise default to ai-task-router
-      const serviceName = (this.data.metadata.serviceName as string) || "ai-task-router";
-      
+      const serviceName = (this.data.metadata.serviceName as string) ||
+        "ai-task-router";
+
       const trace = langfuse.trace({
         id: this.data.traceId,
         name: `${serviceName}/${this.data.metadata.taskType}`,
@@ -251,7 +261,9 @@ export class TraceBuilder {
         tags: [
           this.data.metadata.taskType,
           this.data.metadata.environment || "production",
-          ...(this.data.metadata.packId ? [`pack:${this.data.metadata.packId}`] : []),
+          ...(this.data.metadata.packId
+            ? [`pack:${this.data.metadata.packId}`]
+            : []),
         ],
       });
 
@@ -273,12 +285,16 @@ export class TraceBuilder {
       if (this.data.generation) {
         const gen = this.data.generation;
         const enableRaw = Deno.env.get("ENABLE_RAW_TELEMETRY") === "true";
-        
+
         trace.generation({
           name: "llm-call",
           model: gen.model,
-          input: enableRaw ? gen.input : "[redacted: ENABLE_RAW_TELEMETRY not true]",
-          output: enableRaw ? gen.output : "[redacted: ENABLE_RAW_TELEMETRY not true]",
+          input: enableRaw
+            ? gen.input
+            : "[redacted: ENABLE_RAW_TELEMETRY not true]",
+          output: enableRaw
+            ? gen.output
+            : "[redacted: ENABLE_RAW_TELEMETRY not true]",
           // Accurate model timing: end of trace minus model latency
           startTime: new Date(this.data.endTime! - gen.latencyMs),
           endTime: new Date(this.data.endTime!),
@@ -346,11 +362,16 @@ export class SpanHandle {
     this.enabled = enabled;
   }
 
-  end(output?: Record<string, unknown>, metadata?: Record<string, unknown>): void {
+  end(
+    output?: Record<string, unknown>,
+    metadata?: Record<string, unknown>,
+  ): void {
     if (!this.enabled) return;
     this.event.endTime = Date.now();
     if (output) this.event.output = output;
-    if (metadata) this.event.metadata = { ...(this.event.metadata || {}), ...metadata };
+    if (metadata) {
+      this.event.metadata = { ...(this.event.metadata || {}), ...metadata };
+    }
   }
 
   error(message: string): void {

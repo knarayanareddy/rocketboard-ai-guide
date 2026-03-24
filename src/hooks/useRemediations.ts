@@ -42,7 +42,7 @@ export function useRemediations(packId: string | null) {
   });
 
   const resolveRemediation = useMutation({
-    mutationFn: async ({ id, status, updated_content }: { id: string, status: "accepted" | "rejected", module_key: string, section_id: string, updated_content?: string }) => {
+    mutationFn: async ({ id, status, updated_content, module_key, section_id }: { id: string, status: "accepted" | "rejected", module_key: string, section_id: string, updated_content?: string }) => {
       // 1. Mark remediation as resolved
       const { error: rrErr } = await (supabase
         .from("module_remediations" as any)
@@ -54,14 +54,12 @@ export function useRemediations(packId: string | null) {
       // 2. If accepted, update the actual module section content and mark section as no longer stale
       if (status === "accepted" && updated_content) {
         // Fetch module
-        const { id: _, module_key, section_id, ...rest } = Object.assign({}, arguments[0]); 
-        
         // This requires a custom edges/rpc or doing it on client. For simplicity, we fetch it, modify it, then update it.
-        const { data: mod } = await supabase.from("generated_modules").select("id, module_data").eq("pack_id", packId).eq("module_key", arguments[0].module_key).single();
+        const { data: mod } = await supabase.from("generated_modules").select("id, module_data").eq("pack_id", packId).eq("module_key", module_key).single();
         if (mod && mod.module_data) {
           const modData: any = mod.module_data;
           if (modData.sections) {
-            const secIdx = modData.sections.findIndex((s: any) => s.id === arguments[0].section_id);
+            const secIdx = modData.sections.findIndex((s: any) => s.id === section_id);
             if (secIdx >= 0) {
               modData.sections[secIdx].content = updated_content;
               const { error: upErr } = await supabase.from("generated_modules").update({ module_data: modData }).eq("id", mod.id);
@@ -71,7 +69,7 @@ export function useRemediations(packId: string | null) {
         }
 
         // 3. Unmark staleness in content_freshness
-        await supabase.from("content_freshness").update({ is_stale: false }).eq("pack_id", packId).eq("module_key", arguments[0].module_key).eq("section_id", arguments[0].section_id);
+        await supabase.from("content_freshness").update({ is_stale: false }).eq("pack_id", packId).eq("module_key", module_key).eq("section_id", section_id);
       }
     },
     onSuccess: () => {

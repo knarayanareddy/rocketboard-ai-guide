@@ -1,17 +1,17 @@
 /**
  * grounding-gate.ts
- * 
+ *
  * Implements strict "Grounding SLO Gate" logic.
  * Responses must meet minimum grounding criteria or the router must retry/refuse.
  */
 
 export type GroundingAttemptMetrics = {
-  grounding_score?: number;               // computed if not provided
+  grounding_score?: number; // computed if not provided
   strip_rate: number;
   claims_total: number;
   claims_stripped: number;
   citations_found: number;
-  citations_verified?: number;            // count of valid unique badges
+  citations_verified?: number; // count of valid unique badges
   snippets_resolved: number;
   evidence_count: number;
   source_map?: any[];
@@ -30,29 +30,45 @@ export type GroundingPolicy = {
 export type GroundingDecision = {
   ok: boolean;
   should_retry: boolean;
-  reason_code: "ok" | "low_grounding" | "high_strip_rate" | "no_citations" | "no_evidence" | "too_many_unverified" | "policy_refuse";
-  user_message?: string;                 // only for refuse
+  reason_code:
+    | "ok"
+    | "low_grounding"
+    | "high_strip_rate"
+    | "no_citations"
+    | "no_evidence"
+    | "too_many_unverified"
+    | "policy_refuse";
+  user_message?: string; // only for refuse
 };
 
 /**
  * Deterministically computes a grounding score from metrics.
  * Range: 0.0 to 1.0
  */
-export function computeGroundingScore(metrics: GroundingAttemptMetrics, policy: GroundingPolicy): number {
+export function computeGroundingScore(
+  metrics: GroundingAttemptMetrics,
+  policy: GroundingPolicy,
+): number {
   if (metrics.grounding_score !== undefined) return metrics.grounding_score;
-  
+
   let base = 1.0;
-  
+
   // 1. Strip rate penalty (heavy)
   base -= Math.min(1, metrics.strip_rate * 1.5);
-  
+
   // 2. Missing citations penalty
-  const citationShortfall = Math.max(0, policy.min_citations - metrics.citations_found);
+  const citationShortfall = Math.max(
+    0,
+    policy.min_citations - metrics.citations_found,
+  );
   base -= Math.min(1, citationShortfall * 0.2);
-  
+
   // 3. No snippets if evidence is code
-  if (metrics.evidence_count > 0 && metrics.snippets_resolved === 0 && metrics.claims_total > 5) {
-      base -= 0.3;
+  if (
+    metrics.evidence_count > 0 && metrics.snippets_resolved === 0 &&
+    metrics.claims_total > 5
+  ) {
+    base -= 0.3;
   }
 
   return Math.max(0, Math.min(1, base));
@@ -62,12 +78,14 @@ export function computeGroundingScore(metrics: GroundingAttemptMetrics, policy: 
  * Core gate evaluation logic.
  */
 export function evaluateGroundingGate(
-  metrics: GroundingAttemptMetrics, 
+  metrics: GroundingAttemptMetrics,
   policy: GroundingPolicy,
   attempt: number,
-  maxAttempts: number
+  maxAttempts: number,
 ): GroundingDecision {
-  if (policy.mode === "off") return { ok: true, should_retry: false, reason_code: "ok" };
+  if (policy.mode === "off") {
+    return { ok: true, should_retry: false, reason_code: "ok" };
+  }
 
   // A. No evidence is an automatic refusal
   if (metrics.evidence_count === 0) {
@@ -75,7 +93,8 @@ export function evaluateGroundingGate(
       ok: false,
       should_retry: false,
       reason_code: "no_evidence",
-      user_message: "I couldn't find any relevant code or documentation to provide a grounded answer. Please ensure your sources are indexed."
+      user_message:
+        "I couldn't find any relevant code or documentation to provide a grounded answer. Please ensure your sources are indexed.",
     };
   }
 
@@ -97,11 +116,15 @@ export function evaluateGroundingGate(
     failedReason = "low_grounding";
   }
 
-  if (!failedReason) return { ok: true, should_retry: false, reason_code: "ok" };
+  if (!failedReason) {
+    return { ok: true, should_retry: false, reason_code: "ok" };
+  }
 
   // Decide if we should retry or refuse
-  const canRetry = (policy.mode === "retry_then_refuse" || policy.mode === "retry_only") && attempt < maxAttempts;
-  
+  const canRetry =
+    (policy.mode === "retry_then_refuse" || policy.mode === "retry_only") &&
+    attempt < maxAttempts;
+
   if (canRetry) {
     return { ok: false, should_retry: true, reason_code: failedReason };
   } else {
@@ -110,7 +133,7 @@ export function evaluateGroundingGate(
       ok: false,
       should_retry: false,
       reason_code: failedReason,
-      user_message: "Insufficient evidence to provide a confident answer."
+      user_message: "Insufficient evidence to provide a confident answer.",
     };
   }
 }
@@ -118,19 +141,25 @@ export function evaluateGroundingGate(
 /**
  * Gets the Grounding Retry Directive prompt enhancement.
  */
-export function getRetryDirective(reason: GroundingDecision["reason_code"]): string {
+export function getRetryDirective(
+  reason: GroundingDecision["reason_code"],
+): string {
   const base = "\n\n[STRICT GROUNDING RETRY DIRECTIVE]:\n";
   const rules = [
     "- You MUST cite every technical claim with [SOURCE: filepath:start-end].",
     "- If you cannot cite a claim, do NOT make it. Say 'I don't know based on current sources'.",
     "- Prefer fewer claims/shorter response if it means 100% grounding.",
-    "- Ensure every [SNIPPET] has a matching [SOURCE] citation within 300 characters above it."
+    "- Ensure every [SNIPPET] has a matching [SOURCE] citation within 300 characters above it.",
   ];
 
   if (reason === "no_citations") {
-    rules.push("- Your previous response lacked citations. You MUST provide at least 1-2 citations.");
+    rules.push(
+      "- Your previous response lacked citations. You MUST provide at least 1-2 citations.",
+    );
   } else if (reason === "high_strip_rate") {
-    rules.push("- Your previous response had too many hallucinated or unverified claims which were stripped.");
+    rules.push(
+      "- Your previous response had too many hallucinated or unverified claims which were stripped.",
+    );
   }
 
   return base + rules.join("\n") + "\n\nPLEASE RE-GENERATE.";

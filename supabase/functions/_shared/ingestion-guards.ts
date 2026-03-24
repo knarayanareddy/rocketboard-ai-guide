@@ -1,4 +1,4 @@
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 
 export interface GuardResult {
   success: boolean;
@@ -11,11 +11,15 @@ export interface GuardResult {
 export async function validateIngestion(
   supabase: SupabaseClient,
   pack_id: string,
-  source_id: string
+  source_id: string,
 ): Promise<GuardResult> {
-  const cooldownSeconds = parseInt(Deno.env.get("INGEST_SOURCE_COOLDOWN_SECONDS") || "3600");
+  const cooldownSeconds = parseInt(
+    Deno.env.get("INGEST_SOURCE_COOLDOWN_SECONDS") || "3600",
+  );
   const serializePack = Deno.env.get("INGEST_PACK_SERIALIZE") !== "false";
-  const staleProcessingSeconds = parseInt(Deno.env.get("INGESTION_STALE_PROCESSING_SECONDS") || "300");
+  const staleProcessingSeconds = parseInt(
+    Deno.env.get("INGESTION_STALE_PROCESSING_SECONDS") || "300",
+  );
 
   // 1. Check for 'processing' jobs (Concurrency)
   const { data: activeJobs, error: activeErr } = await supabase
@@ -30,7 +34,8 @@ export async function validateIngestion(
     .filter((job) => {
       const referenceTime = job.last_heartbeat_at || job.started_at;
       if (!referenceTime) return false;
-      return Date.now() - new Date(referenceTime).getTime() > staleProcessingSeconds * 1000;
+      return Date.now() - new Date(referenceTime).getTime() >
+        staleProcessingSeconds * 1000;
     })
     .map((job) => job.id);
 
@@ -47,7 +52,9 @@ export async function validateIngestion(
     if (staleErr) throw staleErr;
   }
 
-  const blockingJobs = (activeJobs || []).filter((job) => !staleJobIds.includes(job.id));
+  const blockingJobs = (activeJobs || []).filter((job) =>
+    !staleJobIds.includes(job.id)
+  );
 
   if (blockingJobs.length > 0) {
     if (serializePack) {
@@ -57,7 +64,7 @@ export async function validateIngestion(
         error: "Another ingestion is already in progress for this pack.",
       };
     }
-    if (blockingJobs.some(j => j.source_id === source_id)) {
+    if (blockingJobs.some((j) => j.source_id === source_id)) {
       return {
         success: false,
         status: 409,
@@ -87,11 +94,13 @@ export async function validateIngestion(
       const elapsed = (now - lastCompleted) / 1000;
 
       if (elapsed < cooldownSeconds) {
-        const nextAllowed = new Date(lastCompleted + cooldownSeconds * 1000).toISOString();
+        const nextAllowed = new Date(lastCompleted + cooldownSeconds * 1000)
+          .toISOString();
         return {
           success: false,
           status: 429,
-          error: "Cooldown active. Please wait before re-ingesting this source.",
+          error:
+            "Cooldown active. Please wait before re-ingesting this source.",
           next_allowed_at: nextAllowed,
         };
       }
@@ -104,20 +113,23 @@ export async function validateIngestion(
 export async function updateHeartbeat(
   supabase: SupabaseClient,
   jobId: string,
-  data: Record<string, number | string | null> = {}
+  data: Record<string, number | string | null> = {},
 ): Promise<string | null> {
   const { data: updatedJob, error } = await supabase
     .from("ingestion_jobs")
-    .update({ 
+    .update({
       last_heartbeat_at: new Date().toISOString(),
-      ...data
+      ...data,
     })
     .eq("id", jobId)
     .select("status")
     .maybeSingle();
-  
+
   if (error) {
-    console.error(`[HEARTBEAT ERROR] Failed to update heartbeat for job ${jobId}:`, error);
+    console.error(
+      `[HEARTBEAT ERROR] Failed to update heartbeat for job ${jobId}:`,
+      error,
+    );
   }
 
   return updatedJob?.status || null;
@@ -125,7 +137,7 @@ export async function updateHeartbeat(
 
 export async function checkPackChunkCap(
   supabase: SupabaseClient,
-  pack_id: string
+  pack_id: string,
 ): Promise<GuardResult> {
   const maxChunks = parseInt(Deno.env.get("MAX_CHUNKS_PER_PACK") || "50000");
 
@@ -140,7 +152,8 @@ export async function checkPackChunkCap(
     return {
       success: false,
       status: 413,
-      error: `Storage cap exceeded. Pack has reached the maximum limit of ${maxChunks} chunks.`,
+      error:
+        `Storage cap exceeded. Pack has reached the maximum limit of ${maxChunks} chunks.`,
     };
   }
 

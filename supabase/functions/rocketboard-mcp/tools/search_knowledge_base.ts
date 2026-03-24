@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 import { redactAndCap } from "../redaction.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -24,7 +24,10 @@ const MAX_TOTAL_OUTPUT_CHARS = 20_000;
 
 export const SearchInputSchema = z.object({
   pack_id: z.string().uuid("pack_id must be a valid UUID"),
-  query: z.string().min(1).max(MAX_QUERY_LENGTH, `query must be ≤ ${MAX_QUERY_LENGTH} chars`),
+  query: z.string().min(1).max(
+    MAX_QUERY_LENGTH,
+    `query must be ≤ ${MAX_QUERY_LENGTH} chars`,
+  ),
   max_spans: z.number().int().min(1).max(MAX_SPANS).default(10),
   module_key: z.string().max(100).optional(),
   track_key: z.string().max(100).optional(),
@@ -93,7 +96,9 @@ export async function searchKnowledgeBase(
     adminClient: SupabaseClient;
     requestId: string;
   },
-): Promise<{ spans: EvidenceSpanPreview[]; total: number; truncated: boolean }> {
+): Promise<
+  { spans: EvidenceSpanPreview[]; total: number; truncated: boolean }
+> {
   const { userId, adminClient, requestId } = ctx;
   const argsHash = await hashArgs(args);
 
@@ -114,18 +119,25 @@ export async function searchKnowledgeBase(
     // Generate embedding (falls back to keyword-only on failure)
     const embedding = await generateEmbedding(clampedQuery);
     if (!embedding) {
-      console.warn(`[MCP:search] Embedding failed, using keyword-only for pack=${args.pack_id.slice(0, 8)}…`);
+      console.warn(
+        `[MCP:search] Embedding failed, using keyword-only for pack=${
+          args.pack_id.slice(0, 8)
+        }…`,
+      );
     }
 
-    const { data: chunks, error: rpcError } = await adminClient.rpc("hybrid_search_v2", {
-      p_org_id: pack.org_id,
-      p_pack_id: args.pack_id,
-      p_query_text: clampedQuery,
-      p_query_embedding: embedding,
-      p_match_count: clampedMaxSpans,
-      p_module_key: args.module_key ?? null,
-      p_track_key: args.track_key ?? null,
-    });
+    const { data: chunks, error: rpcError } = await adminClient.rpc(
+      "hybrid_search_v2",
+      {
+        p_org_id: pack.org_id,
+        p_pack_id: args.pack_id,
+        p_query_text: clampedQuery,
+        p_query_embedding: embedding,
+        p_match_count: clampedMaxSpans,
+        p_module_key: args.module_key ?? null,
+        p_track_key: args.track_key ?? null,
+      },
+    );
 
     if (rpcError) {
       console.error(`[MCP:search] hybrid_search_v2 error:`, rpcError.message);
@@ -171,7 +183,11 @@ export async function searchKnowledgeBase(
       packId: args.pack_id,
       toolName: "search_knowledge_base",
       argsHash,
-      resultSummary: { spans_returned: spans.length, total_chars: totalChars, truncated },
+      resultSummary: {
+        spans_returned: spans.length,
+        total_chars: totalChars,
+        truncated,
+      },
       status: "ok",
     });
 

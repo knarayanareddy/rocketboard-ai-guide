@@ -1,15 +1,19 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Local corsHeaders removed
 
-serve(async (req: any) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -17,23 +21,25 @@ serve(async (req: any) => {
     const cronToken = Deno.env.get("CRON_AUTH_TOKEN");
 
     // Auth check: service_role or CRON_AUTH_TOKEN
-    const isAuthorized = 
-      authHeader === `Bearer ${serviceKey}` || 
+    const isAuthorized = authHeader === `Bearer ${serviceKey}` ||
       (cronToken && authHeader === `Bearer ${cronToken}`);
 
     if (!isAuthorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+      return jsonError(
+        401,
+        "unauthorized",
+        "Invalid credentials",
+        {},
+        corsHeaders,
+      );
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      serviceKey ?? ""
-    );
+    const supabase = createServiceClient();
 
-    const { pack_id, day_from, day_to, dry_run = false } = await req.json().catch(() => ({}));
+    const { pack_id, day_from, day_to, dry_run = false } = await readJson(
+      req,
+      corsHeaders,
+    ).catch(() => ({}));
 
     // Default range: yesterday and today
     const now = new Date();
@@ -43,7 +49,11 @@ serve(async (req: any) => {
     const from = day_from || yesterday.toISOString().split("T")[0];
     const to = day_to || now.toISOString().split("T")[0];
 
-    console.log(`[rollup-v1] Aggregating from ${from} to ${to} ${pack_id ? `for pack ${pack_id}` : 'for all packs'}`);
+    console.log(
+      `[rollup-v1] Aggregating from ${from} to ${to} ${
+        pack_id ? `for pack ${pack_id}` : "for all packs"
+      }`,
+    );
 
     if (dry_run) {
       // In dry_run, we just select the aggregates to log them
@@ -56,16 +66,14 @@ serve(async (req: any) => {
         `)
         .gte("created_at", from)
         .lte("created_at", to + "T23:59:59");
-      
-      return new Response(JSON.stringify({ dry_run: true, data, error }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+
+      return json(200, { dry_run: true, data, error }, corsHeaders);
     }
 
     // Perform idempotent rollup via RPC
     const { error } = await supabase.rpc("rollup_pack_quality_aggregates", {
       p_day_from: from,
-      p_day_to: to
+      p_day_to: to,
     });
 
     if (error) {
@@ -73,18 +81,13 @@ serve(async (req: any) => {
       throw error;
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return json(200, {
+      success: true,
       range: { from, to },
-      processed_at: new Date().toISOString()
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      processed_at: new Date().toISOString(),
+    }, corsHeaders);
   } catch (err: any) {
     console.error("[rollup-v1] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

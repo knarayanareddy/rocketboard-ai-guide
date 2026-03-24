@@ -1,125 +1,88 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
-const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
-
-function getCorsHeaders(origin: string | null) {
-  const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Vary": "Origin",
-  };
-  
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
-  
-  return headers;
-}
+import { json, jsonError } from "../_shared/http.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
 // Simple in-memory rate limiting (max 30 requests per minute per user)
-const rateLimits = new Map<string, { count: number, resetAt: number }>();
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
   let limit = rateLimits.get(userId);
-  
+
   if (!limit || now > limit.resetAt) {
     limit = { count: 0, resetAt: now + 60000 };
     rateLimits.set(userId, limit);
   }
-  
-  limit.count++;
-  if (limit.count > 30) {
-    return false; // Rate limited
-  }
-  return true;
-}
 
-// Generate minimal UUID for logging
-function generateTraceId() {
-  return crypto.randomUUID();
+  limit.count++;
+  return limit.count <= 30;
 }
 
 Deno.serve(async (req) => {
-  const origin = req.headers.get("Origin");
-  const corsHeaders = getCorsHeaders(origin);
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
 
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const traceId = generateTraceId();
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const traceId = crypto.randomUUID();
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized: Missing or invalid token" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Rate limit check
+    if (!checkRateLimit(userId)) {
+      console.warn(`[${traceId}] Rate limit exceeded for user: ${userId}`);
+      return jsonError(429, "rate_limit_exceeded", "Rate limit exceeded", {
+        trace_id: traceId,
+      }, corsHeaders);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // 3. Fetch packs using service role for security
+    const admin = createServiceClient();
 
-    // Authenticate user via JWT
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      console.warn(`[${traceId}] Failed auth check.`);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!checkRateLimit(user.id)) {
-      console.warn(`[${traceId}] Rate limit exceeded for user: ${user.id}`);
-      return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Use service role to bypass RLS and explicitly join pack_members
-    const admin = createClient(supabaseUrl, supabaseServiceKey);
-    
     // Explicitly query packs INNER JOIN pack_members for security
     // Only return non-sensitive fields
     const { data: packs, error: dbError } = await admin.from("packs")
-      .select("id, title, description, org_id, updated_at, pack_members!inner(access_level, user_id)")
-      .eq("pack_members.user_id", user.id)
+      .select(
+        "id, title, description, org_id, updated_at, pack_members!inner(access_level, user_id)",
+      )
+      .eq("pack_members.user_id", userId)
       .order("title", { ascending: true });
 
     if (dbError) {
       console.error(`[${traceId}] DB Error:`, dbError.message);
-      return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(500, "internal_error", "Internal Server Error", {
+        trace_id: traceId,
+      }, corsHeaders);
     }
 
     // Map to a cleaner minimal structure for the extension
-    const mappedPacks = (packs || []).map(p => ({
+    const mappedPacks = (packs || []).map((p) => ({
       pack_id: p.id,
       title: p.title,
       description: p.description,
       org_id: p.org_id,
-      access_level: p.pack_members?.[0]?.access_level || 'unknown',
-      updated_at: p.updated_at
+      access_level: (p as any).pack_members?.[0]?.access_level || "unknown",
+      updated_at: p.updated_at,
     }));
 
-    console.log(`[${traceId}] User ${user.id} fetched ${mappedPacks.length} packs.`);
+    console.log(
+      `[${traceId}] User ${userId} fetched ${mappedPacks.length} packs.`,
+    );
 
-    return new Response(JSON.stringify({ packs: mappedPacks }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(200, { packs: mappedPacks }, corsHeaders);
+  } catch (error: any) {
+    if (error.response) return error.response;
 
-  } catch (err: any) {
-    console.error(`[${traceId}] Unexpected error:`, err.message);
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error(`[${traceId}] Unexpected error:`, error.message);
+    return jsonError(500, "internal_error", "Internal Server Error", {
+      trace_id: traceId,
+    }, corsHeaders);
   }
 });

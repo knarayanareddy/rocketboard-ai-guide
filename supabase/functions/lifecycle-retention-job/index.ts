@@ -1,40 +1,51 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Local corsHeaders removed
 
-serve(async (req: any) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const supabase = createServiceClient();
 
     const authHeader = req.headers.get("Authorization");
     const cronToken = Deno.env.get("CRON_AUTH_TOKEN");
-    
+
     if (authHeader !== `Bearer ${cronToken}`) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+      return jsonError(
+        401,
+        "unauthorized",
+        "Invalid cron token",
+        {},
+        corsHeaders,
+      );
     }
 
-    const { pack_id, dry_run = false, day_override } = await req.json().catch(() => ({}));
+    const { pack_id, dry_run = false, day_override } = await readJson(
+      req,
+      corsHeaders,
+    ).catch(() => ({}));
 
-    console.log(`[lifecycle-retention] Starting job... ${dry_run ? '(DRY RUN)' : ''}`);
+    console.log(
+      `[lifecycle-retention] Starting job... ${dry_run ? "(DRY RUN)" : ""}`,
+    );
 
     // 1. Get all packs and their policies
-    let query = supabase.from("packs").select("id, organization_id, pack_lifecycle_policies(*)");
+    let query = supabase.from("packs").select(
+      "id, organization_id, pack_lifecycle_policies(*)",
+    );
     if (pack_id) query = query.eq("id", pack_id);
-    
+
     const { data: packs, error: packsErr } = await query;
     if (packsErr) throw packsErr;
 
@@ -44,28 +55,41 @@ serve(async (req: any) => {
       const policy = pack.pack_lifecycle_policies || {
         retention_rag_metrics_days: 90,
         retention_ingestion_jobs_days: 90,
-        legal_hold: false
+        retention_audit_days: 90,
+        legal_hold: false,
       };
 
       if (policy.legal_hold) {
-        console.log(`[lifecycle-retention] Pack ${pack.id} is under Legal Hold. Skipping deletion.`);
+        console.log(
+          `[lifecycle-retention] Pack ${pack.id} is under Legal Hold. Skipping deletion.`,
+        );
         await supabase.from("lifecycle_audit_events").insert({
           pack_id: pack.id,
           action: "retention_cleanup",
           target_type: "table",
           parameters: { legal_hold: true, dry_run },
-          rows_deleted: { rag_metrics: 0, ingestion_jobs: 0, ai_audit_events: 0 },
-          status: "completed"
+          rows_deleted: {
+            rag_metrics: 0,
+            ingestion_jobs: 0,
+            ai_audit_events: 0,
+          },
+          status: "completed",
         });
         continue;
       }
 
-      const rowsDeleted: any = { rag_metrics: 0, ingestion_jobs: 0, ai_audit_events: 0 };
+      const rowsDeleted: any = {
+        rag_metrics: 0,
+        ingestion_jobs: 0,
+        ai_audit_events: 0,
+      };
       const now = day_override ? new Date(day_override) : new Date();
 
       // Table: rag_metrics
       const metricsLimitDate = new Date(now);
-      metricsLimitDate.setDate(metricsLimitDate.getDate() - (policy.retention_rag_metrics_days || 90));
+      metricsLimitDate.setDate(
+        metricsLimitDate.getDate() - (policy.retention_rag_metrics_days || 90),
+      );
 
       if (dry_run) {
         const { count } = await supabase.from("rag_metrics")
@@ -82,16 +106,18 @@ serve(async (req: any) => {
             .eq("pack_id", pack.id)
             .lt("created_at", metricsLimitDate.toISOString())
             .limit(1000); // 1k per batch
-          
+
           if (error) throw error;
-          rowsDeleted.rag_metrics += (count || 0);
+          rowsDeleted.rag_metrics += count || 0;
           hasMore = (count || 0) === 1000;
         }
       }
 
       // Table: ingestion_jobs
       const jobsLimitDate = new Date(now);
-      jobsLimitDate.setDate(jobsLimitDate.getDate() - (policy.retention_ingestion_jobs_days || 90));
+      jobsLimitDate.setDate(
+        jobsLimitDate.getDate() - (policy.retention_ingestion_jobs_days || 90),
+      );
 
       if (dry_run) {
         const { count } = await supabase.from("ingestion_jobs")
@@ -107,16 +133,18 @@ serve(async (req: any) => {
             .eq("pack_id", pack.id)
             .lt("started_at", jobsLimitDate.toISOString())
             .limit(1000);
-          
+
           if (error) throw error;
-          rowsDeleted.ingestion_jobs += (count || 0);
+          rowsDeleted.ingestion_jobs += count || 0;
           hasMore = (count || 0) === 1000;
         }
       }
 
       // Table: ai_audit_events
       const auditLimitDate = new Date(now);
-      auditLimitDate.setDate(auditLimitDate.getDate() - (policy.retention_audit_days || 90));
+      auditLimitDate.setDate(
+        auditLimitDate.getDate() - (policy.retention_audit_days || 90),
+      );
 
       if (dry_run) {
         const { count } = await supabase.from("ai_audit_events")
@@ -132,9 +160,9 @@ serve(async (req: any) => {
             .eq("pack_id", pack.id)
             .lt("created_at", auditLimitDate.toISOString())
             .limit(1000);
-          
+
           if (error) throw error;
-          rowsDeleted.ai_audit_events += (count || 0);
+          rowsDeleted.ai_audit_events += count || 0;
           hasMore = (count || 0) === 1000;
         }
       }
@@ -146,21 +174,15 @@ serve(async (req: any) => {
         target_type: "table",
         parameters: { dry_run, day_reference: now.toISOString() },
         rows_deleted: rowsDeleted,
-        status: "completed"
+        status: "completed",
       });
 
       summary.push({ pack_id: pack.id, rows_deleted: rowsDeleted });
     }
 
-    return new Response(JSON.stringify({ success: true, dry_run, summary }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    return json(200, { success: true, dry_run, summary }, corsHeaders);
   } catch (err: any) {
     console.error("[lifecycle-retention] Fatal Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });
