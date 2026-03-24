@@ -7,9 +7,6 @@ import { batchRerankWithLLM } from "./reranker.ts";
 import { verifyGroundedness, verifyClaims } from "./verifier.ts";
 import { canonicalizeCitations } from "./utils/citation-mapper.ts";
 import { resolveSnippets } from "./utils/snippet-resolver.ts";
-import { redactText as sharedRedactText } from "../_shared/secret-patterns.ts";
-import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
-import { runDetectiveRetrieval } from "./detective-retrieval.ts";
 import { 
   evaluateGroundingGate, 
   computeGroundingScore, 
@@ -20,6 +17,11 @@ import type {
   GroundingPolicy, 
   GroundingDecision 
 } from "./grounding-gate.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { safeFetch } from "../_shared/external-url-policy.ts";
+
+const ALLOWED_ORIGINS = parseAllowedOrigins();
 
 /**
  * Structural Code Enforcement: Block unauthorized repo code fences.
@@ -50,12 +52,7 @@ export interface EvidenceSpan {
 }
 
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
+// TODO: Replace in-memory rate limiting with a shared durable store (Redis/PostgreSQL) for cross-instance quotas.
 // ─── RATE LIMITING ───
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_MAX = 30;
@@ -197,14 +194,14 @@ GROUNDING RULES (STRICT NO-HALLUCINATION CONTRACT):
 `;
 
 // ─── HELPERS ───
-function errorResponse(status: number, body: object) {
+function errorResponse(status: number, body: object, headers: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...headers, "Content-Type": "application/json" },
   });
 }
 
-function structuredError(requestId: string, errorCode: string, message: string, extra?: { suggested_search_queries?: string[]; warnings?: string[] }) {
+function structuredError(requestId: string, errorCode: string, message: string, headers: Record<string, string>, extra?: { suggested_search_queries?: string[]; warnings?: string[] }) {
   return jsonResponse({
     type: "error",
     request_id: requestId,
@@ -212,17 +209,17 @@ function structuredError(requestId: string, errorCode: string, message: string, 
     message,
     suggested_search_queries: extra?.suggested_search_queries || [],
     warnings: extra?.warnings || [],
-  });
+  }, headers);
 }
 
-function jsonResponse(body: object) {
+function jsonResponse(body: object, headers: Record<string, string>) {
   return new Response(JSON.stringify(body), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...headers, "Content-Type": "application/json" },
   });
 }
 
-function unsupportedTask(requestId: string, taskType: string) {
-  return structuredError(requestId, "unsupported_task", `Task type '${taskType}' not yet implemented`);
+function unsupportedTask(requestId: string, taskType: string, headers: Record<string, string>) {
+  return structuredError(requestId, "unsupported_task", `Task type '${taskType}' not yet implemented`, headers);
 }
 
 function buildSpansBlock(spans: any[]): string {
@@ -416,11 +413,21 @@ async function callAI(systemPrompt: string, userPrompt: string, trace?: TraceBui
       };
     }
 
-    const validatedEndpoint = parseAndValidateExternalUrl(activeConfig.endpoint, {
-      allowAnyHost: true, // Many providers allowed
+    const llmPolicy = {
+      allowedHostSuffixes: [
+        "openai.com",
+        "anthropic.com",
+        "google.com",
+        "googleapis.com", // For Google Vertex/Gemini
+        "mistral.ai",
+        "cohere.ai",
+        "groq.com",
+        "perplexity.ai"
+      ],
       disallowPrivateIPs: true,
       allowHttps: true,
-    });
+    };
+    const validatedEndpoint = parseAndValidateExternalUrl(activeConfig.endpoint, llmPolicy);
 
     response = await fetch(validatedEndpoint, {
       method: "POST",
@@ -611,26 +618,21 @@ async function callWithAgenticReview(
   };
 }
 
-
-// ─── JWT AUTH ───
-async function authenticateRequest(req: Request): Promise<{ userId: string } | Response> {
+// ─── JWT AUTHENTICATION ───
+async function authenticateRequest(req: Request, headers: Record<string, string>): Promise<{ userId: string } | Response> {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return errorResponse(401, { error: "Unauthorized: missing Bearer token" });
+  if (!authHeader) {
+    return errorResponse(401, { error: "Unauthorized: missing Bearer token" }, headers);
   }
-
+  const token = authHeader.replace("Bearer ", "");
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
+    Deno.env.get("SUPABASE_ANON_KEY")!
   );
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-
+  const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) {
-    return errorResponse(401, { error: "Unauthorized: invalid token" });
+    return errorResponse(401, { error: "Unauthorized: invalid token" }, headers);
   }
-
   return { userId: user.id };
 }
 
@@ -641,30 +643,39 @@ const AUTHOR_TASKS = new Set([
   "generate_exercises",
 ]);
 
-async function checkPackAccess(userId: string, envelope: any): Promise<Response | null> {
+async function checkPackAccess(userId: string, envelope: any, headers: Record<string, string>): Promise<Response | null> {
   const packId = envelope.pack?.pack_id;
   const taskType = envelope.task?.type;
   const requestId = envelope.task?.request_id || "unknown";
 
   if (!packId) return null; // Some tasks may not need a pack
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-  const minLevel = AUTHOR_TASKS.has(taskType) ? "author" : "learner";
-  const { data, error } = await supabase.rpc("has_pack_access", {
-    _user_id: userId,
-    _pack_id: packId,
-    _min_level: minLevel,
-  });
+    const minLevel = AUTHOR_TASKS.has(taskType) ? "author" : "learner";
+    const { data: hasAccess, error } = await supabase.rpc("has_pack_access", {
+      _user_id: userId,
+      _pack_id: packId,
+      _min_level: minLevel,
+    });
 
-  if (error || !data) {
-    return structuredError(requestId, "invalid_input", "Not authorized for this pack.");
+    if (error) {
+      console.error("[checkPackAccess] Supabase RPC error:", error);
+      return structuredError(requestId, "authz_error", "Failed to verify pack access due to database error.", headers);
+    }
+
+    if (!hasAccess) {
+      return structuredError(requestId, "pack_access_denied", "You do not have permission to access this onboarding pack.", headers);
+    }
+    return null;
+  } catch (e: any) {
+    console.error("[checkPackAccess] error:", e);
+    return structuredError(requestId, "authz_error", "Failed to verify pack access.", headers);
   }
-
-  return null;
 }
 
 async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
@@ -824,7 +835,7 @@ async function recordAiAudit(trace: TraceBuilder, envelope: any, responseMarkdow
 }
 
 // ─── ENVELOPE PREPROCESSOR (sanitization + redaction) ───
-function preprocessEnvelope(envelope: any): { envelope: any; warnings: string[] } | Response {
+function preprocessEnvelope(envelope: any, headers: Record<string, string>): { envelope: any; warnings: string[] } | Response {
   const warnings: string[] = [];
 
   // Sanitize inputs (graceful truncation)
@@ -834,7 +845,7 @@ function preprocessEnvelope(envelope: any): { envelope: any; warnings: string[] 
   } catch (e: any) {
     if (e.hard_error) {
       const requestId = envelope.task?.request_id || "unknown";
-      return structuredError(requestId, e.code || "invalid_input", e.message);
+      return structuredError(requestId, e.code || "invalid_input", e.message, headers);
     }
     throw e;
   }
@@ -886,7 +897,7 @@ async function buildSectionIndex(packId: string, moduleKey: string | null, maxEn
 
 
 // ─── CHAT HANDLER ───
-async function handleChat(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleChat(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -1001,7 +1012,6 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
         const { verifiedText, claims_total, claims_stripped, strip_rate } = await verifyClaims(codeCleaned, evidenceSpans);
         const { finalMarkdown, snippets_resolved } = resolveSnippets(verifiedText, evidenceSpans);
         const { display_response, source_map, canonical_response } = canonicalizeCitations(finalMarkdown, evidenceSpans);
-        
         parsed.display_response = display_response;
         parsed.source_map = source_map;
         parsed.canonical_response = canonical_response;
@@ -1024,15 +1034,15 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
     if (extraWarnings.length) {
       parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
     }
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
     console.error("[handleChat] error:", e);
-    return errorResponse(e.status || 500, { error: e.message || "Internal server error" });
+    return errorResponse(e.status || 500, { error: e.message || "Internal server error" }, headers);
   }
 }
 
 // ─── GLOBAL CHAT HANDLER (Mission Control) ───
-async function handleGlobalChat(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleGlobalChat(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -1163,7 +1173,6 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
         const { verifiedText, claims_total, claims_stripped, strip_rate } = await verifyClaims(codeCleaned, evidenceSpans);
         const { finalMarkdown, snippets_resolved } = resolveSnippets(verifiedText, evidenceSpans);
         const { display_response, source_map, canonical_response } = canonicalizeCitations(finalMarkdown, evidenceSpans);
-        
         parsed.display_response = display_response;
         parsed.source_map = source_map;
         parsed.canonical_response = canonical_response;
@@ -1186,15 +1195,15 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
     if (extraWarnings.length) {
       parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
     }
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
     console.error("[handleGlobalChat] error:", e);
-    return errorResponse(e.status || 500, { error: e.message || "Internal server error" });
+    return errorResponse(e.status || 500, { error: e.message || "Internal server error" }, headers);
   }
 }
 
 // ─── MODULE PLANNER HANDLER ───
-async function handleModulePlanner(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+async function handleModulePlanner(envelope: any, headers: Record<string, string>, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const packTitle = pack.title || "this codebase";
@@ -1328,15 +1337,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── GENERATE MODULE HANDLER ───
-async function handleGenerateModule(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleGenerateModule(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -1410,18 +1419,6 @@ Use these liberally. Every module should have at least:
 - 1-2 config callouts (for important configuration)
 - 1+ warning callouts (for common mistakes or gotchas)
 If the evidence doesn't support a particular callout type for a section, don't force it.
-
-RULES:
-- Generate 4-7 sections, each with a clear heading, markdown content, learning objectives, note prompts, and citations.
-- EVERY claim MUST be cited using the exact format: [SOURCE: filepath:start_line-end_line].
-- Stay within ${limits.max_module_words || 1400} total words across all sections.
-- Each section should have up to ${limits.max_note_prompts_per_section || 3} note prompts.
-- Include up to ${limits.max_key_takeaways || 7} key takeaways.
-- Include up to ${limits.max_reflection_prompts || 4} reflection prompts in the endcap.
-- Audience: ${audience.audience || "technical"}, depth: ${audience.depth || "standard"}.
-${buildLimitsConstraintBlock(limits)}
-- Use markdown formatting with code blocks, lists, and emphasis where appropriate.
-- Section IDs should be like "sec-1", "sec-2", etc.
 
 EVIDENCE INDEX:
 In the evidence_index field, group your citations by FILE PATH, not just by topic. Each entry should map a source file to the topics it covers. This helps create a 'Key Files' reference for the learner.
@@ -1544,15 +1541,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── GENERATE QUIZ HANDLER ───
-async function handleGenerateQuiz(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleGenerateQuiz(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -1685,7 +1682,7 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
         }
 
         const strip_rate = totalClaims > 0 ? totalStripped / totalClaims : 0;
-        parsed.metrics = { claims_total: totalClaims, claims_stripped: totalStripped, strip_rate, snippets_resolved: totalSnippets };
+        parsed.metrics = { claims_total, claims_stripped, strip_rate, snippets_resolved: totalSnippets };
 
         return {
           strip_rate,
@@ -1701,15 +1698,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── GENERATE GLOSSARY HANDLER ───
-async function handleGenerateGlossary(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleGenerateGlossary(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -1839,15 +1836,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── GENERATE PATHS HANDLER ───
-async function handleGeneratePaths(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleGeneratePaths(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -1996,15 +1993,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── GENERATE ASK LEAD HANDLER ───
-async function handleGenerateAskLead(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleGenerateAskLead(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -2125,15 +2122,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── REFINE MODULE HANDLER ───
-async function handleRefineModule(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+async function handleRefineModule(envelope: any, headers: Record<string, string>, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -2281,15 +2278,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
       pack
     );
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── SIMPLIFY SECTION HANDLER ───
-async function handleSimplifySection(envelope: any, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
+async function handleSimplifySection(envelope: any, headers: Record<string, string>, extraWarnings: string[] = [], trace?: TraceBuilder): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -2410,15 +2407,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     );
 
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── CREATE TEMPLATE HANDLER ───
-async function handleCreateTemplate(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+async function handleCreateTemplate(envelope: any, headers: Record<string, string>, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -2484,15 +2481,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     parsed.type = "create_template";
     parsed.request_id = requestId;
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── REFINE TEMPLATE HANDLER ───
-async function handleRefineTemplate(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+async function handleRefineTemplate(envelope: any, headers: Record<string, string>, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const context = envelope.context || {};
@@ -2555,15 +2552,15 @@ Return ONLY the JSON object. No markdown fences, no extra text.`;
     parsed.type = "refine_template";
     parsed.request_id = requestId;
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── GENERATE EXERCISES HANDLER ───
-async function handleGenerateExercises(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+async function handleGenerateExercises(envelope: any, headers: Record<string, string>, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const pack = envelope.pack || {};
   const retrieval = envelope.retrieval || {};
@@ -2677,15 +2674,15 @@ Return ONLY the JSON object.`;
       pack
     );
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── VERIFY EXERCISE HANDLER ───
-async function handleVerifyExercise(envelope: any, extraWarnings: string[] = []): Promise<Response> {
+async function handleVerifyExercise(envelope: any, headers: Record<string, string>, extraWarnings: string[] = []): Promise<Response> {
   const requestId = envelope.task?.request_id || crypto.randomUUID();
   const retrieval = envelope.retrieval || {};
   const inputs = envelope.inputs || {};
@@ -2767,17 +2764,17 @@ Return ONLY the JSON object.`;
       pack
     );
     if (extraWarnings.length) parsed.warnings = [...(parsed.warnings || []), ...extraWarnings];
-    return jsonResponse(parsed);
+    return jsonResponse(parsed, headers);
   } catch (e: any) {
-    if (e.status) return errorResponse(e.status, { error: e.message });
+    if (e.status) return errorResponse(e.status, { error: e.message }, headers);
     throw e;
   }
 }
 
 // ─── VALIDATE BYOK KEY ───
-async function handleValidateKey(envelope: any): Promise<Response> {
+async function handleValidateKey(envelope: any, headers: Record<string, string>): Promise<Response> {
   const { provider, api_key, model } = envelope;
-  if (!provider || !api_key) return errorResponse(400, { error: "Missing provider or api_key" });
+  if (!provider || !api_key) return errorResponse(400, { error: "Missing provider or api_key" }, headers);
 
   const endpointData = PROVIDER_ENDPOINTS[provider] || PROVIDER_ENDPOINTS.openai;
   const config: AIConfig = {
@@ -2792,22 +2789,28 @@ async function handleValidateKey(envelope: any): Promise<Response> {
   try {
     // Make a minimal test call to validate
     await callAI(`You are an API key validation bot. Reply with 'valid'.`, `Ping.`, undefined, config);
-    return jsonResponse({ type: "success", message: "Key validated successfully" });
+    return jsonResponse({ type: "success", message: "Key validated successfully" }, headers);
   } catch (e: any) {
     console.warn("Key validation failed:", e.message, e.raw);
-    return jsonResponse({ type: "error", message: `Key validation failed: ${e.message}` });
+    return jsonResponse({ type: "error", message: `Key validation failed: ${e.message}` }, headers);
   }
 }
 
 // ─── MAIN HANDLER ───
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const corsResponse = handleCorsPreflight(req, ALLOWED_ORIGINS);
+  if (corsResponse) return corsResponse;
 
+  const currentCorsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
+
+  // ─── AUTHENTICATION (Phase 1) ───
+  const { userId } = await requireUser(req);
+  
   let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
 
   try {
     // JWT Authentication
-    const authResult = await authenticateRequest(req);
+    const authResult = await authenticateRequest(req, currentCorsHeaders);
     if (authResult instanceof Response) return authResult;
     const { userId } = authResult;
 
@@ -2816,7 +2819,7 @@ serve(async (req) => {
 
     // Rate limiting
     if (!checkRateLimit(userId)) {
-      return structuredError("unknown", "rate_limited", "Too many requests. Please wait a moment and try again (limit: 30/min).");
+      return structuredError("unknown", "rate_limited", "Too many requests. Please wait a moment and try again (limit: 30/min).", currentCorsHeaders);
     }
 
     const envelope = await req.json();
@@ -2824,7 +2827,7 @@ serve(async (req) => {
     const requestId = envelope.task?.request_id || envelope.task?.trace_id || crypto.randomUUID();
 
     if (!taskType) {
-      return errorResponse(400, { error: "Missing task.type in envelope" });
+      return errorResponse(400, { error: "Missing task.type in envelope" }, currentCorsHeaders);
     }
 
     // ─── Telemetry: create trace ───
@@ -2854,7 +2857,7 @@ serve(async (req) => {
 
     // Pack access authorization
     const authSpan = trace.startSpan("pack-authorization");
-    const accessDenied = await checkPackAccess(userId, envelope);
+    const accessDenied = await checkPackAccess(userId, envelope, currentCorsHeaders);
     if (accessDenied) {
       authSpan.error("Access denied");
       trace.setError("Pack access denied");
@@ -2867,7 +2870,7 @@ serve(async (req) => {
     const preprocessSpan = trace.startSpan("preprocessing", {
       spanCount: envelope.retrieval?.evidence_spans?.length || 0,
     });
-    const preprocessed = preprocessEnvelope(envelope);
+    const preprocessed = preprocessEnvelope(envelope, currentCorsHeaders);
     if (preprocessed instanceof Response) {
       preprocessSpan.error("Preprocessing rejected input");
       trace.setError("Input validation failed");
@@ -2884,49 +2887,49 @@ serve(async (req) => {
     let result: Response;
     switch (taskType) {
       case "chat":
-        result = await handleChat(safeEnvelope, extraWarnings, trace);
+        result = await handleChat(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "global_chat":
-        result = await handleGlobalChat(safeEnvelope, extraWarnings, trace);
+        result = await handleGlobalChat(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "module_planner":
-        result = await handleModulePlanner(safeEnvelope, extraWarnings, trace);
+        result = await handleModulePlanner(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "generate_module":
-        result = await handleGenerateModule(safeEnvelope, extraWarnings, trace);
+        result = await handleGenerateModule(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "generate_quiz":
-        result = await handleGenerateQuiz(safeEnvelope, extraWarnings, trace);
+        result = await handleGenerateQuiz(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "generate_glossary":
-        result = await handleGenerateGlossary(safeEnvelope, extraWarnings, trace);
+        result = await handleGenerateGlossary(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "generate_paths":
-        result = await handleGeneratePaths(safeEnvelope, extraWarnings, trace);
+        result = await handleGeneratePaths(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "generate_ask_lead":
-        result = await handleGenerateAskLead(safeEnvelope, extraWarnings, trace);
+        result = await handleGenerateAskLead(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "simplify_section":
-        result = await handleSimplifySection(safeEnvelope, extraWarnings, trace);
+        result = await handleSimplifySection(safeEnvelope, currentCorsHeaders, extraWarnings, trace);
         break;
       case "create_template":
-        result = await handleCreateTemplate(safeEnvelope, extraWarnings);
+        result = await handleCreateTemplate(safeEnvelope, currentCorsHeaders, extraWarnings);
         break;
       case "refine_template":
-        result = await handleRefineTemplate(safeEnvelope, extraWarnings);
+        result = await handleRefineTemplate(safeEnvelope, currentCorsHeaders, extraWarnings);
         break;
       case "refine_module":
-        result = await handleRefineModule(safeEnvelope, extraWarnings);
+        result = await handleRefineModule(safeEnvelope, currentCorsHeaders, extraWarnings);
         break;
       case "generate_exercises":
-        result = await handleGenerateExercises(safeEnvelope, extraWarnings);
+        result = await handleGenerateExercises(safeEnvelope, currentCorsHeaders, extraWarnings);
         break;
       case "verify_exercise":
-        result = await handleVerifyExercise(safeEnvelope, extraWarnings);
+        result = await handleVerifyExercise(safeEnvelope, currentCorsHeaders, extraWarnings);
         break;
       default:
-        result = structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`);
+        result = structuredError(requestId, "unsupported_task", `Unknown task type: ${taskType}`, currentCorsHeaders);
     }
 
     // ─── Inject traceId into the response body ───
@@ -2951,7 +2954,7 @@ serve(async (req) => {
         await recordAiAudit(trace, safeEnvelope, markdown);
       }
     } catch (e) {
-      console.warn("[serve] AI Audit recording failed:", e.message);
+      console.warn("[serve] AI Audit recording failed:", (e as any).message);
     }
 
     // ─── Flush telemetry ───
@@ -2964,8 +2967,8 @@ serve(async (req) => {
     await trace.flush();
     const requestId = "unknown";
     if (e.error_code) {
-      return structuredError(requestId, e.error_code, e.message || "An error occurred");
+      return structuredError(requestId, e.error_code, e.message || "An error occurred", currentCorsHeaders);
     }
-    return structuredError(requestId, "network_error", e instanceof Error ? e.message : "Unknown error");
+    return structuredError(requestId, "network_error", e instanceof Error ? e.message : "Unknown error", currentCorsHeaders);
   }
 });
