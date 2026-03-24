@@ -6,12 +6,13 @@ on:
       - 'supabase/functions/rocketboard-mcp/**'
       - 'docs/mcp/**'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   smoke-test:
     name: Run MCP Smoke Test
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
     steps:
       - name: Checkout code
@@ -37,4 +38,4 @@ jobs:
         run: |
           echo "Running isomorphic typescript smoke test (v0 spec)..."
           # Run the isomorphic typescript directly using Node + tsx
-          npx tsx scripts/mcp-smoke-test.ts
+          tsx scripts/mcp-smoke-test.ts

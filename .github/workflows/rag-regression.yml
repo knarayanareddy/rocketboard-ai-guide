@@ -9,12 +9,13 @@ on:
       - 'rag-eval/**'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   rag-regression:
     name: RAG Regression Suite
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     
     steps:
       - name: Checkout
@@ -25,7 +26,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: './rag-eval/package.json'
+          cache-dependency-path: 'rag-eval/package.json'
 
       - name: Install Dependencies
         working-directory: ./rag-eval
