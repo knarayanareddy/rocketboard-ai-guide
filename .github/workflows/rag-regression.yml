@@ -30,6 +30,23 @@ jobs:
         working-directory: ./rag-eval
         run: npm install
 
+      - name: Verify Environment
+        env:
+          RAG_EVAL_SUPABASE_URL: ${{ secrets.RAG_EVAL_SUPABASE_URL }}
+          RAG_EVAL_SUPABASE_ANON_KEY: ${{ secrets.RAG_EVAL_SUPABASE_ANON_KEY }}
+          RAG_EVAL_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.RAG_EVAL_SUPABASE_SERVICE_ROLE_KEY }}
+          RAG_EVAL_USER_EMAIL: ${{ secrets.RAG_EVAL_USER_EMAIL }}
+          RAG_EVAL_USER_PASSWORD: ${{ secrets.RAG_EVAL_USER_PASSWORD }}
+          RAG_EVAL_PACK_ID: ${{ secrets.RAG_EVAL_PACK_ID }}
+        run: |
+          echo "Verifying required environment variables..."
+          [ -z "$RAG_EVAL_SUPABASE_URL" ] && echo "!! RAG_EVAL_SUPABASE_URL is MISSING"
+          [ -z "$RAG_EVAL_SUPABASE_ANON_KEY" ] && echo "!! RAG_EVAL_SUPABASE_ANON_KEY is MISSING"
+          [ -z "$RAG_EVAL_USER_EMAIL" ] && echo "!! RAG_EVAL_USER_EMAIL is MISSING"
+          [ -z "$RAG_EVAL_USER_PASSWORD" ] && echo "!! RAG_EVAL_USER_PASSWORD is MISSING"
+          [ -z "$RAG_EVAL_PACK_ID" ] && echo "!! RAG_EVAL_PACK_ID is MISSING"
+          echo "Environment check complete."
+
       - name: Run Baseline Suite
         working-directory: ./rag-eval
         env:
