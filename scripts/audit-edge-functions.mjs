@@ -86,43 +86,72 @@ function main() {
   let totalIssues = 0;
   let filesChecked = 0;
 
-  if (!fs.existsSync(FUNCTIONS_DIR)) {
-    console.error(`Functions directory not found: ${FUNCTIONS_DIR}`);
-    process.exit(1);
+  // Support for specific paths via CLI or Env Var
+  // CLI: node audit-edge-functions.mjs --paths supabase/functions/a.ts,supabase/functions/b.ts
+  // Env: EDGE_AUDIT_PATHS=...
+  let filterPaths = [];
+  const pathsArgIndex = process.argv.indexOf('--paths');
+  if (pathsArgIndex !== -1 && process.argv[pathsArgIndex + 1]) {
+    filterPaths = process.argv[pathsArgIndex + 1].split(',').map(p => p.trim());
+  } else if (process.env.EDGE_AUDIT_PATHS) {
+    filterPaths = process.env.EDGE_AUDIT_PATHS.split(',').map(p => p.trim());
   }
 
-  const dirs = fs.readdirSync(FUNCTIONS_DIR);
+  const isFiltered = filterPaths.length > 0;
+  const filesToAudit = [];
 
-  for (const dir of dirs) {
-    if (dir === '_shared') continue;
+  if (isFiltered) {
+    console.log(`Filtering audit to ${filterPaths.length} specific paths.`);
+    for (const p of filterPaths) {
+      // Resolve to absolute path if it is relative to the repo root
+      const fullPath = path.resolve(process.cwd(), p);
+      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile() && p.endsWith('.ts')) {
+        // Extract the directory name as the function name (e.g., 'supabase/functions/my-func/index.ts' -> 'my-func')
+        const parts = p.split(/[\\/]/);
+        const funcIndex = parts.indexOf('functions');
+        const dirName = (funcIndex !== -1 && parts[funcIndex + 1]) ? parts[funcIndex + 1] : 'unknown';
+        filesToAudit.push({ dirName, filePath: fullPath, relativePath: p });
+      }
+    }
+  } else {
+    if (!fs.existsSync(FUNCTIONS_DIR)) {
+      console.error(`Functions directory not found: ${FUNCTIONS_DIR}`);
+      process.exit(1);
+    }
 
-    const dirPath = path.join(FUNCTIONS_DIR, dir);
-    if (!fs.statSync(dirPath).isDirectory()) continue;
+    const dirs = fs.readdirSync(FUNCTIONS_DIR);
+    for (const dir of dirs) {
+      if (dir === '_shared') continue;
+      const dirPath = path.join(FUNCTIONS_DIR, dir);
+      if (!fs.statSync(dirPath).isDirectory()) continue;
 
-    const files = [];
-    const walk = (d) => {
-      const list = fs.readdirSync(d);
-      for (const item of list) {
-        const fullPath = path.join(d, item);
-        const stat = fs.statSync(fullPath);
-        if (stat.isDirectory()) {
-          walk(fullPath);
-        } else if (item.endsWith('.ts')) {
-          files.push(fullPath);
+      const walk = (d) => {
+        const list = fs.readdirSync(d);
+        for (const item of list) {
+          const fullPath = path.join(d, item);
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) {
+            walk(fullPath);
+          } else if (item.endsWith('.ts')) {
+            filesToAudit.push({ 
+              dirName: dir, 
+              filePath: fullPath, 
+              relativePath: path.relative(FUNCTIONS_DIR, fullPath) 
+            });
+          }
         }
-      }
-    };
-    walk(dirPath);
+      };
+      walk(dirPath);
+    }
+  }
 
-    for (const filePath of files) {
-      filesChecked++;
-      const issues = auditFile(dir, filePath);
-      if (issues.length > 0) {
-        const relativePath = path.relative(FUNCTIONS_DIR, filePath);
-        console.error(`\n[!] Issues found in ${relativePath}:`);
-        issues.forEach(issue => console.error(`  - ${issue}`));
-        totalIssues += issues.length;
-      }
+  for (const { dirName, filePath, relativePath } of filesToAudit) {
+    filesChecked++;
+    const issues = auditFile(dirName, filePath);
+    if (issues.length > 0) {
+      console.error(`\n[!] Issues found in ${relativePath}:`);
+      issues.forEach(issue => console.error(`  - ${issue}`));
+      totalIssues += issues.length;
     }
   }
 
