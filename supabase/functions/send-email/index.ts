@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
-import { getBearerToken } from "../_shared/authz.ts";
+import { requireUser } from "../_shared/authz.ts";
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
@@ -14,23 +14,8 @@ serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    );
-
     // 1. Get the session or user object securely
-    const token = getBearerToken(req);
-    if (!token) {
-      return jsonError(401, "unauthorized", "Missing Authorization header", {}, corsHeaders);
-    }
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-
-    if (userError || !user) {
-      console.error('Authentication error:', userError);
-      return jsonError(401, "unauthorized", "Unauthorized", {}, corsHeaders);
-    }
+    const { userId: authedUserId } = await requireUser(req);
 
     // 2. Parse request
     const { to, subject, html, userId, type } = await readJson(req);

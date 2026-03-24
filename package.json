@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:techdocs": "python scripts/verify-technical-docs.py"
+    "verify:techdocs": "python scripts/verify-technical-docs.py",
+    "audit:edge": "node scripts/audit-edge-functions.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
