@@ -15,6 +15,8 @@ env:
 jobs:
   check-checklist:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     permissions:
       pull-requests: write
     steps:
