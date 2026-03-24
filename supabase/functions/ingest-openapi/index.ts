@@ -75,6 +75,7 @@ Deno.serve(async (req) => {
     const basePath = isSwagger ? (spec.basePath || "") : "";
 
     const serviceClient = createServiceClient();
+    const supabase = serviceClient;
 
     // 1. Authenticate user
     const { userId } = await requireUser(req, corsHeaders);
@@ -87,17 +88,13 @@ Deno.serve(async (req) => {
     // 1. Check Ingestion Guards (Cooldown, Concurrency)
     const guard = await validateIngestion(supabase, pack_id, source_id);
     if (!guard.success) {
-      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
-        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(guard.status || 403, "ingestion_restricted", guard.error || "Ingestion restricted", { next_allowed_at: guard.next_allowed_at }, corsHeaders);
     }
 
     // 2. Check Pack-level Chunk Cap
     const cap = await checkPackChunkCap(supabase, pack_id);
     if (!cap.success) {
-      return new Response(JSON.stringify({ error: cap.error }), {
-        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(cap.status || 403, "cap_exceeded", cap.error || "Chunk cap exceeded", {}, corsHeaders);
     }
 
     const { data: job, error: jobErr } = await serviceClient.from("ingestion_jobs").insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() }).select().single();
