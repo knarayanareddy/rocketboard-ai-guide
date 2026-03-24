@@ -9,12 +9,14 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 
 // ─── Input schema ─────────────────────────────────────────────────────────────
 
 export const ListPackSourcesInputSchema = z.object({
-  pack_id: z.string().uuid().describe("The UUID of the pack to list sources for"),
+  pack_id: z.string().uuid().describe(
+    "The UUID of the pack to list sources for",
+  ),
 }).strict();
 
 export type ListPackSourcesInput = z.infer<typeof ListPackSourcesInputSchema>;
@@ -51,7 +53,10 @@ export async function listPackSources(
       .order("created_at", { ascending: true });
 
     if (dbError) {
-      console.error(`[MCP:list_pack_sources] DB error for pack_id=${args.pack_id}:`, dbError.message);
+      console.error(
+        `[MCP:list_pack_sources] DB error for pack_id=${args.pack_id}:`,
+        dbError.message,
+      );
       throw new Error("Failed to fetch pack sources");
     }
 

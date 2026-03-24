@@ -17,7 +17,7 @@ export interface SecretPattern {
   /** The regex to detect the secret. MUST use the global flag. */
   regex: RegExp;
   /** Severity: 'critical' = always redact + flag; 'high' = always redact; 'medium' = redact if confident */
-  severity: 'critical' | 'high' | 'medium';
+  severity: "critical" | "high" | "medium";
 }
 
 /**
@@ -32,146 +32,152 @@ export interface SecretPattern {
 export const SECRET_PATTERNS: SecretPattern[] = [
   // ── Cloud Provider Keys ──
   {
-    name: 'aws_access_key',
+    name: "aws_access_key",
     regex: /\b(AKIA[0-9A-Z]{16})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'aws_secret_key',
+    name: "aws_secret_key",
     regex: /\b([A-Za-z0-9/+=]{40})(?=\s|"|'|`|$)/g,
     // Note: AWS secret keys are 40 chars base64. This is intentionally broad;
     // it's gated by appearing near AWS context (see compound detection below).
-    severity: 'medium',
+    severity: "medium",
   },
   {
-    name: 'aws_session_token',
+    name: "aws_session_token",
     regex: /\b(FwoGZXIvYXdzE[A-Za-z0-9/+=]{100,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
 
   // ── GitHub Tokens ──
   {
-    name: 'github_pat',
+    name: "github_pat",
     regex: /\b(ghp_[A-Za-z0-9]{36,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'github_oauth',
+    name: "github_oauth",
     regex: /\b(gho_[A-Za-z0-9]{36,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'github_app_token',
+    name: "github_app_token",
     regex: /\b(ghs_[A-Za-z0-9]{36,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'github_fine_grained',
+    name: "github_fine_grained",
     regex: /\b(github_pat_[A-Za-z0-9_]{22,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
 
   // ── API Keys (Generic + Specific) ──
   {
-    name: 'openai_api_key',
+    name: "openai_api_key",
     regex: /\b(sk-[A-Za-z0-9]{20,}T3BlbkFJ[A-Za-z0-9]{20,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'openai_project_key',
+    name: "openai_project_key",
     regex: /\b(sk-proj-[A-Za-z0-9_-]{40,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'anthropic_api_key',
+    name: "anthropic_api_key",
     regex: /\b(sk-ant-[A-Za-z0-9_-]{40,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'slack_token',
+    name: "slack_token",
     regex: /\b(xox[bpoas]-[A-Za-z0-9-]{10,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'slack_webhook',
-    regex: /\b(https:\/\/hooks\.slack\.com\/services\/T[A-Za-z0-9]+\/B[A-Za-z0-9]+\/[A-Za-z0-9]+)\b/g,
-    severity: 'high',
+    name: "slack_webhook",
+    regex:
+      /\b(https:\/\/hooks\.slack\.com\/services\/T[A-Za-z0-9]+\/B[A-Za-z0-9]+\/[A-Za-z0-9]+)\b/g,
+    severity: "high",
   },
   {
-    name: 'stripe_key',
+    name: "stripe_key",
     regex: /\b([sr]k_(live|test)_[A-Za-z0-9]{20,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'sendgrid_key',
+    name: "sendgrid_key",
     regex: /\b(SG\.[A-Za-z0-9_-]{22,}\.[A-Za-z0-9_-]{22,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
   {
-    name: 'twilio_key',
+    name: "twilio_key",
     regex: /\b(SK[0-9a-fA-F]{32})\b/g,
-    severity: 'high',
+    severity: "high",
   },
 
   // ── JWTs and Bearer Tokens ──
   {
-    name: 'jwt_token',
-    regex: /\b(eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b/g,
-    severity: 'high',
+    name: "jwt_token",
+    regex:
+      /\b(eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b/g,
+    severity: "high",
   },
   {
-    name: 'bearer_token_assignment',
-    regex: /(?:bearer|authorization)['":\s]*(?:Bearer\s+)?([A-Za-z0-9_-]{20,})/gi,
-    severity: 'high',
+    name: "bearer_token_assignment",
+    regex:
+      /(?:bearer|authorization)['":\s]*(?:Bearer\s+)?([A-Za-z0-9_-]{20,})/gi,
+    severity: "high",
   },
 
   // ── Connection Strings ──
   {
-    name: 'database_url',
-    regex: /\b((?:postgres|mysql|mongodb|redis|amqp|mssql):\/\/[^\s'"`,;}{)]{10,})\b/gi,
-    severity: 'critical',
+    name: "database_url",
+    regex:
+      /\b((?:postgres|mysql|mongodb|redis|amqp|mssql):\/\/[^\s'"`,;}{)]{10,})\b/gi,
+    severity: "critical",
   },
 
   // ── Private Keys ──
   {
-    name: 'private_key_block',
-    regex: /(-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----)/g,
-    severity: 'critical',
+    name: "private_key_block",
+    regex:
+      /(-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----)/g,
+    severity: "critical",
   },
 
   // ── Google / GCP ──
   {
-    name: 'google_api_key',
+    name: "google_api_key",
     regex: /\b(AIza[A-Za-z0-9_-]{35})\b/g,
-    severity: 'high',
+    severity: "high",
   },
   {
-    name: 'google_oauth_secret',
+    name: "google_oauth_secret",
     regex: /\b(GOCSPX-[A-Za-z0-9_-]{28,})\b/g,
-    severity: 'critical',
+    severity: "critical",
   },
 
   // ── Supabase ──
   {
-    name: 'supabase_service_role',
-    regex: /\b(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{50,}\.[A-Za-z0-9_-]{20,})\b/g,
-    severity: 'critical',
+    name: "supabase_service_role",
+    regex:
+      /\b(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{50,}\.[A-Za-z0-9_-]{20,})\b/g,
+    severity: "critical",
   },
 
   // ── Generic High-Entropy (last resort — catches things like "password = Xf8k2...") ──
   {
-    name: 'generic_secret_assignment',
-    regex: /(?:password|passwd|secret|api_key|apikey|api_secret|access_key|private_key|token)\s*[:=]\s*['"`]([^'"`\s]{8,})['"`]/gi,
-    severity: 'medium',
+    name: "generic_secret_assignment",
+    regex:
+      /(?:password|passwd|secret|api_key|apikey|api_secret|access_key|private_key|token)\s*[:=]\s*['"`]([^'"`\s]{8,})['"`]/gi,
+    severity: "medium",
   },
 ];
-
 
 // ─── Detection ──────────────────────────────────────────────────────────
 
 export interface SecretMatch {
   patternName: string;
-  severity: SecretPattern['severity'];
+  severity: SecretPattern["severity"];
   /** Start index in the original text */
   startIndex: number;
   /** End index in the original text */
@@ -208,7 +214,6 @@ export function detectSecrets(text: string): SecretMatch[] {
 
   return matches;
 }
-
 
 // ─── Redaction ──────────────────────────────────────────────────────────
 
@@ -260,8 +265,7 @@ export function redactText(text: string): RedactionResult {
   const reversed = [...matches].reverse();
   for (const m of reversed) {
     const placeholder = `[REDACTED:${m.patternName}]`;
-    redacted =
-      redacted.substring(0, m.startIndex) +
+    redacted = redacted.substring(0, m.startIndex) +
       placeholder +
       redacted.substring(m.endIndex);
     totalRedactedChars += m.matchLength;
@@ -276,7 +280,6 @@ export function redactText(text: string): RedactionResult {
   };
 }
 
-
 // ─── Severity Assessment ────────────────────────────────────────────────
 
 export interface ChunkRedactionAssessment {
@@ -286,7 +289,7 @@ export interface ChunkRedactionAssessment {
    *                      (store redacted version, set is_redacted = false)
    * 'clean' = no secrets found (store as-is, set is_redacted = false)
    */
-  action: 'exclude' | 'redact_and_index' | 'clean';
+  action: "exclude" | "redact_and_index" | "clean";
   /** The content to store (redacted if needed, original if clean) */
   contentToStore: string;
   /** Whether is_redacted should be set to true */
@@ -312,16 +315,18 @@ export interface ChunkRedactionAssessment {
  * IMPORTANT: This function is the ONLY place that decides whether to set is_redacted.
  * Do NOT make this decision anywhere else.
  */
-export function assessChunkRedaction(rawContent: string): ChunkRedactionAssessment {
+export function assessChunkRedaction(
+  rawContent: string,
+): ChunkRedactionAssessment {
   const result = redactText(rawContent);
   const matches = detectSecrets(rawContent);
 
-  const hasCritical = matches.some(m => m.severity === 'critical');
+  const hasCritical = matches.some((m) => m.severity === "critical");
 
   // If no secrets, it's clean
   if (result.secretsFound === 0) {
     return {
-      action: 'clean',
+      action: "clean",
       contentToStore: rawContent,
       isRedacted: false,
       metrics: {
@@ -337,7 +342,7 @@ export function assessChunkRedaction(rawContent: string): ChunkRedactionAssessme
   // (it's likely a credentials file, .env, key dump, etc.)
   if (result.redactionRatio > 0.5) {
     return {
-      action: 'exclude',
+      action: "exclude",
       contentToStore: result.redactedText, // store redacted version anyway (for audit)
       isRedacted: true,
       metrics: {
@@ -351,9 +356,9 @@ export function assessChunkRedaction(rawContent: string): ChunkRedactionAssessme
 
   // Otherwise: redact the secrets inline but keep the chunk indexable
   return {
-    action: 'redact_and_index',
+    action: "redact_and_index",
     contentToStore: result.redactedText,
-    isRedacted: false,  // NOT redacted (because we cleaned it — it's safe to retrieve)
+    isRedacted: false, // NOT redacted (because we cleaned it — it's safe to retrieve)
     metrics: {
       secretsFound: result.secretsFound,
       matchedPatterns: result.matchedPatterns,

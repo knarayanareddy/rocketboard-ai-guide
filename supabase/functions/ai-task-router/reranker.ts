@@ -6,13 +6,17 @@ export interface RerankedSpan {
   reason?: string;
 }
 
-export async function batchRerankWithLLM(query: string, spans: any[]): Promise<any[]> {
+export async function batchRerankWithLLM(
+  query: string,
+  spans: any[],
+): Promise<any[]> {
   if (!spans || spans.length === 0) return [];
-  
+
   // Use platform key (LOVABLE_API_KEY) and Gemini Flash for cheap infra processing
-  const apiKey = Deno.env.get("LOVABLE_API_KEY") || Deno.env.get("OPENAI_API_KEY") || "";
+  const apiKey = Deno.env.get("LOVABLE_API_KEY") ||
+    Deno.env.get("OPENAI_API_KEY") || "";
   const endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
-  
+
   if (!apiKey) {
     console.warn("[RERANKER] No API key found for reranking, skipping...");
     return spans;
@@ -24,7 +28,7 @@ export async function batchRerankWithLLM(query: string, spans: any[]): Promise<a
     index: idx,
     id: s.span_id || s.chunk_id || s.id,
     path: s.path,
-    text: s.text?.slice(0, 1000) // Truncate individual spans for prompt safety
+    text: s.text?.slice(0, 1000), // Truncate individual spans for prompt safety
   }));
 
   const systemPrompt = `You are a precision RAG reranker. 
@@ -39,7 +43,9 @@ Relevance Score Scale (0-10):
 Output ONLY a JSON array of objects: [{"id": "...", "score": 8, "reason": "..."}].
 Prioritize snippets that show definitions, implementations, or specific configurations requested.`;
 
-  const userPrompt = `Query: ${query}\n\nCandidate Snips:\n${JSON.stringify(spansJson, null, 2)}`;
+  const userPrompt = `Query: ${query}\n\nCandidate Snips:\n${
+    JSON.stringify(spansJson, null, 2)
+  }`;
 
   const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
     allowAnyHost: false,
@@ -53,48 +59,57 @@ Prioritize snippets that show definitions, implementations, or specific configur
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "google/gemini-1.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
+          { role: "user", content: userPrompt },
         ],
-        response_format: { type: "json_object" }
-      })
+        response_format: { type: "json_object" },
+      }),
     });
 
     if (!res.ok) {
-       console.error("[RERANKER] API Error:", await res.text());
-       return spans; // Fallback to original order
+      console.error("[RERANKER] API Error:", await res.text());
+      return spans; // Fallback to original order
     }
 
     const data = await res.json();
     const content = data.choices[0].message.content;
-    const scores: RerankedSpan[] = JSON.parse(content).scores || JSON.parse(content); // Handle different JSON wrappers
+    const scores: RerankedSpan[] = JSON.parse(content).scores ||
+      JSON.parse(content); // Handle different JSON wrappers
 
     // 2. Map scores back to original spans and sort
-    const scoredSpans = spansToProcess.map(s => {
-       const scoreData = scores.find(rs => rs.id === (s.span_id || s.chunk_id || s.id));
-       return { ...s, relevance_score: scoreData?.score || 0 };
+    const scoredSpans = spansToProcess.map((s) => {
+      const scoreData = scores.find((rs) =>
+        rs.id === (s.span_id || s.chunk_id || s.id)
+      );
+      return { ...s, relevance_score: scoreData?.score || 0 };
     });
 
     // 3. Filter by relevance threshold (e.g. >= 1) and sort
     // We lowered this from 3 to 1 to be more inclusive for broad synthesis tasks.
     const filtered = scoredSpans
-      .filter(s => s.relevance_score >= 1)
+      .filter((s) => s.relevance_score >= 1)
       .sort((a, b) => b.relevance_score - a.relevance_score);
 
-    // 4. Safety Fallback: If filtering is too aggressive but we had input, 
+    // 4. Safety Fallback: If filtering is too aggressive but we had input,
     // return the top 5 ranked spans regardless of score to prevent "no evidence" failure.
     const finalSpans = (filtered.length === 0 && spansToProcess.length > 0)
-      ? scoredSpans.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, 5)
+      ? scoredSpans.sort((a, b) => b.relevance_score - a.relevance_score).slice(
+        0,
+        5,
+      )
       : filtered;
 
-    console.log(`[RERANKER] Input: ${spans.length}, Output: ${finalSpans.length}, Top Score: ${finalSpans[0]?.relevance_score}`);
+    console.log(
+      `[RERANKER] Input: ${spans.length}, Output: ${finalSpans.length}, Top Score: ${
+        finalSpans[0]?.relevance_score
+      }`,
+    );
     return finalSpans;
-
   } catch (err) {
     console.error("[RERANKER] Fatal error:", err);
     return spans; // Graceful fallback

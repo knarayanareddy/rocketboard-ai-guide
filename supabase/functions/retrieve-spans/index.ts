@@ -1,11 +1,19 @@
 import { createTrace } from "../_shared/telemetry.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
-import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
 import { requireUser } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-async function generateEmbedding(text: string, apiKey: string, useLovableGateway: boolean): Promise<number[] | null> {
+async function generateEmbedding(
+  text: string,
+  apiKey: string,
+  useLovableGateway: boolean,
+): Promise<number[] | null> {
   if (!apiKey) return null;
   try {
     const url = useLovableGateway
@@ -15,12 +23,12 @@ async function generateEmbedding(text: string, apiKey: string, useLovableGateway
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         input: text.replace(/\n/g, " "),
-        model: "text-embedding-3-small"
-      })
+        model: "text-embedding-3-small",
+      }),
     });
     if (!res.ok) {
       console.error("Embedding error:", await res.text());
@@ -42,7 +50,9 @@ Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
   const startTime = Date.now();
 
-  let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
+  let trace = createTrace({ taskType: "startup", requestId: "unknown" }, {
+    enabled: false,
+  });
   let requestId = "unknown";
 
   try {
@@ -51,7 +61,14 @@ Deno.serve(async (req) => {
 
     // 2. Parse request
     const body = await readJson(req, corsHeaders);
-    const { pack_id, query, max_spans = 10, module_key, track_key, match_threshold } = body;
+    const {
+      pack_id,
+      query,
+      max_spans = 10,
+      module_key,
+      track_key,
+      match_threshold,
+    } = body;
 
     // ─── Phase 6: Observability — create trace ── Correlate with router requestId
     trace = createTrace({
@@ -63,7 +80,13 @@ Deno.serve(async (req) => {
     });
 
     if (!pack_id || !query || typeof query !== "string") {
-      return jsonError(400, "bad_request", "Missing pack_id or valid query", {}, corsHeaders);
+      return jsonError(
+        400,
+        "bad_request",
+        "Missing pack_id or valid query",
+        {},
+        corsHeaders,
+      );
     }
 
     // Defensive Caps
@@ -100,33 +123,54 @@ Deno.serve(async (req) => {
 
     if (embeddingKey) {
       const embedSpan = trace.startSpan("generate-embedding");
-      embedding = await generateEmbedding(clampedQuery, embeddingKey, useLovableGateway);
+      embedding = await generateEmbedding(
+        clampedQuery,
+        embeddingKey,
+        useLovableGateway,
+      );
       embedSpan.end({ success: !!embedding });
     }
 
     // Reliability: Fallback to keyword-only search if embedding fails
     if (!embedding) {
-      console.warn("[RETRIEVAL] Embedding generation failed, falling back to keyword search.");
+      console.warn(
+        "[RETRIEVAL] Embedding generation failed, falling back to keyword search.",
+      );
     }
 
-    console.log(`[RETRIEVAL] Using hybrid_search_v2 for pack ${pack_id}, org ${org_id}. Context: ${module_key || 'global'}`);
-    
+    console.log(
+      `[RETRIEVAL] Using hybrid_search_v2 for pack ${pack_id}, org ${org_id}. Context: ${
+        module_key || "global"
+      }`,
+    );
+
     const rpcSpan = trace.startSpan("rpc:hybrid_search_v2");
-    const { data: chunks, error: rpcError } = await adminClient.rpc('hybrid_search_v2', {
-      p_org_id: org_id,
-      p_pack_id: pack_id,
-      p_query_text: clampedQuery,
-      p_query_embedding: embedding,
-      p_match_count: clampedMaxSpans,
-      p_match_threshold: match_threshold !== undefined ? Number(match_threshold) : undefined,
-      p_module_key: module_key || null,
-      p_track_key: track_key || null
-    });
+    const { data: chunks, error: rpcError } = await adminClient.rpc(
+      "hybrid_search_v2",
+      {
+        p_org_id: org_id,
+        p_pack_id: pack_id,
+        p_query_text: clampedQuery,
+        p_query_embedding: embedding,
+        p_match_count: clampedMaxSpans,
+        p_match_threshold: match_threshold !== undefined
+          ? Number(match_threshold)
+          : undefined,
+        p_module_key: module_key || null,
+        p_track_key: track_key || null,
+      },
+    );
     rpcSpan.end({ count: chunks?.length || 0, error: !!rpcError });
 
     if (rpcError) {
       console.error("Hybrid Search error:", rpcError);
-      return jsonError(500, "internal_error", "Hybrid search failed", {}, corsHeaders);
+      return jsonError(
+        500,
+        "internal_error",
+        "Hybrid search failed",
+        {},
+        corsHeaders,
+      );
     }
 
     // ─── Phase 2: Cross-Repo Path Normalization ───
@@ -135,8 +179,8 @@ Deno.serve(async (req) => {
       .from("pack_sources")
       .select("id, short_slug")
       .eq("pack_id", pack_id);
-    
-    const slugMap = new Map((sources || []).map(s => [s.id, s.short_slug]));
+
+    const slugMap = new Map((sources || []).map((s) => [s.id, s.short_slug]));
 
     const spans = (chunks || []).map((chunk: any, idx: number) => {
       const slug = slugMap.get(chunk.source_id);
@@ -154,41 +198,46 @@ Deno.serve(async (req) => {
           entity_name: chunk.entity_name,
           signature: chunk.signature,
           source_id: chunk.source_id,
-          source_slug: slug
-        }
+          source_slug: slug,
+        },
       };
     });
 
     // Phase 7: Rich Retrieval Diagnostics
     const scores = (chunks || []).map((c: any) => c.score || 0);
     const top1Score = scores.length > 0 ? Math.max(...scores) : 0;
-    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const avgScore = scores.length > 0
+      ? scores.reduce((a, b) => a + b, 0) / scores.length
+      : 0;
     const uniqueFiles = new Set((chunks || []).map((c: any) => c.path)).size;
 
     const latency_ms = Date.now() - startTime;
-    
+
     // Update trace with advanced RAG metadata
-    trace.updateMetadata({ 
+    trace.updateMetadata({
       top1_score: top1Score,
       avg_score: avgScore,
       unique_files_count: uniqueFiles,
-      embedding_model: "text-embedding-3-small" // Default if using our wrapper
+      embedding_model: "text-embedding-3-small", // Default if using our wrapper
     });
 
     await trace.flush();
 
-    return json(200, { 
-      spans, 
+    return json(200, {
+      spans,
       trace_id: requestId,
-      latency_ms 
+      latency_ms,
     }, corsHeaders);
   } catch (error: any) {
     if (error.response) return error.response;
-    
+
     const latency_ms = Date.now() - startTime;
     trace.setError(error.message);
     await trace.flush();
     console.error("retrieve-spans error:", error);
-    return jsonError(500, "internal_error", error.message || "Unknown error", { trace_id: requestId, latency_ms }, corsHeaders);
+    return jsonError(500, "internal_error", error.message || "Unknown error", {
+      trace_id: requestId,
+      latency_ms,
+    }, corsHeaders);
   }
 });

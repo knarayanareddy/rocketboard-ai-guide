@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 import { redactAndCap } from "../redaction.ts";
 
 const MAX_RESULTS = 20;
@@ -44,14 +44,20 @@ export async function findReferences(
   const argsHash = await hashArgs(args);
 
   try {
-    const { data: refs, error: rpcError } = await adminClient.rpc("find_references_v1", {
-      p_pack_id: args.pack_id,
-      p_symbol: args.symbol,
-      p_limit: args.max_results,
-    });
+    const { data: refs, error: rpcError } = await adminClient.rpc(
+      "find_references_v1",
+      {
+        p_pack_id: args.pack_id,
+        p_symbol: args.symbol,
+        p_limit: args.max_results,
+      },
+    );
 
     if (rpcError) {
-      console.error(`[MCP:find_references] find_references_v1 error:`, rpcError.message);
+      console.error(
+        `[MCP:find_references] find_references_v1 error:`,
+        rpcError.message,
+      );
       throw new Error("Reference lookup failed");
     }
 
@@ -67,7 +73,10 @@ export async function findReferences(
         .eq("chunk_id", ref.chunk_id)
         .maybeSingle();
 
-      const { text: snippet } = redactAndCap(chunk?.content || "", MAX_SNIPPET_CHARS);
+      const { text: snippet } = redactAndCap(
+        chunk?.content || "",
+        MAX_SNIPPET_CHARS,
+      );
 
       references.push({
         chunk_id: ref.chunk_id,

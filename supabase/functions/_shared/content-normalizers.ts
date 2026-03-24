@@ -14,7 +14,10 @@ export function normalizeConfluenceHtmlToMarkdown(html: string): string {
   text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, "\n### $1\n");
   text = text.replace(/<h4[^>]*>(.*?)<\/h4>/gi, "\n#### $1\n");
   // Code blocks
-  text = text.replace(/<ac:structured-macro[^>]*ac:name="code"[^>]*>[\s\S]*?<ac:plain-text-body><!\[CDATA\[([\s\S]*?)\]\]><\/ac:plain-text-body>[\s\S]*?<\/ac:structured-macro>/gi, "\n```\n$1\n```\n");
+  text = text.replace(
+    /<ac:structured-macro[^>]*ac:name="code"[^>]*>[\s\S]*?<ac:plain-text-body><!\[CDATA\[([\s\S]*?)\]\]><\/ac:plain-text-body>[\s\S]*?<\/ac:structured-macro>/gi,
+    "\n```\n$1\n```\n",
+  );
   // Lists
   text = text.replace(/<li[^>]*>(.*?)<\/li>/gi, "- $1\n");
   // Paragraphs
@@ -25,7 +28,10 @@ export function normalizeConfluenceHtmlToMarkdown(html: string): string {
   text = text.replace(/<strong[^>]*>(.*?)<\/strong>/gi, "**$1**");
   text = text.replace(/<em[^>]*>(.*?)<\/em>/gi, "*$1*");
   // Images
-  text = text.replace(/<ac:image[^>]*>[\s\S]*?<ri:attachment ri:filename="([^"]*)"[^>]*\/>[\s\S]*?<\/ac:image>/gi, "[image: $1]");
+  text = text.replace(
+    /<ac:image[^>]*>[\s\S]*?<ri:attachment ri:filename="([^"]*)"[^>]*\/>[\s\S]*?<\/ac:image>/gi,
+    "[image: $1]",
+  );
   text = text.replace(/<img[^>]*alt="([^"]*)"[^>]*\/?>/gi, "[image: $1]");
   text = text.replace(/<img[^>]*\/?>/gi, "[image]");
   // Strip remaining tags
@@ -44,7 +50,7 @@ export function normalizeConfluenceHtmlToMarkdown(html: string): string {
  */
 export function normalizeNotionBlocksToMarkdown(blocks: any[]): string {
   const parts: string[] = [];
-  
+
   for (const block of blocks) {
     const type = block.type;
     switch (type) {
@@ -61,10 +67,14 @@ export function normalizeNotionBlocksToMarkdown(blocks: any[]): string {
         parts.push(`### ${richTextToPlain(block.heading_3?.rich_text)}\n`);
         break;
       case "bulleted_list_item":
-        parts.push(`- ${richTextToPlain(block.bulleted_list_item?.rich_text)}\n`);
+        parts.push(
+          `- ${richTextToPlain(block.bulleted_list_item?.rich_text)}\n`,
+        );
         break;
       case "numbered_list_item":
-        parts.push(`1. ${richTextToPlain(block.numbered_list_item?.rich_text)}\n`);
+        parts.push(
+          `1. ${richTextToPlain(block.numbered_list_item?.rich_text)}\n`,
+        );
         break;
       case "to_do":
         const checked = block.to_do?.checked ? "☑" : "☐";
@@ -72,7 +82,9 @@ export function normalizeNotionBlocksToMarkdown(blocks: any[]): string {
         break;
       case "code":
         const lang = block.code?.language || "";
-        parts.push(`\`\`\`${lang}\n${richTextToPlain(block.code?.rich_text)}\n\`\`\`\n`);
+        parts.push(
+          `\`\`\`${lang}\n${richTextToPlain(block.code?.rich_text)}\n\`\`\`\n`,
+        );
         break;
       case "quote":
         parts.push(`> ${richTextToPlain(block.quote?.rich_text)}\n`);
@@ -88,7 +100,9 @@ export function normalizeNotionBlocksToMarkdown(blocks: any[]): string {
         parts.push(`▸ ${richTextToPlain(block.toggle?.rich_text)}\n`);
         break;
       case "image":
-        const caption = block.image?.caption ? richTextToPlain(block.image.caption) : "image";
+        const caption = block.image?.caption
+          ? richTextToPlain(block.image.caption)
+          : "image";
         parts.push(`[image: ${caption}]\n`);
         break;
       case "bookmark":
@@ -96,7 +110,9 @@ export function normalizeNotionBlocksToMarkdown(blocks: any[]): string {
         parts.push(`[link: ${url}]\n`);
         break;
       case "table_row":
-        const cells = (block.table_row?.cells || []).map((cell: any) => richTextToPlain(cell));
+        const cells = (block.table_row?.cells || []).map((cell: any) =>
+          richTextToPlain(cell)
+        );
         parts.push(`| ${cells.join(" | ")} |\n`);
         break;
     }
@@ -119,12 +135,17 @@ export function richTextToPlain(richText: any[]): string {
 /**
  * Slack Thread to Markdown
  */
-export function normalizeSlackThreadToMarkdown(channelName: string, date: string, messages: any[], userCache: Record<string, string>): string {
+export function normalizeSlackThreadToMarkdown(
+  channelName: string,
+  date: string,
+  messages: any[],
+  userCache: Record<string, string>,
+): string {
   if (!messages || messages.length === 0) return "";
-  
+
   const mainMsg = messages[0];
   const userName = userCache[mainMsg.user] || "[team member]";
-  
+
   let content = "";
   if (messages.length > 1) {
     content = `# Thread in #${channelName} (${date})\n\n`;
@@ -133,14 +154,18 @@ export function normalizeSlackThreadToMarkdown(channelName: string, date: string
       content += `**${u}**: ${msg.text || ""}\n\n`;
     }
   } else {
-    content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${mainMsg.text || ""}\n`;
+    content = `# Message in #${channelName} (${date})\n\n**${userName}**: ${
+      mainMsg.text || ""
+    }\n`;
   }
-  
+
   if (mainMsg.reactions?.length) {
-    const reactions = mainMsg.reactions.map((r: any) => `:${r.name}: (${r.count})`).join(" ");
+    const reactions = mainMsg.reactions.map((r: any) =>
+      `:${r.name}: (${r.count})`
+    ).join(" ");
     content += `\nReactions: ${reactions}\n`;
   }
-  
+
   return content.trim();
 }
 
@@ -153,8 +178,14 @@ export function normalizeJiraIssueToMarkdown(issue: any): string {
   content += `**Type**: ${fields.issuetype?.name || "Unknown"}\n`;
   content += `**Status**: ${fields.status?.name || "Unknown"}\n`;
   content += `**Priority**: ${fields.priority?.name || "None"}\n`;
-  if (fields.labels?.length) content += `**Labels**: ${fields.labels.join(", ")}\n`;
-  if (fields.components?.length) content += `**Components**: ${fields.components.map((c: any) => c.name).join(", ")}\n`;
+  if (fields.labels?.length) {
+    content += `**Labels**: ${fields.labels.join(", ")}\n`;
+  }
+  if (fields.components?.length) {
+    content += `**Components**: ${
+      fields.components.map((c: any) => c.name).join(", ")
+    }\n`;
+  }
   content += "\n";
 
   if (fields.description) {
@@ -165,7 +196,9 @@ export function normalizeJiraIssueToMarkdown(issue: any): string {
     const recentComments = fields.comment.comments.slice(-5);
     content += "## Comments\n\n";
     for (const c of recentComments) {
-      content += `**${c.author?.displayName || "Unknown"}**: ${adfToText(c.body)}\n\n`;
+      content += `**${c.author?.displayName || "Unknown"}**: ${
+        adfToText(c.body)
+      }\n\n`;
     }
   }
   return content.trim();
@@ -178,13 +211,28 @@ function adfToText(node: any): string {
   if (node.type === "hardBreak") return "\n";
   if (node.type === "heading") {
     const level = node.attrs?.level || 1;
-    return "#".repeat(level) + " " + (node.content || []).map(adfToText).join("") + "\n\n";
+    return "#".repeat(level) + " " +
+      (node.content || []).map(adfToText).join("") + "\n\n";
   }
-  if (node.type === "paragraph") return (node.content || []).map(adfToText).join("") + "\n\n";
-  if (node.type === "bulletList") return (node.content || []).map((c: any) => "- " + adfToText(c)).join("\n") + "\n";
-  if (node.type === "orderedList") return (node.content || []).map((c: any, i: number) => `${i + 1}. ` + adfToText(c)).join("\n") + "\n";
-  if (node.type === "listItem") return (node.content || []).map(adfToText).join("").trim();
-  if (node.type === "codeBlock") return "```\n" + (node.content || []).map(adfToText).join("") + "\n```\n\n";
+  if (node.type === "paragraph") {
+    return (node.content || []).map(adfToText).join("") + "\n\n";
+  }
+  if (node.type === "bulletList") {
+    return (node.content || []).map((c: any) => "- " + adfToText(c)).join(
+      "\n",
+    ) + "\n";
+  }
+  if (node.type === "orderedList") {
+    return (node.content || []).map((c: any, i: number) =>
+      `${i + 1}. ` + adfToText(c)
+    ).join("\n") + "\n";
+  }
+  if (node.type === "listItem") {
+    return (node.content || []).map(adfToText).join("").trim();
+  }
+  if (node.type === "codeBlock") {
+    return "```\n" + (node.content || []).map(adfToText).join("") + "\n```\n\n";
+  }
   if (node.content) return node.content.map(adfToText).join("");
   return "";
 }
@@ -202,10 +250,13 @@ export function normalizeUrlHtmlToMarkdown(html: string): string {
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
 
   // Convert headings
-  cleaned = cleaned.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level, content) => {
-    const prefix = "#".repeat(parseInt(level));
-    return `\n${prefix} ${content.replace(/<[^>]+>/g, "").trim()}\n`;
-  });
+  cleaned = cleaned.replace(
+    /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi,
+    (_, level, content) => {
+      const prefix = "#".repeat(parseInt(level));
+      return `\n${prefix} ${content.replace(/<[^>]+>/g, "").trim()}\n`;
+    },
+  );
 
   cleaned = cleaned.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n");
   cleaned = cleaned.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "\n$1\n");

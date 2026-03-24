@@ -1,9 +1,17 @@
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
-import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
+import {
+  checkPackChunkCap,
+  getRunCap,
+  validateIngestion,
+} from "../_shared/ingestion-guards.ts";
 import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
-import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { requireUser } from "../_shared/authz.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
@@ -11,7 +19,10 @@ import { requirePackRole } from "../_shared/pack-access.ts";
 
 // Redaction now handled by centralized secret-patterns.ts
 
-function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
+function chunkWords(
+  text: string,
+  wordCount = 500,
+): { start: number; end: number; text: string }[] {
   const words = text.split(/\s+/).filter(Boolean);
   const chunks: { start: number; end: number; text: string }[] = [];
   let i = 0;
@@ -20,7 +31,11 @@ function chunkWords(text: string, wordCount = 500): { start: number; end: number
     const end = Math.min(i + wordCount, words.length);
     const chunk = words.slice(i, end).join(" ");
     const lines = chunk.split("\n").length;
-    chunks.push({ start: lineEstimate, end: lineEstimate + lines - 1, text: chunk });
+    chunks.push({
+      start: lineEstimate,
+      end: lineEstimate + lines - 1,
+      text: chunk,
+    });
     lineEstimate += lines;
     i = end;
   }
@@ -35,19 +50,29 @@ async function createServiceAccountJWT(keyData: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const claims = {
     iss: keyData.client_email,
-    scope: "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/spreadsheets.readonly",
+    scope:
+      "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/spreadsheets.readonly",
     aud: "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now,
   };
 
-  const encodedHeader = btoa(JSON.stringify(header)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const encodedClaims = btoa(JSON.stringify(claims)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/=+$/, "").replace(
+    /\+/g,
+    "-",
+  ).replace(/\//g, "_");
+  const encodedClaims = btoa(JSON.stringify(claims)).replace(/=+$/, "").replace(
+    /\+/g,
+    "-",
+  ).replace(/\//g, "_");
   const signatureInput = `${encodedHeader}.${encodedClaims}`;
 
   // Import the private key
   const pemKey = keyData.private_key;
-  const pemContent = pemKey.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\n/g, "");
+  const pemContent = pemKey.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(
+    /-----END PRIVATE KEY-----/,
+    "",
+  ).replace(/\n/g, "");
   const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
 
   const key = await crypto.subtle.importKey(
@@ -55,11 +80,17 @@ async function createServiceAccountJWT(keyData: any): Promise<string> {
     binaryKey,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(signatureInput));
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    new TextEncoder().encode(signatureInput),
+  );
+  const encodedSignature = btoa(
+    String.fromCharCode(...new Uint8Array(signature)),
+  ).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 
   return `${signatureInput}.${encodedSignature}`;
 }
@@ -85,12 +116,16 @@ async function getAccessToken(keyData: any): Promise<string> {
   return data.access_token;
 }
 
-async function listFilesRecursive(folderId: string, accessToken: string): Promise<any[]> {
+async function listFilesRecursive(
+  folderId: string,
+  accessToken: string,
+): Promise<any[]> {
   const files: any[] = [];
   let pageToken: string | undefined;
 
   while (true) {
-    let url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken,files(id,name,mimeType,parents)&pageSize=100`;
+    let url =
+      `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed=false&fields=nextPageToken,files(id,name,mimeType,parents)&pageSize=100`;
     if (pageToken) url += `&pageToken=${pageToken}`;
 
     const resp = await fetch(url, {
@@ -103,12 +138,14 @@ async function listFilesRecursive(folderId: string, accessToken: string): Promis
     }
 
     const data = await resp.json();
-    
+
     for (const file of (data.files || [])) {
       if (file.mimeType === "application/vnd.google-apps.folder") {
         // Recurse into subfolder
         const subFiles = await listFilesRecursive(file.id, accessToken);
-        files.push(...subFiles.map((f: any) => ({ ...f, parentName: file.name })));
+        files.push(
+          ...subFiles.map((f: any) => ({ ...f, parentName: file.name })),
+        );
       } else {
         files.push(file);
       }
@@ -121,10 +158,16 @@ async function listFilesRecursive(folderId: string, accessToken: string): Promis
   return files;
 }
 
-async function extractGoogleDoc(docId: string, accessToken: string): Promise<string> {
-  const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+async function extractGoogleDoc(
+  docId: string,
+  accessToken: string,
+): Promise<string> {
+  const resp = await fetch(
+    `https://docs.googleapis.com/v1/documents/${docId}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
 
   if (!resp.ok) return "";
   const doc = await resp.json();
@@ -135,7 +178,7 @@ async function extractGoogleDoc(docId: string, accessToken: string): Promise<str
       const text = (elem.paragraph.elements || [])
         .map((e: any) => e.textRun?.content || "")
         .join("");
-      
+
       // Check for heading style
       const style = elem.paragraph.paragraphStyle?.namedStyleType;
       if (style === "HEADING_1") parts.push(`# ${text}`);
@@ -146,7 +189,9 @@ async function extractGoogleDoc(docId: string, accessToken: string): Promise<str
       for (const row of (elem.table.tableRows || [])) {
         const cells = (row.tableCells || []).map((cell: any) => {
           return (cell.content || []).map((c: any) =>
-            (c.paragraph?.elements || []).map((e: any) => e.textRun?.content || "").join("")
+            (c.paragraph?.elements || []).map((e: any) =>
+              e.textRun?.content || ""
+            ).join("")
           ).join("");
         });
         parts.push(`| ${cells.join(" | ")} |`);
@@ -157,10 +202,16 @@ async function extractGoogleDoc(docId: string, accessToken: string): Promise<str
   return parts.join("\n").trim();
 }
 
-async function extractGoogleSheet(sheetId: string, accessToken: string): Promise<string> {
-  const resp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?includeGridData=true`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+async function extractGoogleSheet(
+  sheetId: string,
+  accessToken: string,
+): Promise<string> {
+  const resp = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?includeGridData=true`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
 
   if (!resp.ok) return "";
   const data = await resp.json();
@@ -180,10 +231,16 @@ async function extractGoogleSheet(sheetId: string, accessToken: string): Promise
   return parts.join("\n").trim();
 }
 
-async function downloadFileAsText(fileId: string, accessToken: string): Promise<string> {
-  const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+async function downloadFileAsText(
+  fileId: string,
+  accessToken: string,
+): Promise<string> {
+  const resp = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+  );
   if (!resp.ok) return "";
   return await resp.text();
 }
@@ -201,7 +258,13 @@ Deno.serve(async (req) => {
     const { pack_id, source_id, source_config } = body;
 
     if (!pack_id || !source_id || !source_config) {
-      return jsonError(400, "bad_request", "Missing required fields", {}, corsHeaders);
+      return jsonError(
+        400,
+        "bad_request",
+        "Missing required fields",
+        {},
+        corsHeaders,
+      );
     }
 
     // 1. Authenticate user
@@ -209,34 +272,54 @@ Deno.serve(async (req) => {
 
     // 2. Authorize pack access (Author or higher)
     const serviceClient = createServiceClient();
-    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
+    await requirePackRole(
+      serviceClient,
+      pack_id,
+      userId,
+      "author",
+      corsHeaders,
+    );
 
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     let { folder_id, service_account_key, auth_method } = source_config;
     if (!folder_id) {
-      return new Response(JSON.stringify({ error: "Missing folder ID" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(
+        400,
+        "bad_request",
+        "Missing folder ID",
+        {},
+        corsHeaders,
+      );
     }
 
     // 1. Fetch service_account_key from Vault if needed and missing
     if (auth_method === "service_account" && !service_account_key) {
-      service_account_key = await getSourceCredential(supabase, source_id, 'service_account_key');
+      service_account_key = await getSourceCredential(
+        supabase,
+        source_id,
+        "service_account_key",
+      );
     }
 
     let accessToken: string;
 
     if (auth_method === "service_account" && service_account_key) {
-      const keyData = typeof service_account_key === "string" ? JSON.parse(service_account_key) : service_account_key;
+      const keyData = typeof service_account_key === "string"
+        ? JSON.parse(service_account_key)
+        : service_account_key;
       accessToken = await getAccessToken(keyData);
     } else if (auth_method === "oauth") {
       // Load stored OAuth token for this user
       const { user_id } = source_config;
       if (!user_id) {
-        return new Response(JSON.stringify({ error: "user_id required for OAuth auth" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonError(
+          400,
+          "bad_request",
+          "user_id required for OAuth auth",
+          {},
+          corsHeaders,
+        );
       }
       const supabaseTmp = createServiceClient();
       const { data: tokenRow, error: tokenErr } = await supabaseTmp
@@ -246,9 +329,13 @@ Deno.serve(async (req) => {
         .single();
 
       if (tokenErr || !tokenRow) {
-        return new Response(JSON.stringify({ error: "No Google OAuth token found. Please reconnect Google Drive in the Sources page." }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonError(
+          401,
+          "unauthorized",
+          "No Google OAuth token found. Please reconnect Google Drive in the Sources page.",
+          {},
+          corsHeaders,
+        );
       }
 
       // Refresh the token if it has expired (or expires within 2 minutes)
@@ -265,46 +352,74 @@ Deno.serve(async (req) => {
           }),
         });
         if (!refreshResp.ok) {
-          return new Response(JSON.stringify({ error: "Google OAuth token expired and refresh failed. Please reconnect Google Drive." }), {
-            status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return new Response(
+            JSON.stringify({
+              error:
+                "Google OAuth token expired and refresh failed. Please reconnect Google Drive.",
+            }),
+            {
+              status: 401,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
         }
         const refreshData = await refreshResp.json();
         accessToken = refreshData.access_token;
         // Persist the new token
         await supabaseTmp.from("google_oauth_tokens").update({
           access_token: accessToken,
-          expires_at: new Date(Date.now() + (refreshData.expires_in || 3600) * 1000).toISOString(),
+          expires_at: new Date(
+            Date.now() + (refreshData.expires_in || 3600) * 1000,
+          ).toISOString(),
           updated_at: new Date().toISOString(),
         }).eq("user_id", user_id);
       } else {
         accessToken = tokenRow.access_token;
       }
     } else {
-      return new Response(JSON.stringify({ error: "Service account key or Google OAuth connection required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "Service account key or Google OAuth connection required",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // 1. Check Ingestion Guards (Cooldown, Concurrency)
     const guard = await validateIngestion(supabase, pack_id, source_id);
     if (!guard.success) {
-      return new Response(JSON.stringify({ error: guard.error, next_allowed_at: guard.next_allowed_at }), {
-        status: guard.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(
+        guard.status || 403,
+        "ingestion_restricted",
+        guard.error || "Ingestion restricted",
+        { next_allowed_at: guard.next_allowed_at },
+        corsHeaders,
+      );
     }
 
     // 2. Check Pack-level Chunk Cap
     const cap = await checkPackChunkCap(supabase, pack_id);
     if (!cap.success) {
-      return new Response(JSON.stringify({ error: cap.error }), {
-        status: cap.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(
+        cap.status || 403,
+        "cap_exceeded",
+        cap.error || "Chunk cap exceeded",
+        {},
+        corsHeaders,
+      );
     }
 
     const { data: job, error: jobErr } = await supabase
       .from("ingestion_jobs")
-      .insert({ pack_id, source_id, status: "processing", started_at: new Date().toISOString() })
+      .insert({
+        pack_id,
+        source_id,
+        status: "processing",
+        started_at: new Date().toISOString(),
+      })
       .select()
       .single();
     if (jobErr) throw jobErr;
@@ -314,7 +429,9 @@ Deno.serve(async (req) => {
     const files = await listFilesRecursive(folder_id, accessToken);
     console.log(`[GDrive] Found ${files.length} files`);
 
-    await serviceClient.from("ingestion_jobs").update({ total_chunks: files.length }).eq("id", jobId);
+    await serviceClient.from("ingestion_jobs").update({
+      total_chunks: files.length,
+    }).eq("id", jobId);
 
     const allChunks: any[] = [];
     let chunkIdx = 0;
@@ -332,12 +449,16 @@ Deno.serve(async (req) => {
       if (!SUPPORTED_MIME_TYPES.has(file.mimeType)) continue;
 
       let content = "";
-      const fileName = file.parentName ? `${file.parentName}/${file.name}` : file.name;
+      const fileName = file.parentName
+        ? `${file.parentName}/${file.name}`
+        : file.name;
 
       try {
         if (file.mimeType === "application/vnd.google-apps.document") {
           content = await extractGoogleDoc(file.id, accessToken);
-        } else if (file.mimeType === "application/vnd.google-apps.spreadsheet") {
+        } else if (
+          file.mimeType === "application/vnd.google-apps.spreadsheet"
+        ) {
           content = await extractGoogleSheet(file.id, accessToken);
         } else {
           content = await downloadFileAsText(file.id, accessToken);
@@ -354,7 +475,9 @@ Deno.serve(async (req) => {
         chunkIdx++;
         // Check per-run cap
         if (chunkIdx > getRunCap()) {
-          throw new Error(`Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`);
+          throw new Error(
+            `Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`,
+          );
         }
         const assessment = assessChunkRedaction(chunk.text);
         const hash = await computeContentHash(assessment.contentToStore);
@@ -371,8 +494,8 @@ Deno.serve(async (req) => {
             redaction: {
               action: assessment.action,
               secretsFound: assessment.metrics.secretsFound,
-            }
-          }
+            },
+          },
         });
       }
     }
@@ -383,7 +506,7 @@ Deno.serve(async (req) => {
       pack_id,
       source_id,
       allChunks,
-      openAIApiKey
+      openAIApiKey,
     );
 
     // Upsert chunks
@@ -391,17 +514,23 @@ Deno.serve(async (req) => {
     let processed = 0;
     for (let i = 0; i < allChunks.length; i += BATCH_SIZE) {
       const batch = allChunks.slice(i, i + BATCH_SIZE).map((c) => ({
-        pack_id, source_id, ...c,
+        pack_id,
+        source_id,
+        ...c,
       }));
       const { error: upsertErr } = await supabase
         .from("knowledge_chunks")
         .upsert(batch, { onConflict: "pack_id,chunk_id" });
       if (upsertErr) console.error("Upsert error:", upsertErr);
       processed += batch.length;
-      await serviceClient.from("ingestion_jobs").update({ processed_chunks: processed }).eq("id", jobId);
+      await serviceClient.from("ingestion_jobs").update({
+        processed_chunks: processed,
+      }).eq("id", jobId);
     }
 
-    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+    await serviceClient.from("pack_sources").update({
+      last_synced_at: new Date().toISOString(),
+    }).eq("id", source_id);
 
     await serviceClient.from("ingestion_jobs").update({
       status: "completed",
@@ -410,11 +539,16 @@ Deno.serve(async (req) => {
       metadata: {
         total_chunks: allChunks.length,
         embeddings_reused_count: reusedCount,
-        embeddings_generated_count: generatedCount
-      }
+        embeddings_generated_count: generatedCount,
+      },
     }).eq("id", jobId);
 
-    return json(200, { success: true, job_id: jobId, chunks: allChunks.length, files: files.length }, corsHeaders);
+    return json(200, {
+      success: true,
+      job_id: jobId,
+      chunks: allChunks.length,
+      files: files.length,
+    }, corsHeaders);
   } catch (err: any) {
     if (err.response) return err.response;
     console.error("Google Drive ingestion error:", err);

@@ -8,7 +8,7 @@ export async function getExistingEmbeddings(
   supabase: SupabaseClient,
   pack_id: string,
   source_id: string,
-  hashes: string[]
+  hashes: string[],
 ): Promise<Map<string, number[]>> {
   if (!hashes.length) return new Map();
 
@@ -31,8 +31,8 @@ export async function getExistingEmbeddings(
 
   for (const row of (data || [])) {
     // pgvector returns a string like "[0.1,0.2,...]" or already parsed array
-    const embedding = typeof row.embedding === "string" 
-      ? JSON.parse(row.embedding) 
+    const embedding = typeof row.embedding === "string"
+      ? JSON.parse(row.embedding)
       : row.embedding;
     resultMap.set(row.content_hash, embedding);
   }
@@ -47,7 +47,7 @@ export async function getExistingEmbeddings(
 export async function getPreviousGenerationEmbeddings(
   supabase: SupabaseClient,
   pack_id: string,
-  hashes: string[]
+  hashes: string[],
 ): Promise<Map<string, number[]>> {
   if (!hashes.length) return new Map();
 
@@ -80,8 +80,8 @@ export async function getPreviousGenerationEmbeddings(
   }
 
   for (const row of (data || [])) {
-    const embedding = typeof row.embedding === "string" 
-      ? JSON.parse(row.embedding) 
+    const embedding = typeof row.embedding === "string"
+      ? JSON.parse(row.embedding)
       : row.embedding;
     resultMap.set(row.content_hash, embedding);
   }
@@ -92,12 +92,15 @@ export async function getPreviousGenerationEmbeddings(
 /**
  * Generates an embedding for the given text. Supports OpenAI and Lovable Gateway.
  */
-export async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
+export async function generateEmbedding(
+  text: string,
+  apiKey: string,
+): Promise<number[] | null> {
   if (!apiKey) return null;
-  
+
   const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
   const useLovableGateway = !openAIApiKey && !!Deno.env.get("LOVABLE_API_KEY");
-  
+
   try {
     const url = useLovableGateway
       ? "https://ai.gateway.lovable.dev/v1/embeddings"
@@ -107,19 +110,19 @@ export async function generateEmbedding(text: string, apiKey: string): Promise<n
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         input: text.replace(/\n/g, " "),
-        model: "text-embedding-3-small"
-      })
+        model: "text-embedding-3-small",
+      }),
     });
-    
+
     if (!res.ok) {
       console.error(`[EMBEDDING] Error from ${url}:`, await res.text());
       return null;
     }
-    
+
     const data = await res.json();
     return data.data[0].embedding;
   } catch (err) {
@@ -140,16 +143,21 @@ export async function processEmbeddingsWithReuse(
   source_id: string,
   chunks: any[],
   openAIApiKey: string,
-  jobId?: string
+  jobId?: string,
 ): Promise<{ reusedCount: number; generatedCount: number }> {
-  const indexableChunks = chunks.filter(c => !c.is_redacted);
+  const indexableChunks = chunks.filter((c) => !c.is_redacted);
   let reusedCount = 0;
   let generatedCount = 0;
 
   if (indexableChunks.length > 0) {
-    const hashes = indexableChunks.map(c => c.content_hash);
-    const existingEmbeddings = await getExistingEmbeddings(supabase, pack_id, source_id, hashes);
-    
+    const hashes = indexableChunks.map((c) => c.content_hash);
+    const existingEmbeddings = await getExistingEmbeddings(
+      supabase,
+      pack_id,
+      source_id,
+      hashes,
+    );
+
     for (const chunk of indexableChunks) {
       const reused = existingEmbeddings.get(chunk.content_hash);
       if (reused) {
@@ -159,27 +167,36 @@ export async function processEmbeddingsWithReuse(
     }
 
     if (openAIApiKey) {
-      const remainingToIndex = indexableChunks.filter(c => !c.embedding);
+      const remainingToIndex = indexableChunks.filter((c) => !c.embedding);
       if (remainingToIndex.length > 0) {
         // Parallelize embedding generation in batches to avoid overwhelming the gateway/API
         const EMBEDDING_BATCH_SIZE = 5;
-        for (let i = 0; i < remainingToIndex.length; i += EMBEDDING_BATCH_SIZE) {
+        for (
+          let i = 0;
+          i < remainingToIndex.length;
+          i += EMBEDDING_BATCH_SIZE
+        ) {
           const batch = remainingToIndex.slice(i, i + EMBEDDING_BATCH_SIZE);
           await Promise.all(
             batch.map(async (chunk) => {
-              const vector = await generateEmbedding(chunk.content, openAIApiKey);
+              const vector = await generateEmbedding(
+                chunk.content,
+                openAIApiKey,
+              );
               if (vector) {
                 chunk.embedding = vector;
                 generatedCount++;
               }
-            })
+            }),
           );
 
           // Heartbeat every few batches during the slow embedding phase
           if (jobId && (i / EMBEDDING_BATCH_SIZE) % 5 === 0) {
             const status = await updateHeartbeat(supabase, jobId);
             if (status && status !== "processing") {
-              throw new Error(`Job ${jobId} is no longer processing (status: ${status}), aborting embeddings.`);
+              throw new Error(
+                `Job ${jobId} is no longer processing (status: ${status}), aborting embeddings.`,
+              );
             }
           }
         }

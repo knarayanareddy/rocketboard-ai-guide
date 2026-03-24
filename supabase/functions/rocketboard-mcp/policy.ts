@@ -58,22 +58,35 @@ export async function checkPackAccess(
     .maybeSingle();
 
   if (packError || !pack) {
-    throw new McpAccessError("pack_not_found", "Pack not found or does not exist");
+    throw new McpAccessError(
+      "pack_not_found",
+      "Pack not found or does not exist",
+    );
   }
 
   // 2. Check membership and access level
   // Try has_pack_access RPC first (cleaner); fall back to pack_members join
   try {
-    const { data: hasAccess, error: rpcError } = await adminClient.rpc("has_pack_access", {
-      p_user_id: userId,
-      p_pack_id: packId,
-      p_required_level: requiredLevel,
-    });
+    const { data: hasAccess, error: rpcError } = await adminClient.rpc(
+      "has_pack_access",
+      {
+        p_user_id: userId,
+        p_pack_id: packId,
+        p_required_level: requiredLevel,
+      },
+    );
 
     if (!rpcError) {
       if (!hasAccess) {
-        console.warn(`[MCP:policy] Access denied — user=${userId.slice(0, 8)}… pack=${packId.slice(0, 8)}… required=${requiredLevel}`);
-        throw new McpAccessError("forbidden", "You do not have access to this pack");
+        console.warn(
+          `[MCP:policy] Access denied — user=${userId.slice(0, 8)}… pack=${
+            packId.slice(0, 8)
+          }… required=${requiredLevel}`,
+        );
+        throw new McpAccessError(
+          "forbidden",
+          "You do not have access to this pack",
+        );
       }
       return;
     }
@@ -92,7 +105,11 @@ export async function checkPackAccess(
     .maybeSingle();
 
   if (memberError || !membership) {
-    console.warn(`[MCP:policy] Membership check failed — user=${userId.slice(0, 8)}… pack=${packId.slice(0, 8)}…`);
+    console.warn(
+      `[MCP:policy] Membership check failed — user=${
+        userId.slice(0, 8)
+      }… pack=${packId.slice(0, 8)}…`,
+    );
     throw new McpAccessError("forbidden", "You are not a member of this pack");
   }
 
@@ -110,7 +127,10 @@ export async function checkPackAccess(
 export function accessErrorResponse(err: McpAccessError): Response {
   const status = err.code === "pack_not_found" ? 404 : 403;
   return new Response(
-    JSON.stringify({ error: err.code === "pack_not_found" ? "Not Found" : "Forbidden", detail: err.message }),
+    JSON.stringify({
+      error: err.code === "pack_not_found" ? "Not Found" : "Forbidden",
+      detail: err.message,
+    }),
     { status, headers: { "Content-Type": "application/json" } },
   );
 }
@@ -142,7 +162,9 @@ export function validatePath(
   // Must start with one of the allowlist prefixes
   const allowed = allowedPrefixes.some((prefix) => path.startsWith(prefix));
   if (!allowed) {
-    throw new Error(`Invalid path: must start with one of ${JSON.stringify(allowedPrefixes)}`);
+    throw new Error(
+      `Invalid path: must start with one of ${JSON.stringify(allowedPrefixes)}`,
+    );
   }
 
   return path;
