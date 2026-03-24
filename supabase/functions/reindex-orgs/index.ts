@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { astChunk } from "../_shared/ast-chunker.ts";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
@@ -8,7 +8,7 @@ import { getPreviousGenerationEmbeddings } from "../_shared/embedding-reuse.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
   let generation_id: string = crypto.randomUUID();
 
   try {
-    const body = await req.json();
+    const body = await readJson(req, corsHeaders);
     const { org_id } = body;
     pack_id = body.pack_id;
 
@@ -84,10 +84,10 @@ Deno.serve(async (req) => {
     const githubToken = Deno.env.get("GITHUB_TOKEN");
 
     // 1. Acquire Lock (P0: Prevent Concurrent Racing)
-    const { data, error: lockErr } = await supabase
+    const { data: lockData, error: lockErr } = await supabase
       .rpc('acquire_pack_lock', { p_pack_id: pack_id, p_lock_name: 'reindex', p_ttl_seconds: 3600 });
     
-    if (lockErr || !data) {
+    if (lockErr || !lockData) {
       console.warn(`[LOCK REJECT] Job already in progress for pack ${pack_id}`);
       return new Response(JSON.stringify({ 
         error: "Reindex already in progress for this pack. Please wait or try again later." 
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    lockToken = data;
+    lockToken = lockData;
 
     // 2. Initialize Progress
     await supabase.from("reindex_progress").upsert({
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       let validatedUri: string;
       try {
         validatedUri = parseAndValidateExternalUrl(source.source_uri, {
-          allowAnyHost: true,
+          allowedHosts: ["github.com"],
           disallowPrivateIPs: true,
           allowHttps: true,
         });

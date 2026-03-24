@@ -46,7 +46,7 @@ serve(async (req) => {
     }
 
     // 2. Parse request
-    const { to, subject, html, userId, type } = await readJson(req);
+    const { to, subject, html, userId, type } = await readJson(req, corsHeaders);
 
     // 2.1 Allow raw HTML gate
     const allowRawHtml = Deno.env.get("ALLOW_RAW_EMAIL_HTML") !== "false";
@@ -63,10 +63,7 @@ serve(async (req) => {
 
     // 3. Optional: Check notification preferences (requires Admin access)
     if (userId && type) {
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
+      const supabaseAdmin = createServiceClient();
 
       const { data: prefs } = await supabaseAdmin
         .from('notification_preferences')

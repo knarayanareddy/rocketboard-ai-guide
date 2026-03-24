@@ -3,25 +3,25 @@
  * Shared pack membership and role verification.
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { jsonError } from "./http.ts";
 
 export async function getPackRole(
   serviceClient: SupabaseClient,
   packId: string,
   userId: string
-): Promise<string | null> {
+): Promise<{ role: string | null; org_id: string | null }> {
   const { data, error } = await serviceClient
     .from("pack_members")
-    .select("role, access_level")
+    .select("role, access_level, org_id")
     .eq("pack_id", packId)
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data) return { role: null, org_id: null };
 
-  // Handle schema drift: prioritize access_level if present, fallback to role.
-  return data.access_level || data.role || null;
+  const role = data.access_level || data.role || null;
+  return { role, org_id: data.org_id || null };
 }
 
 export async function requirePackRole(
@@ -31,7 +31,7 @@ export async function requirePackRole(
   minRole: string,
   headers?: Record<string, string>
 ) {
-  const role = await getPackRole(serviceClient, packId, userId);
+  const { role, org_id } = await getPackRole(serviceClient, packId, userId);
 
   const roles = ["read_only", "learner", "author", "admin", "owner"];
   const minIdx = roles.indexOf(minRole);
@@ -50,5 +50,5 @@ export async function requirePackRole(
     };
   }
 
-  return { role };
+  return { role, org_id };
 }

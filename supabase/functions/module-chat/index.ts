@@ -1,77 +1,33 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-async function authenticateRequest(req: Request): Promise<{ userId: string } | Response> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized: missing Bearer token" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    return new Response(JSON.stringify({ error: "Unauthorized: invalid token" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  return { userId: user.id };
-}
-
-async function checkPackAccess(userId: string, packId: string): Promise<Response | null> {
-  if (!packId) return null;
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  );
-
-  const { data, error } = await supabase.rpc("has_pack_access", {
-    _user_id: userId,
-    _pack_id: packId,
-    _min_level: "learner",
-  });
-
-  if (error || !data) {
-    return new Response(JSON.stringify({ error: "Forbidden: Not authorized for this pack." }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  return null;
-}
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    // JWT Authentication
-    const authResult = await authenticateRequest(req);
-    if (authResult instanceof Response) return authResult;
-    const { userId } = authResult;
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
 
-    const { messages, moduleContext, packId } = await req.json();
+    // 2. Parse request
+    const { messages, moduleContext, packId } = await readJson(req, corsHeaders);
+    const targetPackId = packId || moduleContext?.packId;
 
-    // Pack Authorization
-    const accessDenied = await checkPackAccess(userId, packId || moduleContext?.packId);
-    if (accessDenied) return accessDenied;
+    if (!targetPackId) {
+      return jsonError(400, "bad_request", "Missing packId", {}, corsHeaders);
+    }
+
+    // 3. Authorize pack access (Learner or higher)
+    const serviceClient = createServiceClient();
+    await requirePackRole(serviceClient, targetPackId, userId, "learner", corsHeaders);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -126,11 +82,10 @@ Keep answers concise, use markdown formatting, and reference specific sections w
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
-  } catch (e) {
-    console.error("module-chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (error: any) {
+    if (error.response) return error.response;
+    
+    console.error("module-chat error:", error);
+    return jsonError(500, "internal_error", error.message || "Unknown error", {}, corsHeaders);
   }
 });

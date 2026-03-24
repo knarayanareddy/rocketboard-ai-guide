@@ -6,7 +6,7 @@ import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { pack_id, source_id, source_config } = await req.json();
+    const { pack_id, source_id, source_config } = await readJson(req, corsHeaders);
     const { spec_url, spec_content, label = "API" } = source_config || {};
 
     let specText = spec_content;
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       let validatedSpecUrl: string;
       try {
         validatedSpecUrl = parseAndValidateExternalUrl(spec_url, {
-          allowAnyHost: true,
+          allowedHostSuffixes: ["github.com", "githubusercontent.com", "swagger.io"],
           disallowPrivateIPs: true,
           allowHttps: true,
         });

@@ -33,10 +33,12 @@ export function jsonError(
   );
 }
 
-export async function readJson(req: Request) {
+export async function readJson(req: Request, headers: Record<string, string> = {}) {
   try {
     return await req.json();
   } catch (err) {
-    throw new Error("Invalid JSON body");
+    throw {
+      response: jsonError(400, "bad_request", "Invalid JSON body", {}, headers),
+    };
   }
 }

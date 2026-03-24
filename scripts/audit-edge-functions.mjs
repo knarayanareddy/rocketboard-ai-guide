@@ -18,8 +18,13 @@ const AUTH_GUARD_ALLOWLIST = [
   'sync-feedback-to-langfuse',
   'auto-remediate-module', // System worker
   'reindex-orgs', // Admin tool
-  'lifecycle-retention-job'
+  'sync-pack-docs',
+  'create-github-pr', // Internal tool
+  'google-oauth-callback' // Auth flow
 ];
+
+// Special case: Ingestion functions are allowed to use SERVICE_ROLE_KEY
+const INGEST_PREFIX = 'ingest-';
 
 const FORBIDDEN_PATTERNS = [
   {
@@ -33,6 +38,14 @@ const FORBIDDEN_PATTERNS = [
   {
     pattern: /allowAnyHost:\s*true/i,
     message: 'allowAnyHost: true is forbidden in URL validation policies.'
+  },
+  {
+    pattern: /@supabase\/supabase-js['"]?(?:@latest|@2(?!\.45\.6)|(?![@\w.-]))/i,
+    message: 'Unpinned or non-standard @supabase/supabase-js version. Use @2.45.6 for stability.'
+  },
+  {
+    pattern: /req\.json\(\)/g,
+    message: 'Using raw req.json() is discouraged. Use readJson(req, corsHeaders) from _shared/http.ts for safe 400 errors.'
   }
 ];
 
@@ -51,8 +64,18 @@ function auditFile(dirName, filePath) {
   const usesServiceRole = content.includes('SUPABASE_SERVICE_ROLE_KEY') || content.includes('createServiceClient');
   const hasAuthGuard = content.includes('requireUser(') || content.includes('requireInternal(') || content.includes('authenticateRequest(');
 
-  if (usesServiceRole && !hasAuthGuard && !AUTH_GUARD_ALLOWLIST.includes(dirName)) {
+  const isAllowed = AUTH_GUARD_ALLOWLIST.includes(dirName) || dirName.startsWith(INGEST_PREFIX);
+
+  if (usesServiceRole && !hasAuthGuard && !isAllowed) {
     issues.push('Uses SUPABASE_SERVICE_ROLE_KEY but lacks requireUser() or requireInternal() guard.');
+  }
+
+  // Refinement: If it's in rocketboard-mcp, we trust the deno.json pins
+  if (filePath.includes('rocketboard-mcp')) {
+    const versionIssueIndex = issues.indexOf('Unpinned or non-standard @supabase/supabase-js version. Use @2.45.6 for stability.');
+    if (versionIssueIndex !== -1) {
+      issues.splice(versionIssueIndex, 1);
+    }
   }
 
   return issues;

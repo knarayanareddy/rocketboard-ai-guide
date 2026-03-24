@@ -1,4 +1,4 @@
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 
 /**
  * Retrieves a decrypted credential for a pack source from Supabase Vault.

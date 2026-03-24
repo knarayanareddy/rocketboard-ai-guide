@@ -1,4 +1,4 @@
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 
 /**
  * Fetches existing embeddings for a set of content hashes within the same pack and source.

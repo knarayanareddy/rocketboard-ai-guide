@@ -18,7 +18,7 @@ serve(async (req) => {
     const { userId } = await requireUser(req, corsHeaders);
 
     // 2. Parse request
-    const { packId, messageType, data } = await readJson(req);
+    const { packId, messageType, data } = await readJson(req, corsHeaders);
     if (!packId) return jsonError(400, "bad_request", "Missing packId", {}, corsHeaders);
 
     // 3. Authorize pack access (Author or higher)

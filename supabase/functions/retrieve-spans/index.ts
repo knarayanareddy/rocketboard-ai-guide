@@ -1,22 +1,11 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { createTrace } from "../_shared/telemetry.ts";
-
-const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") || "http://localhost:5173,http://localhost:8080";
-const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map(o => o.trim());
-
-function getCorsHeaders(origin: string | null) {
-  const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin", // SECURITY: Ensure CDNs don't cache headers for wrong origin
-  };
-  
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
-  
-  return headers;
-}
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
 async function generateEmbedding(text: string, apiKey: string, useLovableGateway: boolean): Promise<number[] | null> {
   if (!apiKey) return null;
@@ -47,19 +36,23 @@ async function generateEmbedding(text: string, apiKey: string, useLovableGateway
   }
 }
 
-Deno.serve(async (req) => {
-  const startTime = Date.now();
-  const origin = req.headers.get("Origin");
-  const corsHeaders = getCorsHeaders(origin);
+serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
 
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const startTime = Date.now();
 
   let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
   let requestId = "unknown";
+
   try {
-    const body = await req.json();
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Parse request
+    const body = await readJson(req, corsHeaders);
     const { pack_id, query, max_spans = 10, module_key, track_key, match_threshold } = body;
 
     // ─── Phase 6: Observability — create trace ── Correlate with router requestId
@@ -67,49 +60,24 @@ Deno.serve(async (req) => {
       taskType: "retrieve-spans",
       requestId,
       packId: pack_id,
+      userId,
       serviceName: "retrieval",
     });
 
     if (!pack_id || !query || typeof query !== "string") {
-      return new Response(JSON.stringify({ error: "Missing pack_id or valid query" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(400, "bad_request", "Missing pack_id or valid query", {}, corsHeaders);
     }
 
     // Defensive Caps
     const clampedQuery = query.trim().slice(0, 500);
     const clampedMaxSpans = Math.min(Math.max(Number(max_spans) || 10, 1), 50);
 
-    // Validate auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: corsHeaders,
-      });
-    }
+    const adminClient = createServiceClient();
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // 3. Authorize pack access (Learner or higher)
+    await requirePackRole(adminClient, pack_id, userId, "learner", corsHeaders);
 
-    // Verify user and get org_id
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: corsHeaders,
-      });
-    }
-
-    // Phase 7: Late-bind userId to trace
-    trace.updateMetadata({ userId: user.id });
-
-    // Use service role for the actual query (since knowledge_chunks RLS is pack-member based)
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceKey);
-
-    // 1. Resolve org_id and verify pack exists
+    // Resolve org_id and verify pack exists
     const { data: packData, error: packError } = await adminClient
       .from("packs")
       .select("org_id")
@@ -117,33 +85,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (packError || !packData) {
-      return new Response(JSON.stringify({ error: "Pack not found" }), {
-        status: 404, headers: corsHeaders,
-      });
+      return jsonError(404, "not_found", "Pack not found", {}, corsHeaders);
     }
 
     const org_id = packData.org_id;
 
-    // 2. Security Check: Verify user belongs to the pack (or has access)
-    // We use service role to check membership accurately regardless of user's current JWT claims
-    const { data: membership, error: memberError } = await adminClient
-      .from("pack_members")
-      .select("role")
-      .eq("pack_id", pack_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (memberError || !membership) {
-      console.warn(`[RETRIEVAL] Access denied for user ${user.id} to pack ${pack_id}`);
-      return new Response(JSON.stringify({ error: "Forbidden: You are not a member of this pack" }), {
-        status: 403, headers: corsHeaders,
-      });
-    }
-
     if (clampedQuery.length === 0) {
-      return new Response(JSON.stringify({ spans: [] }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(200, { spans: [] }, corsHeaders);
     }
 
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
@@ -180,9 +128,7 @@ Deno.serve(async (req) => {
 
     if (rpcError) {
       console.error("Hybrid Search error:", rpcError);
-      return new Response(JSON.stringify({ error: "Hybrid search failed" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(500, "internal_error", "Hybrid search failed", {}, corsHeaders);
     }
 
     // ─── Phase 2: Cross-Repo Path Normalization ───
@@ -233,19 +179,18 @@ Deno.serve(async (req) => {
 
     await trace.flush();
 
-    return new Response(JSON.stringify({ 
+    return json(200, { 
       spans, 
       trace_id: requestId,
       latency_ms 
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
+    }, corsHeaders);
+  } catch (error: any) {
+    if (error.response) return error.response;
+    
     const latency_ms = Date.now() - startTime;
-    trace.setError(err.message);
+    trace.setError(error.message);
     await trace.flush();
-    return new Response(JSON.stringify({ error: (err as Error).message, trace_id: requestId, latency_ms }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("retrieve-spans error:", error);
+    return jsonError(500, "internal_error", error.message || "Unknown error", { trace_id: requestId, latency_ms }, corsHeaders);
   }
 });
