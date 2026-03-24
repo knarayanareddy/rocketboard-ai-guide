@@ -2804,7 +2804,7 @@ serve(async (req) => {
   const currentCorsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
 
   // ─── AUTHENTICATION (Phase 1) ───
-  const { userId } = await requireUser(req);
+  // (Redundant call removed; handled by authenticateRequest inside try/catch)
   
   let trace = createTrace({ taskType: "startup", requestId: "unknown" }, { enabled: false });
 

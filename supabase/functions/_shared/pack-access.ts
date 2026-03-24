@@ -28,17 +28,25 @@ export async function requirePackRole(
   serviceClient: SupabaseClient,
   packId: string,
   userId: string,
-  minRole: string
+  minRole: string,
+  headers?: Record<string, string>
 ) {
   const role = await getPackRole(serviceClient, packId, userId);
 
   const roles = ["read_only", "learner", "author", "admin", "owner"];
   const minIdx = roles.indexOf(minRole);
+
+  if (minIdx === -1) {
+    throw {
+      response: jsonError(500, "internal_error", `Invalid server configuration: unknown minRole "${minRole}"`, {}, headers),
+    };
+  }
+
   const currentIdx = role ? roles.indexOf(role) : -1;
 
   if (currentIdx < minIdx) {
     throw {
-      response: jsonError(403, "forbidden", `Requires ${minRole} access level`),
+      response: jsonError(403, "forbidden", `Requires ${minRole} access level`, {}, headers),
     };
   }
 

@@ -12,13 +12,13 @@ export function getBearerToken(req: Request): string | undefined {
   return authHeader.substring(7);
 }
 
-export async function requireUser(req: Request) {
+export async function requireUser(req: Request, headers?: Record<string, string>) {
   const supabase = createAnonClient(req);
   const token = getBearerToken(req);
 
   if (!token) {
     throw {
-      response: jsonError(401, "unauthorized", "Missing or invalid authorization token"),
+      response: jsonError(401, "unauthorized", "Missing or invalid authorization token", {}, headers),
     };
   }
 
@@ -26,14 +26,14 @@ export async function requireUser(req: Request) {
 
   if (error || !user) {
     throw {
-      response: jsonError(401, "unauthorized", "Invalid or expired session"),
+      response: jsonError(401, "unauthorized", "Invalid or expired session", {}, headers),
     };
   }
 
   return { userId: user.id };
 }
 
-export function requireInternal(req: Request) {
+export function requireInternal(req: Request, headers?: Record<string, string>): { success: true } | { success: false, response: Response } {
   const secret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
   const providedSecret = req.headers.get("X-Rocketboard-Internal");
 
@@ -52,8 +52,6 @@ export function requireInternal(req: Request) {
 
   return {
     success: false,
-    status: 401,
-    code: "unauthorized",
-    message: "This endpoint is restricted to internal callers. Missing or invalid secret.",
+    response: jsonError(401, "unauthorized", "This endpoint is restricted to internal callers. Missing or invalid secret.", {}, headers),
   };
 }

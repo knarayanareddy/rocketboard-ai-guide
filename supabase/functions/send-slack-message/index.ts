@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     // 1. Authenticate user
-    const { userId } = await requireUser(req);
+    const { userId } = await requireUser(req, corsHeaders);
 
     // 2. Parse request
     const { packId, messageType, data } = await readJson(req);
@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // 3. Authorize pack access (Author or higher)
     const serviceClient = createServiceClient();
-    await requirePackRole(serviceClient, packId, userId, "author");
+    await requirePackRole(serviceClient, packId, userId, "author", corsHeaders);
 
     // 4. Fetch integration
     const { data: integration, error: fetchError } = await serviceClient
@@ -60,8 +60,9 @@ serve(async (req) => {
         allowHttps: true,
       });
     } catch (err: any) {
-      const urlObj = new URL(integration.webhook_url);
-      console.error(`[SSRF BLOCK] Invalid Slack webhook: host=${urlObj.hostname} packId=${packId} reason=${err.message}`);
+      let host = "(unparseable)";
+      try { host = new URL(integration.webhook_url).hostname; } catch {}
+      console.error(`[SSRF BLOCK] Invalid Slack webhook: host=${host} packId=${packId} reason=${err.message}`);
       return jsonError(400, "security_violation", `Invalid Slack Webhook: ${err.message}`, {}, corsHeaders);
     }
 
