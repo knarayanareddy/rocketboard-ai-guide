@@ -1,13 +1,15 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Local corsHeaders removed
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -17,17 +19,10 @@ serve(async (req) => {
     // Usually CRON pushes Bearer <TOKEN>.
     if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
       console.warn("process-staleness-queue: Unauthorized access attempt");
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+      return jsonError(401, "unauthorized", "Invalid cron token", {}, corsHeaders);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    // We use the service_role key to bypass RLS and read the queue table.
-    const serviceClient = createClient(supabaseUrl, serviceKey);
+    const serviceClient = createServiceClient();
 
     console.log("process-staleness-queue: Checking for pending tasks...");
 
@@ -44,9 +39,7 @@ serve(async (req) => {
 
     if (!pendingRows || pendingRows.length === 0) {
       console.log("process-staleness-queue: No pending tasks found.");
-      return new Response(JSON.stringify({ message: "No pending tasks", processed: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(200, { message: "No pending tasks", processed: 0 }, corsHeaders);
     }
 
     const results = [];
@@ -124,12 +117,9 @@ serve(async (req) => {
       results.push({ id: row.id, pack_id: row.pack_id, status: finalStatus });
     }
 
-    return new Response(JSON.stringify({ processed: results.length, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    return json(200, { processed: results.length, results }, corsHeaders);
   } catch (err: any) {
     console.error("process-staleness-queue: Uncaught error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

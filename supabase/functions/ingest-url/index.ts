@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
   let trace: any;
 
   try {
-    const body = await readJson(req);
+    const body = await readJson(req, corsHeaders);
     const {
       pack_id,
       startUrl,

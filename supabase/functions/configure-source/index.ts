@@ -24,7 +24,7 @@ serve(async (req) => {
     const { userId } = await requireUser(req, corsHeaders);
 
     // 2. Parse request
-    const body = await readJson(req);
+    const body = await readJson(req, corsHeaders);
     const { 
       pack_id, 
       source_id, 

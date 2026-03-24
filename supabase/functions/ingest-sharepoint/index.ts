@@ -1,15 +1,15 @@
-import mammoth from "https://esm.sh/mammoth@1?bundle";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
 import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
-import { readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Local sha256 removed
 
 
 function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
@@ -165,12 +165,15 @@ function isTextFile(name: string, mimeType: string): boolean {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const { pack_id, source_id, source_config } = await readJson(req, corsHeaders);
+    const body = await readJson(req, corsHeaders);
+    const { pack_id, source_id, source_config } = body;
 
     if (!pack_id || !source_id || !source_config) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -200,9 +203,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const serviceClient = createServiceClient();
+
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Authorize pack access (Author or higher)
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
+
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
 
     // 1. Check Ingestion Guards (Cooldown, Concurrency)
@@ -239,7 +247,7 @@ Deno.serve(async (req) => {
     const files = await listFilesRecursive(driveId, "root", accessToken);
     console.log(`[SharePoint] Found ${files.length} files`);
 
-    await supabase.from("ingestion_jobs").update({ total_chunks: files.length }).eq("id", jobId);
+    await serviceClient.from("ingestion_jobs").update({ total_chunks: files.length }).eq("id", jobId);
 
     const allChunks: any[] = [];
     let chunkIdx = 0;
@@ -305,7 +313,7 @@ Deno.serve(async (req) => {
       }
 
       if (allChunks.length % 30 === 0) {
-        await supabase.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
+        await serviceClient.from("ingestion_jobs").update({ processed_chunks: allChunks.length }).eq("id", jobId);
       }
     }
 
@@ -330,12 +338,12 @@ Deno.serve(async (req) => {
         .upsert(batch, { onConflict: "pack_id,chunk_id" });
       if (upsertErr) console.error("Upsert error:", upsertErr);
       processed += batch.length;
-      await supabase.from("ingestion_jobs").update({ processed_chunks: processed }).eq("id", jobId);
+      await serviceClient.from("ingestion_jobs").update({ processed_chunks: processed }).eq("id", jobId);
     }
 
-    await supabase.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
+    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
 
-    await supabase.from("ingestion_jobs").update({
+    await serviceClient.from("ingestion_jobs").update({
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
@@ -346,13 +354,9 @@ Deno.serve(async (req) => {
       }
     }).eq("id", jobId);
 
-    return new Response(JSON.stringify({ success: true, job_id: jobId, chunks: allChunks.length, files: files.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(200, { success: true, job_id: jobId, chunks: allChunks.length, files: files.length }, corsHeaders);
   } catch (err) {
     console.error("SharePoint ingestion error:", err);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError(500, "internal_error", (err as Error).message, {}, corsHeaders);
   }
 });

@@ -17,9 +17,6 @@ const AUTH_GUARD_ALLOWLIST = [
   'rollup-pack-quality-daily',
   'sync-feedback-to-langfuse',
   'auto-remediate-module', // System worker
-  'reindex-orgs', // Admin tool
-  'sync-pack-docs',
-  'create-github-pr', // Internal tool
   'google-oauth-callback' // Auth flow
 ];
 
@@ -30,6 +27,10 @@ const FORBIDDEN_PATTERNS = [
   {
     pattern: /Access-Control-Allow-Origin['"]:\s*['"]\*['"]/i,
     message: 'Wildcard CORS ("*") is forbidden. Use a shared allowlist-based approach.'
+  },
+  {
+    pattern: /\|\|\s*['"]\*['"]/i,
+    message: 'CORS fallback to wildcard "|| *" is forbidden. Use a shared allowlist.'
   },
   {
     pattern: /redirect:\s*['"]follow['"]/i,

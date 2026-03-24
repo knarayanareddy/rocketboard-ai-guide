@@ -1,11 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
-import { readJson } from "../_shared/http.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
 function hexToUint8Array(hex: string): Uint8Array {
   const view = new Uint8Array(hex.length / 2);
@@ -15,20 +10,24 @@ function hexToUint8Array(hex: string): Uint8Array {
   return view;
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+Deno.serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const serviceClient = createServiceClient();
 
     // GitHub sends events as POST
     const signature = req.headers.get("x-hub-signature-256");
     const event = req.headers.get("x-github-event");
     
     if (event !== "push") {
-      return new Response(JSON.stringify({ message: "Ignored event" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return json(200, { message: "Ignored event" }, corsHeaders);
     }
 
     // 1. Verify Signature
@@ -37,7 +36,7 @@ serve(async (req) => {
       console.warn("[WEBHOOK WARNING] GITHUB_WEBHOOK_SECRET not set, bypassing signature check (INSECURE)");
     } else if (!signature) {
       console.error("[WEBHOOK ERROR] Missing x-hub-signature-256 header");
-      return new Response(JSON.stringify({ error: "Missing signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return jsonError(401, "unauthorized", "Missing signature", {}, corsHeaders);
     } else {
       const bodyText = await req.text();
       const hmac = await crypto.subtle.importKey(
@@ -56,7 +55,7 @@ serve(async (req) => {
 
       if (!isVerified) {
         console.error("[WEBHOOK ERROR] Invalid HMAC signature");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return jsonError(401, "unauthorized", "Invalid signature", {}, corsHeaders);
       }
       
       var payload = JSON.parse(bodyText);
@@ -113,11 +112,9 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, affected_packs: packIds.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json(200, { success: true, affected_packs: packIds.length }, corsHeaders);
   } catch (err: any) {
     console.error("Webhook error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });

@@ -1,52 +1,38 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { parsePatch, applyPatch } from "https://esm.sh/diff@5.1.0";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
-import { readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// CORS now handled by centralized cors.ts
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const allowedOrigins = parseAllowedOrigins();
+  const corsPreflight = handleCorsPreflight(req, allowedOrigins);
+  if (corsPreflight) return corsPreflight;
+
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const { pack_id, proposal_id } = await readJson(req, corsHeaders);
+    const body = await readJson(req, corsHeaders);
+    const { pack_id, proposal_id } = body;
 
     if (!pack_id || !proposal_id) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return jsonError(400, "bad_request", "Missing required fields", {}, corsHeaders);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminClient = createClient(supabaseUrl, serviceKey);
+    const serviceClient = createServiceClient();
 
     // 1. Authenticate & Check Author Access
-    const authHeader = req.headers.get("Authorization")!;
-    const { data: { user }, error: authError } = await adminClient.auth.getUser(authHeader.replace("Bearer ", ""));
-    
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-    }
-
-    const { data: member, error: memberError } = await adminClient
-      .from("pack_members")
-      .select("access_level")
-      .eq("pack_id", pack_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (memberError || !member || !['author', 'admin'].includes(member.access_level)) {
-      return new Response(JSON.stringify({ error: "Forbidden: Author access required" }), { status: 403, headers: corsHeaders });
-    }
+    const { userId } = await requireUser(req, corsHeaders);
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
 
     // 2. Fetch Proposal
-    const { data: proposal, error: proposalError } = await adminClient
+    const { data: proposal, error: proposalError } = await serviceClient
       .from("change_proposals")
       .select("*")
       .eq("id", proposal_id)
@@ -61,13 +47,13 @@ serve(async (req) => {
     }
 
     // 3. Get GitHub Credentials
-    const githubToken = await getSourceCredential(adminClient, proposal.source_id);
+    const githubToken = await getSourceCredential(serviceClient, proposal.source_id);
     if (!githubToken) {
       return new Response(JSON.stringify({ error: "GitHub credentials not found for this source" }), { status: 500, headers: corsHeaders });
     }
 
     // 4. Fetch Source Info
-    const { data: source } = await adminClient
+    const { data: source } = await serviceClient
       .from("pack_sources")
       .select("source_uri")
       .eq("id", proposal.source_id)
@@ -205,7 +191,7 @@ serve(async (req) => {
     });
 
     // 5. Update Proposal & Audit
-    await adminClient
+    await serviceClient
       .from("change_proposals")
       .update({
         status: 'pr_opened',
@@ -214,7 +200,7 @@ serve(async (req) => {
       .eq("id", proposal_id);
 
     // Audit Event
-    await adminClient.from("lifecycle_audit_events").insert({
+    await serviceClient.from("lifecycle_audit_events").insert({
         pack_id: pack_id,
         event_type: 'proposal_pr_created',
         details: {
@@ -226,19 +212,14 @@ serve(async (req) => {
         }
     });
 
-    return new Response(JSON.stringify({ 
+    return json(200, { 
       success: true, 
       pr_url: pr.html_url,
       branch: newBranch
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    }, corsHeaders);
 
   } catch (err: any) {
     console.error("[WRITE-BACK] Error:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), { 
-      status: 500, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    });
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });
