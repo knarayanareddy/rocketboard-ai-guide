@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 import { validateIngestion, checkPackChunkCap, getRunCap } from "../_shared/ingestion-guards.ts";
@@ -6,7 +6,7 @@ import { computeContentHash } from "../_shared/hash-utils.ts";
 import { processEmbeddingsWithReuse } from "../_shared/embedding-reuse.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { pack_id, source_id, source_config } = await req.json();
+    const { pack_id, source_id, source_config } = await readJson(req, corsHeaders);
     const { collection_json, collection_url, postman_api_key, label = "Postman" } = source_config || {};
 
     let collection: any;
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       let validatedUrl: string;
       try {
         validatedUrl = parseAndValidateExternalUrl(collection_url, {
-          allowAnyHost: true,
+          allowedHosts: ["getpostman.com", "api.getpostman.com"],
           disallowPrivateIPs: true,
           allowHttps: true,
         });

@@ -1,10 +1,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { Langfuse } from "npm:langfuse@2";
+import { readJson } from "../_shared/http.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -14,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const payload = await req.json();
+    const payload = await readJson(req, corsHeaders);
     console.log("[sync-feedback] Received payload:", payload);
 
     // Supabase Webhooks send the row in payload.record

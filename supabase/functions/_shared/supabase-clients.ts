@@ -3,7 +3,7 @@
  * Centralized Supabase client creation for Edge Functions.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 
 export function createAnonClient(req: Request) {
   const url = Deno.env.get("SUPABASE_URL")!;

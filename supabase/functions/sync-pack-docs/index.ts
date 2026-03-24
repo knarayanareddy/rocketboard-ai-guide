@@ -2,9 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.6";
 import { redactText } from "../_shared/secret-patterns.ts";
 import { encodeHex } from "jsr:@std/encoding@1.0.5/hex";
+import { readJson } from "../_shared/http.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -170,7 +171,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { pack_id, mode = "execute", source_prefix = "Technical documents/", include_agents = true } = await req.json();
+    const { pack_id, mode = "execute", source_prefix = "Technical documents/", include_agents = true } = await readJson(req, corsHeaders);
 
     if (!pack_id) throw new Error("pack_id is required");
 

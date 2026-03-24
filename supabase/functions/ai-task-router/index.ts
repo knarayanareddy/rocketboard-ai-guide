@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
 import { createTrace, calculateCost } from "../_shared/telemetry.ts";
 import type { TraceBuilder } from "../_shared/telemetry.ts";
 import { batchRerankWithLLM } from "./reranker.ts";
@@ -2822,7 +2822,7 @@ serve(async (req) => {
       return structuredError("unknown", "rate_limited", "Too many requests. Please wait a moment and try again (limit: 30/min).", currentCorsHeaders);
     }
 
-    const envelope = await req.json();
+    const envelope = await readJson(req, currentCorsHeaders);
     const taskType = envelope.task?.type;
     const requestId = envelope.task?.request_id || envelope.task?.trace_id || crypto.randomUUID();
 

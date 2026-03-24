@@ -1,45 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { json, jsonError, readJson } from "../_shared/http.ts";
+import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import { requireUser } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+serve(async (req) => {
+  const allowedOrigins = parseAllowedOrigins();
+  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+  if (corsResponse) return corsResponse;
 
-serve(async (req: any) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing Authorization header");
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (authError || !user) throw new Error("Unauthorized");
-
-    const { pack_id, source_id, mode = "dry_run" } = await req.json().catch(() => ({}));
+    // 2. Parse request
+    const { pack_id, source_id, mode = "dry_run" } = await readJson(req, corsHeaders).catch(() => ({}));
 
     if (!pack_id || !source_id) {
-      throw new Error("Missing pack_id or source_id");
+      return jsonError(400, "bad_request", "Missing pack_id or source_id", {}, corsHeaders);
     }
 
-    // 1. Author Access Check
-    const { data: hasAccess } = await supabase.rpc("has_pack_access", {
-      _user_id: user.id,
-      _pack_id: pack_id,
-      _min_level: "author"
-    });
+    // 3. Authorize pack access (Author or higher)
+    const serviceClient = createServiceClient();
+    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
 
-    if (!hasAccess) throw new Error("Insufficient permissions (Author required)");
-
-    // 2. Verify Source Context
-    const { data: source, error: sourceErr } = await supabase
+    // 4. Verify Source Context
+    const { data: source, error: sourceErr } = await serviceClient
       .from("pack_sources")
       .select("id, type, config")
       .eq("id", source_id)
@@ -47,20 +37,17 @@ serve(async (req: any) => {
       .single();
 
     if (sourceErr || !source) {
-      return new Response(JSON.stringify({ error: "Source not found for this pack" }), { 
-        status: 404, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+      return jsonError(404, "not_found", "Source not found for this pack", {}, corsHeaders);
     }
 
-    // 3. Compute Counts
-    const { count: chunkCount } = await supabase
+    // 5. Compute Counts
+    const { count: chunkCount } = await serviceClient
       .from("knowledge_chunks")
       .select("*", { count: "exact", head: true })
       .eq("pack_id", pack_id)
       .eq("source_id", source_id);
 
-    const { count: jobCount } = await supabase
+    const { count: jobCount } = await serviceClient
       .from("ingestion_jobs")
       .select("*", { count: "exact", head: true })
       .eq("pack_id", pack_id)
@@ -75,13 +62,13 @@ serve(async (req: any) => {
     let status = "completed";
     let errorMsg = null;
 
-    // 4. Execute if requested
+    // 6. Execute if requested
     if (mode === "execute" && (counts.knowledge_chunks > 0 || counts.ingestion_jobs > 0)) {
       try {
-        const { data, error } = await supabase.rpc("purge_source_v1", {
+        const { data, error } = await serviceClient.rpc("purge_source_v1", {
           p_pack_id: pack_id,
           p_source_id: source_id,
-          p_actor_user_id: user.id
+          p_actor_user_id: userId
         });
         if (error) throw error;
         result = data;
@@ -91,10 +78,10 @@ serve(async (req: any) => {
       }
     }
 
-    // 5. Log Audit Event
-    await supabase.from("lifecycle_audit_events").insert({
+    // 7. Log Audit Event
+    await serviceClient.from("lifecycle_audit_events").insert({
       pack_id,
-      actor_user_id: user.id,
+      actor_user_id: userId,
       action: "purge_source",
       target_type: "source",
       target_id: source_id,
@@ -106,19 +93,17 @@ serve(async (req: any) => {
 
     if (status === "failed") throw new Error(errorMsg || "Purge execution failed");
 
-    return new Response(JSON.stringify({ 
+    return json(200, { 
       success: true,
       mode,
       counts: result,
       message: mode === "dry_run" ? "Dry run successful. Ready for purge." : "Source purged successfully."
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }, corsHeaders);
 
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: err.message === "Unauthorized" || err.message.includes("permissions") ? 401 : 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (error: any) {
+    if (error.response) return error.response;
+    
+    console.error("purge-source error:", error);
+    return jsonError(500, "internal_error", error.message || "Unknown error", {}, corsHeaders);
   }
 });

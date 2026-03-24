@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { readJson } from "../_shared/http.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -33,7 +34,7 @@ serve(async (req: any) => {
       serviceKey ?? ""
     );
 
-    const { pack_id, day_from, day_to, dry_run = false } = await req.json().catch(() => ({}));
+    const { pack_id, day_from, day_to, dry_run = false } = await readJson(req, corsHeaders).catch(() => ({}));
 
     // Default range: yesterday and today
     const now = new Date();

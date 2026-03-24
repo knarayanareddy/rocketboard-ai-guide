@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.6";
+import { readJson } from "../_shared/http.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS")?.split(",")[0] || "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -58,12 +59,11 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       
-      // Since we already consumed the body text, we need to parse it
       var payload = JSON.parse(bodyText);
     }
 
     if (typeof payload === 'undefined') {
-       var payload = await req.json();
+       payload = await readJson(req, corsHeaders);
     }
     const repoUrl = payload.repository?.html_url;
 
