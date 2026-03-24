@@ -1,5 +1,9 @@
 import { createServiceClient } from "../_shared/supabase-clients.ts";
-import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
 
 // CORS now handled by centralized cors.ts
 
@@ -15,7 +19,9 @@ function successPage(email: string): string {
   <script>
     // Signal the parent window that auth succeeded
     if (window.opener) {
-      window.opener.postMessage({ type: 'GOOGLE_OAUTH_SUCCESS', email: ${JSON.stringify(email)} }, '*');
+      window.opener.postMessage({ type: 'GOOGLE_OAUTH_SUCCESS', email: ${
+    JSON.stringify(email)
+  } }, '*');
     }
     setTimeout(() => window.close(), 1500);
   </script>
@@ -32,7 +38,9 @@ function errorPage(message: string): string {
   <p>${message}</p>
   <script>
     if (window.opener) {
-      window.opener.postMessage({ type: 'GOOGLE_OAUTH_ERROR', error: ${JSON.stringify(message)} }, '*');
+      window.opener.postMessage({ type: 'GOOGLE_OAUTH_ERROR', error: ${
+    JSON.stringify(message)
+  } }, '*');
     }
     setTimeout(() => window.close(), 3000);
   </script>
@@ -69,14 +77,17 @@ Deno.serve(async (req) => {
   const REDIRECT_URI = (Deno.env.get("GOOGLE_REDIRECT_URI") || "").trim();
 
   if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
-    console.error("[OAuth] Missing required secrets:", { 
-      has_id: !!CLIENT_ID, 
-      has_secret: !!CLIENT_SECRET, 
-      has_redirect: !!REDIRECT_URI 
+    console.error("[OAuth] Missing required secrets:", {
+      has_id: !!CLIENT_ID,
+      has_secret: !!CLIENT_SECRET,
+      has_redirect: !!REDIRECT_URI,
     });
-    return new Response(errorPage("Server configuration error: Missing Google secrets."), {
-      headers: { "Content-Type": "text/html" },
-    });
+    return new Response(
+      errorPage("Server configuration error: Missing Google secrets."),
+      {
+        headers: { "Content-Type": "text/html" },
+      },
+    );
   }
 
   try {
@@ -95,11 +106,16 @@ Deno.serve(async (req) => {
 
     if (!tokenResp.ok) {
       const errText = await tokenResp.text();
-      console.error(`[OAuth] Google Token Exchange Failed. Status: ${tokenResp.status}`, errText);
+      console.error(
+        `[OAuth] Google Token Exchange Failed. Status: ${tokenResp.status}`,
+        errText,
+      );
       let detailedError = "Failed to exchange authorization code.";
       try {
         const errJson = JSON.parse(errText);
-        detailedError = `${detailedError} Google error: ${errJson.error_description || errJson.error || errText}`;
+        detailedError = `${detailedError} Google error: ${
+          errJson.error_description || errJson.error || errText
+        }`;
       } catch {
         detailedError = `${detailedError} Details: ${errText}`;
       }
@@ -112,13 +128,17 @@ Deno.serve(async (req) => {
     const { access_token, refresh_token, expires_in } = tokenData;
 
     // Get the user's email from Google
-    const userInfoResp = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
+    const userInfoResp = await fetch(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      {
+        headers: { Authorization: `Bearer ${access_token}` },
+      },
+    );
     const userInfo = userInfoResp.ok ? await userInfoResp.json() : {};
     const email = userInfo.email || "Unknown";
 
-    const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000)
+      .toISOString();
 
     // Store token in DB
     const serviceClient = createServiceClient();
@@ -137,9 +157,12 @@ Deno.serve(async (req) => {
 
     if (upsertErr) {
       console.error("Failed to save token:", upsertErr);
-      return new Response(errorPage("Failed to save Google credentials. Please try again."), {
-        headers: { "Content-Type": "text/html" },
-      });
+      return new Response(
+        errorPage("Failed to save Google credentials. Please try again."),
+        {
+          headers: { "Content-Type": "text/html" },
+        },
+      );
     }
 
     return new Response(successPage(email), {
@@ -147,8 +170,11 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("OAuth callback error:", err);
-    return new Response(errorPage("An unexpected error occurred. Please try again."), {
-      headers: { "Content-Type": "text/html" },
-    });
+    return new Response(
+      errorPage("An unexpected error occurred. Please try again."),
+      {
+        headers: { "Content-Type": "text/html" },
+      },
+    );
   }
 });

@@ -21,7 +21,10 @@ import { z } from "zod";
 
 // Re-export input schemas for use in index.ts tool registration
 export { GetPackConventionsInputSchema } from "../tools/get_pack_conventions.ts";
-export { GetTechDocsIndexInputSchema, GetTechDocInputSchema } from "../tools/get_tech_docs.ts";
+export {
+  GetTechDocInputSchema,
+  GetTechDocsIndexInputSchema,
+} from "../tools/get_tech_docs.ts";
 
 // ─── Resource URI schema (for documentation purposes) ─────────────────────────
 // rocketboard://pack/<uuid>/agents
@@ -30,8 +33,10 @@ export { GetTechDocsIndexInputSchema, GetTechDocInputSchema } from "../tools/get
 
 export const RESOURCE_URI_PATTERNS = {
   agents: (packId: string) => `rocketboard://pack/${packId}/agents`,
-  techdocsIndex: (packId: string) => `rocketboard://pack/${packId}/techdocs/index`,
-  techdoc: (packId: string, name: string) => `rocketboard://pack/${packId}/techdocs/${name}`,
+  techdocsIndex: (packId: string) =>
+    `rocketboard://pack/${packId}/techdocs/index`,
+  techdoc: (packId: string, name: string) =>
+    `rocketboard://pack/${packId}/techdocs/${name}`,
 } as const;
 
 // ─── Resource tool input schemas ──────────────────────────────────────────────

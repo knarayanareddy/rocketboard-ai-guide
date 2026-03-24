@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 import { stitchAndRedact } from "../redaction.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -25,7 +25,9 @@ export const GetPackConventionsInputSchema = z.object({
   pack_id: z.string().uuid("pack_id must be a valid UUID"),
 }).strict();
 
-export type GetPackConventionsInput = z.infer<typeof GetPackConventionsInputSchema>;
+export type GetPackConventionsInput = z.infer<
+  typeof GetPackConventionsInputSchema
+>;
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
@@ -80,7 +82,9 @@ export async function getPackConventions(
 
     if (secretsFound > 0) {
       console.warn(
-        `[MCP:get_pack_conventions] Redacted ${secretsFound} secrets from AGENTS.md for pack=${args.pack_id.slice(0, 8)}…`,
+        `[MCP:get_pack_conventions] Redacted ${secretsFound} secrets from AGENTS.md for pack=${
+          args.pack_id.slice(0, 8)
+        }…`,
       );
     }
 
@@ -90,7 +94,12 @@ export async function getPackConventions(
       packId: args.pack_id,
       toolName: "get_pack_conventions",
       argsHash,
-      resultSummary: { found: true, chunks: chunks.length, chars: text.length, truncated },
+      resultSummary: {
+        found: true,
+        chunks: chunks.length,
+        chars: text.length,
+        truncated,
+      },
       status: "ok",
     });
 

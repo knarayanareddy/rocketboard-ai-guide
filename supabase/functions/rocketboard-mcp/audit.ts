@@ -78,10 +78,16 @@ export async function writeMcpAudit(
 
     if (error) {
       // Never throw — audit failures are non-fatal
-      console.error(`[MCP:audit] Failed to write audit event for tool=${event.toolName}:`, error.message);
+      console.error(
+        `[MCP:audit] Failed to write audit event for tool=${event.toolName}:`,
+        error.message,
+      );
     }
   } catch (err) {
-    console.error(`[MCP:audit] Unexpected audit write error for tool=${event.toolName}:`, (err as Error).message);
+    console.error(
+      `[MCP:audit] Unexpected audit write error for tool=${event.toolName}:`,
+      (err as Error).message,
+    );
   }
 }
 

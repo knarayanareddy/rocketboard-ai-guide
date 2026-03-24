@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { writeMcpAudit, hashArgs } from "../audit.ts";
+import { hashArgs, writeMcpAudit } from "../audit.ts";
 
 // ─── Input schema ─────────────────────────────────────────────────────────────
 
@@ -47,13 +47,18 @@ export async function listMyPacks(
     // INNER JOIN pack_members ensures only packs the user belongs to
     const { data: packs, error: dbError } = await adminClient
       .from("packs")
-      .select("id, title, description, org_id, updated_at, pack_members!inner(access_level, user_id)")
+      .select(
+        "id, title, description, org_id, updated_at, pack_members!inner(access_level, user_id)",
+      )
       .eq("pack_members.user_id", userId)
       .order("title", { ascending: true })
       .limit(MAX_PACKS);
 
     if (dbError) {
-      console.error(`[MCP:list_my_packs] DB error for user=${userId.slice(0, 8)}…:`, dbError.message);
+      console.error(
+        `[MCP:list_my_packs] DB error for user=${userId.slice(0, 8)}…:`,
+        dbError.message,
+      );
       throw new Error("Failed to fetch packs");
     }
 

@@ -1,4 +1,8 @@
-import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { requireUser } from "../_shared/authz.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
@@ -13,7 +17,7 @@ Deno.serve(async (req) => {
   try {
     const { userId } = await requireUser(req, corsHeaders);
     const { pack_id } = await readJson(req, corsHeaders);
-    
+
     if (!pack_id) {
       return jsonError(400, "bad_request", "pack_id required", {}, corsHeaders);
     }
@@ -28,7 +32,9 @@ Deno.serve(async (req) => {
 
     if (fErr) throw fErr;
     if (!freshnessRows || freshnessRows.length === 0) {
-      return new Response(JSON.stringify({ stale_count: 0, checked: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ stale_count: 0, checked: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Collect all referenced chunk IDs
@@ -44,7 +50,9 @@ Deno.serve(async (req) => {
       .eq("pack_id", pack_id)
       .in("chunk_id", Array.from(allChunkIds));
 
-    const currentHashes = new Map((chunks ?? []).map((c: any) => [c.chunk_id, c.content_hash]));
+    const currentHashes = new Map(
+      (chunks ?? []).map((c: any) => [c.chunk_id, c.content_hash]),
+    );
 
     let staleCount = 0;
     for (const row of freshnessRows) {
@@ -73,7 +81,11 @@ Deno.serve(async (req) => {
       }).eq("id", row.id);
     }
 
-    return json(200, { stale_count: staleCount, checked: freshnessRows.length }, corsHeaders);
+    return json(
+      200,
+      { stale_count: staleCount, checked: freshnessRows.length },
+      corsHeaders,
+    );
   } catch (err: any) {
     return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }

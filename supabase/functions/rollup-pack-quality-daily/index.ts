@@ -1,4 +1,8 @@
-import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 
@@ -17,17 +21,25 @@ Deno.serve(async (req) => {
     const cronToken = Deno.env.get("CRON_AUTH_TOKEN");
 
     // Auth check: service_role or CRON_AUTH_TOKEN
-    const isAuthorized = 
-      authHeader === `Bearer ${serviceKey}` || 
+    const isAuthorized = authHeader === `Bearer ${serviceKey}` ||
       (cronToken && authHeader === `Bearer ${cronToken}`);
 
     if (!isAuthorized) {
-      return jsonError(401, "unauthorized", "Invalid credentials", {}, corsHeaders);
+      return jsonError(
+        401,
+        "unauthorized",
+        "Invalid credentials",
+        {},
+        corsHeaders,
+      );
     }
 
     const supabase = createServiceClient();
 
-    const { pack_id, day_from, day_to, dry_run = false } = await readJson(req, corsHeaders).catch(() => ({}));
+    const { pack_id, day_from, day_to, dry_run = false } = await readJson(
+      req,
+      corsHeaders,
+    ).catch(() => ({}));
 
     // Default range: yesterday and today
     const now = new Date();
@@ -37,7 +49,11 @@ Deno.serve(async (req) => {
     const from = day_from || yesterday.toISOString().split("T")[0];
     const to = day_to || now.toISOString().split("T")[0];
 
-    console.log(`[rollup-v1] Aggregating from ${from} to ${to} ${pack_id ? `for pack ${pack_id}` : 'for all packs'}`);
+    console.log(
+      `[rollup-v1] Aggregating from ${from} to ${to} ${
+        pack_id ? `for pack ${pack_id}` : "for all packs"
+      }`,
+    );
 
     if (dry_run) {
       // In dry_run, we just select the aggregates to log them
@@ -50,14 +66,14 @@ Deno.serve(async (req) => {
         `)
         .gte("created_at", from)
         .lte("created_at", to + "T23:59:59");
-      
+
       return json(200, { dry_run: true, data, error }, corsHeaders);
     }
 
     // Perform idempotent rollup via RPC
     const { error } = await supabase.rpc("rollup_pack_quality_aggregates", {
       p_day_from: from,
-      p_day_to: to
+      p_day_to: to,
     });
 
     if (error) {
@@ -65,10 +81,10 @@ Deno.serve(async (req) => {
       throw error;
     }
 
-    return json(200, { 
-      success: true, 
+    return json(200, {
+      success: true,
       range: { from, to },
-      processed_at: new Date().toISOString()
+      processed_at: new Date().toISOString(),
     }, corsHeaders);
   } catch (err: any) {
     console.error("[rollup-v1] Error:", err.message);

@@ -3,7 +3,11 @@
  * Standard HTTP response and request helpers for Edge Functions.
  */
 
-export function json(status: number, body: any, headers: Record<string, string> = {}) {
+export function json(
+  status: number,
+  body: any,
+  headers: Record<string, string> = {},
+) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -18,7 +22,7 @@ export function jsonError(
   code: string,
   message: string,
   extra: Record<string, any> = {},
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
 ) {
   return json(
     status,
@@ -29,11 +33,14 @@ export function jsonError(
         ...extra,
       },
     },
-    headers
+    headers,
   );
 }
 
-export async function readJson(req: Request, headers: Record<string, string> = {}) {
+export async function readJson(
+  req: Request,
+  headers: Record<string, string> = {},
+) {
   try {
     return await req.json();
   } catch (err) {

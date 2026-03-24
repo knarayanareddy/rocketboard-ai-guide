@@ -1,8 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { parsePatch, applyPatch } from "https://esm.sh/diff@5.1.0";
+import { applyPatch, parsePatch } from "https://esm.sh/diff@5.1.0";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
-import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { requireUser } from "../_shared/authz.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
@@ -22,14 +26,26 @@ serve(async (req) => {
     const { pack_id, proposal_id } = body;
 
     if (!pack_id || !proposal_id) {
-      return jsonError(400, "bad_request", "Missing required fields", {}, corsHeaders);
+      return jsonError(
+        400,
+        "bad_request",
+        "Missing required fields",
+        {},
+        corsHeaders,
+      );
     }
 
     const serviceClient = createServiceClient();
 
     // 1. Authenticate & Check Author Access
     const { userId } = await requireUser(req, corsHeaders);
-    await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
+    await requirePackRole(
+      serviceClient,
+      pack_id,
+      userId,
+      "author",
+      corsHeaders,
+    );
 
     // 2. Fetch Proposal
     const { data: proposal, error: proposalError } = await serviceClient
@@ -39,17 +55,33 @@ serve(async (req) => {
       .single();
 
     if (proposalError || !proposal) {
-      return new Response(JSON.stringify({ error: "Proposal not found" }), { status: 404, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Proposal not found" }), {
+        status: 404,
+        headers: corsHeaders,
+      });
     }
 
-    if (proposal.status !== 'approved') {
-      return new Response(JSON.stringify({ error: "Only approved proposals can be turned into PRs" }), { status: 400, headers: corsHeaders });
+    if (proposal.status !== "approved") {
+      return new Response(
+        JSON.stringify({
+          error: "Only approved proposals can be turned into PRs",
+        }),
+        { status: 400, headers: corsHeaders },
+      );
     }
 
     // 3. Get GitHub Credentials
-    const githubToken = await getSourceCredential(serviceClient, proposal.source_id);
+    const githubToken = await getSourceCredential(
+      serviceClient,
+      proposal.source_id,
+    );
     if (!githubToken) {
-      return new Response(JSON.stringify({ error: "GitHub credentials not found for this source" }), { status: 500, headers: corsHeaders });
+      return new Response(
+        JSON.stringify({
+          error: "GitHub credentials not found for this source",
+        }),
+        { status: 500, headers: corsHeaders },
+      );
     }
 
     // 4. Fetch Source Info
@@ -64,10 +96,12 @@ serve(async (req) => {
     }
 
     // Parse owner/repo from source_uri (e.g., https://github.com/owner/repo)
-    const urlParts = new URL(source.source_uri).pathname.split('/').filter(Boolean);
+    const urlParts = new URL(source.source_uri).pathname.split("/").filter(
+      Boolean,
+    );
     const owner = urlParts[0];
     const repo = urlParts[1];
-    const baseBranch = proposal.target_base_branch || 'main';
+    const baseBranch = proposal.target_base_branch || "main";
     const newBranch = `rocketboard/proposal-${proposal_id.slice(0, 8)}`;
 
     const githubHeaders = {
@@ -83,7 +117,10 @@ serve(async (req) => {
       const url = parseAndValidateExternalUrl(`${apiBase}${path}`, {
         allowedHostSuffixes: ["api.github.com"],
       });
-      const res = await fetch(url, { ...options, headers: { ...githubHeaders, ...options.headers } });
+      const res = await fetch(url, {
+        ...options,
+        headers: { ...githubHeaders, ...options.headers },
+      });
       if (!res.ok) {
         const err = await res.text();
         throw new Error(`GitHub API Error (${res.status}): ${err}`);
@@ -91,7 +128,9 @@ serve(async (req) => {
       return res.json();
     };
 
-    console.log(`[WRITE-BACK] Creating PR for ${owner}/${repo} from proposal ${proposal_id}`);
+    console.log(
+      `[WRITE-BACK] Creating PR for ${owner}/${repo} from proposal ${proposal_id}`,
+    );
 
     // A. Get Base Branch SHA
     const baseRef = await ghFetch(`/git/refs/heads/${baseBranch}`);
@@ -102,7 +141,9 @@ serve(async (req) => {
     const treeItems = [];
 
     if (patches.length === 0) {
-      throw new Error("No patches found in proposal. Unified diff might be malformed.");
+      throw new Error(
+        "No patches found in proposal. Unified diff might be malformed.",
+      );
     }
 
     for (const patch of patches) {
@@ -112,26 +153,32 @@ serve(async (req) => {
 
       // Strip common prefixes like a/ and b/ from git diffs
       const normalizedPath = rawPath.replace(/^[ab]\//, "");
-      
+
       // 1. Get current content from GitHub
       let currentContent = "";
       try {
-        const fileData = await ghFetch(`/contents/${normalizedPath}?ref=${baseSha}`);
-        // GitHub returns base64 with newlines. 
+        const fileData = await ghFetch(
+          `/contents/${normalizedPath}?ref=${baseSha}`,
+        );
+        // GitHub returns base64 with newlines.
         // Robust base64 to utf8 decoding:
         const binary = atob(fileData.content.replace(/\n/g, ""));
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         currentContent = new TextDecoder().decode(bytes);
       } catch (e) {
-        console.warn(`[WRITE-BACK] File ${normalizedPath} not found, assuming new file creation.`);
+        console.warn(
+          `[WRITE-BACK] File ${normalizedPath} not found, assuming new file creation.`,
+        );
       }
 
       // 2. Apply patch to content
       const result = applyPatch(currentContent, patch);
-      
+
       if (result === false) {
-        throw new Error(`Conflict: Failed to apply patch to "${normalizedPath}".`);
+        throw new Error(
+          `Conflict: Failed to apply patch to "${normalizedPath}".`,
+        );
       }
 
       // 3. Create Blob for the new content
@@ -139,15 +186,15 @@ serve(async (req) => {
         method: "POST",
         body: JSON.stringify({
           content: result,
-          encoding: "utf-8"
-        })
+          encoding: "utf-8",
+        }),
       });
-      
+
       treeItems.push({
         path: normalizedPath,
         mode: "100644",
         type: "blob",
-        sha: blob.sha
+        sha: blob.sha,
       });
     }
 
@@ -156,8 +203,8 @@ serve(async (req) => {
       method: "POST",
       body: JSON.stringify({
         base_tree: baseSha,
-        tree: treeItems
-      })
+        tree: treeItems,
+      }),
     });
 
     // D. Create Commit
@@ -166,8 +213,8 @@ serve(async (req) => {
       body: JSON.stringify({
         message: proposal.title,
         tree: tree.sha,
-        parents: [baseSha]
-      })
+        parents: [baseSha],
+      }),
     });
 
     // E. Create Branch Ref
@@ -175,8 +222,8 @@ serve(async (req) => {
       method: "POST",
       body: JSON.stringify({
         ref: `refs/heads/${newBranch}`,
-        sha: commit.sha
-      })
+        sha: commit.sha,
+      }),
     });
 
     // F. Create Pull Request
@@ -184,40 +231,40 @@ serve(async (req) => {
       method: "POST",
       body: JSON.stringify({
         title: proposal.title,
-        body: proposal.description || `Proposal created via RocketBoard.\n\nProposal ID: ${proposal_id}`,
+        body: proposal.description ||
+          `Proposal created via RocketBoard.\n\nProposal ID: ${proposal_id}`,
         head: newBranch,
-        base: baseBranch
-      })
+        base: baseBranch,
+      }),
     });
 
     // 5. Update Proposal & Audit
     await serviceClient
       .from("change_proposals")
       .update({
-        status: 'pr_opened',
-        pr_url: pr.html_url
+        status: "pr_opened",
+        pr_url: pr.html_url,
       })
       .eq("id", proposal_id);
 
     // Audit Event
     await serviceClient.from("lifecycle_audit_events").insert({
-        pack_id: pack_id,
-        event_type: 'proposal_pr_created',
-        details: {
-            proposal_id: proposal_id,
-            pr_url: pr.html_url,
-            owner,
-            repo,
-            branch: newBranch
-        }
+      pack_id: pack_id,
+      event_type: "proposal_pr_created",
+      details: {
+        proposal_id: proposal_id,
+        pr_url: pr.html_url,
+        owner,
+        repo,
+        branch: newBranch,
+      },
     });
 
-    return json(200, { 
-      success: true, 
+    return json(200, {
+      success: true,
       pr_url: pr.html_url,
-      branch: newBranch
+      branch: newBranch,
     }, corsHeaders);
-
   } catch (err: any) {
     console.error("[WRITE-BACK] Error:", err.message);
     return jsonError(500, "internal_error", err.message, {}, corsHeaders);

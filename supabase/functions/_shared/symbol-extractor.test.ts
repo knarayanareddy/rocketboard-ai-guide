@@ -8,11 +8,11 @@ Deno.test("extractSymbols - typescript basic", () => {
     service.getUserById(123).then(user => console.log(user.name));
   `;
   const symbols = extractSymbols(code, "typescript");
-  
+
   // Should include UserService, getUserById
   assertEquals(symbols.includes("UserService"), true);
   assertEquals(symbols.includes("getUserById"), true);
-  
+
   // Should NOT include keywords or small tokens
   assertEquals(symbols.includes("new"), false);
   assertEquals(symbols.includes("log"), false); // stoplist
@@ -25,7 +25,7 @@ Deno.test("extractSymbols - rust qualified names", () => {
     map.insert("key", value);
   `;
   const symbols = extractSymbols(code, "rust");
-  
+
   assertEquals(symbols.includes("std::collections::HashMap"), true);
   assertEquals(symbols.includes("HashMap"), true);
 });
@@ -33,7 +33,7 @@ Deno.test("extractSymbols - rust qualified names", () => {
 Deno.test("normalizeSymbols - generics", () => {
   const raw = ["Map<string, number>", "List[User]", "func(arg)"];
   const normalized = normalizeSymbols(raw, "typescript");
-  
+
   assertEquals(normalized.includes("Map"), true);
   assertEquals(normalized.includes("List"), true);
   assertEquals(normalized.includes("func"), true);

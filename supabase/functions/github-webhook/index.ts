@@ -1,4 +1,8 @@
-import { parseAllowedOrigins, buildCorsHeaders, handleCorsPreflight } from "../_shared/cors.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 
@@ -25,7 +29,7 @@ Deno.serve(async (req) => {
     // GitHub sends events as POST
     const signature = req.headers.get("x-hub-signature-256");
     const event = req.headers.get("x-github-event");
-    
+
     if (event !== "push") {
       return json(200, { message: "Ignored event" }, corsHeaders);
     }
@@ -33,10 +37,18 @@ Deno.serve(async (req) => {
     // 1. Verify Signature
     const webhookSecret = Deno.env.get("GITHUB_WEBHOOK_SECRET");
     if (!webhookSecret) {
-      console.warn("[WEBHOOK WARNING] GITHUB_WEBHOOK_SECRET not set, bypassing signature check (INSECURE)");
+      console.warn(
+        "[WEBHOOK WARNING] GITHUB_WEBHOOK_SECRET not set, bypassing signature check (INSECURE)",
+      );
     } else if (!signature) {
       console.error("[WEBHOOK ERROR] Missing x-hub-signature-256 header");
-      return jsonError(401, "unauthorized", "Missing signature", {}, corsHeaders);
+      return jsonError(
+        401,
+        "unauthorized",
+        "Missing signature",
+        {},
+        corsHeaders,
+      );
     } else {
       const bodyText = await req.text();
       const hmac = await crypto.subtle.importKey(
@@ -44,30 +56,39 @@ Deno.serve(async (req) => {
         new TextEncoder().encode(webhookSecret),
         { name: "HMAC", hash: "SHA-256" },
         false,
-        ["verify"]
+        ["verify"],
       );
       const isVerified = await crypto.subtle.verify(
         "HMAC",
         hmac,
         hexToUint8Array(signature.replace("sha256=", "")).buffer,
-        new TextEncoder().encode(bodyText)
+        new TextEncoder().encode(bodyText),
       );
 
       if (!isVerified) {
         console.error("[WEBHOOK ERROR] Invalid HMAC signature");
-        return jsonError(401, "unauthorized", "Invalid signature", {}, corsHeaders);
+        return jsonError(
+          401,
+          "unauthorized",
+          "Invalid signature",
+          {},
+          corsHeaders,
+        );
       }
-      
+
       var payload = JSON.parse(bodyText);
     }
 
-    if (typeof payload === 'undefined') {
-       payload = await readJson(req, corsHeaders);
+    if (typeof payload === "undefined") {
+      payload = await readJson(req, corsHeaders);
     }
     const repoUrl = payload.repository?.html_url;
 
     if (!repoUrl) {
-      return new Response(JSON.stringify({ error: "Invalid payload" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Invalid payload" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Find all packs that use this repository as a source
@@ -78,8 +99,10 @@ Deno.serve(async (req) => {
 
     if (sErr) throw sErr;
 
-    const packIds = [...new Set((sources || []).map(s => s.pack_id))];
-    console.log(`[WEBHOOK] Push to ${repoUrl} affects ${packIds.length} pack(s)`);
+    const packIds = [...new Set((sources || []).map((s) => s.pack_id))];
+    console.log(
+      `[WEBHOOK] Push to ${repoUrl} affects ${packIds.length} pack(s)`,
+    );
 
     const commits = payload.commits || [];
     const changedFiles = new Set<string>();
@@ -96,7 +119,10 @@ Deno.serve(async (req) => {
       // 1. Mark as stale
       await fetch(`${supabaseUrl}/functions/v1/check-staleness`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceKey}`,
+        },
         body: JSON.stringify({ pack_id: packId }),
       });
       console.log(`[WEBHOOK] Triggered staleness check for pack ${packId}`);
@@ -105,14 +131,25 @@ Deno.serve(async (req) => {
       if (changedFilesList.length > 0 && compareUrl) {
         await fetch(`${supabaseUrl}/functions/v1/auto-remediate-module`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-          body: JSON.stringify({ pack_id: packId, changed_files: changedFilesList, compare_url: compareUrl }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            pack_id: packId,
+            changed_files: changedFilesList,
+            compare_url: compareUrl,
+          }),
         });
         console.log(`[WEBHOOK] Triggered auto-remediation for pack ${packId}`);
       }
     }
 
-    return json(200, { success: true, affected_packs: packIds.length }, corsHeaders);
+    return json(
+      200,
+      { success: true, affected_packs: packIds.length },
+      corsHeaders,
+    );
   } catch (err: any) {
     console.error("Webhook error:", err);
     return jsonError(500, "internal_error", err.message, {}, corsHeaders);

@@ -9,7 +9,7 @@ import { jsonError } from "./http.ts";
 export async function getPackRole(
   serviceClient: SupabaseClient,
   packId: string,
-  userId: string
+  userId: string,
 ): Promise<{ role: string | null; org_id: string | null }> {
   const { data, error } = await serviceClient
     .from("pack_members")
@@ -29,7 +29,7 @@ export async function requirePackRole(
   packId: string,
   userId: string,
   minRole: string,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
 ) {
   const { role, org_id } = await getPackRole(serviceClient, packId, userId);
 
@@ -38,7 +38,13 @@ export async function requirePackRole(
 
   if (minIdx === -1) {
     throw {
-      response: jsonError(500, "internal_error", `Invalid server configuration: unknown minRole "${minRole}"`, {}, headers),
+      response: jsonError(
+        500,
+        "internal_error",
+        `Invalid server configuration: unknown minRole "${minRole}"`,
+        {},
+        headers,
+      ),
     };
   }
 
@@ -46,7 +52,13 @@ export async function requirePackRole(
 
   if (currentIdx < minIdx) {
     throw {
-      response: jsonError(403, "forbidden", `Requires ${minRole} access level`, {}, headers),
+      response: jsonError(
+        403,
+        "forbidden",
+        `Requires ${minRole} access level`,
+        {},
+        headers,
+      ),
     };
   }
 
