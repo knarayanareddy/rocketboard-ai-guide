@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       const isVerified = await crypto.subtle.verify(
         "HMAC",
         hmac,
-        hexToUint8Array(signature.replace("sha256=", "")).buffer,
+        hexToUint8Array(signature.replace("sha256=", "")),
         new TextEncoder().encode(bodyText),
       );
 
@@ -92,14 +92,14 @@ Deno.serve(async (req) => {
     }
 
     // Find all packs that use this repository as a source
-    const { data: sources, error: sErr } = await supabase
+    const { data: sources, error: sErr } = await serviceClient
       .from("pack_sources")
       .select("pack_id")
       .ilike("source_uri", `%${repoUrl}%`);
 
     if (sErr) throw sErr;
 
-    const packIds = [...new Set((sources || []).map((s) => s.pack_id))];
+    const packIds = [...new Set((sources || []).map((s: any) => s.pack_id))];
     console.log(
       `[WEBHOOK] Push to ${repoUrl} affects ${packIds.length} pack(s)`,
     );
