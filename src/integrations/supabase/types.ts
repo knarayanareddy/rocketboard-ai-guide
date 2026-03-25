@@ -1083,6 +1083,7 @@ export type Database = {
           created_at: string
           error_message: string | null
           id: string
+          last_heartbeat_at: string | null
           pack_id: string
           processed_chunks: number | null
           retry_count: number
@@ -1096,6 +1097,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          last_heartbeat_at?: string | null
           pack_id: string
           processed_chunks?: number | null
           retry_count?: number
@@ -1109,6 +1111,7 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           id?: string
+          last_heartbeat_at?: string | null
           pack_id?: string
           processed_chunks?: number | null
           retry_count?: number
