@@ -4,7 +4,7 @@ File: 23_Engineering_Process_QA_and_Release_Gates.txt
 Purpose: Documentation of standardized engineering workflows, QA procedures,
          PR acceptance checklists, and release gates.
 Audience: Engineers, QA, Security
-Last Updated: 2026-03-20
+Last Updated: 2026-03-25
 Source-of-truth file paths:
   - AGENTS.md (Section 7)
   - .github/pull_request_template.md
@@ -42,6 +42,7 @@ The index centralizes all repeatable test harnesses:
 | MCP Smoke Test     | Validates tool contracts + security    | `npm run mcp-smoke-test`    |
 | Lifecycle QA       | Verifies RLS + purge idempotency       | `psql -f qa/lifecycle/*.sql`|
 | Roadmap QA         | Verifies dependency graph integrity    | `psql -f qa/roadmap/*.sql`  |
+| Security Audit     | Scans for CORS/Auth/SSRF regressions   | `node scripts/audit-edge-functions.mjs`|
 
 4. CI & RELEASE GATES
 ---------------------
@@ -49,6 +50,8 @@ The index centralizes all repeatable test harnesses:
   posts a nudge comment if the checklist is missing from a sensitive PR.
 - Grounding SLO Gate: A mandatory runtime gate in `ai-task-router` that prevents
   low-quality AI responses from reaching users. Default: min_score 0.80.
+- Deno Format Check: PRs fail if `deno fmt --check` does not pass.
+- Security Audit Regression: PRs fail if `node scripts/audit-edge-functions.mjs` finds issues.
 
 5. RELEASE RUNBOOK
 ------------------

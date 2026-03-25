@@ -36,13 +36,14 @@ RocketBoard is a high-performance, grounded AI onboarding platform designed to h
 └───────────────────────────┬─────────────────────────────────────┘
                             │ JWT Auth + HTTPS
 ┌───────────────────────────▼─────────────────────────────────────┐
-│                   Supabase Edge Functions (Deno)                │
+│                   Supabase Edge Functions (Deno 2.0)│
 │                                                                 │
 │  ai-task-router ─── Zero-Hallucination Engine (Groundedness Audit)  │
 │  retrieve-spans ── Agentic Multi-Query Hybrid Search (Titanium)   │
 │  reindex-orgs ──── AST-Aware Intelligent Ingestion             │
 │  ingest-source ─── Ingestion Engine with **Integrity Audit**          │
 │  github-webhook ── Staleness detection + auto-remediation      │
+│  _shared/authz, _shared/cors ── Centralized Auth & CORS        │
 │  _shared/telemetry ── Langfuse + Local RAG Metrics             │
 │  + 18 more functions                                            │
 └───────────────────────────┬─────────────────────────────────────┘
@@ -205,7 +206,7 @@ Organizations
 | **Charts** | Recharts |
 | **Markdown** | react-markdown + custom `MarkdownRenderer` (cards, timelines, citations) |
 | **Icons** | Lucide React |
-| **Backend** | Supabase (PostgreSQL + pgvector + Auth + Edge Functions) |
+| **Backend** | Supabase (PostgreSQL + pgvector + Auth + Edge Functions on **Deno 2.0**) |
 | **AI** | Lovable AI Gateway → Google Gemini 3 Flash Preview |
 | **Observability** | Langfuse (LLM tracing) + structured logging fallback |
 | **Notifications** | Sonner (toast notifications) |
@@ -264,14 +265,16 @@ supabase/
 
 ## Security
 
-- **JWT Authentication** on all Edge Functions (except legacy `module-chat`).
+- **JWT & Internal Authentication** — Mandatory JWT verification for all user endpoints and `X-Rocketboard-Internal` header for secure function-to-function communication.
 - **Titanium SSRF Guard** — All outbound `fetch()` calls in connectors and AI routing are validated by `parseAndValidateExternalUrl`. Blocks Localhost, Private IPs (RFC 1918), and Link-Local (RFC 3927) bypasses.
+- **Centralized CORS** — All Edge Functions use `_shared/cors.ts` for strict origin allowlisting, forbidding wildcard (`*`) origins.
 - **Concurrent Job Locking** — Database-backed lease locks prevent reindex jobs for the same pack from racing and corrupting generation pinning.
 - **Supply-Chain Integrity** — Tree-sitter WASM grammars are pinned to v0.1.11, verified with SHA256 hashes, and support local vendoring to eliminate CDN outages.
 - **Rate limiting** — 30 requests/minute per user in `ai-task-router`.
 - **Secret Redaction** — 14 regex patterns (centralized in `secret-patterns.ts`) strip AWS keys, JWTs, connection strings, GitHub tokens, and API keys before AI processing.
 - **RLS** on every Supabase table with **Pack-Scoped** isolation for knowledge chunks.
-- **Automated Verification** — All technical documentation is verified by CI (GitHub Actions) using the `verify-technical-docs.py` auditor to prevent regression in grounding standards.
+- **Automated Security Audit** — CI enforces `deno fmt --check` and `node scripts/audit-edge-functions.mjs` to detect CORS wildcards and missing auth guards before PR merge.
+- **Grounding Integrity** — All technical documentation is verified by CI using the `verify-technical-docs.py` auditor to prevent regression in grounding standards.
 
 ---
 

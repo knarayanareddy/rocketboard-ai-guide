@@ -55,7 +55,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='source-list']",
         title: "Source Management",
-        content: "After adding a source, click 'Sync' to ingest. Our **Titanium SSRF Guard** vets every request, and **SHA256 content hashes** enable cost-saving embedding reuse. Successful syncs trigger a **1-hour cooldown** to prevent API abuse.",
+        content: "After adding a source, click 'Sync' to ingest. Vetted by our **Titanium SSRF Guard** and **Multi-Stage Security Audit**, ensuring 100% integrity before any chunk is written.",
       },
     ],
   },
@@ -109,12 +109,12 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='review-module-card']",
         title: "Module Review Card",
-        content: "Preview each module, refine with AI, or regenerate. Reindexing is protected by **Concurrent Lease Locks** to ensure your generation pinning never drifts.",
+        content: "Preview each module, refine with AI, or regenerate. Reindexing is protected by **Concurrent Lease Locks** and the **Security Audit Regression Gate**.",
       },
       {
         target: "[data-tour='review-module-card']",
         title: "AI Draft Updates ✨",
-        content: "If source code changes make a module stale, RocketBoard automatically drafts a content fix. Every generation is verified by a **4-Stage Zero-Hallucination Pipeline** including a Runtime Grounding Audit to ensure 100% technical accuracy.",
+        content: "If source code changes make a module stale, RocketBoard automatically drafts a content fix. Verified by the enhanced **4-Stage Zero-Hallucination Pipeline** with real-time grounding audits.",
       },
       {
         target: "[data-tour='preview-button']",

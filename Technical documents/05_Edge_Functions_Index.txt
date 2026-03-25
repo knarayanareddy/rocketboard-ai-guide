@@ -5,7 +5,7 @@ Purpose: Index and summary of all Supabase Edge Functions including their
          endpoints, request/response shapes, authentication requirements,
          and key security properties.
 Audience: Backend Engineers, Security, DevOps
-Last Updated: 2026-03-19
+Last Updated: 2026-03-25
 Related Code Paths:
   - supabase/functions/*/index.ts
 ================================================================================
@@ -16,20 +16,20 @@ Function Name            | Auth       | Calls Service Role | Purpose
 -------------------------|------------|--------------------|----------------------------------
 ai-task-router           | JWT (user) | YES                | AI generation + grounding pipeline
 retrieve-spans           | JWT (user) | YES                | Evidence retrieval (hybrid search)
-ingest-source            | Service    | YES                | Ingestion dispatcher
-ingest-confluence        | Service    | YES                | Confluence connector
-ingest-notion            | Service    | YES                | Notion connector
-ingest-jira              | Service    | YES                | Jira connector
-ingest-slack             | Service    | YES                | Slack connector
-ingest-url               | Service    | YES                | URL/HTTP connector
-ingest-google-drive      | Service    | YES                | Google Drive connector
-ingest-sharepoint        | Service    | YES                | SharePoint connector
-ingest-figma             | Service    | YES                | Figma connector
-ingest-loom              | Service    | YES                | Loom video connector
-ingest-openapi           | Service    | YES                | OpenAPI spec connector
-ingest-postman           | Service    | YES                | Postman collection connector
-ingest-pagerduty         | Service    | YES                | PagerDuty connector
-ingest-linear            | Service    | YES                | Linear connector
+ingest-source            | Internal   | YES                | Ingestion dispatcher
+ingest-confluence        | Internal   | YES                | Confluence connector
+ingest-notion            | Internal   | YES                | Notion connector
+ingest-jira              | Internal   | YES                | Jira connector
+ingest-slack             | Internal   | YES                | Slack connector
+ingest-url               | Internal   | YES                | URL/HTTP connector
+ingest-google-drive      | Internal   | YES                | Google Drive connector
+ingest-sharepoint        | Internal   | YES                | SharePoint connector
+ingest-figma             | Internal   | YES                | Figma connector
+ingest-loom              | Internal   | YES                | Loom video connector
+ingest-openapi           | Internal   | YES                | OpenAPI spec connector
+ingest-postman           | Internal   | YES                | Postman collection connector
+ingest-pagerduty         | Internal   | YES                | PagerDuty connector
+ingest-linear            | Internal   | YES                | Linear connector
 purge-source             | JWT (user) | YES                | Per-source data purge
 lifecycle-retention-job  | CRON token | YES                | Automated retention cleanup
 rollup-pack-quality-daily| CRON/Admin | YES                | Daily quality rollup aggregation
@@ -109,7 +109,7 @@ rocketboard-mcp          | JWT (user) | YES                | MCP Server (13 tool
 2.3 ingest-source (Dispatcher)
   Path: supabase/functions/ingest-source/index.ts
   Method: POST
-  Auth: Service role (called from frontend with user JWT, but dispatcher uses service role)
+  Auth: Internal (X-Rocketboard-Internal) or Service Role (deprecated)
   Request:
     { pack_id, source_id, source_type, source_uri?, document_content?,
       label?, source_config?, org_id }
@@ -252,12 +252,22 @@ rocketboard-mcp          | JWT (user) | YES                | MCP Server (13 tool
     - Retrieves credentials from Supabase Vault RPCs
     - Never stores or returns raw credentials to browser
 
+  _shared/authz.ts
+    - requireUser(req) → { userId } (verifies JWT session)
+    - requireInternal(req) → { success } (verifies X-Rocketboard-Internal)
+    - getBearerToken(req) → string
+
+  _shared/cors.ts
+    - buildCorsHeaders(req, allowedOrigins) → Headers
+    - handleCorsPreflight(req, allowedOrigins) → Response | null
+    - parseAllowedOrigins() → string[]
+
 4. SECURITY INVARIANTS
 ------------------------
   - No function ever returns decrypted credentials to the client.
   - SQL injection is prevented by parameterized RPC calls (no string interpolation).
-  - CORS for ai-task-router: Access-Control-Allow-Origin: * (designed for Lovable)
-    Note: retrieve-spans uses origin allowlist (more restrictive).
+  - CORS for ai-task-router: allowlist-based Origin verification via _shared/cors.ts.
+    Note: retrieve-spans and others use the same shared logic. Never returns "*".
   - Rate limiting is in-memory in Deno isolate; may reset on cold start. For
     hard rate limiting at scale, a distributed store (Redis) would be needed.
   - GitHub webhook signature verified before processing push events.

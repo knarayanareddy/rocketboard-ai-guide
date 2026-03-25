@@ -21,5 +21,6 @@ RocketBoard utilizes a sophisticated, non-linear Retrieval-Augmented Generation 
 
 ## 4. Observability & Defensive Shields
 - **Telemetry**: Full Langfuse tracing for every task, capturing latencies, token costs, and grounding scores.
+- **Security Audit Gates**: Automated CI checks (audit-edge-functions.mjs) prevent CORS wildcard and insecure fetch regressions.
 - **Resource Caps**: Strict 50-span retrieval limits and query length clamping (Titanium Hardened).
 - **Staleness Detection**: Webhook-driven monitors track repository changes and flag stale module sections for automated AI remediation.

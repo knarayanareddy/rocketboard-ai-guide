@@ -202,7 +202,7 @@ Re-sync sources when code changes. Check **Content Health** for stale indicators
 :::
 
 :::step[Phase 7: Observability]{📡}
-Monitor every AI task and ingestion job with **Unified Telemetry**. Audit grounding scores, retrieval latency, and trace failures to the exact source chunk. Every build is verified by our automated technical documentation audit, providing a verified integrity report (Doc 25).
+Monitor every AI task and ingestion job with **Unified Telemetry**. Audit grounding scores, retrieval latency, and trace failures to the exact source chunk. Every build is verified by our automated security audit and technical documentation audit, ensuring 100% integrity across the platform (Doc 25 & 26).
 :::`,
     relatedArticles: ["gs-1", "src-1"],
   },
@@ -705,7 +705,7 @@ The LLM is strictly forbidden from writing code and can only emit placeholders. 
 :::
 
 :::card[Layer 4: Continuous Observability & Auditing]{📡}
-Every generation is tracked with unified telemetry. Authors can audit the **Grounding Score**, **Strip Rate**, and **Retrieval Relevance** in real-time. This is backed by our **Titanium-Hardened Verification Script**, which cryptographically verifies documentation integrity against the repository baseline.
+Every generation is tracked with unified telemetry. Authors can audit the **Grounding Score**, **Strip Rate**, and **Retrieval Relevance** in real-time. This is backed by our **Titanium-Hardened Verification Script** and **Security Audit Regression Gate**, which cryptographically verify documentation and security standards against the repository baseline.
 :::
 
 ## How to use Citations
@@ -1767,5 +1767,32 @@ RocketBoard is built with a security-first mindset.
 2. **Webview Safety**: Use Nonces and sanitize all HTML.
 3. **Workspace Isolation**: Restrict file operations to the workspace root.
 4. **External Fetches**: Only communicate with the configured Supabase URL.`,
+  },
+  {
+    id: "tech-3",
+    slug: "deno-runtime-standards",
+    title: "Deno 2.0 & Runtime Standards",
+    category: "tech-implementation",
+    audience: ["admin", "author"],
+    tags: ["deno", "runtime", "node", "standards"],
+    summary: "Technical standards for the Deno 2.0 migration and Edge Function configuration.",
+    lastUpdated: "2026-03-25",
+    content: `# Deno 2.0 & Runtime Standards 🦕
+
+RocketBoard has migrated to **Deno 2.0** to leverage enhanced performance and native Node.js compatibility.
+
+## Key Changes
+- **Node Compatibility**: Switched from legacy \`nodeModulesDir: true\` to the new \`nodeModulesDir: "auto"\` standard in all \`deno.json\` files.
+- **Dependency Resolution**: Faster and more reliable \`npm:\` specifier resolution.
+- **Formatting**: Strict enforcement of \`deno fmt\` for all Edge Function code, including multiline Response objects.
+
+## Mandatory CI Gates
+All Pull Requests are subject to the following automated checks:
+1. **\`deno fmt --check\`**: Ensures consistent code style across all 76+ functions.
+2. **\`node scripts/audit-edge-functions.mjs\`**: Scans for security regressions like wildcard CORS or missing auth guards.
+
+:::card[Rocket's Pro-Tip]{🚀}
+When developing locally, always run \`deno fmt\` before pushing to ensure your changes pass the formatting gate!
+:::`,
   },
 ];
