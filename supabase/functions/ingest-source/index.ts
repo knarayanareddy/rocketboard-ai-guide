@@ -265,22 +265,8 @@ serve(async (req) => {
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;
 
+  // Use centralized CORS headers
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
-  const origin = req.headers.get("Origin");
-
-  // Implement STRICT_CORS logic
-  if (Deno.env.get("STRICT_CORS") === "true") {
-    if (origin && !allowedOrigins.includes(origin)) {
-      console.error(`[STRICT_CORS] Forbidden origin: ${origin}`);
-      return jsonError(
-        403,
-        "forbidden_origin",
-        `Origin ${origin} is not allowlisted`,
-        {},
-        corsHeaders,
-      );
-    }
-  }
 
   // Hoist variables for catch block accessibility
   let trace: any;
