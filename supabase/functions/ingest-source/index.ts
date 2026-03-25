@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// Modern Deno.serve is built-in, no import needed for server.ts
 import { astChunk } from "../_shared/ast-chunker.ts";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
@@ -260,8 +260,16 @@ async function fetchGitHubFile(
   return await resp.text();
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const allowedOrigins = parseAllowedOrigins();
+
+  // Diagnostics: Allow GET for health checks
+  if (req.method === "GET") {
+    return new Response(JSON.stringify({ status: "ok", service: "ingest-source" }), {
+      headers: { ...buildCorsHeaders(req, allowedOrigins), "Content-Type": "application/json" },
+    });
+  }
+
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;
 

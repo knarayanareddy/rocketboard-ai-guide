@@ -15,6 +15,8 @@ export function buildCorsHeaders(req: Request, allowedOrigins: string[]) {
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type, mcp-session-id, x-supabase-auth, x-supabase-api-key",
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE, PATCH",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
 
