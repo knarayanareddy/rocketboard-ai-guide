@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.reindex-orgs]
 verify_jwt = false
+
+[functions.configure-source]
+verify_jwt = false
