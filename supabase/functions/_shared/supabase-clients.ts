@@ -17,10 +17,6 @@ export function createAnonClient(req: Request) {
   });
 }
 
-/**
- * NOTE: Service role usage requires an auth guard in the caller.
- * The auditor looks for: requireUser(), requireInternal(), or authenticateRequest().
- */
 export function createServiceClient() {
   const url = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

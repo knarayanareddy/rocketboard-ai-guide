@@ -20,7 +20,7 @@ Deno.test("External URL Policy - Standard SaaS allowlist", () => {
 });
 
 Deno.test("External URL Policy - Protocol and Security blocks", () => {
-  const policy = { ["allowAnyHost"]: true };
+  const policy = { allowAnyHost: true };
 
   // Block HTTP by default
   assertThrows(

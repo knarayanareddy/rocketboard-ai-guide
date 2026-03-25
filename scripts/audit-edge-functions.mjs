@@ -38,7 +38,8 @@ const FORBIDDEN_PATTERNS = [
   },
   {
     pattern: /allowAnyHost:\s*true/i,
-    message: 'allowAnyHost: true is forbidden in URL validation policies.'
+    message: 'allowAnyHost: true is forbidden in URL validation policies.',
+    skipIf: (p) => p.endsWith('.test.ts')
   },
   {
     pattern: /@supabase\/supabase-js['"]?(?:@latest|@2(?!\.45\.6)|(?![@\w.-]))/i,
@@ -46,17 +47,19 @@ const FORBIDDEN_PATTERNS = [
   },
   {
     pattern: /req\.json\(\)/g,
-    message: 'Using raw req.json() is discouraged. Use readJson(req, corsHeaders) from _shared/http.ts for safe 400 errors.'
+    message: 'Using raw req.json() is discouraged. Use readJson(req, corsHeaders) from _shared/http.ts for safe 400 errors.',
+    skipIf: (p) => p.endsWith('_shared/http.ts')
   }
 ];
 
-function auditFile(dirName, filePath) {
+function auditFile(dirName, filePath, relativePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   const issues = [];
 
   // Check forbidden patterns
-  for (const { pattern, message } of FORBIDDEN_PATTERNS) {
+  for (const { pattern, message, skipIf } of FORBIDDEN_PATTERNS) {
     if (pattern.test(content)) {
+      if (skipIf && skipIf(relativePath || '')) continue;
       issues.push(message);
     }
   }
@@ -65,7 +68,10 @@ function auditFile(dirName, filePath) {
   const usesServiceRole = content.includes('SUPABASE_SERVICE_ROLE_KEY') || content.includes('createServiceClient');
   const hasAuthGuard = content.includes('requireUser(') || content.includes('requireInternal(') || content.includes('authenticateRequest(');
 
-  const isAllowed = AUTH_GUARD_ALLOWLIST.includes(dirName) || dirName.startsWith(INGEST_PREFIX);
+  // RULE C: Only enforce on entrypoints, skip _shared
+  const isEntryPoint = filePath.endsWith('index.ts');
+  const isShared = dirName === '_shared' || (relativePath && relativePath.includes('_shared/'));
+  const isAllowed = AUTH_GUARD_ALLOWLIST.includes(dirName) || dirName.startsWith(INGEST_PREFIX) || isShared || !isEntryPoint;
 
   if (usesServiceRole && !hasAuthGuard && !isAllowed) {
     issues.push('Uses SUPABASE_SERVICE_ROLE_KEY but lacks requireUser() or requireInternal() guard.');
@@ -148,7 +154,7 @@ function main() {
 
   for (const { dirName, filePath, relativePath } of filesToAudit) {
     filesChecked++;
-    const issues = auditFile(dirName, filePath);
+    const issues = auditFile(dirName, filePath, relativePath);
     if (issues.length > 0) {
       console.error(`\n[!] Issues found in ${relativePath}:`);
       issues.forEach(issue => console.error(`  - ${issue}`));

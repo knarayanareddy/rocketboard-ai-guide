@@ -42,7 +42,7 @@ export async function readJson(
   headers: Record<string, string> = {},
 ) {
   try {
-    return await req["json"]();
+    return await req.json();
   } catch (err) {
     throw {
       response: jsonError(400, "bad_request", "Invalid JSON body", {}, headers),
