@@ -340,7 +340,7 @@ serve(async (req) => {
     // 3. Check Ingestion Guards (Cooldown, Concurrency)
     const guard = await validateIngestion(serviceClient, pack_id, source_id);
     if (!guard.success) {
-      return json(guard.status, {
+      return json(guard.status ?? 400, {
         error: guard.error,
         next_allowed_at: guard.next_allowed_at,
       }, corsHeaders);
@@ -349,7 +349,7 @@ serve(async (req) => {
     // 2. Check Pack-level Chunk Cap
     const cap = await checkPackChunkCap(serviceClient, pack_id);
     if (!cap.success) {
-      return json(cap.status, { error: cap.error }, corsHeaders);
+      return json(cap.status ?? 400, { error: cap.error }, corsHeaders);
     }
 
     // 3. Create ingestion job
@@ -427,11 +427,12 @@ serve(async (req) => {
       let files: string[] = [];
       try {
         // 1. Try to get token from Vault
-        githubToken = await getSourceCredential(
+        const credential = await getSourceCredential(
           serviceClient,
           source_id,
           "api_token",
         );
+        githubToken = credential ?? undefined;
 
         // 2. Fallback to Env Var (for system-wide or legacy support)
         if (!githubToken) {
