@@ -54,7 +54,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-      DENO_NODE_MODULES_DIR: "none"
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v1
