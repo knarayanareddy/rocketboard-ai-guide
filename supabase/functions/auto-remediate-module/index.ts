@@ -40,9 +40,26 @@ Deno.serve(async (req) => {
     };
     if (githubToken) headers.Authorization = `token ${githubToken}`;
 
-    // Convert github.com to api.github.com for diff parsing and format properly
-    // This is a naive translation; robust implementations would parse owner/repo/shas
-    const apiUrl = compare_url.replace("github.com", "api.github.com/repos");
+    // Robustly parse GitHub compare URL and convert to API URL
+    const url = new URL(compare_url);
+    if (!url.hostname.endsWith("github.com")) {
+      throw new Error(`Hostname ${url.hostname} not supported for remediation`);
+    }
+
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    // Expected: /owner/repo/compare/base...head
+    // Or: /owner/repo/compare/head (relative to base)
+    if (pathParts.length < 4 || pathParts[2] !== "compare") {
+      throw new Error(
+        "Invalid GitHub compare URL format. Expected /owner/repo/compare/comparison",
+      );
+    }
+
+    const owner = pathParts[0];
+    const repo = pathParts[1];
+    const comparison = pathParts[3];
+
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/compare/${comparison}`;
 
     // SSRF Protection
     const validatedApiUrl = parseAndValidateExternalUrl(apiUrl, {

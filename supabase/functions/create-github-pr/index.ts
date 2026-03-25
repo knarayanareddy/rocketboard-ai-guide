@@ -250,8 +250,8 @@ serve(async (req) => {
     // Audit Event
     await serviceClient.from("lifecycle_audit_events").insert({
       pack_id: pack_id,
-      event_type: "proposal_pr_created",
-      details: {
+      action: "proposal_pr_created",
+      parameters: {
         proposal_id: proposal_id,
         pr_url: pr.html_url,
         owner,
