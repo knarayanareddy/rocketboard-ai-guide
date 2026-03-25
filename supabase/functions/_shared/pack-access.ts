@@ -16,7 +16,7 @@ export async function getPackRole(
   }
   const { data, error } = await serviceClient
     .from("pack_members")
-    .select("access_level")
+    .select("access_level, packs:pack_id(org_id)")
     .eq("pack_id", packId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -24,7 +24,8 @@ export async function getPackRole(
   if (error || !data) return { role: null, org_id: null };
 
   const role = data.access_level || null;
-  return { role, org_id: null };
+  const org_id = (data as any).packs?.org_id || null;
+  return { role, org_id };
 }
 
 export async function requirePackRole(
