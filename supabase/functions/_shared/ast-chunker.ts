@@ -51,7 +51,7 @@ async function ensureParserLoaded() {
   parserLoadAttempted = true;
 
   try {
-    if (typeof globalThis.document === "undefined") {
+    if (typeof (globalThis as any).document === "undefined") {
       (globalThis as any).document = { currentScript: { src: "" } };
     } else if (
       typeof (globalThis as any).document.currentScript === "undefined"
@@ -273,7 +273,7 @@ function walkAST(node: any, code: string, chunks: ASTChunk[], lang: string) {
 
   if (interestingTypes.includes(type)) {
     const nameNode = node.childForFieldName("name") ||
-      node.children.find((c) => c.type.includes("identifier"));
+      node.children.find((c: any) => c.type.includes("identifier"));
 
     chunks.push({
       text: code.slice(node.startIndex, node.endIndex),
