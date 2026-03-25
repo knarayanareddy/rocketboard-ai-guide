@@ -24,7 +24,7 @@ Key Changes:
 --------------------------------------
 The root `supabase/functions/deno.json` should contain:
 {
-  "nodeModulesDir": "auto"
+  "nodeModulesDir": "none"
 }
 
 Function-level `deno.json` files may override this if specific import maps 
