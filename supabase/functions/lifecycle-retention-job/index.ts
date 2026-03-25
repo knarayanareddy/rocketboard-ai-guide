@@ -6,6 +6,13 @@ import {
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 
+interface LifecyclePolicy {
+  legal_hold: boolean;
+  retention_rag_metrics_days: number;
+  retention_ingestion_jobs_days: number;
+  retention_audit_days: number;
+}
+
 // Local corsHeaders removed
 
 Deno.serve(async (req) => {
@@ -52,7 +59,12 @@ Deno.serve(async (req) => {
     const summary: any[] = [];
 
     for (const pack of packs) {
-      const policy = pack.pack_lifecycle_policies || {
+      // Supabase join returns array or null; take first element or use defaults
+      const policyRow = Array.isArray(pack.pack_lifecycle_policies)
+        ? (pack.pack_lifecycle_policies[0] as LifecyclePolicy | undefined)
+        : (pack.pack_lifecycle_policies as LifecyclePolicy | null | undefined);
+
+      const policy: LifecyclePolicy = policyRow ?? {
         retention_rag_metrics_days: 90,
         retention_ingestion_jobs_days: 90,
         retention_audit_days: 90,

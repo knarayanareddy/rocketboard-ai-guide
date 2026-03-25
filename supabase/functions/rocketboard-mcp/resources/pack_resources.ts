@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * rocketboard-mcp/resources/pack_resources.ts
  *

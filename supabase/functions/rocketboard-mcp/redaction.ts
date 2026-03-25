@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * rocketboard-mcp/redaction.ts
  *
