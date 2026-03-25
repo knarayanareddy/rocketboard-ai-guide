@@ -63,7 +63,6 @@ jobs:
         run: deno fmt --check supabase/functions
       - name: Deno Type Check
         run: |
-          (cd supabase/functions/rocketboard-mcp && deno install)
           # Check shared lib AND any directory containing an index.ts
           find supabase/functions -name "index.ts" -not -path "*/_shared/*" | xargs -I {} deno check {}
           deno check supabase/functions/_shared/*.ts
