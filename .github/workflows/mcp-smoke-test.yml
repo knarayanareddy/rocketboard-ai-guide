@@ -44,7 +44,20 @@ jobs:
           [ -z "$MCP_EVAL_PACK_ID_ALLOWED" ] && echo "!! MCP_EVAL_PACK_ID_ALLOWED is MISSING"
           echo "Environment check complete."
 
+      - name: Check secrets availability
+        id: secrets-check
+        run: |
+          if [ -z "${{ secrets.MCP_EVAL_SUPABASE_URL }}" ]; then
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ MCP_EVAL_SUPABASE_URL secret not configured. Skipping MCP smoke test."
+            echo "To enable: Add MCP_EVAL_SUPABASE_URL, MCP_EVAL_ANON_KEY, MCP_EVAL_USER_EMAIL, MCP_EVAL_USER_PASSWORD, MCP_EVAL_PACK_ID as repo secrets."
+          else
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "✅ Secrets available. MCP smoke test will run."
+          fi
+
       - name: Run MCP Smoke Test
+        if: steps.secrets-check.outputs.available == 'true'
         env:
           MCP_EVAL_SUPABASE_URL: ${{ secrets.MCP_EVAL_SUPABASE_URL }}
           MCP_EVAL_ANON_KEY: ${{ secrets.MCP_EVAL_ANON_KEY }}

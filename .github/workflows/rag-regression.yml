@@ -49,7 +49,20 @@ jobs:
           [ -z "$RAG_EVAL_PACK_ID" ] && echo "!! RAG_EVAL_PACK_ID is MISSING"
           echo "Environment check complete."
 
+      - name: Check secrets availability
+        id: secrets-check
+        run: |
+          if [ -z "${{ secrets.RAG_EVAL_SUPABASE_URL }}" ]; then
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ RAG_EVAL_SUPABASE_URL secret not configured. Skipping live RAG tests."
+            echo "To enable: Add RAG_EVAL_SUPABASE_URL, RAG_EVAL_SUPABASE_ANON_KEY, RAG_EVAL_SUPABASE_SERVICE_ROLE_KEY, RAG_EVAL_USER_EMAIL, RAG_EVAL_USER_PASSWORD, RAG_EVAL_PACK_ID as repo secrets."
+          else
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "✅ Secrets available. RAG tests will run."
+          fi
+
       - name: Run Baseline Suite
+        if: steps.secrets-check.outputs.available == 'true'
         working-directory: ./rag-eval
         env:
           RAG_EVAL_SUPABASE_URL: ${{ secrets.RAG_EVAL_SUPABASE_URL }}
@@ -61,6 +74,7 @@ jobs:
         run: npm run test -- --suite suites/baseline.yaml
 
       - name: Run Detective Suite
+        if: steps.secrets-check.outputs.available == 'true'
         working-directory: ./rag-eval
         env:
           RAG_EVAL_SUPABASE_URL: ${{ secrets.RAG_EVAL_SUPABASE_URL }}
