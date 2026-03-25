@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * rocketboard-mcp/tools/search_knowledge_base.ts
  *

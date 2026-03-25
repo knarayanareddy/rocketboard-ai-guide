@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
     const guard = await validateIngestion(serviceClient, pack_id, source_id);
     if (!guard.success) {
-      return json(guard.status, {
+      return json(guard.status ?? 503, {
         error: guard.error,
         next_allowed_at: guard.next_allowed_at,
       }, corsHeaders);
@@ -126,7 +126,9 @@ Deno.serve(async (req) => {
 
     const cap = await checkPackChunkCap(serviceClient, pack_id);
     if (!cap.success) {
-      return json(cap.status, { error: cap.error }, corsHeaders);
+      return json(cap.status ?? 429, {
+        error: cap.error ?? "chunk_cap_exceeded",
+      }, corsHeaders);
     }
 
     const { data: job, error: jobErr } = await serviceClient

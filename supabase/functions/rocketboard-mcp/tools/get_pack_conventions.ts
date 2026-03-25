@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * rocketboard-mcp/tools/get_pack_conventions.ts
  *

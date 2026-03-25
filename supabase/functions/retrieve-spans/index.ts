@@ -204,12 +204,14 @@ Deno.serve(async (req) => {
     });
 
     // Phase 7: Rich Retrieval Diagnostics
-    const scores = (chunks || []).map((c: any) => c.score || 0);
+    const scores = (chunks || []).map((c: any) => c.score || 0) as number[];
     const top1Score = scores.length > 0 ? Math.max(...scores) : 0;
     const avgScore = scores.length > 0
-      ? scores.reduce((a, b) => a + b, 0) / scores.length
+      ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length
       : 0;
-    const uniqueFiles = new Set((chunks || []).map((c: any) => c.path)).size;
+    const uniqueFiles = new Set((chunks || []).map((c: any) =>
+      c.path as string
+    )).size;
 
     const latency_ms = Date.now() - startTime;
 

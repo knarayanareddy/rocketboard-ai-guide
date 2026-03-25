@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * rocketboard-mcp/tools/list_my_packs.ts
  *

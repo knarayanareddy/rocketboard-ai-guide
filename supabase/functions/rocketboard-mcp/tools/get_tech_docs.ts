@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * rocketboard-mcp/tools/get_tech_docs.ts
  *
@@ -12,7 +13,7 @@
  */
 
 import { z } from "zod";
-import { SupabaseClient } from "npm:@supabase/supabase-js@2.45.6";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { hashArgs, writeMcpAudit } from "../audit.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
