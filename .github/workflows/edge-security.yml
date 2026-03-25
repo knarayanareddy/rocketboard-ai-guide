@@ -59,6 +59,9 @@ jobs:
       - uses: denoland/setup-deno@v1
         with:
           deno-version: v2.x
+      - name: Deno Install
+        run: deno install
+        working-directory: supabase/functions
       - name: Deno Format Check
         run: deno fmt --check supabase/functions
       - name: Deno Type Check
