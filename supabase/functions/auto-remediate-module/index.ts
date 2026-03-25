@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
     const repo = pathParts[1];
     const comparison = pathParts[3];
 
-    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/compare/${comparison}`;
+    const apiUrl =
+      `https://api.github.com/repos/${owner}/${repo}/compare/${comparison}`;
 
     // SSRF Protection
     const validatedApiUrl = parseAndValidateExternalUrl(apiUrl, {
