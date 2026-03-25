@@ -4,7 +4,7 @@ project_id = "ersqhobqaptsxqclawcc"
 verify_jwt = true
 
 [functions.ingest-source]
-verify_jwt = true
+verify_jwt = false
 
 [functions.retrieve-spans]
 verify_jwt = true
