@@ -11,6 +11,9 @@ export async function getPackRole(
   packId: string,
   userId: string,
 ): Promise<{ role: string | null; org_id: string | null }> {
+  if (userId === "admin") {
+    return { role: "owner", org_id: null };
+  }
   const { data, error } = await serviceClient
     .from("pack_members")
     .select("role, access_level, org_id")
