@@ -265,9 +265,15 @@ Deno.serve(async (req) => {
 
   // Diagnostics: Allow GET for health checks
   if (req.method === "GET") {
-    return new Response(JSON.stringify({ status: "ok", service: "ingest-source" }), {
-      headers: { ...buildCorsHeaders(req, allowedOrigins), "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ status: "ok", service: "ingest-source" }),
+      {
+        headers: {
+          ...buildCorsHeaders(req, allowedOrigins),
+          "Content-Type": "application/json",
+        },
+      },
+    );
   }
 
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
