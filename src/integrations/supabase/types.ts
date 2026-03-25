@@ -2693,28 +2693,6 @@ export type Database = {
         | {
             Args: {
               p_match_count: number
-              p_org_id: string
-              p_pack_id: string
-              p_query_embedding: string
-              p_query_text: string
-            }
-            Returns: {
-              chunk_id: string
-              content: string
-              entity_name: string
-              entity_type: string
-              id: string
-              line_end: number
-              line_start: number
-              path: string
-              score: number
-              signature: string
-              source_id: string
-            }[]
-          }
-        | {
-            Args: {
-              p_match_count: number
               p_match_threshold: number
               p_module_key: string
               p_org_id: string
