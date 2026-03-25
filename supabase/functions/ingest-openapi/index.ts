@@ -1,3 +1,4 @@
+import yaml from "https://esm.sh/js-yaml@4.1.0";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 import {
