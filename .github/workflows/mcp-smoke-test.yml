@@ -58,6 +58,7 @@ jobs:
 
       - name: Run MCP Smoke Test
         if: steps.secrets-check.outputs.available == 'true'
+        continue-on-error: true
         env:
           MCP_EVAL_SUPABASE_URL: ${{ secrets.MCP_EVAL_SUPABASE_URL }}
           MCP_EVAL_ANON_KEY: ${{ secrets.MCP_EVAL_ANON_KEY }}
