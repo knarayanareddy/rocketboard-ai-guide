@@ -2692,14 +2692,36 @@ export type Database = {
       hybrid_search_v2:
         | {
             Args: {
-              p_match_count?: number
-              p_match_threshold?: number
-              p_module_key?: string
+              p_match_count: number
               p_org_id: string
               p_pack_id: string
-              p_query_embedding?: string
+              p_query_embedding: string
               p_query_text: string
-              p_track_key?: string
+            }
+            Returns: {
+              chunk_id: string
+              content: string
+              entity_name: string
+              entity_type: string
+              id: string
+              line_end: number
+              line_start: number
+              path: string
+              score: number
+              signature: string
+              source_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_match_count: number
+              p_match_threshold: number
+              p_module_key: string
+              p_org_id: string
+              p_pack_id: string
+              p_query_embedding: string
+              p_query_text: string
+              p_track_key: string
             }
             Returns: {
               chunk_id: string
@@ -2739,6 +2761,31 @@ export type Database = {
               source_id: string
             }[]
           }
+      hybrid_search_v2_impl: {
+        Args: {
+          p_match_count: number
+          p_match_threshold: number
+          p_module_key: string
+          p_org_id: string
+          p_pack_id: string
+          p_query_embedding: string
+          p_query_text: string
+          p_track_key: string
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          entity_name: string
+          entity_type: string
+          id: string
+          line_end: number
+          line_start: number
+          path: string
+          score: number
+          signature: string
+          source_id: string
+        }[]
+      }
       increment_reply_upvote: { Args: { reply_id: string }; Returns: undefined }
       increment_thread_reply_count: {
         Args: { thread_id: string }
