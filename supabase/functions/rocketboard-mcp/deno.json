@@ -1,5 +1,5 @@
 {
-  "nodeModulesDir": true,
+  "nodeModulesDir": "auto",
   "imports": {
     "hono": "https://deno.land/x/hono@v4.3.11/mod.ts",
     "hono/": "https://deno.land/x/hono@v4.3.11/",
