@@ -58,10 +58,11 @@ Deno.serve(async (req) => {
         false,
         ["verify"],
       );
+      const sigUint8 = hexToUint8Array(signature.replace("sha256=", ""));
       const isVerified = await crypto.subtle.verify(
         "HMAC",
         hmac,
-        hexToUint8Array(signature.replace("sha256=", "")),
+        sigUint8.buffer as ArrayBuffer,
         new TextEncoder().encode(bodyText),
       );
 
