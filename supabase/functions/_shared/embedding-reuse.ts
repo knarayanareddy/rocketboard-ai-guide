@@ -138,7 +138,9 @@ export async function generateEmbedding(
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
   if (!openAIKey && !lovableKey) {
-    console.error("[EMBEDDING] No API keys available for embedding generation.");
+    console.error(
+      "[EMBEDDING] No API keys available for embedding generation.",
+    );
     return null;
   }
 

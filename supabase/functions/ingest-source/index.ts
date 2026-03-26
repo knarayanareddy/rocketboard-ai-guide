@@ -557,7 +557,10 @@ async function runIngestion(
       reusedCount = result.reusedCount;
       generatedCount = result.generatedCount;
     } catch (embErr: any) {
-      console.error("[EMBEDDING] Embedding processing failed, continuing without embeddings:", embErr.message);
+      console.error(
+        "[EMBEDDING] Embedding processing failed, continuing without embeddings:",
+        embErr.message,
+      );
     }
     embedSpan.end({ reusedCount, generatedCount });
     if (generatedCount > 0) trace.enable();
@@ -760,7 +763,9 @@ async function runIngestion(
     });
 
     await trace.flush();
-    console.log(`[INGESTION] Completed job ${jobId} with ${allChunks.length} chunks`);
+    console.log(
+      `[INGESTION] Completed job ${jobId} with ${allChunks.length} chunks`,
+    );
   } catch (err: any) {
     console.error("Background ingestion error:", err);
     try {
