@@ -1,8 +1,8 @@
-import { Loader2, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, Clock, X } from "lucide-react";
 import { useIngestion } from "@/hooks/useIngestion";
 
 export function IngestionStatus() {
-  const { jobs, hasActiveJob, cancelIngestion } = useIngestion();
+  const { jobs, hasActiveJob, cancelIngestion, deleteJob } = useIngestion();
 
   const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "processing");
   const recentCompleted = jobs.filter((j) => j.status === "completed").slice(0, 3);
@@ -48,9 +48,18 @@ export function IngestionStatus() {
       })}
 
       {recentFailed.map((job) => (
-        <div key={job.id} className="flex items-center gap-2 text-xs bg-destructive/10 text-destructive rounded-lg px-3 py-2">
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <span>Ingestion failed{job.error_message ? `: ${job.error_message}` : ""}</span>
+        <div key={job.id} className="flex items-center justify-between gap-2 text-xs bg-destructive/10 text-destructive rounded-lg px-3 py-2 animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>Ingestion failed{job.error_message ? `: ${job.error_message}` : ""}</span>
+          </div>
+          <button
+            onClick={() => deleteJob.mutate(job.id)}
+            className="hover:bg-destructive/10 rounded p-0.5 transition-colors"
+            title="Dismiss"
+          >
+            <X className="w-3 h-3" />
+          </button>
         </div>
       ))}
     </div>
