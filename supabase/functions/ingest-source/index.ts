@@ -260,118 +260,23 @@ async function fetchGitHubFile(
   return await resp.text();
 }
 
-Deno.serve(async (req) => {
-  const corsResponse = handleCorsPreflight(req, ALLOWED_ORIGINS);
-  if (corsResponse) return corsResponse;
-
-  const corsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
-  const origin = req.headers.get("Origin");
-
-  // Implement STRICT_CORS logic
-  if (Deno.env.get("STRICT_CORS") === "true") {
-    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
-      console.error(`[STRICT_CORS] Forbidden origin: ${origin}`);
-      return jsonError(
-        403,
-        "forbidden_origin",
-        `Origin ${origin} is not allowlisted`,
-        {},
-        corsHeaders,
-      );
-    }
-  }
-
-  // Use centralized CORS headers
-  // Already defined above
-
-  // Hoist variables for catch block accessibility
-  let trace: any;
-  let jobId: string | undefined;
-  let githubToken: string | undefined;
-  let source_id: string | undefined;
-
+async function runIngestion(
+  serviceClient: any,
+  jobId: string,
+  pack_id: string,
+  source_id: string,
+  source_type: string,
+  source_uri: string | undefined,
+  document_content: string | undefined,
+  label: string | undefined,
+  source_config: any,
+  org_id: string | undefined,
+  module_key: string | null,
+  track_key: string | null,
+  trace: any,
+  githubToken: string | undefined,
+) {
   try {
-    const body = await readJson(req, corsHeaders);
-    const {
-      pack_id,
-      source_type,
-      source_uri,
-      document_content,
-      label,
-      source_config,
-      org_id,
-      module_key,
-      track_key,
-    } = body;
-    source_id = body.source_id;
-
-    if (!pack_id || !source_id || !source_type) {
-      return jsonError(
-        400,
-        "bad_request",
-        "Missing required fields (pack_id, source_id, source_type)",
-        {},
-        corsHeaders,
-      );
-    }
-
-    // 1. Authenticate user
-    const { userId } = await requireUser(req, corsHeaders);
-
-    // 2. Authorize pack access (Need 'author' level)
-    const serviceClient = createServiceClient();
-    await requirePackRole(
-      serviceClient,
-      pack_id,
-      userId,
-      "author",
-      corsHeaders,
-    );
-
-    // Initialize Trace (Strategic Sampling)
-    trace = createTrace({
-      serviceName: "ingest-source",
-      taskType: "ingestion",
-      requestId: crypto.randomUUID(),
-      packId: pack_id,
-      sourceId: source_id,
-      orgId: org_id,
-      environment: Deno.env.get("ENVIRONMENT") || "production",
-    }, { enabled: shouldTrace() });
-
-    // 3. Check Ingestion Guards (Cooldown, Concurrency)
-    const guard = await validateIngestion(serviceClient, pack_id, source_id);
-    if (!guard.success) {
-      return json(guard.status ?? 400, {
-        error: guard.error,
-        next_allowed_at: guard.next_allowed_at,
-      }, corsHeaders);
-    }
-
-    // 2. Check Pack-level Chunk Cap
-    const cap = await checkPackChunkCap(serviceClient, pack_id);
-    if (!cap.success) {
-      return json(cap.status ?? 400, { error: cap.error }, corsHeaders);
-    }
-
-    // 3. Create ingestion job
-    const { data: job, error: jobErr } = await serviceClient
-      .from("ingestion_jobs")
-      .insert({
-        pack_id,
-        source_id,
-        status: "processing",
-        started_at: new Date().toISOString(),
-        retry_count: guard.retry_count || 0,
-      })
-      .select()
-      .single();
-    if (jobErr) throw jobErr;
-
-    if (job) jobId = job.id;
-    if (!jobId) throw new Error("Failed to create ingestion job");
-
-    trace.updateMetadata({ jobId });
     let allChunks: {
       chunk_id: string;
       path: string;
@@ -387,22 +292,16 @@ Deno.serve(async (req) => {
       signature?: string;
       imports?: string[];
       exported_names?: string[];
-      ingestion_job_id?: string;
-      generation_id?: string;
-      module_key?: string | null;
-      track_key?: string | null;
     }[] = [];
     let totalRedactions = 0;
 
-    // We will attempt to get an OpenAI API key (or Lovable fallback) for embeddings
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") ||
       Deno.env.get("LOVABLE_API_KEY") || "";
 
     if (source_type === "github_repo") {
-      // Validate source_uri (SSRF Protection)
       let validatedUri: string;
       try {
-        validatedUri = parseAndValidateExternalUrl(source_uri, {
+        validatedUri = parseAndValidateExternalUrl(source_uri!, {
           allowedHosts: ["github.com"],
           disallowPrivateIPs: true,
           allowHttps: true,
@@ -412,13 +311,7 @@ Deno.serve(async (req) => {
           `[SSRF BLOCK] Invalid GitHub source_uri: ${source_uri}`,
           err.message,
         );
-        return jsonError(
-          400,
-          "bad_request",
-          `Invalid Source URI: ${err.message}`,
-          {},
-          corsHeaders,
-        );
+        throw new Error(`Invalid Source URI: ${err.message}`);
       }
 
       const match = validatedUri.match(/github\.com\/([^/]+)\/([^/]+)/);
@@ -428,15 +321,14 @@ Deno.serve(async (req) => {
       const fetchTreeSpan = trace.startSpan("fetch_tree", { owner, repo });
       let files: string[] = [];
       try {
-        // 1. Try to get token from Vault
-        const credential = await getSourceCredential(
-          serviceClient,
-          source_id,
-          "api_token",
-        );
-        githubToken = credential ?? undefined;
-
-        // 2. Fallback to Env Var (for system-wide or legacy support)
+        if (!githubToken) {
+          const credential = await getSourceCredential(
+            serviceClient,
+            source_id,
+            "api_token",
+          );
+          githubToken = credential ?? undefined;
+        }
         if (!githubToken) {
           githubToken = Deno.env.get("GITHUB_TOKEN") || undefined;
         }
@@ -477,15 +369,10 @@ Deno.serve(async (req) => {
               ownersToInsert,
               { onConflict: "pack_id,path_pattern" },
             );
-            console.log(
-              `[CODEOWNERS] Parsed ${rules.length} rules from ${codeownersPath}`,
-            );
           }
         }
       }
 
-      // Initially estimate total_chunks as files.length (one chunk per file minimum)
-      // We will update this with the exact count after astChunking is complete.
       await serviceClient.from("ingestion_jobs").update({
         total_chunks: files.length,
       }).eq("id", jobId);
@@ -496,7 +383,6 @@ Deno.serve(async (req) => {
       for (let i = 0; i < files.length; i += PARALLEL_BATCH_SIZE) {
         const batchFiles = files.slice(i, i + PARALLEL_BATCH_SIZE);
 
-        // Fetch files in parallel
         const fetchResults = await Promise.all(
           batchFiles.map(async (filepath) => {
             try {
@@ -525,7 +411,6 @@ Deno.serve(async (req) => {
 
           for (const chunk of astChunks) {
             chunkIdx++;
-            // Check per-run cap
             if (chunkIdx > getRunCap()) {
               throw new Error(
                 `Ingestion cap exceeded: maximum of ${getRunCap()} new chunks per run allowed.`,
@@ -534,9 +419,6 @@ Deno.serve(async (req) => {
             const assessment = assessChunkRedaction(chunk.text);
             if (assessment.metrics.secretsFound > 0) {
               totalRedactions += assessment.metrics.secretsFound;
-              console.log(
-                `[REDACTION] ${filepath} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`,
-              );
             }
 
             const hash = await computeContentHash(assessment.contentToStore);
@@ -557,6 +439,15 @@ Deno.serve(async (req) => {
               metadata: {
                 source_url: sourceUrl,
                 ...setupMeta,
+                entity_type: chunk.metadata.entity_type,
+                entity_name: chunk.metadata.entity_name,
+                signature: chunk.metadata.signature,
+                imports: chunk.metadata.imports,
+                exported_names: chunk.metadata.exported_names || [],
+                module_key: module_key || null,
+                track_key: track_key || null,
+                ingestion_job_id: jobId,
+                generation_id: jobId,
                 redaction: {
                   action: assessment.action,
                   secretsFound: assessment.metrics.secretsFound,
@@ -564,20 +455,14 @@ Deno.serve(async (req) => {
                   redactionRatio: assessment.metrics.redactionRatio,
                 },
               },
-              embedding: undefined, // placeholder
-              ingestion_job_id: jobId,
-              generation_id: jobId, // Explicitly map jobId to generation_id
-              module_key: module_key || null,
-              track_key: track_key || null,
+              embedding: undefined,
             });
           }
-          // Ensure total_chunks is set for document type as well
           await updateHeartbeat(serviceClient, jobId, {
             total_chunks: allChunks.length,
           });
         }
 
-        // Update progress and heartbeat reliably after every batch
         const status = await updateHeartbeat(serviceClient, jobId, {
           processed_chunks: allChunks.length,
         });
@@ -585,29 +470,14 @@ Deno.serve(async (req) => {
           console.log(
             `[CANCEL] Job ${jobId} status is ${status}, aborting ingestion.`,
           );
-          return jsonError(
-            499,
-            "cancelled",
-            "Ingestion cancelled by user",
-            {},
-            corsHeaders,
-          );
+          return;
         }
       }
 
-      // Now that we have the exact chunk count, update total_chunks before slow embedding generation
-      const finalStatus = await updateHeartbeat(serviceClient, jobId, {
+      await updateHeartbeat(serviceClient, jobId, {
         total_chunks: allChunks.length,
       });
-      if (finalStatus && finalStatus !== "processing") {
-        return jsonError(
-          499,
-          "cancelled",
-          "Ingestion cancelled by user",
-          {},
-          corsHeaders,
-        );
-      }
+
       trace.addSpan({
         name: "chunk_summary",
         startTime: Date.now(),
@@ -628,9 +498,6 @@ Deno.serve(async (req) => {
         const assessment = assessChunkRedaction(chunk.text);
         if (assessment.metrics.secretsFound > 0) {
           totalRedactions += assessment.metrics.secretsFound;
-          console.log(
-            `[REDACTION] doc:${docLabel} chunk ${chunkIdx}: ${assessment.metrics.secretsFound} secret(s) found. Action: ${assessment.action}`,
-          );
         }
         const hash = await computeContentHash(assessment.contentToStore);
 
@@ -645,6 +512,10 @@ Deno.serve(async (req) => {
           metadata: {
             file_type: "document",
             source_url: source_uri || null,
+            module_key: module_key || null,
+            track_key: track_key || null,
+            ingestion_job_id: jobId,
+            generation_id: jobId,
             redaction: {
               action: assessment.action,
               secretsFound: assessment.metrics.secretsFound,
@@ -653,68 +524,10 @@ Deno.serve(async (req) => {
             },
           },
           embedding: undefined,
-          ingestion_job_id: jobId,
-          generation_id: jobId, // Explicitly map jobId to generation_id
-          module_key: module_key || null,
-          track_key: track_key || null,
         });
       }
-    } else if (
-      [
-        "confluence",
-        "notion",
-        "google_drive",
-        "sharepoint",
-        "jira",
-        "linear",
-        "openapi_spec",
-        "postman_collection",
-        "figma",
-        "slack_channel",
-        "loom_video",
-        "pagerduty",
-      ].includes(source_type)
-    ) {
-      // Route to provider-specific edge function
-      const functionNameMap: Record<string, string> = {
-        google_drive: "ingest-google-drive",
-        openapi_spec: "ingest-openapi",
-        postman_collection: "ingest-postman",
-        slack_channel: "ingest-slack",
-        loom_video: "ingest-loom",
-      };
-      const functionName = functionNameMap[source_type] ||
-        `ingest-${source_type}`;
-      const serviceClientUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-      const routeResp = await fetch(
-        `${serviceClientUrl}/functions/v1/${functionName}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({
-            pack_id,
-            source_id,
-            source_config: source_config || {},
-          }),
-        },
-      );
-
-      if (!routeResp.ok) {
-        const errData = await routeResp.json().catch(() => ({
-          error: "Provider ingestion failed",
-        }));
-        throw new Error(errData.error || `${source_type} ingestion failed`);
-      }
-
-      const result = await routeResp.json();
-      return json(200, result, corsHeaders);
     } else {
-      throw new Error(`Unsupported source_type: ${source_type}`);
+      throw new Error(`Unsupported source_type for background: ${source_type}`);
     }
 
     if (totalRedactions > 0) {
@@ -723,47 +536,33 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Log summary for observability
-    const redactionSummary = {
-      total: allChunks.length,
-      clean: allChunks.filter((c) =>
-        !c.metadata?.redaction || c.metadata.redaction.action === "clean"
-      ).length,
-      redactedAndIndexed: allChunks.filter((c) =>
-        c.metadata?.redaction?.action === "redact_and_index"
-      ).length,
-      excluded: allChunks.filter((c) =>
-        c.metadata?.redaction?.action === "exclude"
-      ).length,
-    };
-    console.log(
-      `[INGESTION] Redaction summary for source ${source_id}:`,
-      JSON.stringify(redactionSummary),
-    );
+    const indexableChunks = allChunks.filter((c) => !c.is_redacted);
 
-    // Filter indexable chunks for embedding generation
-    const indexableChunks = allChunks.filter((c) =>
-      !c.is_redacted
-    );
-    const excludedChunks = allChunks.filter((c) => c.is_redacted);
-
+    // Process embeddings with error handling for quota issues
     const embedSpan = trace.startSpan("process_embeddings", {
       count: allChunks.length,
     });
 
-    // 1. Handle Embeddings (Reuse + Generation)
-    const { reusedCount, generatedCount } = await processEmbeddingsWithReuse(
-      serviceClient,
-      pack_id,
-      source_id,
-      allChunks,
-      openAIApiKey,
-      jobId,
-    );
+    let reusedCount = 0;
+    let generatedCount = 0;
+    try {
+      const result = await processEmbeddingsWithReuse(
+        serviceClient,
+        pack_id,
+        source_id,
+        allChunks,
+        openAIApiKey,
+        jobId,
+      );
+      reusedCount = result.reusedCount;
+      generatedCount = result.generatedCount;
+    } catch (embErr: any) {
+      console.error("[EMBEDDING] Embedding processing failed, continuing without embeddings:", embErr.message);
+    }
     embedSpan.end({ reusedCount, generatedCount });
-    if (generatedCount > 0) trace.enable(); // Strategic: trace if cost incurred
+    if (generatedCount > 0) trace.enable();
 
-    // Upsert chunks in batches
+    // Upsert chunks — only include columns that exist in knowledge_chunks table
     const upsertSpan = trace.startSpan("db_upsert_batch", {
       total: allChunks.length,
     });
@@ -773,7 +572,15 @@ Deno.serve(async (req) => {
       const batch = allChunks.slice(i, i + BATCH_SIZE).map((c) => ({
         pack_id,
         source_id,
-        ...c,
+        chunk_id: c.chunk_id,
+        path: c.path,
+        start_line: c.start_line,
+        end_line: c.end_line,
+        content: c.content,
+        content_hash: c.content_hash,
+        is_redacted: c.is_redacted,
+        metadata: c.metadata,
+        embedding: c.embedding,
       }));
 
       const { error: upsertErr } = await serviceClient
@@ -792,23 +599,16 @@ Deno.serve(async (req) => {
         console.log(
           `[CANCEL] Job ${jobId} status is ${status}, aborting upsert batch.`,
         );
-        return jsonError(
-          499,
-          "cancelled",
-          "Ingestion cancelled by user",
-          {},
-          corsHeaders,
-        );
+        return;
       }
     }
     upsertSpan.end({ processed });
 
-    // 2. Populate Graph Tables (symbol_definitions, symbol_references)
+    // Populate Graph Tables
     const graphSpan = trace.startSpan("populate_graph", {
       total_chunks: allChunks.length,
     });
 
-    // Clean up existing graph rows for this source to ensure no stale data
     await serviceClient.from("symbol_definitions").delete().eq(
       "source_id",
       source_id,
@@ -824,7 +624,6 @@ Deno.serve(async (req) => {
     for (const chunk of allChunks) {
       if (chunk.is_redacted) continue;
 
-      // a. Definitions
       const symbolsToDefine = new Set<string>();
       if (
         chunk.entity_name && chunk.entity_name !== "anonymous" &&
@@ -848,11 +647,9 @@ Deno.serve(async (req) => {
         });
       }
 
-      // b. References
       const lang = chunk.path.split(".").pop() || "typescript";
       const refs = extractSymbols(chunk.content, lang);
       for (const symbol of refs) {
-        // Skip referencing the symbol that is defined in the same chunk (prevents self-loops)
         if (symbolsToDefine.has(symbol)) continue;
 
         referencesBatch.push({
@@ -863,12 +660,11 @@ Deno.serve(async (req) => {
           from_path: chunk.path,
           from_line_start: chunk.start_line,
           from_line_end: chunk.end_line,
-          confidence: 1.0, // Simple extraction for now
+          confidence: 1.0,
         });
       }
     }
 
-    // Insert batches in parallel to save time
     const GRAPH_UPSERT_BATCH_SIZE = 500;
     const DB_CONCURRENCY = 5;
 
@@ -923,7 +719,7 @@ Deno.serve(async (req) => {
       last_synced_at: new Date().toISOString(),
     }).eq("id", source_id);
 
-    // ─── Atomic Swap (Flip active generation) ───
+    // Atomic Swap
     await serviceClient.from("pack_active_generation").upsert({
       org_id,
       pack_id,
@@ -932,67 +728,248 @@ Deno.serve(async (req) => {
     }, { onConflict: "org_id,pack_id" });
 
     // Mark job completed
+    const redactionSummary = {
+      total: allChunks.length,
+      clean: allChunks.filter((c) =>
+        !c.metadata?.redaction || c.metadata.redaction.action === "clean"
+      ).length,
+      redactedAndIndexed: allChunks.filter((c) =>
+        c.metadata?.redaction?.action === "redact_and_index"
+      ).length,
+      excluded: allChunks.filter((c) =>
+        c.metadata?.redaction?.action === "exclude"
+      ).length,
+    };
+
     await updateHeartbeat(serviceClient, jobId, {
       status: "completed",
       processed_chunks: allChunks.length,
       completed_at: new Date().toISOString(),
-      metadata: JSON.stringify({
-        total_chunks: allChunks.length,
-        indexable_chunks: indexableChunks.length,
-        embeddings_reused_count: reusedCount,
-        embeddings_generated_count: generatedCount,
-        redaction_summary: redactionSummary,
-        trace_id: trace.getTraceId(),
-      }),
     });
 
-    // Finalize trace
     await trace.flush();
-
-    return json(200, {
-      success: true,
-      job_id: jobId,
-      chunks: allChunks.length,
-      redactions: totalRedactions,
-    }, corsHeaders);
+    console.log(`[INGESTION] Completed job ${jobId} with ${allChunks.length} chunks`);
   } catch (err: any) {
-    console.error("Ingestion error:", err);
-
-    // Mark the job as failed so the UI doesn't show a stuck spinner
+    console.error("Background ingestion error:", err);
     try {
-      const serviceClient = createServiceClient();
+      await serviceClient
+        .from("ingestion_jobs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          error_message: (err.message ?? "Unknown error").slice(0, 500),
+        })
+        .eq("id", jobId)
+        .eq("status", "processing");
 
-      if (source_id) {
-        await serviceClient
-          .from("ingestion_jobs")
-          .update({
-            status: "failed",
-            completed_at: new Date().toISOString(),
-            error_message: (err.message ?? "Unknown error").slice(0, 500),
-          })
-          .eq("source_id", source_id)
-          .eq("status", "processing");
-
-        // CLEANUP: Delete partial chunks for this failed job
-        if (typeof jobId !== "undefined") {
-          console.log(
-            `[CLEANUP] Deleting partial chunks for failed job ${jobId}`,
-          );
-          await serviceClient.from("knowledge_chunks").delete().eq(
-            "ingestion_job_id",
-            jobId,
-          );
-        }
-      }
+      // CLEANUP: Delete partial chunks for this failed job
+      console.log(
+        `[CLEANUP] Deleting partial chunks for failed job ${jobId}`,
+      );
+      await serviceClient.from("knowledge_chunks").delete().match({
+        pack_id,
+        source_id,
+      });
     } catch (innerErr) {
-      console.error("Secondary failure in catch block:", innerErr);
+      console.error("Secondary failure in background catch block:", innerErr);
     }
 
-    if (typeof trace !== "undefined") {
+    if (trace) {
       trace.setError(err.message).enable();
       await trace.flush();
     }
+  }
+}
 
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsPreflight(req, ALLOWED_ORIGINS);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
+  const origin = req.headers.get("Origin");
+
+  if (Deno.env.get("STRICT_CORS") === "true") {
+    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+      console.error(`[STRICT_CORS] Forbidden origin: ${origin}`);
+      return jsonError(
+        403,
+        "forbidden_origin",
+        `Origin ${origin} is not allowlisted`,
+        {},
+        corsHeaders,
+      );
+    }
+  }
+
+  try {
+    const body = await readJson(req, corsHeaders);
+    const {
+      pack_id,
+      source_type,
+      source_uri,
+      document_content,
+      label,
+      source_config,
+      org_id,
+      module_key,
+      track_key,
+    } = body;
+    const source_id = body.source_id;
+
+    if (!pack_id || !source_id || !source_type) {
+      return jsonError(
+        400,
+        "bad_request",
+        "Missing required fields (pack_id, source_id, source_type)",
+        {},
+        corsHeaders,
+      );
+    }
+
+    // 1. Authenticate user
+    const { userId } = await requireUser(req, corsHeaders);
+
+    // 2. Authorize pack access
+    const serviceClient = createServiceClient();
+    await requirePackRole(
+      serviceClient,
+      pack_id,
+      userId,
+      "author",
+      corsHeaders,
+    );
+
+    // 3. Check Ingestion Guards
+    const guard = await validateIngestion(serviceClient, pack_id, source_id);
+    if (!guard.success) {
+      return json(guard.status ?? 400, {
+        error: guard.error,
+        next_allowed_at: guard.next_allowed_at,
+      }, corsHeaders);
+    }
+
+    // 4. Check Pack-level Chunk Cap
+    const cap = await checkPackChunkCap(serviceClient, pack_id);
+    if (!cap.success) {
+      return json(cap.status ?? 400, { error: cap.error }, corsHeaders);
+    }
+
+    // 5. For provider-specific sources, route immediately (no background needed)
+    if (
+      [
+        "confluence",
+        "notion",
+        "google_drive",
+        "sharepoint",
+        "jira",
+        "linear",
+        "openapi_spec",
+        "postman_collection",
+        "figma",
+        "slack_channel",
+        "loom_video",
+        "pagerduty",
+      ].includes(source_type)
+    ) {
+      const functionNameMap: Record<string, string> = {
+        google_drive: "ingest-google-drive",
+        openapi_spec: "ingest-openapi",
+        postman_collection: "ingest-postman",
+        slack_channel: "ingest-slack",
+        loom_video: "ingest-loom",
+      };
+      const functionName = functionNameMap[source_type] ||
+        `ingest-${source_type}`;
+      const serviceClientUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      const routeResp = await fetch(
+        `${serviceClientUrl}/functions/v1/${functionName}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            pack_id,
+            source_id,
+            source_config: source_config || {},
+          }),
+        },
+      );
+
+      if (!routeResp.ok) {
+        const errData = await routeResp.json().catch(() => ({
+          error: "Provider ingestion failed",
+        }));
+        throw new Error(errData.error || `${source_type} ingestion failed`);
+      }
+
+      const result = await routeResp.json();
+      return json(200, result, corsHeaders);
+    }
+
+    // 6. Create ingestion job
+    const { data: job, error: jobErr } = await serviceClient
+      .from("ingestion_jobs")
+      .insert({
+        pack_id,
+        source_id,
+        status: "processing",
+        started_at: new Date().toISOString(),
+        retry_count: guard.retry_count || 0,
+      })
+      .select()
+      .single();
+    if (jobErr) throw jobErr;
+
+    const jobId = job?.id;
+    if (!jobId) throw new Error("Failed to create ingestion job");
+
+    // 7. Initialize Trace
+    const trace = createTrace({
+      serviceName: "ingest-source",
+      taskType: "ingestion",
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      sourceId: source_id,
+      orgId: org_id,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
+
+    trace.updateMetadata({ jobId });
+
+    // 8. Offload heavy work to background via EdgeRuntime.waitUntil()
+    // @ts-ignore EdgeRuntime is a Supabase-specific global
+    EdgeRuntime.waitUntil(
+      runIngestion(
+        serviceClient,
+        jobId,
+        pack_id,
+        source_id,
+        source_type,
+        source_uri,
+        document_content,
+        label,
+        source_config,
+        org_id,
+        module_key || null,
+        track_key || null,
+        trace,
+        undefined,
+      ),
+    );
+
+    // 9. Return immediately with job ID
+    return json(200, {
+      success: true,
+      job_id: jobId,
+      status: "processing",
+      message: "Ingestion started in background",
+    }, corsHeaders);
+  } catch (err: any) {
+    console.error("Ingestion error:", err);
     return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });
