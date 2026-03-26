@@ -13,28 +13,32 @@ export async function getExistingEmbeddings(
   if (!hashes.length) return new Map();
 
   const resultMap = new Map<string, number[]>();
+  const BATCH_SIZE = 100;
 
-  // Fetch from the same source to ensure consistency
-  const { data, error } = await supabase
-    .from("knowledge_chunks")
-    .select("content_hash, embedding")
-    .eq("pack_id", pack_id)
-    .eq("source_id", source_id)
-    .in("content_hash", hashes)
-    .not("embedding", "is", null)
-    .eq("is_redacted", false);
+  for (let i = 0; i < hashes.length; i += BATCH_SIZE) {
+    const batch = hashes.slice(i, i + BATCH_SIZE);
+    // Fetch from the same source to ensure consistency
+    const { data, error } = await supabase
+      .from("knowledge_chunks")
+      .select("content_hash, embedding")
+      .eq("pack_id", pack_id)
+      .eq("source_id", source_id)
+      .in("content_hash", batch)
+      .not("embedding", "is", null)
+      .eq("is_redacted", false);
 
-  if (error) {
-    console.error("[REUSE] Error fetching existing embeddings:", error);
-    return resultMap;
-  }
+    if (error) {
+      console.error("[REUSE] Error fetching existing embeddings batch:", error);
+      continue;
+    }
 
-  for (const row of (data || [])) {
-    // pgvector returns a string like "[0.1,0.2,...]" or already parsed array
-    const embedding = typeof row.embedding === "string"
-      ? JSON.parse(row.embedding)
-      : row.embedding;
-    resultMap.set(row.content_hash, embedding);
+    for (const row of (data || [])) {
+      // pgvector returns a string like "[0.1,0.2,...]" or already parsed array
+      const embedding = typeof row.embedding === "string"
+        ? JSON.parse(row.embedding)
+        : row.embedding;
+      resultMap.set(row.content_hash, embedding);
+    }
   }
 
   return resultMap;
@@ -170,7 +174,7 @@ export async function processEmbeddingsWithReuse(
       const remainingToIndex = indexableChunks.filter((c) => !c.embedding);
       if (remainingToIndex.length > 0) {
         // Parallelize embedding generation in batches to avoid overwhelming the gateway/API
-        const EMBEDDING_BATCH_SIZE = 5;
+        const EMBEDDING_BATCH_SIZE = 50;
         for (
           let i = 0;
           i < remainingToIndex.length;
