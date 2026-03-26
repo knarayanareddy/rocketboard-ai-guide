@@ -112,6 +112,14 @@ If you change any contract, update **both** the producer and consumer, plus migr
 - Do not call these RPCs directly from the browser; always use the `retrieve-spans` Edge Function abstraction.
 - This ensures centralized audit logging, server-side redaction, and protection against direct Row Level Security bypass attempts.
 
+**Knowledge Chunk Fetching:**
+- **Centralized Wrapper Required**: Application code must NOT call `.from("knowledge_chunks").eq("chunk_id", ...)` directly.
+- Use the centralized library in `src/lib/knowledgeChunks.ts` for all `knowledge_chunks` lookups:
+  - `fetchKnowledgeChunkByPK` for primary key lookups.
+  - `fetchKnowledgeChunkByStableId` for stable ID lookups.
+  - `batchFetchKnowledgeChunks` for multi-ref lookups.
+- This ensures consistent identifier handling and prevents accidental branding of invalid strings.
+
 **Prompt Injection Defense:**
 - Outputs must be "data only" (JSON). Never return instructive text like "ignore instructions".
 
@@ -135,6 +143,16 @@ RocketBoard uses a triple-identifier strategy to ensure UI stability across data
    - `ChunkRef`: union of `ChunkPK | StableChunkId`.
    - **Contract**: Never assign a raw `string` to a branded field without using a validator (`asPackId`, `asChunkPK`, `normalizeChunkRef`).
 5. **SQL RPCs**: Core search functions like `hybrid_search_v2` MUST return both `id` (UUID) and `chunk_id` (TEXT).
+
+### 1.5.1 Chunk ID Format Spec
+RocketBoard enforces two canonical formats for stable chunk identifiers. All ingestion connectors MUST produce IDs matching these patterns:
+
+| Format Type | Regex Pattern | Example | Produced By | Logic Location |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sequential** | `^C\d{5}$` | `C00001` | Linear, Figma, GDrive, GitHub, Docs | Manual padStart(5, '0') |
+| **Deterministic** | `^H-[0-9a-f]{16}$` | `H-a1b2c3d4e5f6g7h8` | Confluence, Notion, Slack, Jira, URL | `computeDeterministicChunkId` |
+
+**Validation Rule**: Use `isStableChunkIdString(s)` in `src/types/brands.ts` to verify these patterns at runtime.
 
 ---
 

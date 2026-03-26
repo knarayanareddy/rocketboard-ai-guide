@@ -1,4 +1,14 @@
-import { ChunkPK, StableChunkId, ChunkRef, SourceId, asChunkRefLenient, asChunkPK, asStableChunkId, isUuidString } from "./brands";
+import { 
+  ChunkPK, 
+  StableChunkId, 
+  ChunkRef, 
+  asChunkRefLenient, 
+  asChunkPK, 
+  asStableChunkIdStrict, 
+  asStableChunkIdLenient,
+  isUuidString,
+  isStableChunkIdString
+} from "./brands";
 
 /**
  * Normalization result with branded types
@@ -7,6 +17,9 @@ export interface NormalizedChunkRef {
   chunk_ref: ChunkRef;
   chunk_pk: ChunkPK;
   stable_chunk_id: StableChunkId | null;
+  metadata?: {
+    source: "legacy" | "strict";
+  };
 }
 
 export interface EvidenceSpanV2 {
@@ -52,7 +65,12 @@ export function normalizeChunkRef(input: {
   const DUMMY_PK = "00000000-0000-0000-0000-000000000000" as ChunkPK;
 
   if (!input) {
-    return { chunk_ref: asChunkRefLenient(""), chunk_pk: DUMMY_PK, stable_chunk_id: null };
+    return { 
+      chunk_ref: asChunkRefLenient(""), 
+      chunk_pk: DUMMY_PK, 
+      stable_chunk_id: null,
+      metadata: { source: "legacy" }
+    };
   }
 
   // Determine actual values from available fields
@@ -60,9 +78,14 @@ export function normalizeChunkRef(input: {
   const rawPK = input.chunk_pk || (isUuidString(rawRef) ? rawRef : null);
   const rawStable = input.stable_chunk_id || (isUuidString(rawRef) ? null : rawRef);
 
+  const isStrict = rawStable ? isStableChunkIdString(rawStable) : false;
+
   return {
     chunk_ref: asChunkRefLenient(rawRef),
     chunk_pk: rawPK ? asChunkPK(rawPK) : DUMMY_PK,
-    stable_chunk_id: (rawStable && rawStable.length > 0) ? asStableChunkId(rawStable) : null
+    stable_chunk_id: rawStable ? (isStrict ? asStableChunkIdStrict(rawStable) : asStableChunkIdLenient(rawStable)) : null,
+    metadata: {
+      source: isStrict ? "strict" : "legacy"
+    }
   };
 }

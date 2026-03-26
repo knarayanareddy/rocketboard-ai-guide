@@ -26,14 +26,13 @@ export function isUuidString(s: string): s is UUID {
 }
 
 /**
- * Matches RocketBoard stable chunk IDs (e.g., C00001, G-123)
- * We allow C-prefixed (code) and G-prefixed (docs) or other custom patterns.
+ * Matches RocketBoard stable chunk IDs (e.g., C00001, H-a1b2c3d4e5f6g7h8)
+ * Sequential: C + 5 digits
+ * Deterministic: H- + 16 hex characters
  */
 export function isStableChunkIdString(s: string): s is StableChunkId {
-  // Pattern: starts with H, C, G, L, or S then hyphen and hex/digits, OR any non-UUID string that looks like a business ID
-  // We include 'H-' for Hash-based deterministic IDs which are commonly used.
   if (isUuidString(s)) return false;
-  return /^[HCGLS]-[0-9a-f]+|^[CGLS]-\d+|^[CG]\d{5}/i.test(s) || (s.length > 0 && s.length < 50 && !s.includes("-"));
+  return /^(C\d{5}|H-[0-9a-f]{16})$/i.test(s);
 }
 
 /**
@@ -47,11 +46,20 @@ export function asChunkPK(s: string): ChunkPK {
   return s as unknown as ChunkPK;
 }
 
-export function asStableChunkId(s: string): StableChunkId {
+export function asStableChunkIdStrict(s: string): StableChunkId {
   if (!isStableChunkIdString(s)) {
-    throw new Error(`Invalid StableChunkId format: ${s}`);
+    throw new Error(`Invalid StableChunkId format: ${s}. Expected Sequential (C00001) or Deterministic (H-hash).`);
   }
   return s as unknown as StableChunkId;
+}
+
+/**
+ * Leniently cast to StableChunkId.
+ * Only use for normalizing legacy data where identifiers may not follow 
+ * the modern strict regex.
+ */
+export function asStableChunkIdLenient(s: string | null | undefined): StableChunkId {
+  return (s || "") as unknown as StableChunkId;
 }
 
 export function asPackId(s: string): PackId {

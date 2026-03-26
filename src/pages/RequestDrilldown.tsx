@@ -3,6 +3,7 @@ import { useRequestDetail } from "@/hooks/useTrustData";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams, Link } from "react-router-dom";
+import { PackId, ChunkRef } from "@/types/brands";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,15 +31,20 @@ export default function RequestDrilldown() {
     queryKey: ["request_chunks", request?.source_map],
     queryFn: async () => {
       const ids = (request?.source_map as any[])?.map(m => m.chunk_id).filter(Boolean);
-      if (!ids?.length) return [];
-      const { data, error } = await supabase
-        .from("knowledge_chunks")
-        .select("*")
-        .in("id", ids);
-      if (error) throw error;
-      return data;
+      if (!ids?.length || !packId) return [];
+      
+      const { batchFetchKnowledgeChunks } = await import("@/lib/knowledgeChunks");
+      const chunksMap = await batchFetchKnowledgeChunks(packId as PackId, ids as ChunkRef[]);
+      
+      // Get unique chunks (result is keyed by both PK and Stable ID)
+      const seenIds = new Set<string>();
+      return Object.values(chunksMap).filter(c => {
+        if (seenIds.has(c.id)) return false;
+        seenIds.add(c.id);
+        return true;
+      });
     },
-    enabled: !!request?.source_map,
+    enabled: !!request?.source_map && !!packId,
   });
 
   if (isLoading) return <DashboardLayout>Loading...</DashboardLayout>;

@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import { PackId, ChunkRef, isUuidString } from "@/types/brands";
+import { batchFetchKnowledgeChunks } from "@/lib/knowledgeChunks";
 
 export interface Citation {
   span_id: string;
@@ -169,31 +171,16 @@ async function fetchModuleCodeContext(
     return { files: [], chunks: new Map(), flatFiles: [] };
   }
 
-  // Split into UUIDs and TEXT for efficient querying if needed, 
-  // but for now retrieve-spans does this. Here we are calling supabase directly.
-  const { isUuidLike } = await import("@/hooks/useEvidenceSpanContent");
-  const uuidRefs = chunkRefs.filter(isUuidLike);
-  const textRefs = chunkRefs.filter(ref => !isUuidLike(ref));
-
-  let query = supabase
-    .from("knowledge_chunks")
-    .select("id, chunk_id, content, path, start_line, end_line, metadata")
-    .eq("pack_id", packId);
-
-  if (uuidRefs.length > 0 && textRefs.length > 0) {
-    query = query.or(`id.in.(${uuidRefs.join(",")}),chunk_id.in.(${textRefs.join(",")})`);
-  } else if (uuidRefs.length > 0) {
-    query = query.in("id", uuidRefs);
-  } else {
-    query = query.in("chunk_id", textRefs);
-  }
-
-  const { data: chunksData, error } = await query;
-
-  if (error) {
-    console.error("Error fetching chunks:", error);
-    return { files: [], chunks: new Map(), flatFiles: [] };
-  }
+  // Use the centralized batch fetcher
+  const chunksDataMap = await batchFetchKnowledgeChunks(packId as PackId, chunkRefs as ChunkRef[]);
+  
+  // Get unique chunks by ID (filtering out duplicates from the dual-keyed map)
+  const seenIds = new Set<string>();
+  const chunksData = Object.values(chunksDataMap).filter(chunk => {
+    if (seenIds.has(chunk.id)) return false;
+    seenIds.add(chunk.id);
+    return true;
+  });
 
   // Build chunks map with annotations
   const chunks = new Map<string, ChunkData>();
