@@ -621,7 +621,9 @@ async function runIngestion(
     const definitionsBatch: any[] = [];
     const referencesBatch: any[] = [];
 
+    let loopIdx = 0;
     for (const chunk of allChunks) {
+      loopIdx++;
       if (chunk.is_redacted) continue;
 
       const symbolsToDefine = new Set<string>();
@@ -663,6 +665,10 @@ async function runIngestion(
           confidence: 1.0,
         });
       }
+      // Heartbeat every 50 chunks during the heavy symbol extraction loop
+      if (jobId && loopIdx % 50 === 0) {
+        await updateHeartbeat(serviceClient, jobId);
+      }
     }
 
     const GRAPH_UPSERT_BATCH_SIZE = 500;
@@ -685,7 +691,10 @@ async function runIngestion(
             group.push(serviceClient.from("symbol_definitions").upsert(batch));
           }
         }
-        if (group.length > 0) await Promise.all(group);
+        if (group.length > 0) {
+          await Promise.all(group);
+          if (jobId) await updateHeartbeat(serviceClient, jobId);
+        }
       }
     }
 
@@ -706,7 +715,10 @@ async function runIngestion(
             group.push(serviceClient.from("symbol_references").upsert(batch));
           }
         }
-        if (group.length > 0) await Promise.all(group);
+        if (group.length > 0) {
+          await Promise.all(group);
+          if (jobId) await updateHeartbeat(serviceClient, jobId);
+        }
       }
     }
     graphSpan.end({
