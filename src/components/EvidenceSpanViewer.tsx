@@ -12,11 +12,14 @@ import { buildSourceLink, parsePathToBreadcrumbs, getShortFileName } from "@/lib
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
+import { ChunkPK, StableChunkId, ChunkRef, PackId } from "@/types/brands";
 
 export interface EvidenceSpan {
   span_id: string;
   path: string;
-  chunk_id: string;
+  chunk_ref: ChunkRef;
+  chunk_pk: ChunkPK;
+  stable_chunk_id: StableChunkId | null;
   start_line?: number;
   end_line?: number;
   note?: string;
@@ -24,7 +27,7 @@ export interface EvidenceSpan {
 
 interface EvidenceSpanViewerProps {
   span: EvidenceSpan | null;
-  packId: string;
+  packId: PackId;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -35,7 +38,7 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
 
   const { data: chunkContent, isLoading } = useEvidenceSpanContent(
     isOpen ? packId : null,
-    isOpen ? span?.chunk_id ?? null : null
+    isOpen ? span?.chunk_ref ?? null : null
   );
 
   useEffect(() => {
@@ -117,9 +120,15 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                 {endLine && <span>Lines {startLine}–{endLine}</span>}
                 <span>•</span>
-                <span className="font-mono">{span.chunk_id}</span>
+                <span className="font-mono text-[10px]" title="Stable Identifier">
+                  {span.stable_chunk_id || "Ephemeral"}
+                </span>
                 <span>•</span>
-                <span className="font-mono">[{span.span_id}]</span>
+                <span className="font-mono text-[10px] opacity-70" title="Database UUID">
+                  {span.chunk_pk.split("-")[0]}...
+                </span>
+                <span>•</span>
+                <span className="font-mono text-[10px]">[{span.span_id}]</span>
               </div>
             </div>
 
@@ -127,7 +136,7 @@ export function EvidenceSpanViewer({ span, packId, isOpen, onClose }: EvidenceSp
             <div className="flex items-center gap-2 shrink-0">
               <BookmarkButton
                 type="code_snippet"
-                referenceKey={`${span.chunk_id}:${startLine}-${endLine}`}
+                referenceKey={`${span.stable_chunk_id || span.chunk_pk}:${startLine}-${endLine}`}
                 label={fileName}
                 subtitle={path}
                 previewText={content?.slice(0, 100)}

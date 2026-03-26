@@ -12,12 +12,13 @@ import { usePack } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { sendAITask, AIError } from "@/lib/ai-client";
 import { buildChatEnvelope } from "@/lib/envelope-builder";
-import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
 import { fetchEvidenceSpans } from "@/lib/fetch-spans";
+import { normalizeChunkRef } from "@/types/evidence";
 import { ChatReportDialog } from "@/components/ChatReportDialog";
 import { useNavigate } from "react-router-dom";
 import { CitationBadge } from "@/components/CitationBadge";
 import type { AIErrorCode } from "@/lib/ai-errors";
+import { PackId, ChunkPK, StableChunkId, ChunkRef, asPackId } from "@/types/brands";
 
 export interface ReferencedSection {
   module_key: string;
@@ -29,7 +30,16 @@ export interface ReferencedSection {
 export interface ChatResponse {
   display_response: string;
   canonical_response: string;
-  source_map: { badge: string; filepath: string; start: number; end: number; chunk_id?: string }[];
+  source_map: { 
+    badge: string; 
+    filepath: string; 
+    start: number; 
+    end: number; 
+    chunk_ref?: ChunkRef | string;
+    chunk_pk?: ChunkPK | string;
+    stable_chunk_id?: StableChunkId | string | null;
+    chunk_id?: string; // Legacy
+  }[];
   referenced_sections?: ReferencedSection[];
   unverified_claims?: { claim: string; reason: string }[];
   contradictions?: { description: string }[];
@@ -79,7 +89,7 @@ function MessageSources({
   moduleId,
 }: {
   response: ChatResponse;
-  packId: string | null;
+  packId: PackId | null;
   moduleId: string;
 }) {
   const navigate = useNavigate();
@@ -168,16 +178,19 @@ function MessageSources({
                   {/* Span badges */}
                   {hasSpans && (
                     <div className="flex flex-wrap gap-1">
-                      {response.source_map!.map((source) => (
-                        <CitationBadge
-                          key={source.badge}
-                          spanId={source.badge}
-                          path={source.filepath}
-                          chunkId={source.chunk_id}
-                          startLine={source.start}
-                          endLine={source.end}
-                        />
-                      ))}
+                      {response.source_map!.map((source) => {
+                        const { chunk_ref, chunk_pk, stable_chunk_id } = normalizeChunkRef(source);
+                        return (
+                          <CitationBadge
+                            key={source.badge}
+                            spanId={source.badge}
+                            path={source.filepath}
+                            chunkRef={chunk_ref}
+                            startLine={source.start}
+                            endLine={source.end}
+                          />
+                        );
+                      })}
                     </div>
                   )}
 
@@ -239,6 +252,7 @@ export function ModuleChatPanel({
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { currentPack, currentPackId } = usePack();
+  const packId = currentPackId ? asPackId(currentPackId) : null;
   const { packAccessLevel } = useRole();
   const { learnerRole, experienceLevel, learningStyle, frameworkFamiliarity, tonePreference } = useAudiencePrefs();
   const [isOpen, setIsOpen] = useState(false);
@@ -276,8 +290,8 @@ export function ModuleChatPanel({
         .eq("module_id", moduleId)
         .order("created_at", { ascending: true });
       
-      const { data } = currentPackId
-        ? await q.eq("pack_id", currentPackId)
+      const { data } = packId
+        ? await q.eq("pack_id", packId)
         : await q;
 
       if (data && data.length > 0) {
@@ -322,10 +336,10 @@ export function ModuleChatPanel({
     setIsLoading(true);
     setLastError(null);
 
-    if (user) saveMessage(user.id, moduleId, "user", text, currentPackId);
+    if (user) saveMessage(user.id, moduleId, "user", text, packId || undefined);
 
     try {
-      const spans = currentPackId ? await fetchEvidenceSpans(currentPackId, text) : [];
+      const spans = packId ? await fetchEvidenceSpans(packId, text) : [];
 
       const envelope = buildChatEnvelope({
         auth: {
@@ -335,7 +349,7 @@ export function ModuleChatPanel({
           pack_access_level: packAccessLevel,
         },
         pack: {
-          pack_id: currentPackId,
+          pack_id: packId,
           pack_version: currentPack?.pack_version,
           title: currentPack?.title,
           description: currentPack?.description,
@@ -365,7 +379,7 @@ export function ModuleChatPanel({
       ]);
 
       // Save assistant response WITH metadata
-      if (user) await saveMessage(user.id, moduleId, "assistant", displayResponse, currentPackId, typedResult);
+      if (user) await saveMessage(user.id, moduleId, "assistant", displayResponse, packId || undefined, typedResult);
     } catch (e: any) {
       if (e instanceof AIError) {
         setLastError(e);
@@ -472,14 +486,19 @@ export function ModuleChatPanel({
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
                           <MarkdownRenderer 
-                            packId={currentPackId || undefined}
-                            referencedSpans={msg.response?.source_map?.map(s => ({ 
-                              span_id: s.badge, 
-                              path: s.filepath, 
-                              chunk_id: s.chunk_id || "",
-                              start_line: s.start,
-                              end_line: s.end
-                            }))}>
+                            packId={packId || undefined}
+                            referencedSpans={msg.response?.source_map?.map(s => {
+                              const normalized = normalizeChunkRef(s as any);
+                              return { 
+                                span_id: s.badge, 
+                                path: s.filepath, 
+                                chunk_ref: normalized.chunk_ref,
+                                chunk_pk: normalized.chunk_pk,
+                                stable_chunk_id: normalized.stable_chunk_id,
+                                start_line: s.start,
+                                end_line: s.end
+                              };
+                            })}>
                             {msg.content}
                           </MarkdownRenderer>
                         </div>
@@ -492,7 +511,7 @@ export function ModuleChatPanel({
                       <div className="ml-1 mt-1">
                         <MessageSources
                           response={msg.response}
-                          packId={currentPackId ?? null}
+                          packId={packId}
                           moduleId={moduleId}
                         />
                       </div>

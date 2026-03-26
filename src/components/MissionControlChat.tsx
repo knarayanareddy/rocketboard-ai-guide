@@ -25,10 +25,30 @@ import { SaveAsFaqDialog } from "@/components/SaveAsFaqDialog";
 import { SaveAsGlossaryDialog } from "@/components/SaveAsGlossaryDialog";
 import { trackQuestionSuggestion } from "@/hooks/useFaqSuggestions";
 import type { ReferencedSection } from "@/components/ModuleChatPanel";
+import { normalizeChunkRef } from "@/types/evidence";
+import { PackId, ChunkPK, StableChunkId, ChunkRef, asPackId } from "@/types/brands";
+import { CitationBadge } from "@/components/CitationBadge";
 
 type ChatResponse = {
-  source_map: { badge: string; filepath: string; start: number; end: number; chunk_id?: string }[];
-  referenced_spans?: { span_id: string; path: string; chunk_id: string; start_line?: number; end_line?: number }[];
+  source_map: { 
+    badge: string; 
+    filepath: string; 
+    start: number; 
+    end: number; 
+    chunk_ref?: ChunkRef | string;
+    chunk_pk?: ChunkPK | string;
+    stable_chunk_id?: StableChunkId | string | null;
+    chunk_id?: string; // Legacy
+  }[];
+  referenced_spans?: { 
+    span_id: string; 
+    path: string; 
+    chunk_ref: ChunkRef; 
+    chunk_pk: ChunkPK; 
+    stable_chunk_id: StableChunkId | null; 
+    start_line?: number; 
+    end_line?: number 
+  }[];
   referenced_sections?: ReferencedSection[];
   unverified_claims?: { claim: string; reason: string }[];
   contradictions?: { description: string }[];
@@ -59,7 +79,7 @@ function MessageSources({
   messages,
 }: {
   response: ChatResponse;
-  packId: string | null;
+  packId: PackId | null;
   messages: Msg[];
 }) {
   const navigate = useNavigate();
@@ -159,16 +179,20 @@ function MessageSources({
                 <div className="mt-2 space-y-2">
                   {hasSpans && (
                     <div className="flex flex-wrap gap-1">
-                      {response.source_map!.map((span) => (
-                        <span
-                          key={span.badge}
-                          className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20"
-                          title={span.filepath}
-                        >
-                          <ExternalLink className="w-2.5 h-2.5" />
-                          {span.badge}
-                        </span>
-                      ))}
+                      {response.source_map!.map((source) => {
+                        const { chunk_ref } = normalizeChunkRef(source as any);
+                        return (
+                          <CitationBadge
+                            key={source.badge}
+                            spanId={source.badge}
+                            path={source.filepath}
+                            chunkRef={chunk_ref}
+                            startLine={source.start}
+                            endLine={source.end}
+                            packId={packId || undefined}
+                          />
+                        );
+                      })}
                     </div>
                   )}
 
@@ -260,6 +284,7 @@ export function MissionControlChat() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { currentPack, currentPackId } = usePack();
+  const packId = currentPackId ? asPackId(currentPackId) : null;
   const { packAccessLevel } = useRole();
   const { setMode } = useTheme();
   const { startTour } = useTour();
@@ -286,8 +311,8 @@ export function MissionControlChat() {
         .eq("module_id", "__mission_control__")
         .order("created_at", { ascending: true });
 
-      const { data } = currentPackId
-        ? await q.eq("pack_id", currentPackId)
+      const { data } = packId
+        ? await q.eq("pack_id", packId)
         : await q;
 
       if (data && data.length > 0) {
@@ -339,16 +364,16 @@ export function MissionControlChat() {
         module_id: "__mission_control__",
         role: "user",
         content: text,
-        pack_id: currentPackId || null,
+        pack_id: packId || null,
       });
     }
 
-    if (user && currentPackId) {
-      trackQuestionSuggestion(currentPackId, text);
+    if (user && packId) {
+      trackQuestionSuggestion(packId, text);
     }
 
     try {
-      const spans = currentPackId ? await fetchEvidenceSpans(currentPackId, text) : [];
+      const spans = packId ? await fetchEvidenceSpans(packId, text) : [];
 
       const platformContext = {
         platform_knowledge: PLATFORM_KNOWLEDGE,
@@ -366,7 +391,7 @@ export function MissionControlChat() {
           pack_access_level: packAccessLevel,
         },
         pack: {
-          pack_id: currentPackId,
+          pack_id: packId,
           pack_version: currentPack?.pack_version,
           title: currentPack?.title,
           description: currentPack?.description,
@@ -400,7 +425,7 @@ export function MissionControlChat() {
           module_id: "__mission_control__",
           role: "assistant",
           content: responseMarkdown,
-          pack_id: currentPackId || null,
+          pack_id: packId || null,
           metadata: typedResult,
         });
       }
@@ -514,14 +539,19 @@ export function MissionControlChat() {
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:break-all [&_pre_code]:break-normal">
                           <MarkdownRenderer 
-                            packId={currentPackId || undefined}
-                            referencedSpans={msg.response?.source_map?.map(s => ({
-                              span_id: s.badge,
-                              path: s.filepath,
-                              chunk_id: s.chunk_id || "",
-                              start_line: s.start,
-                              end_line: s.end
-                            }))}
+                            packId={packId || undefined}
+                            referencedSpans={msg.response?.source_map?.map(s => {
+                              const normalized = normalizeChunkRef(s as any);
+                              return {
+                                span_id: s.badge,
+                                path: s.filepath,
+                                chunk_ref: normalized.chunk_ref,
+                                chunk_pk: normalized.chunk_pk,
+                                stable_chunk_id: normalized.stable_chunk_id,
+                                start_line: s.start,
+                                end_line: s.end
+                              };
+                            })}
                             onAction={(slug) => {
                               if (slug === 'theme_dark') { setMode('dark'); return true; }
                               if (slug === 'theme_light') { setMode('light'); return true; }
@@ -541,7 +571,7 @@ export function MissionControlChat() {
                       <div className="ml-1 mt-1">
                         <MessageSources
                           response={msg.response}
-                          packId={currentPackId ?? null}
+                          packId={packId}
                           messages={messages}
                         />
                       </div>

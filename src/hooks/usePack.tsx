@@ -2,11 +2,12 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { PackId, asPackId } from "@/types/brands";
 
-const DEFAULT_PACK_ID = "00000000-0000-0000-0000-000000000002";
+const DEFAULT_PACK_ID = "00000000-0000-0000-0000-000000000002" as PackId;
 
 export interface Pack {
-  id: string;
+  id: PackId;
   org_id: string;
   title: string;
   description: string | null;
@@ -19,7 +20,7 @@ export interface Pack {
 
 interface PackContextType {
   currentPack: Pack | null;
-  currentPackId: string;
+  currentPackId: PackId;
   setPack: (pack: Pack) => void;
   loading: boolean;
 }
@@ -139,6 +140,6 @@ export function usePackFromUrl() {
 
   return {
     ...ctx,
-    packIdFromUrl: params.packId,
+    packIdFromUrl: params.packId as PackId | undefined,
   };
 }

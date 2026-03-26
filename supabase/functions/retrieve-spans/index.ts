@@ -174,12 +174,22 @@ Deno.serve(async (req) => {
     }
 
     // ─── Phase 2: Cross-Repo Path Normalization & Identifier Resolution ───
-    // 1. Resolve row UUIDs back to stable TEXT identifiers (chunk_id) and source_id
-    // This handles search RPCs that return row UUIDs but omit the stable chunk_id.
-    const idsToResolve = (chunks || []).map((c: any) => c.id).filter(Boolean);
+    // 1. Resolve row UUIDs back to stable TEXT identifiers (chunk_id) and source_id conditionally
+    // We only perform this follow-up query if the search RPC returned rows missing stable identifiers,
+    // which happens on older migrations or specific RPC variants.
+    const chunksToResolve = (chunks || []).filter((c: any) => 
+      !c.chunk_id || !c.source_id || !c.path
+    );
+    const idsToResolve = chunksToResolve.map((c: any) => c.id).filter(Boolean);
     const idToStableMap = new Map<string, { chunk_id: string; source_id: string; path: string }>();
 
+    let resolve_query_ran = false;
+    let resolve_ids_count = 0;
+
     if (idsToResolve.length > 0) {
+      resolve_query_ran = true;
+      resolve_ids_count = idsToResolve.length;
+      
       const { data: resolved, error: resolveErr } = await adminClient
         .from("knowledge_chunks")
         .select("id, chunk_id, source_id, path")
@@ -207,12 +217,17 @@ Deno.serve(async (req) => {
       if (sid) allSourceIds.add(sid);
     });
 
-    const { data: sources } = await adminClient
-      .from("pack_sources")
-      .select("id, short_slug")
-      .in("id", Array.from(allSourceIds));
-
-    const slugMap = new Map((sources || []).map((s) => [s.id, s.short_slug]));
+    const slugMap = new Map();
+    if (allSourceIds.size > 0) {
+      const { data: sources } = await adminClient
+        .from("pack_sources")
+        .select("id, short_slug")
+        .in("id", Array.from(allSourceIds));
+      
+      for (const s of (sources || [])) {
+        slugMap.set(s.id, s.short_slug);
+      }
+    }
 
     const spans = (chunks || []).map((chunk: any, idx: number) => {
       const resolved = idToStableMap.get(chunk.id);
@@ -221,7 +236,8 @@ Deno.serve(async (req) => {
       const filePath = chunk.path || resolved?.path;
       const displayPath = slug && slug.trim() ? `${slug}/${filePath}` : filePath;
       
-      const stableChunkId = chunk.chunk_id || resolved?.chunk_id;
+      const stableChunkId = chunk.chunk_id || resolved?.chunk_id || null;
+      const chunkRef = stableChunkId || chunk.id;
       const chunkRefKind = stableChunkId ? "stable" : "uuid_fallback";
 
       if (chunkRefKind === "uuid_fallback") {
@@ -231,9 +247,10 @@ Deno.serve(async (req) => {
       return {
         span_id: `S${idx + 1}`,
         path: displayPath,
-        chunk_id: stableChunkId || chunk.id, // Primary UI identifier
+        chunk_ref: chunkRef,
         chunk_pk: chunk.id, // Explicit UUID
-        stable_chunk_id: stableChunkId || null, // Explicit stable TEXT
+        stable_chunk_id: stableChunkId, // Explicit stable TEXT or null
+        chunk_id: stableChunkId, // Backward compatibility: TEXT OR NULL (Never UUID)
         start_line: chunk.line_start || chunk.start_line,
         end_line: chunk.line_end || chunk.end_line,
         text: chunk.content,
@@ -244,6 +261,8 @@ Deno.serve(async (req) => {
           source_id: sourceId,
           source_slug: slug,
           chunk_ref_kind: chunkRefKind,
+          resolve_query_ran,
+          resolve_ids_count,
         },
       };
     });

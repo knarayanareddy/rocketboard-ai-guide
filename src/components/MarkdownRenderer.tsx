@@ -6,13 +6,22 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, useParams } from "react-router-dom";
 import { Play, Sparkles } from "lucide-react";
 import { CitationBadge } from "@/components/CitationBadge";
+import { PackId, ChunkPK, StableChunkId, ChunkRef } from "@/types/brands";
 
 interface MarkdownRendererProps {
   children: string;
   className?: string;
   onAction?: (slug: string) => boolean | void;
-  referencedSpans?: { span_id: string; path: string; chunk_id: string; start_line?: number; end_line?: number }[];
-  packId?: string;
+  referencedSpans?: { 
+    span_id: string; 
+    path: string; 
+    chunk_ref: ChunkRef; 
+    chunk_pk: ChunkPK; 
+    stable_chunk_id: StableChunkId | null; 
+    start_line?: number; 
+    end_line?: number 
+  }[];
+  packId?: PackId | string;
 }
 
 // Parse custom callout syntax :::type[title]\n...\n::: and [ACTION: slug(label)] and citations [S1]
@@ -121,7 +130,7 @@ export function MarkdownRenderer({ children, className, onAction, referencedSpan
   const parts = parseMarkdown(children);
   const navigate = useNavigate();
   const { packId: urlPackId } = useParams();
-  const packId = explicitPackId || urlPackId;
+  const packId = (explicitPackId || urlPackId) as PackId | undefined;
 
   const handleAction = (slug: string) => {
     // Check if parent wants to handle it
@@ -164,7 +173,7 @@ export function MarkdownRenderer({ children, className, onAction, referencedSpan
               key={i}
               spanId={part.citationId}
               path={span?.path}
-              chunkId={span?.chunk_id}
+              chunkRef={span?.chunk_ref}
               startLine={span?.start_line}
               endLine={span?.end_line}
               packId={packId}

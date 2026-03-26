@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import { ChunkPK, StableChunkId, ChunkRef, PackId, isUuidString, asChunkPK, asStableChunkId } from "@/types/brands";
 
 export interface ChunkContent {
-  id: string;
-  chunk_id: string;
+  id: ChunkPK; // Internal UUID
+  chunk_id: StableChunkId; // Stable TEXT id
+  chunk_pk: ChunkPK; // Unified alias for id
+  stable_chunk_id: StableChunkId | null; // Unified alias for chunk_id
   content: string;
   path: string;
   start_line: number;
@@ -15,9 +18,10 @@ export interface ChunkContent {
 
 /**
  * Strict regex for UUID v1-v5 detection
+ * (Renamed or aliased to support branding)
  */
-export function isUuidLike(s: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+export function isUuidLike(s: string): s is ChunkPK {
+  return isUuidString(s);
 }
 
 /**
@@ -26,7 +30,7 @@ export function isUuidLike(s: string): boolean {
  * - UUID: "550e8400-e29b-41d4-a716-446655440000"
  * - Stable: "C00001"
  */
-async function fetchChunkContent(packId: string, chunkRef: string): Promise<ChunkContent | null> {
+async function fetchChunkContent(packId: PackId, chunkRef: ChunkRef): Promise<ChunkContent | null> {
   const isUuid = isUuidLike(chunkRef);
   const column = isUuid ? "id" : "chunk_id";
 
@@ -37,18 +41,21 @@ async function fetchChunkContent(packId: string, chunkRef: string): Promise<Chun
     .eq(column, chunkRef)
     .maybeSingle();
 
-  if (error) {
-    console.error(`[UI:Fetch] Error fetching chunk by ${column}:`, error);
-    return null;
-  }
+  if (!data || error) return null;
 
-  return data;
+  return {
+    ...data,
+    id: data.id as ChunkPK,
+    chunk_id: data.chunk_id as StableChunkId,
+    chunk_pk: data.id as ChunkPK,
+    stable_chunk_id: data.chunk_id as StableChunkId
+  } as ChunkContent;
 }
 
 /**
  * Hook to fetch and cache evidence span content
  */
-export function useEvidenceSpanContent(packId: string | null, chunkRef: string | null) {
+export function useEvidenceSpanContent(packId: PackId | null, chunkRef: ChunkRef | null) {
   return useQuery({
     queryKey: ["chunk-content", packId, chunkRef],
     queryFn: async () => {
@@ -76,7 +83,7 @@ export function getContentPreview(content: string, maxLines: number = 4): string
 /**
  * Batch fetch multiple chunks at once (resilient to mixed UUID/TEXT)
  */
-export function useEvidenceSpanContents(packId: string | null, chunkRefs: string[]) {
+export function useEvidenceSpanContents(packId: PackId | null, chunkRefs: ChunkRef[]) {
   return useQuery({
     queryKey: ["chunk-contents-batch", packId, [...chunkRefs].sort().join(",")],
     queryFn: async () => {
@@ -109,8 +116,15 @@ export function useEvidenceSpanContents(packId: string | null, chunkRefs: string
       // Return as a map keyed by BOTH id and chunk_id
       const map: Record<string, ChunkContent> = {};
       for (const chunk of data || []) {
-        map[chunk.id] = chunk;
-        map[chunk.chunk_id] = chunk;
+        const enriched = {
+          ...chunk,
+          id: chunk.id as ChunkPK,
+          chunk_id: chunk.chunk_id as StableChunkId,
+          chunk_pk: chunk.id as ChunkPK,
+          stable_chunk_id: chunk.chunk_id as StableChunkId
+        } as ChunkContent;
+        map[chunk.id] = enriched;
+        map[chunk.chunk_id] = enriched;
       }
       return map;
     },

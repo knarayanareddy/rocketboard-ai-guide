@@ -5,11 +5,14 @@ import { EvidenceSpanViewer, type EvidenceSpan } from "@/components/EvidenceSpan
 import { buildSourceLink, getShortFileName } from "@/lib/source-link-builder";
 import { getSourceTypeFromPath } from "@/lib/language-detect";
 import { cn } from "@/lib/utils";
+import { PackId, ChunkPK, StableChunkId, ChunkRef } from "@/types/brands";
 
 interface Citation {
   span_id: string;
-  path?: string;
-  chunk_id?: string;
+  path: string;
+  chunk_ref: ChunkRef;
+  chunk_pk: ChunkPK;
+  stable_chunk_id: StableChunkId | null;
   start_line?: number;
   end_line?: number;
 }
@@ -21,7 +24,7 @@ interface EvidenceIndexEntry {
 
 interface KeyFilesSectionProps {
   evidenceIndex: EvidenceIndexEntry[];
-  packId: string;
+  packId: PackId;
 }
 
 interface KeyFile {
@@ -88,7 +91,7 @@ export function KeyFilesSection({ evidenceIndex, packId }: KeyFilesSectionProps)
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {firstCitation?.chunk_id && (
+                  {firstCitation?.chunk_ref && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -96,7 +99,9 @@ export function KeyFilesSection({ evidenceIndex, packId }: KeyFilesSectionProps)
                       onClick={() => setViewerSpan({
                         span_id: firstCitation.span_id,
                         path: file.path,
-                        chunk_id: firstCitation.chunk_id!,
+                        chunk_ref: firstCitation.chunk_ref,
+                        chunk_pk: firstCitation.chunk_pk,
+                        stable_chunk_id: firstCitation.stable_chunk_id,
                         start_line: firstCitation.start_line,
                         end_line: firstCitation.end_line,
                       })}

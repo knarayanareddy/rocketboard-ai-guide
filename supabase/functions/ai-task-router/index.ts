@@ -53,7 +53,10 @@ function enforceNoDirectCode(text: string): string {
 
 export interface EvidenceSpan {
   span_id: string;
-  chunk_id: string;
+  chunk_ref: string;
+  chunk_pk: string;
+  stable_chunk_id: string | null;
+  chunk_id?: string; // Legacy
   path: string;
   text: string;
   start_line?: number;
@@ -982,14 +985,20 @@ async function sha256(message: string): Promise<string> {
 function buildEvidenceManifest(retrieval: any, sourceMap: any[] = []): any {
   const manifest: any = {
     citations: sourceMap.map((cit, idx) => ({
-      badge: `S${idx + 1}`,
-      chunk_id: cit.chunk_id || "unknown",
-      path: cit.path,
-      start: cit.line_start || cit.start_line,
-      end: cit.line_end || cit.end_line,
+      badge: cit.badge || `S${idx + 1}`,
+      chunk_ref: cit.chunk_ref,
+      chunk_pk: cit.chunk_pk,
+      stable_chunk_id: cit.stable_chunk_id,
+      chunk_id: cit.stable_chunk_id || cit.chunk_id, // TEXT fallback
+      path: cit.path || cit.filepath,
+      start: cit.start || cit.line_start || cit.start_line,
+      end: cit.end || cit.line_end || cit.end_line,
     })),
     spans_used: (retrieval.evidence_spans || []).map((s: any) => ({
-      chunk_id: s.chunk_id || "unknown",
+      chunk_ref: s.chunk_ref,
+      chunk_pk: s.chunk_pk,
+      stable_chunk_id: s.stable_chunk_id,
+      chunk_id: s.stable_chunk_id || s.chunk_id, // TEXT fallback
       path: s.path,
       start_line: s.line_start || s.start_line,
       end_line: s.line_end || s.end_line,

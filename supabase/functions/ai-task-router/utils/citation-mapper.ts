@@ -10,7 +10,10 @@ export interface SourceMapEntry {
   filepath: string;
   start: number;
   end: number;
-  chunk_id?: string;
+  chunk_ref?: string;
+  chunk_pk?: string;
+  stable_chunk_id?: string | null;
+  chunk_id?: string; // Legacy/TEXT alias
 }
 
 export interface CitationMappingResult {
@@ -61,7 +64,10 @@ export function canonicalizeCitations(
           filepath: normalizedPath,
           start: startLine,
           end: endLine,
-          chunk_id: span?.chunk_id || span?.span_id, // Fallback to span_id if chunk_id missing
+          chunk_ref: span?.chunk_ref || span?.chunk_id || span?.span_id,
+          chunk_pk: span?.chunk_pk,
+          stable_chunk_id: span?.stable_chunk_id,
+          chunk_id: span?.stable_chunk_id || span?.chunk_id, // Ensure legacy field is never UUID
         });
       }
       return `[${map.get(key)}]`;

@@ -5,7 +5,10 @@ import type { Json } from "@/integrations/supabase/types";
 export interface Citation {
   span_id: string;
   path?: string;
-  chunk_id?: string;
+  chunk_ref?: string;
+  chunk_id?: string; // Legacy/DB
+  chunk_pk?: string;
+  stable_chunk_id?: string | null;
   start_line?: number;
   end_line?: number;
   note?: string;
@@ -15,7 +18,10 @@ export interface Citation {
 
 export interface ChunkData {
   id: string;
-  chunk_id: string;
+  chunk_id: string; // Database column
+  chunk_ref: string; // Unified ref
+  chunk_pk: string; // UUID alias
+  stable_chunk_id: string | null; // TEXT alias
   content: string;
   path: string;
   start_line: number;
@@ -156,19 +162,33 @@ async function fetchModuleCodeContext(
   packId: string,
   citations: Citation[]
 ): Promise<CodeExplorerData> {
-  // Get unique chunk IDs
-  const chunkIds = [...new Set(citations.filter((c) => c.chunk_id).map((c) => c.chunk_id!))];
-
-  if (chunkIds.length === 0) {
+  // Get unique chunk IDs (could be UUID or TEXT)
+  const chunkRefs = [...new Set(citations.map((c) => c.chunk_ref || c.chunk_id).filter(Boolean) as string[])];
+  
+  if (chunkRefs.length === 0) {
     return { files: [], chunks: new Map(), flatFiles: [] };
   }
 
-  // Fetch all chunks
-  const { data: chunksData, error } = await supabase
+  // Split into UUIDs and TEXT for efficient querying if needed, 
+  // but for now retrieve-spans does this. Here we are calling supabase directly.
+  const { isUuidLike } = await import("@/hooks/useEvidenceSpanContent");
+  const uuidRefs = chunkRefs.filter(isUuidLike);
+  const textRefs = chunkRefs.filter(ref => !isUuidLike(ref));
+
+  let query = supabase
     .from("knowledge_chunks")
     .select("id, chunk_id, content, path, start_line, end_line, metadata")
-    .eq("pack_id", packId)
-    .in("chunk_id", chunkIds);
+    .eq("pack_id", packId);
+
+  if (uuidRefs.length > 0 && textRefs.length > 0) {
+    query = query.or(`id.in.(${uuidRefs.join(",")}),chunk_id.in.(${textRefs.join(",")})`);
+  } else if (uuidRefs.length > 0) {
+    query = query.in("id", uuidRefs);
+  } else {
+    query = query.in("chunk_id", textRefs);
+  }
+
+  const { data: chunksData, error } = await query;
 
   if (error) {
     console.error("Error fetching chunks:", error);
@@ -181,16 +201,24 @@ async function fetchModuleCodeContext(
   const pathHasAnnotations = new Map<string, boolean>();
 
   for (const chunk of chunksData || []) {
-    // Find citations for this chunk
-    const chunkCitations = citations.filter((c) => c.chunk_id === chunk.chunk_id);
+    // Find citations for this chunk: match on either UUID or TEXT
+    const chunkCitations = citations.filter((c) => 
+      (c.chunk_ref === chunk.id || c.chunk_ref === chunk.chunk_id) ||
+      (c.chunk_id === chunk.id || c.chunk_id === chunk.chunk_id)
+    );
 
     const metadata = typeof chunk.metadata === "object" && chunk.metadata !== null && !Array.isArray(chunk.metadata)
       ? (chunk.metadata as Record<string, unknown>)
       : null;
 
-    chunks.set(chunk.chunk_id, {
+    const chunk_ref = chunk.chunk_id || chunk.id;
+
+    chunks.set(chunk_ref, {
       id: chunk.id,
       chunk_id: chunk.chunk_id,
+      chunk_ref,
+      chunk_pk: chunk.id,
+      stable_chunk_id: chunk.chunk_id,
       content: chunk.content,
       path: chunk.path,
       start_line: chunk.start_line,
@@ -201,7 +229,7 @@ async function fetchModuleCodeContext(
 
     // Track paths
     const existingChunks = pathToChunks.get(chunk.path) || [];
-    existingChunks.push(chunk.chunk_id);
+    existingChunks.push(chunk_ref);
     pathToChunks.set(chunk.path, existingChunks);
 
     if (chunkCitations.length > 0) {

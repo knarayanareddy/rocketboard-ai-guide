@@ -8,22 +8,25 @@ import { useEvidenceSpanContent, getContentPreview } from "@/hooks/useEvidenceSp
 import { EvidenceSpanViewer, type EvidenceSpan } from "@/components/EvidenceSpanViewer";
 import { detectLanguage, isMarkdownContent, getSourceTypeFromPath } from "@/lib/language-detect";
 import { buildSourceLink } from "@/lib/source-link-builder";
+import { ChunkPK, StableChunkId, ChunkRef, PackId, asChunkRefLenient, asPackId } from "@/types/brands";
 
 interface CitationBadgeProps {
   spanId: string;
   path?: string;
-  chunkId?: string;
+  chunkRef?: ChunkRef | string;
+  chunkId?: string; // Legacy alias
   startLine?: number;
   endLine?: number;
-  verified?: boolean; // true = verified, false = flagged, undefined = unknown/default
+  verified?: boolean;
   verificationWarning?: string;
   note?: string;
-  packId?: string;
+  packId?: PackId | string;
 }
 
 export function CitationBadge({
   spanId,
   path,
+  chunkRef,
   chunkId,
   startLine,
   endLine,
@@ -33,13 +36,15 @@ export function CitationBadge({
   packId: explicitPackId,
 }: CitationBadgeProps) {
   const { currentPackId: contextPackId } = usePack();
-  const packId = explicitPackId || contextPackId;
+  const packId = explicitPackId ? asPackId(explicitPackId as string) : contextPackId;
   const [viewerOpen, setViewerOpen] = useState(false);
+
+  const effectiveChunkRef = chunkRef ? asChunkRefLenient(chunkRef as string) : (chunkId ? asChunkRefLenient(chunkId) : undefined);
 
   // Fetch preview content for hover
   const { data: chunkContent } = useEvidenceSpanContent(
     packId || null,
-    chunkId || null
+    effectiveChunkRef || null
   );
 
   const isFlagged = verified === false;
@@ -64,8 +69,7 @@ export function CitationBadge({
     : null;
 
   const handleClick = () => {
-    console.log("CitationBadge clicked:", { spanId, chunkId, viewerOpen });
-    if (chunkId) {
+    if (effectiveChunkRef) {
       setViewerOpen(true);
     }
   };
@@ -80,7 +84,9 @@ export function CitationBadge({
   const span: EvidenceSpan = {
     span_id: spanId,
     path: path || "",
-    chunk_id: chunkId || "",
+    chunk_ref: effectiveChunkRef || ("" as ChunkRef),
+    chunk_pk: chunkContent?.chunk_pk || ("" as ChunkPK),
+    stable_chunk_id: chunkContent?.stable_chunk_id || null,
     start_line: startLine,
     end_line: endLine,
     note,
@@ -117,9 +123,7 @@ export function CitationBadge({
     return "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:ring-2 hover:ring-primary/50";
   };
 
-  // If we don't have a chunk ID, we can still show a simple tooltip, 
-  // but if we have a path or some other info, we should still try to allow clicking if possible.
-  if (!chunkId && !path) {
+  if (!chunkId && !chunkRef && !path) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -170,7 +174,7 @@ export function CitationBadge({
                 </div>
                 {startLine != null && endLine != null && (
                   <div className="text-[10px] text-muted-foreground">
-                    Lines {startLine}–{endLine} • {chunkId}
+                    Lines {startLine}–{endLine} • {chunkContent?.stable_chunk_id || effectiveChunkRef}
                   </div>
                 )}
               </div>

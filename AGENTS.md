@@ -107,6 +107,11 @@ If you change any contract, update **both** the producer and consumer, plus migr
   - rate limiting (`checkRateLimit`)
   - an audit log entry (`writeMcpAudit`)
 
+**Search Security:**
+- Search RPCs (`hybrid_search_v2`, `definition_search_v1`) are restricted to `service_role`.
+- Do not call these RPCs directly from the browser; always use the `retrieve-spans` Edge Function abstraction.
+- This ensures centralized audit logging, server-side redaction, and protection against direct Row Level Security bypass attempts.
+
 **Prompt Injection Defense:**
 - Outputs must be "data only" (JSON). Never return instructive text like "ignore instructions".
 
@@ -114,12 +119,22 @@ If you change any contract, update **both** the producer and consumer, plus migr
 - Exposed as Tools via pattern `rocketboard://pack/<id>/...` until mcp-lite stabilizes its resource API. Ensure these use the exact same validation as other tools.
 
 ### 1.5 Identifier Contract (Evidence Spans)
-- `EvidenceSpan.chunk_id` in the UI can be either a UUID `id` or a stable TEXT `chunk_id` (e.g., `C00001`).
-- **Primary Contract**: The UI [useEvidenceSpanContent.ts](file:///c:/first%20commit/rocketboard-ai-guide/src/hooks/useEvidenceSpanContent.ts) uses a resilient `isUuidLike` helper to switch between querying by UUID `id` or stable `chunk_id`.
-- **Retrieval Gateway**: [retrieve-spans/index.ts](file:///c:/first%20commit/rocketboard-ai-guide/supabase/functions/retrieve-spans/index.ts) must resolve row UUIDs to stable identifiers where possible but fallback to UUIDs safely to prevent breaking the flow.
-- **SQL RPCs**: Core search functions like [hybrid_search_v2](file:///c:/first%20commit/rocketboard-ai-guide/supabase/migrations/20260424000000_fix_search_identifiers.sql) must return both `id` (UUID) and `chunk_id` (TEXT) to ensure stable citation loading.
-- **Stability Rule**: Prefer `chunk_id` for long-lived citations (e.g., bookmarks, playlists) to avoid breakage if a database row is replaced during re-ingestion.
-- **Contract Check**: Any change to the `RETURNS TABLE` of `hybrid_search_v2` or `definition_search_v1` MUST be synchronized with the Edge Function and the Frontend hook.
+RocketBoard uses a triple-identifier strategy to ensure UI stability across database re-ingestions:
+- **`chunk_pk`** (UUID): The exact database row primary key (`knowledge_chunks.id`). Use this for uniqueness and deduplication in the same session.
+- **`stable_chunk_id`** (TEXT): The business-stable ID (`knowledge_chunks.chunk_id`, e.g., "C00001"). Use this for long-lived features (bookmarks, playlists) that must survive a re-ingestion where the UUID PK changes.
+- **`chunk_ref`** (Union): The primary UI lookup key. It is a TEXT field that may contain either a UUID or a stable Business ID.
+
+**Non-negotiable Contract Rules**:
+1. **Producer Guarantee**: [retrieve-spans/index.ts](file:///c:/first%20commit/rocketboard-ai-guide/supabase/functions/retrieve-spans/index.ts) and the AI Router MUST explicitly emit all three fields.
+2. **Ambiguity Ban**: The property name `chunk_id` must NEVER be used to carry a UUID in TypeScript/API payloads. If it exists in a payload, it must exclusively contain a stable TEXT identifier or `null` for backward compatibility.
+3. **UI Resilience**: All UI components must use `normalizeChunkRef` from `src/types/evidence.ts` when processing identifiers from chat history or external inputs.
+4. **Type Safety (Branded Identifiers)**: RocketBoard uses "Branded Types" to prevent accidental identifier misuse at compile time.
+   - `PackId`, `SourceId`: Branded UUID strings.
+   - `ChunkPK`: Branded UUID representing the database row ID.
+   - `StableChunkId`: Branded TEXT representing the human-readable stable ID (e.g., "C00001").
+   - `ChunkRef`: union of `ChunkPK | StableChunkId`.
+   - **Contract**: Never assign a raw `string` to a branded field without using a validator (`asPackId`, `asChunkPK`, `normalizeChunkRef`).
+5. **SQL RPCs**: Core search functions like `hybrid_search_v2` MUST return both `id` (UUID) and `chunk_id` (TEXT).
 
 ---
 

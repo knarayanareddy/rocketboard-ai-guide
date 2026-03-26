@@ -60,6 +60,9 @@ export async function runDetectiveRetrieval(
       currentSpans = hop0Spans.map((s: any, idx: number) => ({
         ...s,
         span_id: `S${idx + 1}`,
+        chunk_ref: s.chunk_id || s.id,
+        chunk_pk: s.id,
+        stable_chunk_id: s.chunk_id || null,
       }));
     }
   }
@@ -104,13 +107,15 @@ export async function runDetectiveRetrieval(
     }
 
     if (hop1Spans && hop1Spans.length > 0) {
-      const existingChunkIds = new Set(currentSpans.map((s) => s.chunk_id));
+      const existingChunkPks = new Set(currentSpans.map((s) => s.chunk_pk));
       const newSpans = hop1Spans
-        .filter((s: any) => !existingChunkIds.has(s.id))
+        .filter((s: any) => !existingChunkPks.has(s.id))
         .map((s: any) => ({
           ...s,
           span_id: "", // Will be renumbered
-          chunk_id: s.id,
+          chunk_ref: s.chunk_id || s.id,
+          chunk_pk: s.id,
+          stable_chunk_id: s.chunk_id || null,
           text: s.content,
         }));
 
@@ -145,12 +150,15 @@ export async function runDetectiveRetrieval(
         }
 
         if (refSpans && refSpans.length > 0) {
-          const existingChunkIds = new Set(currentSpans.map((s) => s.chunk_id));
+          const existingChunkPks = new Set(currentSpans.map((s) => s.chunk_pk));
           const newRefSpans = refSpans
-            .filter((s: any) => !existingChunkIds.has(s.chunk_id))
+            .filter((s: any) => !existingChunkPks.has(s.id || s.chunk_pk))
             .map((s: any) => ({
               ...s,
               span_id: "",
+              chunk_ref: s.chunk_id || s.id,
+              chunk_pk: s.id || s.chunk_pk,
+              stable_chunk_id: s.chunk_id || null,
               text: s.content || "", // RPC might return content or snippet
             }));
 
@@ -236,11 +244,11 @@ export async function extractCandidateSymbols(
       symbolMap.set(name, (symbolMap.get(name) || 0) + 10);
     }
 
-    if (span.chunk_id) {
+    if (span.chunk_pk || span.chunk_id) {
       const { data: chunk } = await supabase
         .from("knowledge_chunks")
         .select("exported_names, imports")
-        .eq("id", span.chunk_id)
+        .eq("id", span.chunk_pk || span.chunk_id)
         .maybeSingle();
 
       if (chunk) {

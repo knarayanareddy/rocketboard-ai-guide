@@ -1,8 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { EvidenceSpan } from "@/hooks/useEvidenceSpans";
+import { EvidenceSpanV2 as EvidenceSpan, normalizeChunkRef } from "@/types/evidence";
+import { PackId, ChunkPK, ChunkRef, asChunkPK, asChunkRefLenient } from "@/types/brands";
 
 export async function fetchEvidenceSpans(
-  packId: string,
+  packId: PackId,
   query: string,
   maxSpans: number = 10,
   extraParams?: { module_key?: string; track_key?: string; match_threshold?: number },
@@ -30,7 +31,18 @@ export async function fetchEvidenceSpans(
     );
     if (!resp.ok) return [];
     const data = await resp.json();
-    return data.spans || [];
+    const rawSpans = data.spans || [];
+    
+    // Normalize and brand incoming spans
+    return rawSpans.map((s: any) => {
+      const normalized = normalizeChunkRef(s);
+      return {
+        ...s,
+        chunk_ref: normalized.chunk_ref,
+        chunk_pk: normalized.chunk_pk,
+        stable_chunk_id: normalized.stable_chunk_id
+      } as EvidenceSpan;
+    });
   } catch {
     return [];
   }
@@ -38,11 +50,11 @@ export async function fetchEvidenceSpans(
 
 /**
  * Multi-query retrieval: fires N queries in parallel, merges results
- * by chunk_id. Chunks appearing in more queries rank higher.
+ * by chunk_pk. Chunks appearing in more queries rank higher.
  * Falls back to single-query if only one query is provided.
  */
 export async function fetchEvidenceSpansMultiQuery(
-  packId: string,
+  packId: PackId,
   queries: string[],
   maxSpans: number = 20,
   extraParams?: { module_key?: string; track_key?: string; match_threshold?: number },
@@ -50,7 +62,7 @@ export async function fetchEvidenceSpansMultiQuery(
   const uniqueQueries = [...new Set(queries.filter(Boolean))];
   if (uniqueQueries.length === 0) return [];
   if (uniqueQueries.length === 1) {
-    return fetchEvidenceSpans(packId, uniqueQueries[0], maxSpans, extraParams);
+    return fetchEvidenceSpans(packId, uniqueQueries[0] as string, maxSpans, extraParams);
   }
 
   // Fire all queries in parallel, fetching more per-query so after dedup
@@ -62,14 +74,14 @@ export async function fetchEvidenceSpansMultiQuery(
     )
   );
 
-  // Merge: track how many queries each chunk_id appeared in & first-seen span
-  const hitCount = new Map<string, number>();
-  const spanMap = new Map<string, EvidenceSpan>();
+  // Merge: track how many queries each chunk_pk appeared in & first-seen span
+  const hitCount = new Map<ChunkPK, number>();
+  const spanMap = new Map<ChunkPK, EvidenceSpan>();
 
   for (const spans of allResults) {
-    const seenInBatch = new Set<string>();
+    const seenInBatch = new Set<ChunkPK>();
     for (const span of spans) {
-      const key = span.chunk_id;
+      const key = span.chunk_pk;
       if (!seenInBatch.has(key)) {
         seenInBatch.add(key);
         hitCount.set(key, (hitCount.get(key) ?? 0) + 1);
@@ -80,7 +92,11 @@ export async function fetchEvidenceSpansMultiQuery(
 
   // Sort by query-frequency (desc), re-assign stable span_ids
   const merged = [...spanMap.values()].sort(
-    (a, b) => (hitCount.get(b.chunk_id) ?? 0) - (hitCount.get(a.chunk_id) ?? 0)
+    (a, b) => {
+      const keyB = b.chunk_pk;
+      const keyA = a.chunk_pk;
+      return (hitCount.get(keyB) ?? 0) - (hitCount.get(keyA) ?? 0);
+    }
   );
 
   return merged.slice(0, maxSpans).map((span, idx) => ({
