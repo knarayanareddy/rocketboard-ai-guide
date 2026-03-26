@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// Modern Deno.serve is built-in, no import needed for server.ts
 import { storeSourceCredential } from "../_shared/credentials.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import {
@@ -10,18 +10,16 @@ import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { requireUser } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 
+const ALLOWED_ORIGINS = parseAllowedOrigins();
+
 /**
  * Edge Function to securely configure or update a source.
- * This function separates sensitive credentials from public metadata.
- * Meta-data is stored in pack_sources.source_config, while credentials
- * are moved to Supabase Vault via store_source_credential.
  */
-serve(async (req) => {
-  const allowedOrigins = parseAllowedOrigins();
-  const corsResponse = handleCorsPreflight(req, allowedOrigins);
+Deno.serve(async (req) => {
+  const corsResponse = handleCorsPreflight(req, ALLOWED_ORIGINS);
   if (corsResponse) return corsResponse;
 
-  const corsHeaders = buildCorsHeaders(req, allowedOrigins);
+  const corsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
 
   try {
     // 1. Authenticate user

@@ -24,9 +24,7 @@ import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { requireUser } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 
-const ALLOWED_ORIGINS_ENV = Deno.env.get("ALLOWED_ORIGINS") ||
-  "http://localhost:5173,http://localhost:8080";
-const ALLOWED_ORIGINS = ALLOWED_ORIGINS_ENV.split(",").map((o) => o.trim());
+const ALLOWED_ORIGINS = parseAllowedOrigins();
 
 // Redaction now handled by centralized secret-patterns.ts
 
