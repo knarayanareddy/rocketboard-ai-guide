@@ -5,10 +5,21 @@ import { fetchEvidenceSpans as fetchSpans } from "@/lib/fetch-spans";
 export interface EvidenceSpan {
   span_id: string;
   path: string;
-  chunk_id: string;
+  chunk_id: string; // The primary identifier (Stable TEXT if possible, else UUID)
+  chunk_pk: string; // Always the row UUID
+  stable_chunk_id: string | null; // TEXT chunk_id if available
   start_line: number;
   end_line: number;
   text: string;
+  metadata?: {
+    entity_type?: string;
+    entity_name?: string;
+    signature?: string;
+    source_id?: string;
+    source_slug?: string;
+    chunk_ref_kind?: "stable" | "uuid_fallback";
+    [key: string]: any;
+  };
 }
 
 export function useEvidenceSpans() {

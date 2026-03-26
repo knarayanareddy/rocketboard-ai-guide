@@ -14,18 +14,31 @@ export interface ChunkContent {
 }
 
 /**
- * Fetch a single chunk's content by chunk_id
+ * Strict regex for UUID v1-v5 detection
  */
-async function fetchChunkContent(packId: string, chunkId: string): Promise<ChunkContent | null> {
+export function isUuidLike(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+}
+
+/**
+ * Fetch a single chunk's content by chunk reference (UUID id OR text chunk_id)
+ * Examples: 
+ * - UUID: "550e8400-e29b-41d4-a716-446655440000"
+ * - Stable: "C00001"
+ */
+async function fetchChunkContent(packId: string, chunkRef: string): Promise<ChunkContent | null> {
+  const isUuid = isUuidLike(chunkRef);
+  const column = isUuid ? "id" : "chunk_id";
+
   const { data, error } = await supabase
     .from("knowledge_chunks")
     .select("id, chunk_id, content, path, start_line, end_line, metadata, is_redacted")
     .eq("pack_id", packId)
-    .eq("chunk_id", chunkId)
+    .eq(column, chunkRef)
     .maybeSingle();
 
   if (error) {
-    console.error("Error fetching chunk content:", error);
+    console.error(`[UI:Fetch] Error fetching chunk by ${column}:`, error);
     return null;
   }
 
@@ -35,16 +48,16 @@ async function fetchChunkContent(packId: string, chunkId: string): Promise<Chunk
 /**
  * Hook to fetch and cache evidence span content
  */
-export function useEvidenceSpanContent(packId: string | null, chunkId: string | null) {
+export function useEvidenceSpanContent(packId: string | null, chunkRef: string | null) {
   return useQuery({
-    queryKey: ["chunk-content", packId, chunkId],
+    queryKey: ["chunk-content", packId, chunkRef],
     queryFn: async () => {
-      if (!packId || !chunkId) return null;
-      return fetchChunkContent(packId, chunkId);
+      if (!packId || !chunkRef) return null;
+      return fetchChunkContent(packId, chunkRef);
     },
-    enabled: Boolean(packId && chunkId),
-    staleTime: 10 * 60 * 1000, // 10 minutes - chunks don't change often
-    gcTime: 30 * 60 * 1000, // 30 minutes cache
+    enabled: Boolean(packId && chunkRef),
+    staleTime: 10 * 60 * 1000, 
+    gcTime: 30 * 60 * 1000, 
   });
 }
 
@@ -61,33 +74,47 @@ export function getContentPreview(content: string, maxLines: number = 4): string
 }
 
 /**
- * Batch fetch multiple chunks at once
+ * Batch fetch multiple chunks at once (resilient to mixed UUID/TEXT)
  */
-export function useEvidenceSpanContents(packId: string | null, chunkIds: string[]) {
+export function useEvidenceSpanContents(packId: string | null, chunkRefs: string[]) {
   return useQuery({
-    queryKey: ["chunk-contents-batch", packId, chunkIds.sort().join(",")],
+    queryKey: ["chunk-contents-batch", packId, [...chunkRefs].sort().join(",")],
     queryFn: async () => {
-      if (!packId || chunkIds.length === 0) return {};
+      if (!packId || chunkRefs.length === 0) return {};
 
-      const { data, error } = await supabase
+      const uuidRefs = chunkRefs.filter(isUuidLike);
+      const textRefs = chunkRefs.filter(ref => !isUuidLike(ref));
+
+      let query = supabase
         .from("knowledge_chunks")
         .select("id, chunk_id, content, path, start_line, end_line, metadata, is_redacted")
-        .eq("pack_id", packId)
-        .in("chunk_id", chunkIds);
+        .eq("pack_id", packId);
+
+      // Build OR filter for mixed identifiers
+      if (uuidRefs.length > 0 && textRefs.length > 0) {
+        query = query.or(`id.in.(${uuidRefs.join(",")}),chunk_id.in.(${textRefs.join(",")})`);
+      } else if (uuidRefs.length > 0) {
+        query = query.in("id", uuidRefs);
+      } else {
+        query = query.in("chunk_id", textRefs);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching chunk contents:", error);
+        console.error("[UI:BatchFetch] Error fetching chunks:", error);
         return {};
       }
 
-      // Return as a map keyed by chunk_id
+      // Return as a map keyed by BOTH id and chunk_id
       const map: Record<string, ChunkContent> = {};
       for (const chunk of data || []) {
+        map[chunk.id] = chunk;
         map[chunk.chunk_id] = chunk;
       }
       return map;
     },
-    enabled: Boolean(packId && chunkIds.length > 0),
+    enabled: Boolean(packId && chunkRefs.length > 0),
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

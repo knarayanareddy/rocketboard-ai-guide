@@ -173,32 +173,77 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ─── Phase 2: Cross-Repo Path Normalization ───
-    // Prefix paths with source slugs if available to prevent collisions
+    // ─── Phase 2: Cross-Repo Path Normalization & Identifier Resolution ───
+    // 1. Resolve row UUIDs back to stable TEXT identifiers (chunk_id) and source_id
+    // This handles search RPCs that return row UUIDs but omit the stable chunk_id.
+    const idsToResolve = (chunks || []).map((c: any) => c.id).filter(Boolean);
+    const idToStableMap = new Map<string, { chunk_id: string; source_id: string; path: string }>();
+
+    if (idsToResolve.length > 0) {
+      const { data: resolved, error: resolveErr } = await adminClient
+        .from("knowledge_chunks")
+        .select("id, chunk_id, source_id, path")
+        .in("id", idsToResolve)
+        .eq("pack_id", pack_id);
+
+      if (resolveErr) {
+        console.error("[RETRIEVAL:Resolve] Failed to resolve stable identifiers:", resolveErr);
+      } else {
+        for (const row of (resolved || [])) {
+          idToStableMap.set(row.id, {
+            chunk_id: row.chunk_id,
+            source_id: row.source_id,
+            path: row.path,
+          });
+        }
+      }
+    }
+
+    // 2. Resolve sources for slugs
+    // We need source_ids from the original chunks OR the resolved map
+    const allSourceIds = new Set<string>();
+    (chunks || []).forEach((c: any) => {
+      const sid = c.source_id || idToStableMap.get(c.id)?.source_id;
+      if (sid) allSourceIds.add(sid);
+    });
+
     const { data: sources } = await adminClient
       .from("pack_sources")
       .select("id, short_slug")
-      .eq("pack_id", pack_id);
+      .in("id", Array.from(allSourceIds));
 
     const slugMap = new Map((sources || []).map((s) => [s.id, s.short_slug]));
 
     const spans = (chunks || []).map((chunk: any, idx: number) => {
-      const slug = slugMap.get(chunk.source_id);
-      const displayPath = slug ? `${slug}/${chunk.path}` : chunk.path;
+      const resolved = idToStableMap.get(chunk.id);
+      const sourceId = chunk.source_id || resolved?.source_id;
+      const slug = slugMap.get(sourceId);
+      const filePath = chunk.path || resolved?.path;
+      const displayPath = slug && slug.trim() ? `${slug}/${filePath}` : filePath;
+      
+      const stableChunkId = chunk.chunk_id || resolved?.chunk_id;
+      const chunkRefKind = stableChunkId ? "stable" : "uuid_fallback";
+
+      if (chunkRefKind === "uuid_fallback") {
+        console.warn(`[RETRIEVAL] Warning: Failed to resolve stable chunk_id for UUID ${chunk.id}. Falling back.`);
+      }
 
       return {
         span_id: `S${idx + 1}`,
         path: displayPath,
-        chunk_id: chunk.chunk_id || chunk.id,
-        start_line: chunk.line_start,
-        end_line: chunk.line_end,
+        chunk_id: stableChunkId || chunk.id, // Primary UI identifier
+        chunk_pk: chunk.id, // Explicit UUID
+        stable_chunk_id: stableChunkId || null, // Explicit stable TEXT
+        start_line: chunk.line_start || chunk.start_line,
+        end_line: chunk.line_end || chunk.end_line,
         text: chunk.content,
         metadata: {
           entity_type: chunk.entity_type,
           entity_name: chunk.entity_name,
           signature: chunk.signature,
-          source_id: chunk.source_id,
+          source_id: sourceId,
           source_slug: slug,
+          chunk_ref_kind: chunkRefKind,
         },
       };
     });

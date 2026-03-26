@@ -113,6 +113,14 @@ If you change any contract, update **both** the producer and consumer, plus migr
 **Resource Handlers:**
 - Exposed as Tools via pattern `rocketboard://pack/<id>/...` until mcp-lite stabilizes its resource API. Ensure these use the exact same validation as other tools.
 
+### 1.5 Identifier Contract (Evidence Spans)
+- `EvidenceSpan.chunk_id` in the UI can be either a UUID `id` or a stable TEXT `chunk_id` (e.g., `C00001`).
+- **Primary Contract**: The UI [useEvidenceSpanContent.ts](file:///c:/first%20commit/rocketboard-ai-guide/src/hooks/useEvidenceSpanContent.ts) uses a resilient `isUuidLike` helper to switch between querying by UUID `id` or stable `chunk_id`.
+- **Retrieval Gateway**: [retrieve-spans/index.ts](file:///c:/first%20commit/rocketboard-ai-guide/supabase/functions/retrieve-spans/index.ts) must resolve row UUIDs to stable identifiers where possible but fallback to UUIDs safely to prevent breaking the flow.
+- **SQL RPCs**: Core search functions like [hybrid_search_v2](file:///c:/first%20commit/rocketboard-ai-guide/supabase/migrations/20260424000000_fix_search_identifiers.sql) must return both `id` (UUID) and `chunk_id` (TEXT) to ensure stable citation loading.
+- **Stability Rule**: Prefer `chunk_id` for long-lived citations (e.g., bookmarks, playlists) to avoid breakage if a database row is replaced during re-ingestion.
+- **Contract Check**: Any change to the `RETURNS TABLE` of `hybrid_search_v2` or `definition_search_v1` MUST be synchronized with the Edge Function and the Frontend hook.
+
 ---
 
 ## 2) Where to change what (map of the codebase)
