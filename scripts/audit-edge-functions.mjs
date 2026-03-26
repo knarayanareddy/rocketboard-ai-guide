@@ -128,7 +128,7 @@ function main() {
 
     const dirs = fs.readdirSync(FUNCTIONS_DIR);
     for (const dir of dirs) {
-      if (dir === '_shared') continue;
+      if (dir === '_shared' || dir === 'node_modules') continue;
       const dirPath = path.join(FUNCTIONS_DIR, dir);
       if (!fs.statSync(dirPath).isDirectory()) continue;
 
@@ -138,6 +138,7 @@ function main() {
           const fullPath = path.join(d, item);
           const stat = fs.statSync(fullPath);
           if (stat.isDirectory()) {
+            if (item === 'node_modules') continue;
             walk(fullPath);
           } else if (item.endsWith('.ts')) {
             filesToAudit.push({ 
