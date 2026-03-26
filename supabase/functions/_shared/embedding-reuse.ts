@@ -94,43 +94,84 @@ export async function getPreviousGenerationEmbeddings(
 }
 
 /**
- * Generates an embedding for the given text. Supports OpenAI and Lovable Gateway.
+ * Calls an embedding endpoint and returns the vector or throws on quota errors.
+ */
+async function callEmbeddingApi(
+  url: string,
+  apiKey: string,
+  text: string,
+): Promise<number[] | null> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      input: text.replace(/\n/g, " "),
+      model: "text-embedding-3-small",
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    if (res.status === 429 || res.status === 402) {
+      throw new Error(`QUOTA:${res.status}:${body}`);
+    }
+    console.error(`[EMBEDDING] Error ${res.status} from ${url}:`, body);
+    return null;
+  }
+
+  const data = await res.json();
+  return data.data[0].embedding;
+}
+
+/**
+ * Generates an embedding for the given text.
+ * Prioritizes OpenAI; falls back to Lovable Gateway on quota/billing errors.
  */
 export async function generateEmbedding(
   text: string,
-  apiKey: string,
+  _apiKey?: string,
 ): Promise<number[] | null> {
-  if (!apiKey) return null;
+  const openAIKey = Deno.env.get("OPENAI_API_KEY");
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
-  const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
-  const useLovableGateway = !openAIApiKey && !!Deno.env.get("LOVABLE_API_KEY");
+  if (!openAIKey && !lovableKey) {
+    console.error("[EMBEDDING] No API keys available for embedding generation.");
+    return null;
+  }
 
-  try {
-    const url = useLovableGateway
-      ? "https://ai.gateway.lovable.dev/v1/embeddings"
-      : "https://api.openai.com/v1/embeddings";
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        input: text.replace(/\n/g, " "),
-        model: "text-embedding-3-small",
-      }),
-    });
-
-    if (!res.ok) {
-      console.error(`[EMBEDDING] Error from ${url}:`, await res.text());
-      return null;
+  // Attempt OpenAI first if available
+  if (openAIKey) {
+    try {
+      return await callEmbeddingApi(
+        "https://api.openai.com/v1/embeddings",
+        openAIKey,
+        text,
+      );
+    } catch (err: any) {
+      if (err.message?.startsWith("QUOTA:") && lovableKey) {
+        console.warn(
+          `[EMBEDDING] OpenAI quota exceeded, falling back to Lovable Gateway.`,
+        );
+        // fall through to Lovable Gateway below
+      } else {
+        console.error("[EMBEDDING] OpenAI error:", err.message);
+        return null;
+      }
     }
+  }
 
-    const data = await res.json();
-    return data.data[0].embedding;
-  } catch (err) {
-    console.error("[EMBEDDING] Generation error:", err);
+  // Lovable Gateway (primary if no OpenAI key, or fallback on quota error)
+  try {
+    return await callEmbeddingApi(
+      "https://ai.gateway.lovable.dev/v1/embeddings",
+      lovableKey!,
+      text,
+    );
+  } catch (err: any) {
+    console.error("[EMBEDDING] Lovable Gateway error:", err.message);
     return null;
   }
 }
