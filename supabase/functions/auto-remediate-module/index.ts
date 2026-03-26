@@ -5,6 +5,7 @@ import {
 } from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requireUser } from "../_shared/authz.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 Deno.serve(async (req) => {
@@ -30,7 +31,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabase = createServiceClient();
+    const { userId } = await requireUser(req, corsHeaders);
+    const serviceClient = createServiceClient();
 
     // 1. Fetch the actual diff from GitHub
     // Assuming compare_url is something like https://github.com/owner/repo/compare/hash1...hash2
@@ -82,7 +84,7 @@ Deno.serve(async (req) => {
 
     // 2. Identify which modules need remediation based on content_freshness or knowledge_chunks
     // For simplicity, we just look up modules that are marked as stale (`content_freshness.is_stale = true`)
-    const { data: staleModules, error: staleErr } = await supabase
+    const { data: staleModules, error: staleErr } = await serviceClient
       .from("content_freshness")
       .select("module_key, section_id, staleness_details")
       .eq("pack_id", pack_id)
@@ -102,7 +104,7 @@ Deno.serve(async (req) => {
 
     for (const stale of staleModules) {
       // Fetch current module data
-      const { data: mod } = await supabase
+      const { data: mod } = await serviceClient
         .from("generated_modules")
         .select("module_data")
         .eq("pack_id", pack_id)
@@ -151,7 +153,7 @@ Deno.serve(async (req) => {
         `Updated based on ${changed_files.length} changed files in recent push.`;
 
       // Save to module_remediations
-      await supabase.from("module_remediations").insert({
+      await serviceClient.from("module_remediations").insert({
         module_key: stale.module_key,
         section_id: stale.section_id,
         original_content: originalContent,

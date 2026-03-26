@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Modern Deno.serve is built-in
 import { applyPatch, parsePatch } from "https://esm.sh/diff@5.1.0";
 import { getSourceCredential } from "../_shared/credentials.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
@@ -14,7 +14,7 @@ import { requirePackRole } from "../_shared/pack-access.ts";
 
 // CORS now handled by centralized cors.ts
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const allowedOrigins = parseAllowedOrigins();
   const corsPreflight = handleCorsPreflight(req, allowedOrigins);
   if (corsPreflight) return corsPreflight;
@@ -35,10 +35,10 @@ serve(async (req) => {
       );
     }
 
+    const { userId } = await requireUser(req, corsHeaders);
     const serviceClient = createServiceClient();
 
-    // 1. Authenticate & Check Author Access
-    const { userId } = await requireUser(req, corsHeaders);
+    // 2. Check Author Access
     await requirePackRole(
       serviceClient,
       pack_id,
@@ -250,8 +250,9 @@ serve(async (req) => {
     // Audit Event
     await serviceClient.from("lifecycle_audit_events").insert({
       pack_id: pack_id,
-      action: "proposal_pr_created",
-      parameters: {
+      event_type: "proposal_pr_created",
+      actor_id: null,
+      details: {
         proposal_id: proposal_id,
         pr_url: pr.html_url,
         owner,

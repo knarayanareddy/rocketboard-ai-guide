@@ -137,8 +137,8 @@ Deno.serve(async (req) => {
       await serviceClient.from("lifecycle_audit_events").insert({
         pack_id: row.pack_id,
         action: "staleness_queue_processed",
-        actor_user_id: null,
-        parameters: {
+        actor_id: null,
+        details: {
           status: finalStatus,
           error_message: errorMessage,
           queue_id: row.id,

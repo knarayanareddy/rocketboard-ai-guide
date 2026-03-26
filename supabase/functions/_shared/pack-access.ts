@@ -11,21 +11,17 @@ export async function getPackRole(
   packId: string,
   userId: string,
 ): Promise<{ role: string | null; org_id: string | null }> {
-  if (userId === "admin") {
-    return { role: "owner", org_id: null };
-  }
   const { data, error } = await serviceClient
     .from("pack_members")
-    .select("access_level, packs:pack_id(org_id)")
+    .select("role, access_level, org_id")
     .eq("pack_id", packId)
     .eq("user_id", userId)
     .maybeSingle();
 
   if (error || !data) return { role: null, org_id: null };
 
-  const role = data.access_level || null;
-  const org_id = (data as any).packs?.org_id || null;
-  return { role, org_id };
+  const role = data.access_level || data.role || null;
+  return { role, org_id: data.org_id || null };
 }
 
 export async function requirePackRole(
