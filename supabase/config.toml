@@ -77,3 +77,9 @@ verify_jwt = false
 
 [functions.configure-source]
 verify_jwt = false
+
+[functions.ingest-source-worker]
+verify_jwt = false
+
+[functions.build-symbol-graph]
+verify_jwt = false
