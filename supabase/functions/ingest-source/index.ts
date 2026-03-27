@@ -393,6 +393,7 @@ async function runIngestion(
         }
       }
 
+      const repoName = repo.replace(/\.git$/, "");
       await serviceClient.from("ingestion_jobs").update({
         total_chunks: files.length,
       }).eq("id", jobId);
@@ -411,19 +412,20 @@ async function runIngestion(
         }
 
         const batchFiles = files.slice(i, i + PARALLEL_BATCH_SIZE);
-
+        console.log(`[INGEST] Processing batch ${i/PARALLEL_BATCH_SIZE + 1}: ${batchFiles.join(', ')}`);
+        
         const fetchResults = await Promise.all(
           batchFiles.map(async (filepath) => {
             try {
               const fileContent = await fetchGitHubFile(
                 owner,
-                repo.replace(/\.git$/, ""),
+                repoName,
                 filepath,
-                githubToken || undefined,
+                githubToken,
               );
               return { filepath, fileContent };
             } catch (err) {
-              console.error(`Failed to fetch ${filepath}:`, err);
+              console.error(`[INGEST] Failed to fetch ${filepath}:`, err);
               return { filepath, fileContent: "" };
             }
           }),
@@ -432,13 +434,14 @@ async function runIngestion(
         for (const { filepath, fileContent } of fetchResults) {
           if (!fileContent) continue;
 
-          const astChunks = await astChunk(fileContent, filepath);
-          const repoName = repo.replace(/\.git$/, "");
+          console.log(`[INGEST] Chunking file: ${filepath} (${fileContent.length} bytes)`);
+          const chunks = await astChunk(fileContent, filepath);
+          console.log(`[INGEST] Produced ${chunks.length} chunks for ${filepath}`);
           const sourceUrl =
             `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
           const setupMeta = getSetupMetadata(filepath);
 
-          for (const chunk of astChunks) {
+          for (const chunk of chunks) {
             chunkIdx++;
             if (chunkIdx > getRunCap()) {
               throw new Error(
@@ -492,9 +495,12 @@ async function runIngestion(
           });
         }
 
+        // Use 'i + batchFiles.length' as processed_chunks to represent FILE progress
+        // This keeps the UI progress bar moving 1-to-1 with files.
         hbStatus = await updateHeartbeat(serviceClient, jobId, {
-          processed_chunks: allChunks.length,
+          processed_chunks: Math.min(i + batchFiles.length, files.length),
         });
+        
         if (hbStatus && hbStatus !== "processing") {
           console.log(
             `[CANCEL] Job ${jobId} status is ${hbStatus}, aborting ingestion.`,
