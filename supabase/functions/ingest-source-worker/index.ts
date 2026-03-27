@@ -174,8 +174,8 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
     // Phase 2: Build Symbol Graph
     console.log(`[WORKER] Ingestion complete for job ${jobId}. Triggering symbol graph builder.`);
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const { origin } = new URL(functionUrl);
-    const symbolGraphUrl = `${origin}/functions/v1/build-symbol-graph`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const symbolGraphUrl = `${supabaseUrl}/functions/v1/build-symbol-graph`;
     
     fetch(symbolGraphUrl, {
       method: "POST",
