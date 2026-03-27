@@ -2496,10 +2496,17 @@ export type Database = {
           hop1_added: number | null
           hop2_added: number | null
           id: string
+          kg_added_spans: number | null
+          kg_definition_hits: number | null
+          kg_enabled: boolean | null
+          kg_reference_hits: number | null
+          kg_time_ms: number | null
           pack_id: string | null
           query_text: string | null
           request_id: string | null
           rerank_kept: number | null
+          rerank_skip_reason: string | null
+          rerank_skipped: boolean | null
           symbols_extracted: number | null
           time_ms: number | null
           total_spans: number | null
@@ -2512,10 +2519,17 @@ export type Database = {
           hop1_added?: number | null
           hop2_added?: number | null
           id?: string
+          kg_added_spans?: number | null
+          kg_definition_hits?: number | null
+          kg_enabled?: boolean | null
+          kg_reference_hits?: number | null
+          kg_time_ms?: number | null
           pack_id?: string | null
           query_text?: string | null
           request_id?: string | null
           rerank_kept?: number | null
+          rerank_skip_reason?: string | null
+          rerank_skipped?: boolean | null
           symbols_extracted?: number | null
           time_ms?: number | null
           total_spans?: number | null
@@ -2528,10 +2542,17 @@ export type Database = {
           hop1_added?: number | null
           hop2_added?: number | null
           id?: string
+          kg_added_spans?: number | null
+          kg_definition_hits?: number | null
+          kg_enabled?: boolean | null
+          kg_reference_hits?: number | null
+          kg_time_ms?: number | null
           pack_id?: string | null
           query_text?: string | null
           request_id?: string | null
           rerank_kept?: number | null
+          rerank_skip_reason?: string | null
+          rerank_skipped?: boolean | null
           symbols_extracted?: number | null
           time_ms?: number | null
           total_spans?: number | null
