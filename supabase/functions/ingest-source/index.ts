@@ -215,6 +215,24 @@ function parseCodeowners(
   return rules;
 }
 
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit & { timeout?: number } = {},
+) {
+  const { timeout = 30000 } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 async function fetchGitHubTree(
   owner: string,
   repo: string,
@@ -225,12 +243,15 @@ async function fetchGitHubTree(
   };
   if (token) headers.Authorization = `token ${token}`;
 
-  const resp = await fetch(
+  const resp = await fetchWithTimeout(
     `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`,
-    { headers },
+    { headers, timeout: 60000 },
   );
   if (!resp.ok) {
     const err = await resp.text();
+    if (resp.status === 403) {
+      throw new Error(`GitHub API Rate Limit / Forbidden (403). Verify token.`);
+    }
     throw new Error(`GitHub API error: ${resp.status} ${err}`);
   }
   const data = await resp.json();
@@ -250,9 +271,9 @@ async function fetchGitHubFile(
   };
   if (token) headers.Authorization = `token ${token}`;
 
-  const resp = await fetch(
+  const resp = await fetchWithTimeout(
     `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-    { headers },
+    { headers, timeout: 30000 },
   );
   if (!resp.ok) return "";
   return await resp.text();
@@ -275,6 +296,7 @@ async function runIngestion(
   githubToken: string | undefined,
 ) {
   try {
+    let hbStatus: string | null = null;
     let allChunks: {
       chunk_id: string;
       path: string;
@@ -379,6 +401,15 @@ async function runIngestion(
       const PARALLEL_BATCH_SIZE = 5;
 
       for (let i = 0; i < files.length; i += PARALLEL_BATCH_SIZE) {
+        // Heartbeat / Cancellation check BEFORE each batch
+        hbStatus = await updateHeartbeat(serviceClient, jobId);
+        if (hbStatus && hbStatus !== "processing") {
+          console.log(
+            `[CANCEL] Job ${jobId} status is ${hbStatus}, aborting batch at file ${i}.`,
+          );
+          return;
+        }
+
         const batchFiles = files.slice(i, i + PARALLEL_BATCH_SIZE);
 
         const fetchResults = await Promise.all(
@@ -461,12 +492,12 @@ async function runIngestion(
           });
         }
 
-        const status = await updateHeartbeat(serviceClient, jobId, {
+        hbStatus = await updateHeartbeat(serviceClient, jobId, {
           processed_chunks: allChunks.length,
         });
-        if (status && status !== "processing") {
+        if (hbStatus && hbStatus !== "processing") {
           console.log(
-            `[CANCEL] Job ${jobId} status is ${status}, aborting ingestion.`,
+            `[CANCEL] Job ${jobId} status is ${hbStatus}, aborting ingestion.`,
           );
           return;
         }
@@ -598,12 +629,12 @@ async function runIngestion(
       }
 
       processed += batch.length;
-      const status = await updateHeartbeat(serviceClient, jobId, {
+      hbStatus = await updateHeartbeat(serviceClient, jobId, {
         processed_chunks: processed,
       });
-      if (status && status !== "processing") {
+      if (hbStatus && hbStatus !== "processing") {
         console.log(
-          `[CANCEL] Job ${jobId} status is ${status}, aborting upsert batch.`,
+          `[CANCEL] Job ${jobId} status is ${hbStatus}, aborting upsert batch.`,
         );
         return;
       }
