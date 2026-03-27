@@ -7,19 +7,62 @@ import { computeContentHash } from "../_shared/hash-utils.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requireInternal } from "../_shared/authz.ts";
+import {
+  buildCorsHeaders,
+  handleCorsPreflight,
+  parseAllowedOrigins,
+} from "../_shared/cors.ts";
+
+const ALLOWED_ORIGINS = parseAllowedOrigins();
 
 const BATCH_SIZE = 5; // Reduced for safety
 
 const SETUP_PATTERNS: Record<string, RegExp[]> = {
-  dependencies: [/^package\.json$/, /^requirements\.txt$/, /^Gemfile$/, /^go\.mod$/, /^Cargo\.toml$/, /^pom\.xml$/, /^build\.gradle$/],
-  configuration: [/^\.env/, /^config\//, /\.config\.(js|ts|json|yaml|yml)$/, /settings\.(json|yaml|yml)$/],
+  dependencies: [
+    /^package\.json$/,
+    /^requirements\.txt$/,
+    /^Gemfile$/,
+    /^go\.mod$/,
+    /^Cargo\.toml$/,
+    /^pom\.xml$/,
+    /^build\.gradle$/,
+  ],
+  configuration: [
+    /^\.env/,
+    /^config\//,
+    /\.config\.(js|ts|json|yaml|yml)$/,
+    /settings\.(json|yaml|yml)$/,
+  ],
   docker: [/^Dockerfile/, /^docker-compose/, /\.dockerfile$/i],
-  ci_cd: [/^\.github\/workflows\//, /^\.gitlab-ci\.yml$/, /^Jenkinsfile$/, /^\.circleci\//, /^azure-pipelines\.yml$/],
-  environment: [/^Makefile$/, /^scripts\//, /^bin\//, /^README/i, /^CONTRIBUTING/i, /^SETUP/i, /^INSTALL/i],
-  infrastructure: [/^terraform\//, /^k8s\//, /^kubernetes\//, /^helm\//, /\.tf$/],
+  ci_cd: [
+    /^\.github\/workflows\//,
+    /^\.gitlab-ci\.yml$/,
+    /^Jenkinsfile$/,
+    /^\.circleci\//,
+    /^azure-pipelines\.yml$/,
+  ],
+  environment: [
+    /^Makefile$/,
+    /^scripts\//,
+    /^bin\//,
+    /^README/i,
+    /^CONTRIBUTING/i,
+    /^SETUP/i,
+    /^INSTALL/i,
+  ],
+  infrastructure: [
+    /^terraform\//,
+    /^k8s\//,
+    /^kubernetes\//,
+    /^helm\//,
+    /\.tf$/,
+  ],
 };
 
-function getSetupMetadata(filepath: string): { is_setup_relevant: boolean; setup_category?: string } {
+function getSetupMetadata(
+  filepath: string,
+): { is_setup_relevant: boolean; setup_category?: string } {
   const basename = filepath.split("/").pop() || "";
   for (const [category, patterns] of Object.entries(SETUP_PATTERNS)) {
     for (const pattern of patterns) {
@@ -31,18 +74,28 @@ function getSetupMetadata(filepath: string): { is_setup_relevant: boolean; setup
   return { is_setup_relevant: false };
 }
 
-async function fetchGitHubFile(owner: string, repo: string, path: string, token?: string): Promise<string> {
-  const headers: Record<string, string> = { Accept: "application/vnd.github.v3.raw" };
+async function fetchGitHubFile(
+  owner: string,
+  repo: string,
+  path: string,
+  token?: string,
+): Promise<string> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github.v3.raw",
+  };
   if (token) headers.Authorization = `token ${token}`;
-  
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-  
+
   try {
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, { 
-      headers,
-      signal: controller.signal 
-    });
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+      {
+        headers,
+        signal: controller.signal,
+      },
+    );
     if (!res.ok) return "";
     return await res.text();
   } catch (err) {
@@ -53,14 +106,18 @@ async function fetchGitHubFile(owner: string, repo: string, path: string, token?
   }
 }
 
-async function runBatch(serviceClient: any, jobId: string, functionUrl: string) {
+async function runBatch(
+  serviceClient: any,
+  jobId: string,
+  functionUrl: string,
+) {
   // 1. Fetch current state
   const { data: state, error: stateErr } = await serviceClient
     .from("ingestion_job_state")
     .select("*")
     .eq("job_id", jobId)
     .single();
-    
+
   if (stateErr || !state) {
     console.error("[WORKER] Failed to fetch job state:", stateErr);
     return;
@@ -71,27 +128,42 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
   }
 
   // Update phase to processing
-  const createdMs = state.created_at ? new Date(state.created_at).getTime() : Date.now();
-  await serviceClient.from("ingestion_jobs").update({ 
+  const createdMs = state.created_at
+    ? new Date(state.created_at).getTime()
+    : Date.now();
+  await serviceClient.from("ingestion_jobs").update({
     phase: "fetch_files",
-    elapsed_ms: Date.now() - createdMs 
+    elapsed_ms: Date.now() - createdMs,
   }).eq("id", jobId);
 
   const files = state.files_json;
   const startIndex = state.cursor;
   const batchFiles = files.slice(startIndex, startIndex + BATCH_SIZE);
   const isLastBatch = startIndex + BATCH_SIZE >= files.length;
-  
-  const { data: job } = await serviceClient.from("ingestion_jobs").select("source_id, pack_id").eq("id", jobId).single();
-  const { data: source } = await serviceClient.from("pack_sources").select("source_type, source_uri, source_config").eq("id", job.source_id).single();
-  const { data: pack } = await serviceClient.from("packs").select("org_id").eq("id", job.pack_id).single();
-  
+
+  const { data: job } = await serviceClient.from("ingestion_jobs").select(
+    "source_id, pack_id",
+  ).eq("id", jobId).single();
+  const { data: source } = await serviceClient.from("pack_sources").select(
+    "source_type, source_uri, source_config",
+  ).eq("id", job.source_id).single();
+  const { data: pack } = await serviceClient.from("packs").select("org_id").eq(
+    "id",
+    job.pack_id,
+  ).single();
+
   const match = source.source_uri.match(/github\.com\/([^/]+)\/([^/]+)/);
   const [, owner, repo] = match;
   const repoName = repo.replace(/\.git$/, "");
-  const githubToken = await getSourceCredential(serviceClient, job.source_id, "api_token") || Deno.env.get("GITHUB_TOKEN");
+  const githubToken =
+    await getSourceCredential(serviceClient, job.source_id, "api_token") ||
+    Deno.env.get("GITHUB_TOKEN");
 
-  console.log(`[WORKER] Processing batch: files ${startIndex} to ${startIndex + batchFiles.length} of ${files.length} (Invocation ${state.invocations_count + 1})`);
+  console.log(
+    `[WORKER] Processing batch: files ${startIndex} to ${
+      startIndex + batchFiles.length
+    } of ${files.length} (Invocation ${state.invocations_count + 1})`,
+  );
 
   let currentBatchChunks: any[] = [];
   const abortController = new AbortController();
@@ -99,26 +171,32 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
   for (let i = 0; i < batchFiles.length; i++) {
     const filepath = batchFiles[i];
     const globalIdx = startIndex + i;
-    
-    await updateHeartbeat(serviceClient, jobId, { 
-      phase: "fetch_files", 
-      current_file: filepath, 
-      current_file_index: globalIdx 
+
+    await updateHeartbeat(serviceClient, jobId, {
+      phase: "fetch_files",
+      current_file: filepath,
+      current_file_index: globalIdx,
     });
-    
-    const content = await fetchGitHubFile(owner, repoName, filepath, githubToken);
+
+    const content = await fetchGitHubFile(
+      owner,
+      repoName,
+      filepath,
+      githubToken,
+    );
     if (!content) continue;
 
     const chunks = await astChunk(content, filepath, abortController.signal);
     const setupMeta = getSetupMetadata(filepath);
-    const sourceUrl = `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
+    const sourceUrl =
+      `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
 
     for (let j = 0; j < chunks.length; j++) {
       const chunk = chunks[j];
       const assessment = assessChunkRedaction(chunk.text);
       const hash = await computeContentHash(assessment.contentToStore);
       currentBatchChunks.push({
-        pack_id: job.pack_id, 
+        pack_id: job.pack_id,
         source_id: job.source_id,
         org_id: pack.org_id,
         generation_id: jobId,
@@ -134,17 +212,19 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
         signature: chunk.metadata.signature,
         imports: chunk.metadata.imports,
         exported_names: chunk.metadata.exported_names || [],
-        metadata: { 
-          source_url: sourceUrl, ...setupMeta,
-          ingestion_job_id: jobId, 
-          generation_id: jobId
+        metadata: {
+          source_url: sourceUrl,
+          ...setupMeta,
+          ingestion_job_id: jobId,
+          generation_id: jobId,
         },
       });
     }
   }
 
   if (currentBatchChunks.length > 0) {
-    const { error: upsertError } = await serviceClient.from("knowledge_chunks").upsert(currentBatchChunks);
+    const { error: upsertError } = await serviceClient.from("knowledge_chunks")
+      .upsert(currentBatchChunks);
     if (upsertError) throw upsertError;
   }
 
@@ -154,11 +234,11 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
     cursor: nextCursor,
     chunk_idx: state.chunk_idx + currentBatchChunks.length,
     invocations_count: state.invocations_count + 1,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   }).eq("job_id", jobId);
 
   await serviceClient.from("ingestion_jobs").update({
-    processed_chunks: nextCursor
+    processed_chunks: nextCursor,
   }).eq("id", jobId);
 
   if (!isLastBatch) {
@@ -166,46 +246,58 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     fetch(functionUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceKey}`,
+      },
       body: JSON.stringify({ jobId }),
-    }).catch(e => console.error("[WORKER] Self-scheduling failed:", e));
+    }).catch((e) => console.error("[WORKER] Self-scheduling failed:", e));
   } else {
     // Phase 2: Build Symbol Graph
-    console.log(`[WORKER] Ingestion complete for job ${jobId}. Triggering symbol graph builder.`);
+    console.log(
+      `[WORKER] Ingestion complete for job ${jobId}. Triggering symbol graph builder.`,
+    );
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const symbolGraphUrl = `${supabaseUrl}/functions/v1/build-symbol-graph`;
-    
+
     fetch(symbolGraphUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceKey}`,
+      },
       body: JSON.stringify({ jobId }),
-    }).catch(e => console.error("[WORKER] Failed to trigger symbol graph builder:", e));
+    }).catch((e) =>
+      console.error("[WORKER] Failed to trigger symbol graph builder:", e)
+    );
   }
 }
 
 Deno.serve(async (req) => {
-  const authHeader = req.headers.get("Authorization");
-  if (authHeader !== `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const corsResponse = handleCorsPreflight(req, ALLOWED_ORIGINS);
+  if (corsResponse) return corsResponse;
+  const corsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
+
+  const authz = requireInternal(req, corsHeaders);
+  if (!authz.success) return authz.response;
 
   try {
-    const { jobId, job_id } = await req.json(); // Accept both formats for compatibility
+    const { jobId, job_id } = await readJson(req, corsHeaders); // Accept both formats for compatibility
     const effectiveJobId = jobId || job_id;
     const serviceClient = createServiceClient();
-    
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const functionUrl = `${supabaseUrl}/functions/v1/ingest-source-worker`;
 
     const task = runBatch(serviceClient, effectiveJobId, functionUrl);
-    
+
     const runtime = (globalThis as any).EdgeRuntime;
     if (runtime?.waitUntil) runtime.waitUntil(task);
-    else task.catch(e => console.error("[WORKER] Task failed:", e));
+    else task.catch((e) => console.error("[WORKER] Task failed:", e));
 
-    return json(202, { success: true });
+    return json(202, { success: true }, corsHeaders);
   } catch (err: any) {
-    return jsonError(500, "internal_error", err.message, {});
+    return jsonError(500, "internal_error", err.message, {}, corsHeaders);
   }
 });
