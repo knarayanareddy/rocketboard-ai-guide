@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { usePack } from "@/hooks/usePack";
+import { usePackFromUrl, DEFAULT_PACK_ID } from "@/hooks/usePack";
 import { useRole } from "@/hooks/useRole";
 import { useTheme } from "@/hooks/useTheme";
 import { useTour } from "@/hooks/useTour";
@@ -306,8 +306,12 @@ export function MissionControlChat() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const location = useLocation();
-  const { currentPack, currentPackId } = usePack();
-  const packId = currentPackId ? asPackId(currentPackId) : null;
+  const { currentPack, currentPackId, loading, packIdFromUrl } = usePackFromUrl();
+  const resolvedPackId = packIdFromUrl ?? (currentPack?.id || null);
+  const isDefaultPack = (id: string | null) => id === DEFAULT_PACK_ID;
+  const isPackValid = resolvedPackId && !isDefaultPack(resolvedPackId) && !loading;
+
+  const packId = resolvedPackId ? asPackId(resolvedPackId) : null;
   const { packAccessLevel } = useRole();
   const { setMode } = useTheme();
   const { startTour } = useTour();
@@ -325,7 +329,7 @@ export function MissionControlChat() {
 
   // Load chat history
   useEffect(() => {
-    if (!isOpen || !user || historyLoaded) return;
+    if (!isOpen || !user || !isPackValid || historyLoaded) return;
     (async () => {
       const q = (supabase
         .from("chat_messages") as any)
@@ -354,7 +358,7 @@ export function MissionControlChat() {
     setMessages([]);
     setHistoryLoaded(false);
     setLastError(null);
-  }, [currentPackId]);
+  }, [packId]);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -371,6 +375,17 @@ export function MissionControlChat() {
   };
 
   const send = async () => {
+    if (!isPackValid) {
+      console.warn("[MISSION_CONTROL] Attempted send without valid pack:", {
+        currentPackId,
+        packIdFromUrl,
+        resolvedPackId,
+        loading
+      });
+      toast.error("Select a pack before using Mission Control");
+      return;
+    }
+
     const text = input.trim();
     if (!text || isLoading) return;
     setInput("");
@@ -619,11 +634,11 @@ export function MissionControlChat() {
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask Mission Control..."
+                  placeholder={loading ? "Loading packs..." : "Ask Mission Control..."}
                   className="flex-1 bg-muted rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  disabled={isLoading}
+                  disabled={isLoading || loading}
                 />
-                <Button type="submit" size="icon" className="h-9 w-9 rounded-lg" disabled={isLoading || !input.trim()}>
+                <Button type="submit" size="icon" className="h-9 w-9 rounded-lg" disabled={isLoading || loading || !input.trim()}>
                   <Send className="w-4 h-4" />
                 </Button>
               </form>

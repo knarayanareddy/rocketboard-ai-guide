@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PackId, asPackId } from "@/types/brands";
 
-const DEFAULT_PACK_ID = "00000000-0000-0000-0000-000000000002" as PackId;
+export const DEFAULT_PACK_ID = "00000000-0000-0000-0000-000000000002" as PackId;
 
 export interface Pack {
   id: PackId;
@@ -109,7 +109,7 @@ export function PackProvider({ children }: { children: ReactNode }) {
 
 /**
  * Hook to get the current pack context.
- * If inside a pack-scoped route (/packs/:packId/*), auto-syncs to URL packId.
+ * Returns context only; usePackFromUrl syncs URL pack id.
  */
 export function usePack() {
   const ctx = useContext(PackContext);
