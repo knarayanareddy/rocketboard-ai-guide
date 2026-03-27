@@ -305,6 +305,15 @@ async function runIngestion(
   track_key: string | null,
   trace: any,
 ) {
+  const startMs = Date.now();
+  const updatePhase = async (phase: string, extra?: Record<string, any>) => {
+    await serviceClient.from("ingestion_jobs").update({
+      phase,
+      elapsed_ms: Date.now() - startMs,
+      ...extra,
+    }).eq("id", jobId);
+  };
+
   try {
     const controller = new AbortController();
     const abortSignal = controller.signal;
