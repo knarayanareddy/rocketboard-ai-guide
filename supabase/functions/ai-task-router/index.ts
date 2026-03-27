@@ -964,7 +964,8 @@ async function recordRagMetrics(trace: TraceBuilder, envelope: any) {
       rerank_skip_reason: detective.rerank_skip_reason || null,
       retrieval_hops: detective.hops_run || 0,
       symbols_extracted: detective.symbols_extracted || 0,
-      expanded_chunks_added: (detective.hop1_added || 0) + (detective.hop2_added || 0) + (detective.kg_added_spans || 0),
+      expanded_chunks_added: (detective.hop1_added || 0) + 
+          (detective.hop2_added || 0) + (detective.kg_added_spans || 0),
       detective_time_ms: detective.time_ms || 0,
 
       total_latency_ms: Date.now() - data.startTime,
