@@ -9,10 +9,10 @@ import { PackId, ChunkPK, StableChunkId, ChunkRef } from "@/types/brands";
 
 interface Citation {
   span_id: string;
-  path: string;
-  chunk_ref: ChunkRef;
-  chunk_pk: ChunkPK;
-  stable_chunk_id: StableChunkId | null;
+  path?: string;
+  chunk_ref?: ChunkRef | string;
+  chunk_pk?: ChunkPK | string;
+  stable_chunk_id?: StableChunkId | string | null;
   start_line?: number;
   end_line?: number;
 }
