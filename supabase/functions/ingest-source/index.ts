@@ -193,8 +193,8 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
     const jobId = job.id;
 
-    const { origin } = new URL(req.url);
-    const functionUrl = `${origin}/functions/v1/ingest-source`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const functionUrl = `${supabaseUrl}/functions/v1/ingest-source`;
 
     const trace = createTrace({
       serviceName: "ingest-source",
