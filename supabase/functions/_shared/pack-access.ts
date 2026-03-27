@@ -12,14 +12,14 @@ export async function getPackRole(
   userId: string,
 ): Promise<{ role: string | null; org_id: string | null }> {
   // pack_members table has: id, pack_id, user_id, access_level, joined_at
-  const { data, error } = await serviceClient
+  const { data: member, error: memberErr } = await serviceClient
     .from("pack_members")
     .select("access_level")
     .eq("pack_id", packId)
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (error || !data) return { role: null, org_id: null };
+  if (memberErr || !member) return { role: null, org_id: null };
 
   // Look up org_id from the pack itself
   const { data: packData } = await serviceClient
@@ -28,7 +28,10 @@ export async function getPackRole(
     .eq("id", packId)
     .maybeSingle();
 
-  return { role: data.access_level || null, org_id: packData?.org_id || null };
+  return {
+    role: member.access_level || null,
+    org_id: packData?.org_id || null,
+  };
 }
 
 export async function requirePackRole(
