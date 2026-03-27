@@ -296,6 +296,8 @@ async function runIngestion(
   githubToken: string | undefined,
 ) {
   try {
+    const controller = new AbortController();
+    const abortSignal = controller.signal;
     let hbStatus: string | null = null;
     let allChunks: {
       chunk_id: string;
@@ -408,6 +410,7 @@ async function runIngestion(
           console.log(
             `[CANCEL] Job ${jobId} status is ${hbStatus}, aborting batch at file ${i}.`,
           );
+          controller.abort();
           return;
         }
 
@@ -441,7 +444,7 @@ async function runIngestion(
           console.log(
             `[INGEST] Chunking file: ${filepath} (${fileContent.length} bytes)`,
           );
-          const chunks = await astChunk(fileContent, filepath);
+          const chunks = await astChunk(fileContent, filepath, abortSignal);
           console.log(
             `[INGEST] Produced ${chunks.length} chunks for ${filepath}`,
           );
@@ -513,6 +516,7 @@ async function runIngestion(
           console.log(
             `[CANCEL] Job ${jobId} status is ${hbStatus}, aborting ingestion.`,
           );
+          controller.abort();
           return;
         }
       }

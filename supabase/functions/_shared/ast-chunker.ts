@@ -23,6 +23,23 @@ async function computeSha256(buffer: ArrayBuffer): Promise<string> {
 let isParserInitialized = false;
 const languageCache = new Map<string, any>();
 
+export interface ChunkMetadata {
+  entity_type: string;
+  entity_name: string;
+  signature: string;
+  line_start: number;
+  line_end: number;
+  parent_id?: string;
+  content_hash?: string;
+  imports?: string[];
+  exported_names?: string[];
+}
+
+export interface ASTChunk {
+  text: string;
+  metadata: ChunkMetadata;
+}
+
 function fallbackTextChunks(code: string, filepath: string): ASTChunk[] {
   const lines = code.split("\n");
   const results: ASTChunk[] = [];
@@ -78,7 +95,6 @@ async function initParser() {
   if (!parserModule) return false;
 
   try {
-    // Explicitly point to the core WASM file to prevent runtime crashes
     const coreWasmUrl =
       "https://esm.sh/web-tree-sitter@0.20.8/tree-sitter.wasm";
     console.log(`[AST] Initializing parser with ${coreWasmUrl}`);
@@ -106,7 +122,6 @@ async function getLanguage(lang: string) {
   const parserModule = await ensureParserLoaded();
   if (!parserModule) return null;
 
-  // Map tsx -> typescript as they often share the same grammar in WASM distributions
   const langKey = lang === "tsx" ? "typescript" : lang;
   if (languageCache.has(langKey)) return languageCache.get(langKey);
 
@@ -114,91 +129,55 @@ async function getLanguage(lang: string) {
     let buffer: ArrayBuffer | null = null;
     const wasmFilename = `tree-sitter-${langKey}.wasm`;
 
-    // 1. Try Local Vendored WASM first (Option C)
     try {
-      // Use import.meta.url to find relative path in Deno
       const localUrl = new URL(`./wasm/${wasmFilename}`, import.meta.url);
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 2000); // 2s timeout for local
+      const id = setTimeout(() => controller.abort(), 2000);
       try {
         const localRes = await fetch(localUrl, { signal: controller.signal });
         if (localRes.ok) {
-          console.log(`[AST] Loading local grammar for ${langKey}`);
           buffer = await localRes.arrayBuffer();
         }
       } finally {
         clearTimeout(id);
       }
-    } catch (localErr) {
-      // Fallback to remote if local fails or isn't found
-    }
+    } catch (localErr) {}
 
-    // 2. Fetch from Remote if not found locally
     if (!buffer) {
       const baseUrl = Deno.env.get("TREE_SITTER_WASM_BASE_URL") ||
         "https://esm.sh/tree-sitter-wasms@0.1.11/out";
       const remoteUrl = `${baseUrl.replace(/\/$/, "")}/${wasmFilename}`;
 
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 15000); // 15s timeout for remote
+      const id = setTimeout(() => controller.abort(), 15000);
       try {
         const res = await fetch(remoteUrl, { signal: controller.signal });
-        if (!res.ok) {
-          throw new Error(
-            `Failed to fetch grammar for ${langKey} from ${remoteUrl}`,
-          );
-        }
+        if (!res.ok) throw new Error(`Failed to fetch grammar from ${remoteUrl}`);
         buffer = await res.arrayBuffer();
       } finally {
         clearTimeout(id);
       }
     }
 
-    // 3. Integrity Verification (Option B)
     const expectedHash = WASM_SHA256[langKey];
     if (expectedHash) {
-      const actualHash = await computeSha256(buffer);
+      const actualHash = await computeSha256(buffer!);
       if (actualHash !== expectedHash) {
-        throw new Error(
-          `Integrity check failed for ${langKey}. Expected ${expectedHash}, got ${actualHash}`,
-        );
+        throw new Error(`Integrity check failed for ${langKey}.`);
       }
     }
 
-    const language = await parserModule.Language.load(new Uint8Array(buffer));
+    const language = await parserModule.Language.load(new Uint8Array(buffer!));
     languageCache.set(langKey, language);
     return language;
   } catch (e) {
-    console.error(
-      `[AST] Grammar load failed for ${langKey}:`,
-      (e as Error).message,
-    );
+    console.error(`[AST] Grammar load failed for ${lang}:`, (e as Error).message);
     return null;
   }
 }
 
-export interface ChunkMetadata {
-  entity_type: string;
-  entity_name: string;
-  signature: string;
-  line_start: number;
-  line_end: number;
-  parent_id?: string;
-  content_hash?: string;
-  imports?: string[];
-  exported_names?: string[];
-}
-
-export interface ASTChunk {
-  text: string;
-  metadata: ChunkMetadata;
-}
-
 function extractImports(tree: any, lang: string): string[] {
   const imports: string[] = [];
-  const root = tree.rootNode;
-
-  // Basic heuristic import extraction
   const queryMap: Record<string, string> = {
     typescript: "(import_statement) @import (import_alias) @import",
     javascript: "(import_statement) @import",
@@ -211,15 +190,13 @@ function extractImports(tree: any, lang: string): string[] {
 
   try {
     const query = tree.getLanguage().query(queryStr);
-    const matches = query.matches(root);
+    const matches = query.matches(tree.rootNode);
     for (const match of matches) {
       for (const capture of match.captures) {
         imports.push(capture.node.text);
       }
     }
-  } catch (e) {
-    // Fallback if query fails
-  }
+  } catch (e) {}
   return imports;
 }
 
@@ -228,24 +205,16 @@ function extractExportedNames(
   lang: string,
 ): { name: string; line: number }[] {
   const exports: { name: string; line: number }[] = [];
-  const root = tree.rootNode;
-
   const queryMap: Record<string, string> = {
     typescript: `
       (export_statement (declaration (function_declaration name: (identifier) @export)))
       (export_statement (declaration (class_declaration name: (identifier) @export)))
       (export_statement (declaration (lexical_declaration (variable_declarator name: (identifier) @export))))
-      (export_statement (declaration (type_alias_declaration name: (type_identifier) @export)))
-      (export_statement (declaration (interface_declaration name: (type_identifier) @export)))
-      (export_statement (declaration (enum_declaration name: (identifier) @export)))
       (export_statement (export_clause (export_specifier name: (identifier) @export)))
-      (export_statement (export_clause (export_specifier alias: (identifier) @export)))
     `,
     javascript: `
       (export_statement (declaration (function_declaration name: (identifier) @export)))
       (export_statement (declaration (class_declaration name: (identifier) @export)))
-      (export_statement (declaration (lexical_declaration (variable_declarator name: (identifier) @export))))
-      (export_statement (export_clause (export_specifier name: (identifier) @export)))
     `,
     python: `
       (function_definition name: (identifier) @export)
@@ -254,7 +223,6 @@ function extractExportedNames(
     go: `
       (function_declaration name: (identifier) @export)
       (type_declaration (type_spec name: (identifier) @export))
-      (method_declaration name: (field_identifier) @export)
     `,
   };
 
@@ -263,25 +231,20 @@ function extractExportedNames(
 
   try {
     const query = tree.getLanguage().query(queryStr);
-    const matches = query.matches(root);
+    const matches = query.matches(tree.rootNode);
     for (const match of matches) {
       for (const capture of match.captures) {
         const name = capture.node.text;
         const line = capture.node.startPosition.row + 1;
-        // Language specific filtering
-        if (lang === "py" && name.startsWith("_")) continue;
         if (lang === "go" && !/^[A-Z]/.test(name)) continue;
         exports.push({ name, line });
       }
     }
-  } catch (e) {
-    console.error(`[AST] Export query failed for ${lang}:`, e);
-  }
+  } catch (e) {}
   return exports;
 }
 
 function walkAST(node: any, code: string, chunks: ASTChunk[], lang: string) {
-  const type = node.type;
   const interestingTypes = [
     "function_declaration",
     "method_definition",
@@ -290,26 +253,23 @@ function walkAST(node: any, code: string, chunks: ASTChunk[], lang: string) {
     "enum_declaration",
     "type_alias_declaration",
     "function_definition",
-    "decorated_definition", // Python
   ];
 
-  if (interestingTypes.includes(type)) {
+  if (interestingTypes.includes(node.type)) {
     const nameNode = node.childForFieldName("name") ||
       node.children.find((c: any) => c.type.includes("identifier"));
 
     chunks.push({
       text: code.slice(node.startIndex, node.endIndex),
       metadata: {
-        entity_type: type,
+        entity_type: node.type,
         entity_name: nameNode?.text || "anonymous",
-        signature:
-          code.slice(node.startIndex, nameNode?.endIndex || node.endIndex)
-            .split("\n")[0],
+        signature: code.slice(node.startIndex, nameNode?.endIndex || node.endIndex).split("\n")[0],
         line_start: node.startPosition.row + 1,
         line_end: node.endPosition.row + 1,
       },
     });
-    return; // Don't recurse into interesting nodes for top-level chunking
+    return;
   }
 
   for (const child of node.children) {
@@ -317,23 +277,14 @@ function walkAST(node: any, code: string, chunks: ASTChunk[], lang: string) {
   }
 }
 
-function extractOrphanCode(
-  root: any,
-  code: string,
-  astChunks: ASTChunk[],
-): ASTChunk[] {
+function extractOrphanCode(root: any, code: string, astChunks: ASTChunk[]): ASTChunk[] {
   const orphans: ASTChunk[] = [];
-  const sortedChunks = [...astChunks].sort((a, b) =>
-    a.metadata.line_start - b.metadata.line_start
-  );
+  const sortedChunks = [...astChunks].sort((a, b) => a.metadata.line_start - b.metadata.line_start);
 
   let currentPos = 0;
   for (const chunk of sortedChunks) {
-    const chunkLines = code.slice(0, currentPos).split("\n");
-    const chunkStart =
-      code.split("\n").slice(0, chunk.metadata.line_start - 1).join("\n")
-        .length;
-    if (chunkStart > currentPos + 50) { // arbitrary threshold for "meaningful" orphan code
+    const chunkStart = code.split("\n").slice(0, chunk.metadata.line_start - 1).join("\n").length;
+    if (chunkStart > currentPos + 50) {
       const text = code.slice(currentPos, chunkStart).trim();
       if (text.length > 20) {
         orphans.push({
@@ -342,17 +293,15 @@ function extractOrphanCode(
             entity_type: "orphan_code",
             entity_name: "file_scope",
             signature: text.split("\n")[0],
-            line_start: chunkLines.length,
+            line_start: code.slice(0, currentPos).split("\n").length,
             line_end: chunk.metadata.line_start - 1,
           },
         });
       }
     }
-    currentPos =
-      code.split("\n").slice(0, chunk.metadata.line_end).join("\n").length;
+    currentPos = code.split("\n").slice(0, chunk.metadata.line_end).join("\n").length;
   }
 
-  // Tail orphan
   if (currentPos < code.length - 20) {
     const text = code.slice(currentPos).trim();
     if (text.length > 20) {
@@ -368,7 +317,6 @@ function extractOrphanCode(
       });
     }
   }
-
   return orphans;
 }
 
@@ -377,7 +325,7 @@ function splitOversizedChunk(chunk: ASTChunk, maxLines = 100): ASTChunk[] {
   if (lines.length <= maxLines) return [chunk];
 
   const results: ASTChunk[] = [];
-  for (let i = 0; i < lines.length; i += 80) { // 20 line overlap
+  for (let i = 0; i < lines.length; i += 80) {
     const end = Math.min(i + 100, lines.length);
     results.push({
       text: lines.slice(i, end).join("\n"),
@@ -393,67 +341,73 @@ function splitOversizedChunk(chunk: ASTChunk, maxLines = 100): ASTChunk[] {
   return results;
 }
 
+/**
+ * Main entry point for AST-aware chunking.
+ * Includes a mandatory 45s timeout to prevent hanging on huge files.
+ */
 export async function astChunk(
   code: string,
   filepath: string,
-  options: { signal?: AbortSignal } = {},
+  signal?: AbortSignal,
 ): Promise<ASTChunk[]> {
-  if (options.signal?.aborted) throw new Error("AbortError");
-  if (!(await initParser())) {
-    return fallbackTextChunks(code, filepath);
-  }
-
-  const ext = filepath.split(".").pop() || "";
-  const langMap: Record<string, string> = {
-    ts: "typescript",
-    tsx: "typescript",
-    js: "javascript",
-    jsx: "javascript",
-    py: "python",
-    go: "go",
-    rs: "rust",
-    java: "java",
-  };
-  const lang = langMap[ext] || null;
-
-  if (!lang) {
-    return fallbackTextChunks(code, filepath);
-  }
-
-  const parser = new Parser();
-  const grammar = await getLanguage(lang);
-  if (!grammar) return fallbackTextChunks(code, filepath);
-
-  parser.setLanguage(grammar);
-  const tree = parser.parse(code);
-  const imports = extractImports(tree, lang);
-  const exports = extractExportedNames(tree, lang);
-
-  const chunks: ASTChunk[] = [];
-  walkAST(tree.rootNode, code, chunks, lang);
-
-  const orphans = extractOrphanCode(tree.rootNode, code, chunks);
-  const finalChunks = [...chunks, ...orphans];
-
-  // Final pass: ensure imports and file-level exports are attached to chunks
-  return finalChunks.flatMap((c) => {
-    const split = splitOversizedChunk(c);
-    return split.map((s) => {
-      // Find exports defined within this chunk's line range
-      const chunkExports = exports
-        .filter((e) =>
-          e.line >= s.metadata.line_start && e.line <= s.metadata.line_end
-        )
-        .map((e) => e.name);
-
-      return {
-        ...s,
-        metadata: {
-          ...s.metadata,
-          imports,
-          exported_names: chunkExports,
-        },
-      };
+  const timeoutMs = 45000;
+  const timeoutPromise = new Promise<ASTChunk[]>((_, reject) => {
+    const timer = setTimeout(() => reject(new Error(`astChunk timeout for ${filepath}`)), timeoutMs);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(new Error("astChunk aborted"));
     });
   });
+
+  try {
+    return await Promise.race([
+      (async () => {
+        if (!(await initParser())) return fallbackTextChunks(code, filepath);
+
+        const ext = filepath.split(".").pop() || "";
+        const langMap: Record<string, string> = {
+          ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
+          py: "python", go: "go", rs: "rust", java: "java",
+        };
+        const lang = langMap[ext] || null;
+        if (!lang) return fallbackTextChunks(code, filepath);
+
+        const grammar = await getLanguage(lang);
+        if (!grammar) return fallbackTextChunks(code, filepath);
+
+        const parser = new (Parser as any)();
+        try {
+          parser.setLanguage(grammar);
+          const tree = parser.parse(code);
+          const imports = extractImports(tree, lang);
+          const exports = extractExportedNames(tree, lang);
+
+          const chunks: ASTChunk[] = [];
+          walkAST(tree.rootNode, code, chunks, lang);
+
+          const orphans = extractOrphanCode(tree.rootNode, code, chunks);
+          const finalChunks = [...chunks, ...orphans];
+
+          return finalChunks.flatMap((c) => {
+            const split = splitOversizedChunk(c);
+            return split.map((s) => {
+              const chunkExports = exports
+                .filter((e) => e.line >= s.metadata.line_start && e.line <= s.metadata.line_end)
+                .map((e) => e.name);
+              return {
+                ...s,
+                metadata: { ...s.metadata, imports, exported_names: chunkExports },
+              };
+            });
+          });
+        } finally {
+          parser.delete();
+        }
+      })(),
+      timeoutPromise,
+    ]);
+  } catch (err) {
+    console.warn(`[AST] Falling back for ${filepath}:`, (err as Error).message);
+    return fallbackTextChunks(code, filepath);
+  }
 }
