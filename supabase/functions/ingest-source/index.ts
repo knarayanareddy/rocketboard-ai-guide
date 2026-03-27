@@ -305,6 +305,15 @@ async function runIngestion(
   track_key: string | null,
   trace: any,
 ) {
+  const startMs = Date.now();
+  const updatePhase = async (phase: string, extra?: Record<string, any>) => {
+    await serviceClient.from("ingestion_jobs").update({
+      phase,
+      elapsed_ms: Date.now() - startMs,
+      ...extra,
+    }).eq("id", jobId);
+  };
+
   try {
     const controller = new AbortController();
     const abortSignal = controller.signal;
@@ -351,6 +360,7 @@ async function runIngestion(
       if (!match) throw new Error("Invalid GitHub repo URL");
       const [, owner, repo] = match;
 
+      await updatePhase("fetch_tree");
       const fetchTreeSpan = trace.startSpan("fetch_tree", { owner, repo });
       let files: string[] = [];
       try {
@@ -411,6 +421,7 @@ async function runIngestion(
         total_chunks: files.length,
       }).eq("id", jobId);
 
+      await updatePhase("fetch_files", { total_chunks: files.length });
       let chunkIdx = 0;
       const PARALLEL_BATCH_SIZE = 5;
 
@@ -452,6 +463,7 @@ async function runIngestion(
         for (const { filepath, fileContent } of fetchResults) {
           if (!fileContent) continue;
 
+          await updatePhase("chunking", { current_file: filepath, current_file_index: i });
           console.log(
             `[INGEST] Chunking file: ${filepath} (${fileContent.length} bytes)`,
           );
@@ -624,6 +636,7 @@ async function runIngestion(
     if (generatedCount > 0) trace.enable();
 
     // Upsert chunks — only include columns that exist in knowledge_chunks table
+    await updatePhase("upsert_chunks");
     const upsertSpan = trace.startSpan("db_upsert_batch", {
       total: allChunks.length,
     });
@@ -671,6 +684,7 @@ async function runIngestion(
     upsertSpan.end({ processed });
 
     // Populate Graph Tables
+    await updatePhase("build_symbol_graph");
     const graphSpan = trace.startSpan("populate_graph", {
       total_chunks: allChunks.length,
     });
@@ -798,6 +812,7 @@ async function runIngestion(
     }).eq("id", source_id);
 
     // Atomic Swap
+    await updatePhase("atomic_swap");
     await serviceClient.from("pack_active_generation").upsert({
       org_id,
       pack_id,
@@ -819,6 +834,7 @@ async function runIngestion(
       ).length,
     };
 
+    await updatePhase("completed");
     await updateHeartbeat(serviceClient, jobId, {
       status: "completed",
       processed_chunks: allChunks.length,

@@ -1081,10 +1081,14 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          current_file: string | null
+          current_file_index: number | null
+          elapsed_ms: number | null
           error_message: string | null
           id: string
           last_heartbeat_at: string | null
           pack_id: string
+          phase: string | null
           processed_chunks: number | null
           retry_count: number
           source_id: string | null
@@ -1095,10 +1099,14 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          current_file?: string | null
+          current_file_index?: number | null
+          elapsed_ms?: number | null
           error_message?: string | null
           id?: string
           last_heartbeat_at?: string | null
           pack_id: string
+          phase?: string | null
           processed_chunks?: number | null
           retry_count?: number
           source_id?: string | null
@@ -1109,10 +1117,14 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          current_file?: string | null
+          current_file_index?: number | null
+          elapsed_ms?: number | null
           error_message?: string | null
           id?: string
           last_heartbeat_at?: string | null
           pack_id?: string
+          phase?: string | null
           processed_chunks?: number | null
           retry_count?: number
           source_id?: string | null
