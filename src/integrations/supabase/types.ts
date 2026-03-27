@@ -2652,6 +2652,105 @@ export type Database = {
           },
         ]
       }
+      symbol_definitions: {
+        Row: {
+          chunk_id: string
+          created_at: string | null
+          line_end: number | null
+          line_start: number | null
+          pack_id: string
+          path: string
+          source_id: string
+          symbol: string
+        }
+        Insert: {
+          chunk_id: string
+          created_at?: string | null
+          line_end?: number | null
+          line_start?: number | null
+          pack_id: string
+          path: string
+          source_id: string
+          symbol: string
+        }
+        Update: {
+          chunk_id?: string
+          created_at?: string | null
+          line_end?: number | null
+          line_start?: number | null
+          pack_id?: string
+          path?: string
+          source_id?: string
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "symbol_definitions_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symbol_definitions_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      symbol_references: {
+        Row: {
+          confidence: number | null
+          created_at: string | null
+          from_chunk_id: string
+          from_line_end: number | null
+          from_line_start: number | null
+          from_path: string
+          pack_id: string
+          source_id: string
+          symbol: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string | null
+          from_chunk_id: string
+          from_line_end?: number | null
+          from_line_start?: number | null
+          from_path: string
+          pack_id: string
+          source_id: string
+          symbol: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string | null
+          from_chunk_id?: string
+          from_line_end?: number | null
+          from_line_start?: number | null
+          from_path?: string
+          pack_id?: string
+          source_id?: string
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "symbol_references_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symbol_references_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           areas_of_expertise: string[] | null
