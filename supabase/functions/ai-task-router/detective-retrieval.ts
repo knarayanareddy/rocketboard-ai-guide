@@ -109,9 +109,9 @@ export async function runDetectiveRetrieval(
       symbolsExtractedCount = symbols.length;
 
       if (symbols.length > 0) {
-        // Budget Guard: Skip KG expansion if we are running low on time
-        if (Date.now() - startTime > options.maxTimeMs - KG_MAX_TIME_MS) {
-          console.warn("[Detective] Skipping KG expansion due to time budget");
+        // Budget Guard: Skip KG expansion if we have already exceeded the KG time limit
+        if (Date.now() - startTime > KG_MAX_TIME_MS) {
+          console.warn("[Detective] Skipping KG expansion due to elapsed time limit");
         } else {
           kgAttempted = true;
           const { data: kgSpans, error: kgError } = await supabase.rpc("kg_expand_v1", {

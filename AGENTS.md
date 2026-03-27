@@ -173,7 +173,7 @@ RocketBoard enforces two canonical formats for stable chunk identifiers. All ing
 
 **Safety & Budget (required):**
 - KG expansion must respect the `KG_MAX_TIME_MS` budget.
-- If the remaining time budget is less than `KG_MAX_TIME_MS` before the expansion starts, the attempt must be skipped to avoid overall request timeout.
+- If the elapsed time from retrieval start exceeds `KG_MAX_TIME_MS` before the expansion starts, the attempt must be skipped.
 
 ---
 
