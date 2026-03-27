@@ -215,19 +215,28 @@ function parseCodeowners(
   return rules;
 }
 
-async function fetchWithTimeout(
+async function fetchTextWithTimeout(
   url: string,
   options: RequestInit & { timeout?: number } = {},
-) {
-  const { timeout = 30000 } = options;
+): Promise<string> {
+  const { timeout = 30000, ...fetchOptions } = options;
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
+
   try {
     const response = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal,
     });
-    return response;
+    if (!response.ok) return "";
+    return await response.text();
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      console.warn(`[FETCH] Timeout reading ${url} after ${timeout}ms`);
+    } else {
+      console.error(`[FETCH] Error reading ${url}:`, err.message);
+    }
+    return "";
   } finally {
     clearTimeout(id);
   }
@@ -243,21 +252,25 @@ async function fetchGitHubTree(
   };
   if (token) headers.Authorization = `token ${token}`;
 
-  const resp = await fetchWithTimeout(
-    `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`,
-    { headers, timeout: 60000 },
-  );
-  if (!resp.ok) {
-    const err = await resp.text();
-    if (resp.status === 403) {
-      throw new Error(`GitHub API Rate Limit / Forbidden (403). Verify token.`);
+  const timeout = 60000;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`;
+    const resp = await fetch(url, { headers, signal: controller.signal });
+    if (!resp.ok) {
+      const err = await resp.text();
+      if (resp.status === 403) throw new Error("GitHub Rate Limit");
+      throw new Error(`GitHub Error: ${resp.status}`);
     }
-    throw new Error(`GitHub API error: ${resp.status} ${err}`);
+    const data = await resp.json();
+    return (data.tree || [])
+      .filter((item: any) => item.type === "blob" && isSupported(item.path))
+      .map((item: any) => item.path);
+  } finally {
+    clearTimeout(id);
   }
-  const data = await resp.json();
-  return (data.tree || [])
-    .filter((item: any) => item.type === "blob" && isSupported(item.path))
-    .map((item: any) => item.path);
 }
 
 async function fetchGitHubFile(
@@ -271,12 +284,10 @@ async function fetchGitHubFile(
   };
   if (token) headers.Authorization = `token ${token}`;
 
-  const resp = await fetchWithTimeout(
+  return await fetchTextWithTimeout(
     `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
     { headers, timeout: 30000 },
   );
-  if (!resp.ok) return "";
-  return await resp.text();
 }
 
 async function runIngestion(
