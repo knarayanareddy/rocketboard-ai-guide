@@ -1,6 +1,7 @@
 const AST_CHUNKING_ENABLED = Deno.env.get("ENABLE_AST_CHUNKING") !== "false";
 
 let Parser: any = null;
+let sharedParser: any = null;
 let parserLoadAttempted = false;
 
 const WASM_SHA256: Record<string, string> = {
@@ -115,6 +116,7 @@ async function initParser() {
   }
 
   isParserInitialized = true;
+  sharedParser = new (Parser as any)();
   return true;
 }
 
@@ -281,25 +283,39 @@ function extractOrphanCode(root: any, code: string, astChunks: ASTChunk[]): ASTC
   const orphans: ASTChunk[] = [];
   const sortedChunks = [...astChunks].sort((a, b) => a.metadata.line_start - b.metadata.line_start);
 
+  // Pre-calculate line offsets for O(1) lookup
+  const lineOffsets = [0];
+  let lastIdx = 0;
+  while ((lastIdx = code.indexOf("\n", lastIdx) + 1) > 0) {
+    lineOffsets.push(lastIdx);
+  }
+
   let currentPos = 0;
+  let currentLine = 1;
+
   for (const chunk of sortedChunks) {
-    const chunkStart = code.split("\n").slice(0, chunk.metadata.line_start - 1).join("\n").length;
-    if (chunkStart > currentPos + 50) {
+    const lineIndex = chunk.metadata.line_start - 1;
+    const chunkStart = lineIndex < lineOffsets.length ? lineOffsets[lineIndex] : code.length;
+
+    if (chunkStart > currentPos + 10) {
       const text = code.slice(currentPos, chunkStart).trim();
-      if (text.length > 20) {
+      if (text.length > 5) {
         orphans.push({
           text,
           metadata: {
             entity_type: "orphan_code",
             entity_name: "file_scope",
-            signature: text.split("\n")[0],
-            line_start: code.slice(0, currentPos).split("\n").length,
+            signature: text.split("\n")[0].slice(0, 100),
+            line_start: currentLine,
             line_end: chunk.metadata.line_start - 1,
           },
         });
       }
     }
-    currentPos = code.split("\n").slice(0, chunk.metadata.line_end).join("\n").length;
+    // Update currentLine to the line after this chunk
+    currentLine = chunk.metadata.line_end + 1;
+    const endLineIndex = chunk.metadata.line_end;
+    currentPos = endLineIndex < lineOffsets.length ? lineOffsets[endLineIndex] : code.length;
   }
 
   if (currentPos < code.length - 20) {
@@ -310,9 +326,9 @@ function extractOrphanCode(root: any, code: string, astChunks: ASTChunk[]): ASTC
         metadata: {
           entity_type: "orphan_code",
           entity_name: "file_scope",
-          signature: text.split("\n")[0],
-          line_start: code.slice(0, currentPos).split("\n").length,
-          line_end: code.split("\n").length,
+          signature: text.split("\n")[0].slice(0, 100),
+          line_start: currentLine,
+          line_end: lineOffsets.length,
         },
       });
     }
@@ -362,6 +378,10 @@ export async function astChunk(
   try {
     return await Promise.race([
       (async () => {
+        if (code.length > 500000) {
+          console.warn(`[AST] File ${filepath} is too large (${code.length} bytes), falling back to text chunking.`);
+          return fallbackTextChunks(code, filepath);
+        }
         if (!(await initParser())) return fallbackTextChunks(code, filepath);
 
         const ext = filepath.split(".").pop() || "";
@@ -375,10 +395,9 @@ export async function astChunk(
         const grammar = await getLanguage(lang);
         if (!grammar) return fallbackTextChunks(code, filepath);
 
-        const parser = new (Parser as any)();
         try {
-          parser.setLanguage(grammar);
-          const tree = parser.parse(code);
+          sharedParser.setLanguage(grammar);
+          const tree = sharedParser.parse(code);
           const imports = extractImports(tree, lang);
           const exports = extractExportedNames(tree, lang);
 
@@ -400,8 +419,9 @@ export async function astChunk(
               };
             });
           });
-        } finally {
-          parser.delete();
+        } catch (e) {
+          console.error(`[AST] Parse error for ${filepath}:`, (e as Error).message);
+          return fallbackTextChunks(code, filepath);
         }
       })(),
       timeoutPromise,

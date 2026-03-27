@@ -66,6 +66,7 @@ import {
   Trash2,
   Clock,
   Loader2,
+  AlertTriangle,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
@@ -957,9 +958,23 @@ export default function SourcesPage() {
                         {getSourceTypeIcon(source.source_type)}
                       </div>
                       <div>
-                        <h3 className="font-medium text-foreground text-sm">
-                          {source.label || source.source_uri}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-foreground text-sm">
+                            {source.label || source.source_uri}
+                          </h3>
+                          {jobs.some(j => j.source_id === source.id && (j.status === 'processing' || j.status === 'pending')) && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium border border-primary/20">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              Syncing
+                            </span>
+                          )}
+                          {jobs.some(j => j.source_id === source.id && j.status === 'failed' && (!source.last_synced_at || new Date(j.created_at) > new Date(source.last_synced_at))) && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-[10px] font-medium border border-destructive/20">
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              Failed
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {getSourceTypeLabel(source.source_type)}
                           {source.source_type === "github_repo" && ` • ${source.source_uri}`}

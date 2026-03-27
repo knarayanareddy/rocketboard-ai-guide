@@ -126,8 +126,38 @@ export function useIngestion(sourceId?: string) {
     },
   });
 
+  const resetStuckJobs = useMutation({
+    mutationFn: async ({ sourceId }: { sourceId: string }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-stuck-jobs`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            pack_id: currentPackId,
+            source_id: sourceId,
+          }),
+        }
+      );
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: "Reset failed" }));
+        throw new Error(err.error || "Reset failed");
+      }
+      return resp.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ingestion_jobs", currentPackId] });
+    },
+  });
+
   const latestJob = jobs[0] ?? null;
   const hasActiveJob = jobs.some((j) => j.status === "pending" || j.status === "processing");
 
-  return { jobs, isLoading, triggerIngestion, cancelIngestion, deleteJob, latestJob, hasActiveJob };
+  return { jobs, isLoading, triggerIngestion, cancelIngestion, deleteJob, resetStuckJobs, latestJob, hasActiveJob };
 }
