@@ -62,7 +62,7 @@ Prioritize snippets that show definitions, implementations, or specific configur
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-1.5-flash",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

@@ -1114,10 +1114,7 @@ async function buildSectionIndex(
 ): Promise<string> {
   if (!packId) return "";
   try {
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const sb = createServiceClient();
     let q = sb
       .from("generated_modules")
       .select("module_key, module_data")
