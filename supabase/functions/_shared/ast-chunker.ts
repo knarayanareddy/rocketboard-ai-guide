@@ -79,9 +79,10 @@ async function initParser() {
 
   try {
     // Explicitly point to the core WASM file to prevent runtime crashes
-    const coreWasmUrl = "https://esm.sh/web-tree-sitter@0.20.8/tree-sitter.wasm";
+    const coreWasmUrl =
+      "https://esm.sh/web-tree-sitter@0.20.8/tree-sitter.wasm";
     console.log(`[AST] Initializing parser with ${coreWasmUrl}`);
-    
+
     await parserModule.init({
       locateFile(scriptName: string, _scriptDirectory: string) {
         if (scriptName === "tree-sitter.wasm") return coreWasmUrl;

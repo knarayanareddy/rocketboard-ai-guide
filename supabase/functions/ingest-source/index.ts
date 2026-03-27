@@ -412,8 +412,12 @@ async function runIngestion(
         }
 
         const batchFiles = files.slice(i, i + PARALLEL_BATCH_SIZE);
-        console.log(`[INGEST] Processing batch ${i/PARALLEL_BATCH_SIZE + 1}: ${batchFiles.join(', ')}`);
-        
+        console.log(
+          `[INGEST] Processing batch ${i / PARALLEL_BATCH_SIZE + 1}: ${
+            batchFiles.join(", ")
+          }`,
+        );
+
         const fetchResults = await Promise.all(
           batchFiles.map(async (filepath) => {
             try {
@@ -434,9 +438,13 @@ async function runIngestion(
         for (const { filepath, fileContent } of fetchResults) {
           if (!fileContent) continue;
 
-          console.log(`[INGEST] Chunking file: ${filepath} (${fileContent.length} bytes)`);
+          console.log(
+            `[INGEST] Chunking file: ${filepath} (${fileContent.length} bytes)`,
+          );
           const chunks = await astChunk(fileContent, filepath);
-          console.log(`[INGEST] Produced ${chunks.length} chunks for ${filepath}`);
+          console.log(
+            `[INGEST] Produced ${chunks.length} chunks for ${filepath}`,
+          );
           const sourceUrl =
             `https://github.com/${owner}/${repoName}/blob/main/${filepath}`;
           const setupMeta = getSetupMetadata(filepath);
@@ -500,7 +508,7 @@ async function runIngestion(
         hbStatus = await updateHeartbeat(serviceClient, jobId, {
           processed_chunks: Math.min(i + batchFiles.length, files.length),
         });
-        
+
         if (hbStatus && hbStatus !== "processing") {
           console.log(
             `[CANCEL] Job ${jobId} status is ${hbStatus}, aborting ingestion.`,

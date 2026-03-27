@@ -177,11 +177,14 @@ Deno.serve(async (req) => {
     // 1. Resolve row UUIDs back to stable TEXT identifiers (chunk_id) and source_id conditionally
     // We only perform this follow-up query if the search RPC returned rows missing stable identifiers,
     // which happens on older migrations or specific RPC variants.
-    const chunksToResolve = (chunks || []).filter((c: any) => 
+    const chunksToResolve = (chunks || []).filter((c: any) =>
       !c.chunk_id || !c.source_id || !c.path
     );
     const idsToResolve = chunksToResolve.map((c: any) => c.id).filter(Boolean);
-    const idToStableMap = new Map<string, { chunk_id: string; source_id: string; path: string }>();
+    const idToStableMap = new Map<
+      string,
+      { chunk_id: string; source_id: string; path: string }
+    >();
 
     let resolve_query_ran = false;
     let resolve_ids_count = 0;
@@ -189,7 +192,7 @@ Deno.serve(async (req) => {
     if (idsToResolve.length > 0) {
       resolve_query_ran = true;
       resolve_ids_count = idsToResolve.length;
-      
+
       const { data: resolved, error: resolveErr } = await adminClient
         .from("knowledge_chunks")
         .select("id, chunk_id, source_id, path")
@@ -197,7 +200,10 @@ Deno.serve(async (req) => {
         .eq("pack_id", pack_id);
 
       if (resolveErr) {
-        console.error("[RETRIEVAL:Resolve] Failed to resolve stable identifiers:", resolveErr);
+        console.error(
+          "[RETRIEVAL:Resolve] Failed to resolve stable identifiers:",
+          resolveErr,
+        );
       } else {
         for (const row of (resolved || [])) {
           idToStableMap.set(row.id, {
@@ -223,7 +229,7 @@ Deno.serve(async (req) => {
         .from("pack_sources")
         .select("id, short_slug")
         .in("id", Array.from(allSourceIds));
-      
+
       for (const s of (sources || [])) {
         slugMap.set(s.id, s.short_slug);
       }
@@ -234,14 +240,18 @@ Deno.serve(async (req) => {
       const sourceId = chunk.source_id || resolved?.source_id;
       const slug = slugMap.get(sourceId);
       const filePath = chunk.path || resolved?.path;
-      const displayPath = slug && slug.trim() ? `${slug}/${filePath}` : filePath;
-      
+      const displayPath = slug && slug.trim()
+        ? `${slug}/${filePath}`
+        : filePath;
+
       const stableChunkId = chunk.chunk_id || resolved?.chunk_id || null;
       const chunkRef = stableChunkId || chunk.id;
       const chunkRefKind = stableChunkId ? "stable" : "uuid_fallback";
 
       if (chunkRefKind === "uuid_fallback") {
-        console.warn(`[RETRIEVAL] Warning: Failed to resolve stable chunk_id for UUID ${chunk.id}. Falling back.`);
+        console.warn(
+          `[RETRIEVAL] Warning: Failed to resolve stable chunk_id for UUID ${chunk.id}. Falling back.`,
+        );
       }
 
       return {
