@@ -35,6 +35,11 @@ function isSupported(filepath: string): boolean {
   return SUPPORTED_EXTENSIONS.has(ext);
 }
 
+function getErrorMessage(err: any): string {
+  const msg = (err?.message ? String(err.message) : JSON.stringify(err) || String(err));
+  return msg.slice(0, 500);
+}
+
 function chunkWords(text: string, wordCount = 500): { start: number; end: number; text: string }[] {
   const words = text.split(/\s+/);
   const chunks: { start: number; end: number; text: string }[] = [];
@@ -117,11 +122,12 @@ async function initializeIngestion(
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
       console.log(`[CONTROLLER] Initialized state for job ${jobId}. Triggering worker...`);
-      fetch(workerUrl, {
+      const resp = await fetch(workerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
         body: JSON.stringify({ jobId }),
-      }).catch(e => console.error("[CONTROLLER] Failed to trigger worker:", e));
+      });
+      if (!resp.ok) throw new Error(`Failed to trigger worker: ${resp.status}`);
 
     } else if (source_type === "document") {
       await updateHeartbeat(serviceClient, jobId, { phase: "chunking" });
@@ -148,15 +154,20 @@ async function initializeIngestion(
         job_id: jobId, pack_id, source_id, files_json: [], cursor: 0, chunk_idx: docChunks.length
       });
 
-      fetch(symbolGraphUrl, {
+      const resp = await fetch(symbolGraphUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
         body: JSON.stringify({ jobId }),
-      }).catch(e => console.error("[CONTROLLER] Failed to trigger symbol graph:", e));
+      });
+      if (!resp.ok) throw new Error(`Failed to trigger symbol graph: ${resp.status}`);
     }
   } catch (err: any) {
     console.error("[CONTROLLER] Initialization failed:", err);
-    await serviceClient.from("ingestion_jobs").update({ status: "failed", completed_at: new Date().toISOString(), error_message: err.message.slice(0, 500) }).eq("id", jobId);
+    await serviceClient.from("ingestion_jobs").update({ 
+      status: "failed", 
+      completed_at: new Date().toISOString(), 
+      error_message: getErrorMessage(err) 
+    }).eq("id", jobId);
   }
 }
 

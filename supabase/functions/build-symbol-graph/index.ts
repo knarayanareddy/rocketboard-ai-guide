@@ -22,7 +22,7 @@ async function runSymbolBatch(serviceClient: any, jobId: string, functionUrl: st
   // Update phase to build_symbol_graph
   await serviceClient.from("ingestion_jobs").update({ 
     phase: "build_symbol_graph",
-    elapsed_ms: Date.now() - state.created_at.getTime() 
+    elapsed_ms: state.created_at ? (Date.now() - new Date(state.created_at).getTime()) : 0
   }).eq("id", jobId);
 
   // 2. Fetch chunks in batch
