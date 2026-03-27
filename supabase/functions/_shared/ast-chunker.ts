@@ -78,7 +78,16 @@ async function initParser() {
   if (!parserModule) return false;
 
   try {
-    await parserModule.init();
+    // Explicitly point to the core WASM file to prevent runtime crashes
+    const coreWasmUrl = "https://esm.sh/web-tree-sitter@0.20.8/tree-sitter.wasm";
+    console.log(`[AST] Initializing parser with ${coreWasmUrl}`);
+    
+    await parserModule.init({
+      locateFile(scriptName: string, _scriptDirectory: string) {
+        if (scriptName === "tree-sitter.wasm") return coreWasmUrl;
+        return scriptName;
+      },
+    });
   } catch (e) {
     console.warn(
       "[ast-chunker] parser init failed, falling back to text chunking:",
@@ -108,10 +117,16 @@ async function getLanguage(lang: string) {
     try {
       // Use import.meta.url to find relative path in Deno
       const localUrl = new URL(`./wasm/${wasmFilename}`, import.meta.url);
-      const localRes = await fetch(localUrl);
-      if (localRes.ok) {
-        console.log(`[AST] Loading local grammar for ${langKey}`);
-        buffer = await localRes.arrayBuffer();
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 2000); // 2s timeout for local
+      try {
+        const localRes = await fetch(localUrl, { signal: controller.signal });
+        if (localRes.ok) {
+          console.log(`[AST] Loading local grammar for ${langKey}`);
+          buffer = await localRes.arrayBuffer();
+        }
+      } finally {
+        clearTimeout(id);
       }
     } catch (localErr) {
       // Fallback to remote if local fails or isn't found
@@ -123,13 +138,19 @@ async function getLanguage(lang: string) {
         "https://esm.sh/tree-sitter-wasms@0.1.11/out";
       const remoteUrl = `${baseUrl.replace(/\/$/, "")}/${wasmFilename}`;
 
-      const res = await fetch(remoteUrl);
-      if (!res.ok) {
-        throw new Error(
-          `Failed to fetch grammar for ${langKey} from ${remoteUrl}`,
-        );
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 15000); // 15s timeout for remote
+      try {
+        const res = await fetch(remoteUrl, { signal: controller.signal });
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch grammar for ${langKey} from ${remoteUrl}`,
+          );
+        }
+        buffer = await res.arrayBuffer();
+      } finally {
+        clearTimeout(id);
       }
-      buffer = await res.arrayBuffer();
     }
 
     // 3. Integrity Verification (Option B)
@@ -374,7 +395,9 @@ function splitOversizedChunk(chunk: ASTChunk, maxLines = 100): ASTChunk[] {
 export async function astChunk(
   code: string,
   filepath: string,
+  options: { signal?: AbortSignal } = {},
 ): Promise<ASTChunk[]> {
+  if (options.signal?.aborted) throw new Error("AbortError");
   if (!(await initParser())) {
     return fallbackTextChunks(code, filepath);
   }
