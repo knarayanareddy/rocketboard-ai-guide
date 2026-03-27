@@ -27,7 +27,7 @@ import {
 } from "../_shared/external-url-policy.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
-import { sharedRedactText } from "../_shared/secret-patterns.ts";
+import { redactText as sharedRedactText } from "../_shared/secret-patterns.ts";
 
 const ALLOWED_ORIGINS = parseAllowedOrigins();
 
