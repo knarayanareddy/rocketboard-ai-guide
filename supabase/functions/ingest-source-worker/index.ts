@@ -122,7 +122,6 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
         source_id: job.source_id,
         org_id: pack.org_id,
         generation_id: jobId,
-        ingestion_job_id: jobId,
         chunk_id: `C${String(globalIdx + 1).padStart(5, "0")}_${j}`,
         path: `repo:${owner}/${repoName}/${filepath}`,
         start_line: chunk.metadata.line_start,
