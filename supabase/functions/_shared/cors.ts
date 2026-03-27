@@ -54,6 +54,9 @@ export function buildCorsHeaders(req: Request, allowedOrigins: string[]) {
   if (rawOrigin) {
     if (origin && allowedOrigins.includes(origin)) {
       headers["Access-Control-Allow-Origin"] = rawOrigin;
+    } else if (origin && isLovableOrigin(origin)) {
+      // Always allow Lovable platform origins
+      headers["Access-Control-Allow-Origin"] = rawOrigin;
     } else if (!isStrict && origin && isLocalOrigin(origin)) {
       // Automatically allow local origins in non-strict mode
       headers["Access-Control-Allow-Origin"] = rawOrigin;
