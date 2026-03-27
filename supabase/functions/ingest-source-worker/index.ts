@@ -71,9 +71,10 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
   }
 
   // Update phase to processing
+  const createdMs = state.created_at ? new Date(state.created_at).getTime() : Date.now();
   await serviceClient.from("ingestion_jobs").update({ 
     phase: "fetch_files",
-    elapsed_ms: Date.now() - state.created_at.getTime() 
+    elapsed_ms: Date.now() - createdMs 
   }).eq("id", jobId);
 
   const files = state.files_json;
@@ -121,7 +122,6 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
         source_id: job.source_id,
         org_id: pack.org_id,
         generation_id: jobId,
-        ingestion_job_id: jobId,
         chunk_id: `C${String(globalIdx + 1).padStart(5, "0")}_${j}`,
         path: `repo:${owner}/${repoName}/${filepath}`,
         start_line: chunk.metadata.line_start,
@@ -173,8 +173,8 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
     // Phase 2: Build Symbol Graph
     console.log(`[WORKER] Ingestion complete for job ${jobId}. Triggering symbol graph builder.`);
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const { origin } = new URL(functionUrl);
-    const symbolGraphUrl = `${origin}/functions/v1/build-symbol-graph`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const symbolGraphUrl = `${supabaseUrl}/functions/v1/build-symbol-graph`;
     
     fetch(symbolGraphUrl, {
       method: "POST",
@@ -195,8 +195,8 @@ Deno.serve(async (req) => {
     const effectiveJobId = jobId || job_id;
     const serviceClient = createServiceClient();
     
-    const { origin } = new URL(req.url);
-    const functionUrl = `${origin}/functions/v1/ingest-source-worker`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const functionUrl = `${supabaseUrl}/functions/v1/ingest-source-worker`;
 
     const task = runBatch(serviceClient, effectiveJobId, functionUrl);
     

@@ -118,7 +118,7 @@ async function initializeIngestion(
       if (stateErr) throw stateErr;
 
       // Trigger worker
-      const workerUrl = functionUrl.replace("/ingest-source", "/ingest-source-worker");
+      const workerUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/ingest-source-worker`;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
       console.log(`[CONTROLLER] Initialized state for job ${jobId}. Triggering worker...`);
@@ -146,7 +146,7 @@ async function initializeIngestion(
       if (upsertErr) throw upsertErr;
 
       // Trigger symbol graph worker for consistency
-      const symbolGraphUrl = functionUrl.replace("/ingest-source", "/build-symbol-graph");
+      const symbolGraphUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/build-symbol-graph`;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
       // Initialize an empty state row so symbol worker can find it (though it won't use files_json)
@@ -193,8 +193,8 @@ Deno.serve(async (req) => {
     if (jobErr) throw jobErr;
     const jobId = job.id;
 
-    const { origin } = new URL(req.url);
-    const functionUrl = `${origin}/functions/v1/ingest-source`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const functionUrl = `${supabaseUrl}/functions/v1/ingest-source`;
 
     const trace = createTrace({
       serviceName: "ingest-source",
