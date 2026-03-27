@@ -582,6 +582,7 @@ async function callAI(
         "cohere.ai",
         "groq.com",
         "perplexity.ai",
+        "ai.gateway.lovable.dev",
       ],
       disallowPrivateIPs: true,
       allowHttps: true,

@@ -47,14 +47,14 @@ Prioritize snippets that show definitions, implementations, or specific configur
     JSON.stringify(spansJson, null, 2)
   }`;
 
-  const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
-    allowAnyHost: false,
-    allowedHostSuffixes: ["ai.gateway.lovable.dev"],
-    allowHttps: true,
-    disallowPrivateIPs: true,
-  });
-
   try {
+    const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
+      allowAnyHost: false,
+      allowedHostSuffixes: ["ai.gateway.lovable.dev"],
+      allowHttps: true,
+      disallowPrivateIPs: true,
+    });
+
     const res = await fetch(validatedEndpoint, {
       method: "POST",
       headers: {
