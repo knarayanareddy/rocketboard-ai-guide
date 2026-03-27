@@ -146,7 +146,7 @@ async function initializeIngestion(
       if (upsertErr) throw upsertErr;
 
       // Trigger symbol graph worker for consistency
-      const symbolGraphUrl = functionUrl.replace("/ingest-source", "/build-symbol-graph");
+      const symbolGraphUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/build-symbol-graph`;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
       // Initialize an empty state row so symbol worker can find it (though it won't use files_json)
