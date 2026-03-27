@@ -304,7 +304,6 @@ async function runIngestion(
   module_key: string | null,
   track_key: string | null,
   trace: any,
-  githubToken: string | undefined,
 ) {
   try {
     const controller = new AbortController();
@@ -328,6 +327,7 @@ async function runIngestion(
     }[] = [];
     let totalRedactions = 0;
 
+    let githubToken: string | undefined = undefined;
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") ||
       Deno.env.get("LOVABLE_API_KEY") || "";
 
@@ -990,7 +990,6 @@ Deno.serve(async (req) => {
       return json(200, result, corsHeaders);
     }
 
-    // 6. Create ingestion job
     const { data: job, error: jobErr } = await serviceClient
       .from("ingestion_jobs")
       .insert({
@@ -1000,12 +999,22 @@ Deno.serve(async (req) => {
         started_at: new Date().toISOString(),
         retry_count: guard.retry_count || 0,
       })
-      .select()
+      .select("id")
       .single();
-    if (jobErr) throw jobErr;
 
-    const jobId = job?.id;
-    if (!jobId) throw new Error("Failed to create ingestion job");
+    if (jobErr || !job?.id) {
+      console.error("[INGESTION] Created job failed", jobErr);
+      return jsonError(
+        500,
+        "ingestion_job_create_failed",
+        `Failed to initialize job: ${jobErr?.message}`,
+        {},
+        corsHeaders,
+      );
+    }
+
+    const jobId = job.id;
+    console.log("[INGESTION] created job", jobId);
 
     // 7. Initialize Trace
     const trace = createTrace({
@@ -1020,33 +1029,44 @@ Deno.serve(async (req) => {
 
     trace.updateMetadata({ jobId });
 
-    // 8. Offload heavy work to background via EdgeRuntime.waitUntil()
-    // @ts-ignore EdgeRuntime is a Supabase-specific global
-    EdgeRuntime.waitUntil(
-      runIngestion(
-        serviceClient,
-        jobId,
-        pack_id,
-        source_id,
-        source_type,
-        source_uri,
-        document_content,
-        label,
-        source_config,
-        org_id,
-        module_key || null,
-        track_key || null,
-        trace,
-        undefined,
-      ),
+    console.log("[INGESTION] scheduling background ingestion", {
+      jobId,
+      source_type,
+    });
+
+    const task = runIngestion(
+      serviceClient,
+      jobId,
+      pack_id,
+      source_id,
+      source_type,
+      source_uri,
+      document_content,
+      label,
+      source_config,
+      org_id,
+      module_key || null,
+      track_key || null,
+      trace,
     );
 
-    // 9. Return immediately with job ID
-    return json(200, {
+    // Use EdgeRuntime.waitUntil for true background processing on Supabase
+    const runtime = (globalThis as any).EdgeRuntime;
+    if (runtime?.waitUntil) {
+      runtime.waitUntil(task);
+    } else {
+      // Local dev/fallback behavior
+      task.catch((e) =>
+        console.error("[INGESTION] background task error", e.message)
+      );
+    }
+
+    // 9. Return immediately (202 Accepted)
+    return json(202, {
       success: true,
       job_id: jobId,
       status: "processing",
-      message: "Ingestion started in background",
+      message: "Ingestion scheduled",
     }, corsHeaders);
   } catch (err: any) {
     console.error("Ingestion error:", err);
