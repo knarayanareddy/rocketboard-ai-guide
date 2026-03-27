@@ -23,6 +23,21 @@ export function isLocalOrigin(origin: string): boolean {
   }
 }
 
+export function isLovableOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return (
+      url.hostname.endsWith(".lovableproject.com") ||
+      url.hostname.endsWith(".lovable.app") ||
+      url.hostname.endsWith(".lovable.dev") ||
+      url.hostname.endsWith(".id-preview--lovable.app") ||
+      url.hostname === "lovable.app"
+    );
+  } catch (_e) {
+    return false;
+  }
+}
+
 export function buildCorsHeaders(req: Request, allowedOrigins: string[]) {
   const origin = req.headers.get("Origin")?.replace(/\/$/, "");
   const headers: Record<string, string> = {
@@ -38,6 +53,9 @@ export function buildCorsHeaders(req: Request, allowedOrigins: string[]) {
 
   if (rawOrigin) {
     if (origin && allowedOrigins.includes(origin)) {
+      headers["Access-Control-Allow-Origin"] = rawOrigin;
+    } else if (origin && isLovableOrigin(origin)) {
+      // Always allow Lovable platform origins
       headers["Access-Control-Allow-Origin"] = rawOrigin;
     } else if (!isStrict && origin && isLocalOrigin(origin)) {
       // Automatically allow local origins in non-strict mode
