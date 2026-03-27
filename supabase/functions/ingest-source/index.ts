@@ -834,6 +834,7 @@ async function runIngestion(
       ).length,
     };
 
+    await updatePhase("completed");
     await updateHeartbeat(serviceClient, jobId, {
       status: "completed",
       processed_chunks: allChunks.length,
