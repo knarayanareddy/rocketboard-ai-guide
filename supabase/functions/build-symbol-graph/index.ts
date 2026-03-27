@@ -2,27 +2,34 @@
 import { extractSymbols } from "../_shared/symbol-extractor.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requireInternal } from "../_shared/authz.ts";
 import { updateHeartbeat } from "../_shared/ingestion-guards.ts";
 
 const SYMBOL_BATCH_SIZE = 50; // Process 50 chunks for symbols per invocation
 
-async function runSymbolBatch(serviceClient: any, jobId: string, functionUrl: string) {
+async function runSymbolBatch(
+  serviceClient: any,
+  jobId: string,
+  functionUrl: string,
+) {
   // 1. Fetch current state
   const { data: state, error: stateErr } = await serviceClient
     .from("ingestion_job_state")
     .select("*")
     .eq("job_id", jobId)
     .single();
-    
+
   if (stateErr || !state) {
     console.error("[SYMBOL_WORKER] Failed to fetch job state:", stateErr);
     return;
   }
 
   // Update phase to build_symbol_graph
-  await serviceClient.from("ingestion_jobs").update({ 
+  await serviceClient.from("ingestion_jobs").update({
     phase: "build_symbol_graph",
-    elapsed_ms: state.created_at ? (Date.now() - new Date(state.created_at).getTime()) : 0
+    elapsed_ms: state.created_at
+      ? (Date.now() - new Date(state.created_at).getTime())
+      : 0,
   }).eq("id", jobId);
 
   // 2. Fetch chunks in batch
@@ -34,60 +41,77 @@ async function runSymbolBatch(serviceClient: any, jobId: string, functionUrl: st
     .range(state.symbol_cursor, state.symbol_cursor + SYMBOL_BATCH_SIZE - 1);
 
   if (chunksErr) throw chunksErr;
-  
+
   if (!chunks || chunks.length === 0) {
     // Phase 3: Atomic Swap & Complete
-    console.log(`[SYMBOL_WORKER] Symbol building complete for job ${jobId}. Finalizing...`);
-    
-    const { data: job } = await serviceClient.from("ingestion_jobs").select("pack_id, source_id").eq("id", jobId).single();
+    console.log(
+      `[SYMBOL_WORKER] Symbol building complete for job ${jobId}. Finalizing...`,
+    );
+
+    const { data: job } = await serviceClient.from("ingestion_jobs").select(
+      "pack_id, source_id",
+    ).eq("id", jobId).single();
     if (!job) throw new Error("Job not found");
-    const { data: pack } = await serviceClient.from("packs").select("org_id").eq("id", job.pack_id).single();
-    
-    await serviceClient.from("pack_active_generation").upsert({ 
-      org_id: pack.org_id, 
-      pack_id: job.pack_id, 
-      active_generation_id: jobId, 
-      updated_at: new Date().toISOString() 
+    const { data: pack } = await serviceClient.from("packs").select("org_id")
+      .eq("id", job.pack_id).single();
+
+    await serviceClient.from("pack_active_generation").upsert({
+      org_id: pack.org_id,
+      pack_id: job.pack_id,
+      active_generation_id: jobId,
+      updated_at: new Date().toISOString(),
     }, { onConflict: "org_id,pack_id" });
-    
-    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", job.source_id);
-    
-    await serviceClient.from("ingestion_jobs").update({ 
-      phase: "completed", 
-      status: "completed", 
-      completed_at: new Date().toISOString() 
+
+    await serviceClient.from("pack_sources").update({
+      last_synced_at: new Date().toISOString(),
+    }).eq("id", job.source_id);
+
+    await serviceClient.from("ingestion_jobs").update({
+      phase: "completed",
+      status: "completed",
+      completed_at: new Date().toISOString(),
     }).eq("id", jobId);
-    
+
     // Cleanup state
-    await serviceClient.from("ingestion_job_state").delete().eq("job_id", jobId);
+    await serviceClient.from("ingestion_job_state").delete().eq(
+      "job_id",
+      jobId,
+    );
     return;
   }
 
-  console.log(`[SYMBOL_WORKER] Processing symbols for chunks ${state.symbol_cursor} to ${state.symbol_cursor + chunks.length}`);
+  console.log(
+    `[SYMBOL_WORKER] Processing symbols for chunks ${state.symbol_cursor} to ${
+      state.symbol_cursor + chunks.length
+    }`,
+  );
 
   const definitions: any[] = [];
   const references: any[] = [];
 
   for (const chunk of chunks) {
     if (chunk.is_redacted) continue;
-    
+
     // Definitions
-    const symbols = new Set([chunk.entity_name, ...(chunk.exported_names || [])]);
-    symbols.delete("anonymous"); 
-    symbols.delete("file_scope"); 
+    const symbols = new Set([
+      chunk.entity_name,
+      ...(chunk.exported_names || []),
+    ]);
+    symbols.delete("anonymous");
+    symbols.delete("file_scope");
     symbols.delete(undefined);
     symbols.delete(null);
-    
+
     for (const s of symbols) {
       if (!s) continue;
-      definitions.push({ 
-        pack_id: chunk.pack_id, 
-        source_id: chunk.source_id, 
-        symbol: s, 
-        chunk_id: chunk.chunk_id, 
-        path: chunk.path, 
-        line_start: chunk.start_line, 
-        line_end: chunk.end_line 
+      definitions.push({
+        pack_id: chunk.pack_id,
+        source_id: chunk.source_id,
+        symbol: s,
+        chunk_id: chunk.chunk_id,
+        path: chunk.path,
+        line_start: chunk.start_line,
+        line_end: chunk.end_line,
       });
     }
 
@@ -96,65 +120,72 @@ async function runSymbolBatch(serviceClient: any, jobId: string, functionUrl: st
     const refs = extractSymbols(chunk.content, ext);
     for (const r of refs) {
       if (!symbols.has(r)) {
-        references.push({ 
-          pack_id: chunk.pack_id, 
-          source_id: chunk.source_id, 
-          symbol: r, 
-          from_chunk_id: chunk.chunk_id, 
-          from_path: chunk.path, 
-          from_line_start: chunk.start_line, 
-          from_line_end: chunk.end_line, 
-          confidence: 1.0 
+        references.push({
+          pack_id: chunk.pack_id,
+          source_id: chunk.source_id,
+          symbol: r,
+          from_chunk_id: chunk.chunk_id,
+          from_path: chunk.path,
+          from_line_start: chunk.start_line,
+          from_line_end: chunk.end_line,
+          confidence: 1.0,
         });
       }
     }
   }
 
   if (definitions.length > 0) {
-    const { error: defErr } = await serviceClient.from("symbol_definitions").upsert(definitions);
-    if (defErr) console.error("[SYMBOL_WORKER] Definition upsert error:", defErr);
+    const { error: defErr } = await serviceClient.from("symbol_definitions")
+      .upsert(definitions);
+    if (defErr) {
+      console.error("[SYMBOL_WORKER] Definition upsert error:", defErr);
+    }
   }
-  
+
   if (references.length > 0) {
-    const { error: refErr } = await serviceClient.from("symbol_references").upsert(references);
-    if (refErr) console.error("[SYMBOL_WORKER] Reference upsert error:", refErr);
+    const { error: refErr } = await serviceClient.from("symbol_references")
+      .upsert(references);
+    if (refErr) {
+      console.error("[SYMBOL_WORKER] Reference upsert error:", refErr);
+    }
   }
 
   // Update cursor
   const nextCursor = state.symbol_cursor + chunks.length;
   await serviceClient.from("ingestion_job_state").update({
     symbol_cursor: nextCursor,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   }).eq("job_id", jobId);
 
   // Self-schedule next batch
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   fetch(functionUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${serviceKey}`,
+    },
     body: JSON.stringify({ jobId }),
-  }).catch(e => console.error("[SYMBOL_WORKER] Self-scheduling failed:", e));
+  }).catch((e) => console.error("[SYMBOL_WORKER] Self-scheduling failed:", e));
 }
 
 Deno.serve(async (req) => {
-  const authHeader = req.headers.get("Authorization");
-  if (authHeader !== `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const authz = requireInternal(req);
+  if (!authz.success) return authz.response;
 
   try {
-    const { jobId, job_id } = await req.json();
+    const { jobId, job_id } = await readJson(req);
     const effectiveJobId = jobId || job_id;
     const serviceClient = createServiceClient();
-    
+
     const { origin } = new URL(req.url);
     const functionUrl = `${origin}/functions/v1/build-symbol-graph`;
 
     const task = runSymbolBatch(serviceClient, effectiveJobId, functionUrl);
-    
+
     const runtime = (globalThis as any).EdgeRuntime;
     if (runtime?.waitUntil) runtime.waitUntil(task);
-    else task.catch(e => console.error("[SYMBOL_WORKER] Task failed:", e));
+    else task.catch((e) => console.error("[SYMBOL_WORKER] Task failed:", e));
 
     return json(202, { success: true });
   } catch (err: any) {
