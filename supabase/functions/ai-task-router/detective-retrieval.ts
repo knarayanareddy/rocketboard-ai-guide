@@ -101,7 +101,7 @@ export async function runDetectiveRetrieval(
 
   // ─── KG EXPANSION (Step 2 Integration) ───
   if (KG_RETRIEVAL_ENABLED && currentSpans.length > 0) {
-    const kgStart = Date.now();
+    // Note: kgTimeMs now specifically measures RPC latency per Option A
     try {
       const seedIds = currentSpans.map((s) => s.chunk_pk);
       // Extract symbols using existing logic but cap specifically for KG
@@ -121,6 +121,7 @@ export async function runDetectiveRetrieval(
           );
         } else {
           kgAttempted = true;
+          const rpcStart = Date.now();
           const { data: kgSpans, error: kgError } = await supabase.rpc(
             "kg_expand_v1",
             {
@@ -131,6 +132,7 @@ export async function runDetectiveRetrieval(
               p_limit: KG_EXPAND_LIMIT,
             },
           );
+          kgTimeMs = Date.now() - rpcStart;
 
           if (!kgError && kgSpans) {
             const existingChunkPks = new Set(
@@ -171,7 +173,6 @@ export async function runDetectiveRetrieval(
     } catch (e) {
       console.warn("[Detective] KG expansion failed:", e);
     }
-    kgTimeMs = Date.now() - kgStart;
   }
 
   // Hop 1 Loop (currently capped at 1 for v1)

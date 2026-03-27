@@ -167,7 +167,7 @@ RocketBoard enforces two canonical formats for stable chunk identifiers. All ing
 - When skipping, spans must be locally ranked by `(relevance_score) + (relation_type_weight)` where definitions are prioritized.
 
 **Observability (required):**
-- All retrieval attempts must emit `kg_enabled` (bool: attempted) and `kg_time_ms`.
+- All retrieval attempts must emit `kg_enabled` (bool: attempted) and `kg_time_ms` (RPC latency).
 - Successful expansions must record `kg_added_spans`, `kg_definition_hits`, and `kg_reference_hits` in `rag_metrics`.
 - `expanded_chunks_added` must be the sum of all hops (Hop 1 + Hop 2 + KG).
 
