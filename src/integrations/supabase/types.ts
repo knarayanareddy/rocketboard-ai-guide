@@ -1230,12 +1230,19 @@ export type Database = {
           created_at: string
           embedding: string | null
           end_line: number
+          entity_name: string | null
+          entity_type: string | null
+          exported_names: string[] | null
           fts: unknown
+          generation_id: string | null
           id: string
+          imports: string[] | null
           is_redacted: boolean | null
           metadata: Json | null
+          org_id: string | null
           pack_id: string
           path: string
+          signature: string | null
           source_id: string
           start_line: number
         }
@@ -1246,12 +1253,19 @@ export type Database = {
           created_at?: string
           embedding?: string | null
           end_line: number
+          entity_name?: string | null
+          entity_type?: string | null
+          exported_names?: string[] | null
           fts?: unknown
+          generation_id?: string | null
           id?: string
+          imports?: string[] | null
           is_redacted?: boolean | null
           metadata?: Json | null
+          org_id?: string | null
           pack_id: string
           path: string
+          signature?: string | null
           source_id: string
           start_line: number
         }
@@ -1262,12 +1276,19 @@ export type Database = {
           created_at?: string
           embedding?: string | null
           end_line?: number
+          entity_name?: string | null
+          entity_type?: string | null
+          exported_names?: string[] | null
           fts?: unknown
+          generation_id?: string | null
           id?: string
+          imports?: string[] | null
           is_redacted?: boolean | null
           metadata?: Json | null
+          org_id?: string | null
           pack_id?: string
           path?: string
+          signature?: string | null
           source_id?: string
           start_line?: number
         }
@@ -1983,6 +2004,38 @@ export type Database = {
         }
         Relationships: []
       }
+      pack_active_generation: {
+        Row: {
+          active_generation_id: string
+          id: string
+          org_id: string
+          pack_id: string
+          updated_at: string
+        }
+        Insert: {
+          active_generation_id: string
+          id?: string
+          org_id: string
+          pack_id: string
+          updated_at?: string
+        }
+        Update: {
+          active_generation_id?: string
+          id?: string
+          org_id?: string
+          pack_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_active_generation_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pack_generation_limits: {
         Row: {
           id: string
@@ -2427,6 +2480,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "quiz_scores_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_metrics: {
+        Row: {
+          created_at: string
+          detective_enabled: boolean | null
+          expanded_chunks_added: number | null
+          hop0_count: number | null
+          hop1_added: number | null
+          hop2_added: number | null
+          id: string
+          pack_id: string | null
+          query_text: string | null
+          request_id: string | null
+          rerank_kept: number | null
+          symbols_extracted: number | null
+          time_ms: number | null
+          total_spans: number | null
+        }
+        Insert: {
+          created_at?: string
+          detective_enabled?: boolean | null
+          expanded_chunks_added?: number | null
+          hop0_count?: number | null
+          hop1_added?: number | null
+          hop2_added?: number | null
+          id?: string
+          pack_id?: string | null
+          query_text?: string | null
+          request_id?: string | null
+          rerank_kept?: number | null
+          symbols_extracted?: number | null
+          time_ms?: number | null
+          total_spans?: number | null
+        }
+        Update: {
+          created_at?: string
+          detective_enabled?: boolean | null
+          expanded_chunks_added?: number | null
+          hop0_count?: number | null
+          hop1_added?: number | null
+          hop2_added?: number | null
+          id?: string
+          pack_id?: string | null
+          query_text?: string | null
+          request_id?: string | null
+          rerank_kept?: number | null
+          symbols_extracted?: number | null
+          time_ms?: number | null
+          total_spans?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_metrics_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
