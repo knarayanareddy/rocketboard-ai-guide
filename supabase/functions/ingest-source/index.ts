@@ -240,7 +240,7 @@ async function runIngestion(
         fetch(functionUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
-          body: JSON.stringify({ pack_id, source_id, source_type, source_uri, document_content, label, source_config, org_id, module_key, track_key, startIndex: nextIndex, jobId }),
+          body: JSON.stringify({ pack_id, source_id, source_type, source_uri, document_content, label, source_config, module_key, track_key, startIndex: nextIndex, jobId }),
         }).catch(e => console.error("[RECURSE] failed:", e));
         return;
       }
@@ -278,11 +278,30 @@ Deno.serve(async (req) => {
 
   try {
     const body = await readJson(req, corsHeaders);
-    const { pack_id, source_id, source_type, source_uri, document_content, label, source_config, org_id, module_key, track_key, startIndex = 0, jobId: existingJobId } = body;
+    const { pack_id, source_id, source_type, source_uri, document_content, label, source_config, module_key, track_key, startIndex = 0, jobId: existingJobId } = body;
 
     const { userId } = await requireUser(req, corsHeaders);
     const serviceClient = createServiceClient();
     await requirePackRole(serviceClient, pack_id, userId, "author", corsHeaders);
+
+    // Derive org_id from the database
+    const { data: packRow, error: packErr } = await serviceClient
+      .from("packs")
+      .select("org_id")
+      .eq("id", pack_id)
+      .single();
+
+    if (packErr || !packRow?.org_id) {
+      console.error("[INGESTION] Failed to resolve org_id for pack", pack_id, packErr);
+      return jsonError(
+        400,
+        "org_id_lookup_failed",
+        `Failed to resolve organization for pack: ${packErr?.message || "Missing org_id"}`,
+        {},
+        corsHeaders,
+      );
+    }
+    const effectiveOrgId = packRow.org_id;
 
     let jobId = existingJobId;
     if (!jobId) {
@@ -294,7 +313,20 @@ Deno.serve(async (req) => {
     const { origin } = new URL(req.url);
     const functionUrl = `${origin}/functions/v1/ingest-source`;
 
-    const task = runIngestion(serviceClient, jobId, pack_id, source_id, source_type, source_uri, document_content, label, source_config, org_id, module_key, track_key, null, functionUrl, startIndex);
+    // 7. Initialize Trace
+    const trace = createTrace({
+      serviceName: "ingest-source",
+      taskType: "ingestion",
+      requestId: crypto.randomUUID(),
+      packId: pack_id,
+      sourceId: source_id,
+      orgId: effectiveOrgId,
+      environment: Deno.env.get("ENVIRONMENT") || "production",
+    }, { enabled: shouldTrace() });
+
+    trace.updateMetadata({ jobId });
+
+    const task = runIngestion(serviceClient, jobId, pack_id, source_id, source_type, source_uri, document_content, label, source_config, effectiveOrgId, module_key, track_key, trace, functionUrl, startIndex);
 
     const runtime = (globalThis as any).EdgeRuntime;
     if (runtime?.waitUntil) runtime.waitUntil(task);
