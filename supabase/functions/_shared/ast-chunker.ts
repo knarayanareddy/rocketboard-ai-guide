@@ -154,7 +154,9 @@ async function getLanguage(lang: string) {
       const id = setTimeout(() => controller.abort(), 15000);
       try {
         const res = await fetch(remoteUrl, { signal: controller.signal });
-        if (!res.ok) throw new Error(`Failed to fetch grammar from ${remoteUrl}`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch grammar from ${remoteUrl}`);
+        }
         buffer = await res.arrayBuffer();
       } finally {
         clearTimeout(id);
@@ -173,7 +175,10 @@ async function getLanguage(lang: string) {
     languageCache.set(langKey, language);
     return language;
   } catch (e) {
-    console.error(`[AST] Grammar load failed for ${lang}:`, (e as Error).message);
+    console.error(
+      `[AST] Grammar load failed for ${lang}:`,
+      (e as Error).message,
+    );
     return null;
   }
 }
@@ -266,7 +271,9 @@ function walkAST(node: any, code: string, chunks: ASTChunk[], lang: string) {
       metadata: {
         entity_type: node.type,
         entity_name: nameNode?.text || "anonymous",
-        signature: code.slice(node.startIndex, nameNode?.endIndex || node.endIndex).split("\n")[0],
+        signature:
+          code.slice(node.startIndex, nameNode?.endIndex || node.endIndex)
+            .split("\n")[0],
         line_start: node.startPosition.row + 1,
         line_end: node.endPosition.row + 1,
       },
@@ -279,9 +286,15 @@ function walkAST(node: any, code: string, chunks: ASTChunk[], lang: string) {
   }
 }
 
-function extractOrphanCode(root: any, code: string, astChunks: ASTChunk[]): ASTChunk[] {
+function extractOrphanCode(
+  root: any,
+  code: string,
+  astChunks: ASTChunk[],
+): ASTChunk[] {
   const orphans: ASTChunk[] = [];
-  const sortedChunks = [...astChunks].sort((a, b) => a.metadata.line_start - b.metadata.line_start);
+  const sortedChunks = [...astChunks].sort((a, b) =>
+    a.metadata.line_start - b.metadata.line_start
+  );
 
   // Pre-calculate line offsets for O(1) lookup
   const lineOffsets = [0];
@@ -295,7 +308,9 @@ function extractOrphanCode(root: any, code: string, astChunks: ASTChunk[]): ASTC
 
   for (const chunk of sortedChunks) {
     const lineIndex = chunk.metadata.line_start - 1;
-    const chunkStart = lineIndex < lineOffsets.length ? lineOffsets[lineIndex] : code.length;
+    const chunkStart = lineIndex < lineOffsets.length
+      ? lineOffsets[lineIndex]
+      : code.length;
 
     if (chunkStart > currentPos + 10) {
       const text = code.slice(currentPos, chunkStart).trim();
@@ -315,7 +330,9 @@ function extractOrphanCode(root: any, code: string, astChunks: ASTChunk[]): ASTC
     // Update currentLine to the line after this chunk
     currentLine = chunk.metadata.line_end + 1;
     const endLineIndex = chunk.metadata.line_end;
-    currentPos = endLineIndex < lineOffsets.length ? lineOffsets[endLineIndex] : code.length;
+    currentPos = endLineIndex < lineOffsets.length
+      ? lineOffsets[endLineIndex]
+      : code.length;
   }
 
   if (currentPos < code.length - 20) {
@@ -368,7 +385,10 @@ export async function astChunk(
 ): Promise<ASTChunk[]> {
   const timeoutMs = 45000;
   const timeoutPromise = new Promise<ASTChunk[]>((_, reject) => {
-    const timer = setTimeout(() => reject(new Error(`astChunk timeout for ${filepath}`)), timeoutMs);
+    const timer = setTimeout(
+      () => reject(new Error(`astChunk timeout for ${filepath}`)),
+      timeoutMs,
+    );
     signal?.addEventListener("abort", () => {
       clearTimeout(timer);
       reject(new Error("astChunk aborted"));
@@ -379,15 +399,23 @@ export async function astChunk(
     return await Promise.race([
       (async () => {
         if (code.length > 500000) {
-          console.warn(`[AST] File ${filepath} is too large (${code.length} bytes), falling back to text chunking.`);
+          console.warn(
+            `[AST] File ${filepath} is too large (${code.length} bytes), falling back to text chunking.`,
+          );
           return fallbackTextChunks(code, filepath);
         }
         if (!(await initParser())) return fallbackTextChunks(code, filepath);
 
         const ext = filepath.split(".").pop() || "";
         const langMap: Record<string, string> = {
-          ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
-          py: "python", go: "go", rs: "rust", java: "java",
+          ts: "typescript",
+          tsx: "typescript",
+          js: "javascript",
+          jsx: "javascript",
+          py: "python",
+          go: "go",
+          rs: "rust",
+          java: "java",
         };
         const lang = langMap[ext] || null;
         if (!lang) return fallbackTextChunks(code, filepath);
@@ -411,16 +439,26 @@ export async function astChunk(
             const split = splitOversizedChunk(c);
             return split.map((s) => {
               const chunkExports = exports
-                .filter((e) => e.line >= s.metadata.line_start && e.line <= s.metadata.line_end)
+                .filter((e) =>
+                  e.line >= s.metadata.line_start &&
+                  e.line <= s.metadata.line_end
+                )
                 .map((e) => e.name);
               return {
                 ...s,
-                metadata: { ...s.metadata, imports, exported_names: chunkExports },
+                metadata: {
+                  ...s.metadata,
+                  imports,
+                  exported_names: chunkExports,
+                },
               };
             });
           });
         } catch (e) {
-          console.error(`[AST] Parse error for ${filepath}:`, (e as Error).message);
+          console.error(
+            `[AST] Parse error for ${filepath}:`,
+            (e as Error).message,
+          );
           return fallbackTextChunks(code, filepath);
         }
       })(),
