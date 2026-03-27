@@ -636,6 +636,7 @@ async function runIngestion(
     if (generatedCount > 0) trace.enable();
 
     // Upsert chunks — only include columns that exist in knowledge_chunks table
+    await updatePhase("upsert_chunks");
     const upsertSpan = trace.startSpan("db_upsert_batch", {
       total: allChunks.length,
     });
