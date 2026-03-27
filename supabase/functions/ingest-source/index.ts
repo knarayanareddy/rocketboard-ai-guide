@@ -462,6 +462,7 @@ async function runIngestion(
         for (const { filepath, fileContent } of fetchResults) {
           if (!fileContent) continue;
 
+          await updatePhase("chunking", { current_file: filepath, current_file_index: i });
           console.log(
             `[INGEST] Chunking file: ${filepath} (${fileContent.length} bytes)`,
           );
