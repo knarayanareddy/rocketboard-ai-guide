@@ -2787,6 +2787,42 @@ export type Database = {
         Args: { thread_id: string }
         Returns: undefined
       }
+      definition_search_v1: {
+        Args: {
+          p_match_count?: number
+          p_org_id: string
+          p_pack_id: string
+          p_symbols: string[]
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          entity_name: string
+          entity_type: string
+          id: string
+          line_end: number
+          line_start: number
+          path: string
+          score: number
+          signature: string
+          source_id: string
+        }[]
+      }
+      find_references_v1: {
+        Args: { p_limit?: number; p_pack_id: string; p_symbol: string }
+        Returns: {
+          chunk_id: string
+          content: string
+          entity_name: string
+          entity_type: string
+          id: string
+          line_end: number
+          line_start: number
+          path: string
+          score: number
+          source_id: string
+        }[]
+      }
       get_cohort_pack_id: { Args: { _cohort_id: string }; Returns: string }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }
@@ -2896,6 +2932,31 @@ export type Database = {
       is_pack_member: {
         Args: { _pack_id: string; _user_id: string }
         Returns: boolean
+      }
+      kg_expand_v1: {
+        Args: {
+          p_limit?: number
+          p_max_per_relation?: number
+          p_org_id: string
+          p_pack_id: string
+          p_seed_ids: string[]
+          p_symbols?: string[]
+        }
+        Returns: {
+          chunk_id: string
+          content: string
+          entity_name: string
+          entity_type: string
+          id: string
+          line_end: number
+          line_start: number
+          path: string
+          relation_symbol: string
+          relation_type: string
+          score: number
+          signature: string
+          source_id: string
+        }[]
       }
       lookup_user_by_email: {
         Args: { _email: string }
