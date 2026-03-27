@@ -360,6 +360,7 @@ async function runIngestion(
       if (!match) throw new Error("Invalid GitHub repo URL");
       const [, owner, repo] = match;
 
+      await updatePhase("fetch_tree");
       const fetchTreeSpan = trace.startSpan("fetch_tree", { owner, repo });
       let files: string[] = [];
       try {
