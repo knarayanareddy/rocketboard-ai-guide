@@ -196,8 +196,8 @@ Deno.serve(async (req) => {
     const effectiveJobId = jobId || job_id;
     const serviceClient = createServiceClient();
     
-    const { origin } = new URL(req.url);
-    const functionUrl = `${origin}/functions/v1/ingest-source-worker`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const functionUrl = `${supabaseUrl}/functions/v1/ingest-source-worker`;
 
     const task = runBatch(serviceClient, effectiveJobId, functionUrl);
     
