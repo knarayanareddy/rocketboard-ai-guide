@@ -9,10 +9,10 @@ import { PackId, ChunkPK, StableChunkId, ChunkRef } from "@/types/brands";
 
 interface Citation {
   span_id: string;
-  path: string;
-  chunk_ref: ChunkRef;
-  chunk_pk: ChunkPK;
-  stable_chunk_id: StableChunkId | null;
+  path?: string;
+  chunk_ref?: ChunkRef | string;
+  chunk_pk?: ChunkPK | string;
+  stable_chunk_id?: StableChunkId | string | null;
   start_line?: number;
   end_line?: number;
 }
@@ -99,9 +99,9 @@ export function KeyFilesSection({ evidenceIndex, packId }: KeyFilesSectionProps)
                       onClick={() => setViewerSpan({
                         span_id: firstCitation.span_id,
                         path: file.path,
-                        chunk_ref: firstCitation.chunk_ref,
-                        chunk_pk: firstCitation.chunk_pk,
-                        stable_chunk_id: firstCitation.stable_chunk_id,
+                        chunk_ref: (firstCitation.chunk_ref || firstCitation.span_id) as ChunkRef,
+                        chunk_pk: (firstCitation.chunk_pk || firstCitation.span_id) as ChunkPK,
+                        stable_chunk_id: (firstCitation.stable_chunk_id || null) as StableChunkId | null,
                         start_line: firstCitation.start_line,
                         end_line: firstCitation.end_line,
                       })}
