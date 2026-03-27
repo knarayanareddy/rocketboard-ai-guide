@@ -279,6 +279,29 @@ function MessageSources({
 
 import { useAudiencePrefs } from "@/hooks/useAudiencePrefs";
 
+async function saveChatMessage(userId: string, role: string, content: string, packId?: PackId | null, metadata?: any) {
+  const payload: any = {
+    user_id: userId,
+    module_id: "__mission_control__",
+    role,
+    content,
+    pack_id: packId || null,
+  };
+
+  if (metadata && typeof metadata === 'object' && Object.keys(metadata).length > 0) {
+    payload.metadata = metadata;
+  }
+
+  const { error } = await supabase.from("chat_messages").insert(payload);
+  
+  if (error) {
+    console.error("[MISSION_CONTROL_PERSISTENCE_ERROR]", error);
+    if (error.code === '42703' || (error.message && error.message.includes('metadata'))) {
+      toast.error("Chat persistence schema mismatch (missing chat_messages.metadata). Please apply migrations.");
+    }
+  }
+}
+
 export function MissionControlChat() {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -359,13 +382,7 @@ export function MissionControlChat() {
     setLastError(null);
 
     if (user) {
-      await supabase.from("chat_messages").insert({
-        user_id: user.id,
-        module_id: "__mission_control__",
-        role: "user",
-        content: text,
-        pack_id: packId || null,
-      });
+      saveChatMessage(user.id, "user", text, packId);
     }
 
     if (user && packId) {
@@ -420,14 +437,7 @@ export function MissionControlChat() {
       ]);
 
       if (user) {
-        await supabase.from("chat_messages").insert({
-          user_id: user.id,
-          module_id: "__mission_control__",
-          role: "assistant",
-          content: responseMarkdown,
-          pack_id: packId || null,
-          metadata: typedResult,
-        });
+        saveChatMessage(user.id, "assistant", responseMarkdown, packId, typedResult);
       }
     } catch (e: any) {
       if (e instanceof AIError) {
