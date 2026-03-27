@@ -118,7 +118,7 @@ async function initializeIngestion(
       if (stateErr) throw stateErr;
 
       // Trigger worker
-      const workerUrl = functionUrl.replace("/ingest-source", "/ingest-source-worker");
+      const workerUrl = `${Deno.env.get("SUPABASE_URL")!}/functions/v1/ingest-source-worker`;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       
       console.log(`[CONTROLLER] Initialized state for job ${jobId}. Triggering worker...`);
