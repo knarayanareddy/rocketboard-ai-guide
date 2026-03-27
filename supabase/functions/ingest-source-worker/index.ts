@@ -71,9 +71,10 @@ async function runBatch(serviceClient: any, jobId: string, functionUrl: string) 
   }
 
   // Update phase to processing
+  const createdMs = state.created_at ? new Date(state.created_at).getTime() : Date.now();
   await serviceClient.from("ingestion_jobs").update({ 
     phase: "fetch_files",
-    elapsed_ms: Date.now() - state.created_at.getTime() 
+    elapsed_ms: Date.now() - createdMs 
   }).eq("id", jobId);
 
   const files = state.files_json;
