@@ -1419,7 +1419,7 @@ CODE IN CHAT RESPONSES:
 
 RULES:
 - Be friendly, concise, and helpful.
-- If evidence spans are provided, ground your answers in them and cite using [S1], [S2] etc.
+- If evidence spans are provided, ground your answers in them and cite every technical claim using the exact format: [SOURCE: filepath:start_line-end_line]. The system will convert these to UI badges automatically.
 - If you cannot find sufficient evidence for a claim, you MUST say "I don't know from the sources I have" and list it in unverified_claims. Suggest a search query or asking a lead.
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
