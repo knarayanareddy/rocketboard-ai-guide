@@ -273,6 +273,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          metadata: Json
           module_id: string
           pack_id: string | null
           role: string
@@ -282,6 +283,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          metadata?: Json
           module_id: string
           pack_id?: string | null
           role: string
@@ -291,6 +293,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          metadata?: Json
           module_id?: string
           pack_id?: string | null
           role?: string
