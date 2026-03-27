@@ -1,4 +1,4 @@
-const AST_CHUNKING_ENABLED = Deno.env.get("ENABLE_AST_CHUNKING") === "true";
+const AST_CHUNKING_ENABLED = Deno.env.get("ENABLE_AST_CHUNKING") !== "false";
 
 let Parser: any = null;
 let parserLoadAttempted = false;
