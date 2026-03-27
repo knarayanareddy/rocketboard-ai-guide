@@ -403,10 +403,17 @@ export async function astChunk(
   }
 
   const ext = filepath.split(".").pop() || "";
-  const lang =
-    ["ts", "tsx", "js", "jsx", "py", "go", "rs", "java"].includes(ext)
-      ? ext
-      : null;
+  const langMap: Record<string, string> = {
+    ts: "typescript",
+    tsx: "typescript",
+    js: "javascript",
+    jsx: "javascript",
+    py: "python",
+    go: "go",
+    rs: "rust",
+    java: "java",
+  };
+  const lang = langMap[ext] || null;
 
   if (!lang) {
     return fallbackTextChunks(code, filepath);
