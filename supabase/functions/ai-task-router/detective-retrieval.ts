@@ -90,6 +90,7 @@ export async function runDetectiveRetrieval(
   let kgDefHits = 0;
   let kgRefHits = 0;
   let kgTimeMs = 0;
+  let kgAttempted = false;
   let rerankSkipped = false;
   let rerankSkipReason: string | null = null;
 
@@ -108,38 +109,44 @@ export async function runDetectiveRetrieval(
       symbolsExtractedCount = symbols.length;
 
       if (symbols.length > 0) {
-        const { data: kgSpans, error: kgError } = await supabase.rpc("kg_expand_v1", {
-          p_org_id: orgId,
-          p_pack_id: packId,
-          p_seed_ids: seedIds,
-          p_symbols: symbols,
-          p_limit: KG_EXPAND_LIMIT,
-        });
+        // Budget Guard: Skip KG expansion if we are running low on time
+        if (Date.now() - startTime > options.maxTimeMs - KG_MAX_TIME_MS) {
+          console.warn("[Detective] Skipping KG expansion due to time budget");
+        } else {
+          kgAttempted = true;
+          const { data: kgSpans, error: kgError } = await supabase.rpc("kg_expand_v1", {
+            p_org_id: orgId,
+            p_pack_id: packId,
+            p_seed_ids: seedIds,
+            p_symbols: symbols,
+            p_limit: KG_EXPAND_LIMIT,
+          });
 
-        if (!kgError && kgSpans) {
-          const existingChunkPks = new Set(currentSpans.map((s) => s.chunk_pk));
-          const newKgSpans = kgSpans
-            .filter((s: any) => !existingChunkPks.has(s.id))
-            .map((s: any) => ({
-              ...s,
-              span_id: "",
-              chunk_ref: s.chunk_id || s.id,
-              chunk_pk: s.id,
-              stable_chunk_id: s.chunk_id || null,
-              text: s.content,
-              relevance_score: s.score, // Use SQL score as initial relevance
-              metadata: {
-                ...(s.metadata || {}),
-                relation_type: s.relation_type,
-                relation_symbol: s.relation_symbol
-              }
-            }));
+          if (!kgError && kgSpans) {
+            const existingChunkPks = new Set(currentSpans.map((s) => s.chunk_pk));
+            const newKgSpans = kgSpans
+              .filter((s: any) => !existingChunkPks.has(s.id))
+              .map((s: any) => ({
+                ...s,
+                span_id: "",
+                chunk_ref: s.chunk_id || s.id,
+                chunk_pk: s.id,
+                stable_chunk_id: s.chunk_id || null,
+                text: s.content,
+                relevance_score: s.score, // Use SQL score as initial relevance
+                metadata: {
+                  ...(s.metadata || {}),
+                  relation_type: s.relation_type,
+                  relation_symbol: s.relation_symbol
+                }
+              }));
 
-          kgAddedCount = newKgSpans.length;
-          kgDefHits = newKgSpans.filter((s: any) => s.metadata?.relation_type === 'definition').length;
-          kgRefHits = newKgSpans.filter((s: any) => s.metadata?.relation_type === 'reference').length;
-          
-          currentSpans = [...currentSpans, ...newKgSpans].slice(0, options.maxSpansTotal);
+            kgAddedCount = newKgSpans.length;
+            kgDefHits = newKgSpans.filter((s: any) => s.metadata?.relation_type === 'definition').length;
+            kgRefHits = newKgSpans.filter((s: any) => s.metadata?.relation_type === 'reference').length;
+            
+            currentSpans = [...currentSpans, ...newKgSpans].slice(0, options.maxSpansTotal);
+          }
         }
       }
     } catch (e) {
@@ -300,7 +307,7 @@ export async function runDetectiveRetrieval(
     finalSpans: renumberedSpans,
     metrics: {
       detective_enabled: true,
-      kg_enabled: KG_RETRIEVAL_ENABLED,
+      kg_enabled: kgAttempted,
       kg_added_spans: kgAddedCount,
       kg_definition_hits: kgDefHits,
       kg_reference_hits: kgRefHits,
