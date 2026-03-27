@@ -154,6 +154,29 @@ RocketBoard enforces two canonical formats for stable chunk identifiers. All ing
 
 **Validation Rule**: Use `isStableChunkIdString(s)` in `src/types/brands.ts` to verify these patterns at runtime.
 
+### 1.6 KG Retrieval Invariants (v2)
+**Deterministic Expansion (required):**
+- All symbol-based neighbor discovery must use the `kg_expand_v1` RPC.
+- Expansion must be pinned to the `active_generation_id` from `public.pack_active_generation`.
+- `org_id` filtering is mandatory for all query branches (definitions, references, neighbors).
+
+**Rerank Skip Policy (performance):**
+- The external LLM reranker may be bypassed ("rerank skip") if:
+  - KG expansion returns `kg_definition_hits >= 1` AND `kg_reference_hits >= 1`.
+  - Total evidence spans are `≤ 12`.
+- When skipping, spans must be locally ranked by `(relevance_score) + (relation_type_weight)` where definitions are prioritized.
+
+**Observability (required):**
+- All retrieval attempts must emit `kg_enabled` (bool: attempted) and `kg_time_ms`.
+- Successful expansions must record `kg_added_spans`, `kg_definition_hits`, and `kg_reference_hits` in `rag_metrics`.
+- `expanded_chunks_added` must be the sum of all hops (Hop 1 + Hop 2 + KG).
+
+**Safety & Budget (required):**
+- KG expansion must respect the `KG_MAX_TIME_MS` budget.
+- If the remaining time budget is less than `KG_MAX_TIME_MS` before the expansion starts, the attempt must be skipped to avoid overall request timeout.
+
+---
+
 ---
 
 ## 2) Where to change what (map of the codebase)
