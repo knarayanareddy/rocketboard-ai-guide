@@ -1077,6 +1077,47 @@ export type Database = {
         }
         Relationships: []
       }
+      ingestion_job_state: {
+        Row: {
+          cursor: number
+          file_tree: Json | null
+          id: string
+          invocations_count: number
+          job_id: string
+          phase: string
+          symbol_cursor: number
+          updated_at: string
+        }
+        Insert: {
+          cursor?: number
+          file_tree?: Json | null
+          id?: string
+          invocations_count?: number
+          job_id: string
+          phase?: string
+          symbol_cursor?: number
+          updated_at?: string
+        }
+        Update: {
+          cursor?: number
+          file_tree?: Json | null
+          id?: string
+          invocations_count?: number
+          job_id?: string
+          phase?: string
+          symbol_cursor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_job_state_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "ingestion_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingestion_jobs: {
         Row: {
           completed_at: string | null
