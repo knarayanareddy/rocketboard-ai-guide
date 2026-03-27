@@ -1079,32 +1079,50 @@ export type Database = {
       }
       ingestion_job_state: {
         Row: {
+          chunk_idx: number
+          created_at: string
           cursor: number
           file_tree: Json | null
+          files_json: Json | null
           id: string
           invocations_count: number
           job_id: string
+          max_invocations: number
+          pack_id: string | null
           phase: string
+          source_id: string | null
           symbol_cursor: number
           updated_at: string
         }
         Insert: {
+          chunk_idx?: number
+          created_at?: string
           cursor?: number
           file_tree?: Json | null
+          files_json?: Json | null
           id?: string
           invocations_count?: number
           job_id: string
+          max_invocations?: number
+          pack_id?: string | null
           phase?: string
+          source_id?: string | null
           symbol_cursor?: number
           updated_at?: string
         }
         Update: {
+          chunk_idx?: number
+          created_at?: string
           cursor?: number
           file_tree?: Json | null
+          files_json?: Json | null
           id?: string
           invocations_count?: number
           job_id?: string
+          max_invocations?: number
+          pack_id?: string | null
           phase?: string
+          source_id?: string | null
           symbol_cursor?: number
           updated_at?: string
         }
