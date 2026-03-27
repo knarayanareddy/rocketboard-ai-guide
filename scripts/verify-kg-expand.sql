@@ -5,26 +5,51 @@ DO $$
 DECLARE
   v_org_id UUID := '00000000-0000-0000-0000-000000000000'; 
   v_pack_id UUID := '00000000-0000-0000-0000-000000000000';
+  v_gen_id UUID;
   v_seed_ids UUID[];
+  v_result_count INT;
 BEGIN
-  -- 2. Pick 3 seed chunks from a recent generation
-  SELECT array_slice(array_agg(id), 1, 3) INTO v_seed_ids
+  -- 1a. Simulate Auth Claims (Uncomment to test membership/RLS)
+  -- PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  -- PERFORM set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000000', true);
+
+  -- 2. Pick deterministic seeds from the ACTIVE generation
+  SELECT active_generation_id INTO v_gen_id
+  FROM public.pack_active_generation
+  WHERE org_id = v_org_id AND pack_id = v_pack_id;
+
+  IF v_gen_id IS NULL THEN
+    RAISE NOTICE 'No active generation found for pack %. Falling back to latest.', v_pack_id;
+    SELECT generation_id INTO v_gen_id
+    FROM public.knowledge_chunks
+    WHERE pack_id = v_pack_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+  END IF;
+
+  SELECT (array_agg(id ORDER BY created_at DESC))[1:3] INTO v_seed_ids
   FROM public.knowledge_chunks
-  WHERE pack_id = v_pack_id
-  LIMIT 3;
+  WHERE pack_id = v_pack_id AND generation_id = v_gen_id;
 
-  RAISE NOTICE 'Testing kg_expand_v1 with seeds: %', v_seed_ids;
+  IF v_seed_ids IS NULL OR array_length(v_seed_ids, 1) = 0 THEN
+    RAISE EXCEPTION 'No seed chunks found for generation %', v_gen_id;
+  END IF;
 
-  -- 3. Call expansion
-  -- Note: Testing as service_role usually requires running in a block where you set role
-  -- or running it directly in the SQL editor which usually has high privs.
-  -- But to test the role check, try:
-  -- SET ROLE authenticated;
-  -- SELECT * FROM public.kg_expand_v1(v_org_id, v_pack_id, v_seed_ids);
-  -- (Expect failure above)
-  
-  -- Test with high privs/service_role logic
-  PERFORM * FROM public.kg_expand_v1(v_org_id, v_pack_id, v_seed_ids);
-  
-  RAISE NOTICE 'kg_expand_v1 returned successfully.';
+  RAISE NOTICE 'Testing kg_expand_v1 with seeds from gen %: %', v_gen_id, v_seed_ids;
+
+  -- 3. Call expansion and report counts
+  CREATE TEMP TABLE IF NOT EXISTS tmp_expansion_results AS
+  SELECT * FROM public.kg_expand_v1(v_org_id, v_pack_id, v_seed_ids);
+
+  SELECT count(*) INTO v_result_count FROM tmp_expansion_results;
+  RAISE NOTICE 'kg_expand_v1 returned % total rows.', v_result_count;
+
+  -- Report by relation type
+  FOR v_result_count, v_gen_id IN 
+    SELECT count(*), relation_type::text FROM tmp_expansion_results GROUP BY relation_type
+  LOOP
+    RAISE NOTICE 'Relation: %, Count: %', v_gen_id, v_result_count;
+  END LOOP;
+
+  DROP TABLE tmp_expansion_results;
 END $$;
