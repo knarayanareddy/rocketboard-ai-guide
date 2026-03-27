@@ -72,14 +72,28 @@ interface ModuleChatPanelProps {
 }
 
 async function saveMessage(userId: string, moduleId: string, role: string, content: string, packId?: string, metadata?: any) {
-  await (supabase.from("chat_messages") as any).insert({
+  const payload: any = {
     user_id: userId,
     module_id: moduleId,
     role,
     content,
     pack_id: packId || null,
-    metadata: metadata || null,
-  });
+  };
+  
+  // Only include metadata if it's an object and has keys
+  if (metadata && typeof metadata === 'object' && Object.keys(metadata).length > 0) {
+    payload.metadata = metadata;
+  }
+
+  const { error } = await (supabase.from("chat_messages") as any).insert(payload);
+  
+  if (error) {
+    console.error("[CHAT_PERSISTENCE_ERROR]", error);
+    // 42703 is Postgres code for undefined_column
+    if (error.code === '42703' || (error.message && error.message.includes('metadata'))) {
+      toast.error("Chat persistence schema mismatch (missing chat_messages.metadata). Please apply migrations.");
+    }
+  }
 }
 
 // ─── Sub-component: sources panel shown per-message ───
