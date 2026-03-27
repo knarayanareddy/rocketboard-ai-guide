@@ -6,6 +6,7 @@ DECLARE
   v_org_id UUID := '00000000-0000-0000-0000-000000000000'; 
   v_pack_id UUID := '00000000-0000-0000-0000-000000000000';
   v_gen_id UUID;
+  v_relation_type TEXT;
   v_seed_ids UUID[];
   v_result_count INT;
 BEGIN
@@ -38,17 +39,18 @@ BEGIN
   RAISE NOTICE 'Testing kg_expand_v1 with seeds from gen %: %', v_gen_id, v_seed_ids;
 
   -- 3. Call expansion and report counts
-  CREATE TEMP TABLE IF NOT EXISTS tmp_expansion_results AS
+  DROP TABLE IF EXISTS tmp_expansion_results;
+  CREATE TEMP TABLE tmp_expansion_results AS
   SELECT * FROM public.kg_expand_v1(v_org_id, v_pack_id, v_seed_ids);
 
   SELECT count(*) INTO v_result_count FROM tmp_expansion_results;
   RAISE NOTICE 'kg_expand_v1 returned % total rows.', v_result_count;
 
   -- Report by relation type
-  FOR v_result_count, v_gen_id IN 
+  FOR v_result_count, v_relation_type IN 
     SELECT count(*), relation_type::text FROM tmp_expansion_results GROUP BY relation_type
   LOOP
-    RAISE NOTICE 'Relation: %, Count: %', v_gen_id, v_result_count;
+    RAISE NOTICE 'Relation: %, Count: %', v_relation_type, v_result_count;
   END LOOP;
 
   DROP TABLE tmp_expansion_results;
