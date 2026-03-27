@@ -812,6 +812,7 @@ async function runIngestion(
     }).eq("id", source_id);
 
     // Atomic Swap
+    await updatePhase("atomic_swap");
     await serviceClient.from("pack_active_generation").upsert({
       org_id,
       pack_id,
