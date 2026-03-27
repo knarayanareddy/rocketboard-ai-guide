@@ -421,6 +421,7 @@ async function runIngestion(
         total_chunks: files.length,
       }).eq("id", jobId);
 
+      await updatePhase("fetch_files", { total_chunks: files.length });
       let chunkIdx = 0;
       const PARALLEL_BATCH_SIZE = 5;
 
