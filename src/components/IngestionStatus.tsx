@@ -1,8 +1,11 @@
 import { Loader2, CheckCircle2, AlertTriangle, Clock, X } from "lucide-react";
 import { useIngestion } from "@/hooks/useIngestion";
+import { useRole } from "@/hooks/useRole";
 
 export function IngestionStatus() {
   const { jobs, hasActiveJob, cancelIngestion, deleteJob, resetStuckJobs } = useIngestion();
+  const { hasPackPermission } = useRole();
+  const isAuthor = hasPackPermission("author");
 
   const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "processing");
   const recentCompleted = jobs.filter((j) => j.status === "completed").slice(0, 3);
@@ -40,7 +43,7 @@ export function IngestionStatus() {
                 >
                   {cancelIngestion.isPending ? "Stopping..." : "Stop"}
                 </button>
-                {isStalled && (
+                {isStalled && isAuthor && (
                   <button
                     onClick={() => resetStuckJobs.mutate({ sourceId: job.source_id })}
                     disabled={resetStuckJobs.isPending}

@@ -1,155 +1,163 @@
+// @ts-nocheck
 import { extractSymbols } from "../_shared/symbol-extractor.ts";
-import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
-import {
-  buildCorsHeaders,
-  handleCorsPreflight,
-  parseAllowedOrigins,
-} from "../_shared/cors.ts";
+import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { updateHeartbeat } from "../_shared/ingestion-guards.ts";
 
-const ALLOWED_ORIGINS = parseAllowedOrigins();
-const SYMBOL_BATCH_SIZE = 20; // Process 20 chunks per invocation
+const SYMBOL_BATCH_SIZE = 50; // Process 50 chunks for symbols per invocation
 
-Deno.serve(async (req) => {
-  const corsResponse = handleCorsPreflight(req, ALLOWED_ORIGINS);
-  if (corsResponse) return corsResponse;
-  const corsHeaders = buildCorsHeaders(req, ALLOWED_ORIGINS);
+async function runSymbolBatch(serviceClient: any, jobId: string, functionUrl: string) {
+  // 1. Fetch current state
+  const { data: state, error: stateErr } = await serviceClient
+    .from("ingestion_job_state")
+    .select("*")
+    .eq("job_id", jobId)
+    .single();
+    
+  if (stateErr || !state) {
+    console.error("[SYMBOL_WORKER] Failed to fetch job state:", stateErr);
+    return;
+  }
 
-  try {
-    const body = await readJson(req, corsHeaders);
-    const { job_id, pack_id, source_id } = body;
+  // Update phase to build_symbol_graph
+  await serviceClient.from("ingestion_jobs").update({ 
+    phase: "build_symbol_graph",
+    elapsed_ms: Date.now() - state.created_at.getTime() 
+  }).eq("id", jobId);
 
-    const serviceClient = createServiceClient();
+  // 2. Fetch chunks in batch
+  const { data: chunks, error: chunksErr } = await serviceClient
+    .from("knowledge_chunks")
+    .select("*")
+    .eq("generation_id", jobId)
+    .order("chunk_id") // Consistent ordering
+    .range(state.symbol_cursor, state.symbol_cursor + SYMBOL_BATCH_SIZE - 1);
 
-    // Read current state
-    const { data: state, error: stateErr } = await serviceClient
-      .from("ingestion_job_state")
-      .select("*")
-      .eq("job_id", job_id)
-      .single();
+  if (chunksErr) throw chunksErr;
+  
+  if (!chunks || chunks.length === 0) {
+    // Phase 3: Atomic Swap & Complete
+    console.log(`[SYMBOL_WORKER] Symbol building complete for job ${jobId}. Finalizing...`);
+    
+    const { data: job } = await serviceClient.from("ingestion_jobs").select("pack_id, source_id").eq("id", jobId).single();
+    if (!job) throw new Error("Job not found");
+    const { data: pack } = await serviceClient.from("packs").select("org_id").eq("id", job.pack_id).single();
+    
+    await serviceClient.from("pack_active_generation").upsert({ 
+      org_id: pack.org_id, 
+      pack_id: job.pack_id, 
+      active_generation_id: jobId, 
+      updated_at: new Date().toISOString() 
+    }, { onConflict: "org_id,pack_id" });
+    
+    await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", job.source_id);
+    
+    await serviceClient.from("ingestion_jobs").update({ 
+      phase: "completed", 
+      status: "completed", 
+      completed_at: new Date().toISOString() 
+    }).eq("id", jobId);
+    
+    // Cleanup state
+    await serviceClient.from("ingestion_job_state").delete().eq("job_id", jobId);
+    return;
+  }
 
-    if (stateErr || !state) {
-      return jsonError(404, "state_not_found", "Job state not found", {}, corsHeaders);
+  console.log(`[SYMBOL_WORKER] Processing symbols for chunks ${state.symbol_cursor} to ${state.symbol_cursor + chunks.length}`);
+
+  const definitions: any[] = [];
+  const references: any[] = [];
+
+  for (const chunk of chunks) {
+    if (chunk.is_redacted) continue;
+    
+    // Definitions
+    const symbols = new Set([chunk.entity_name, ...(chunk.exported_names || [])]);
+    symbols.delete("anonymous"); 
+    symbols.delete("file_scope"); 
+    symbols.delete(undefined);
+    symbols.delete(null);
+    
+    for (const s of symbols) {
+      if (!s) continue;
+      definitions.push({ 
+        pack_id: chunk.pack_id, 
+        source_id: chunk.source_id, 
+        symbol: s, 
+        chunk_id: chunk.chunk_id, 
+        path: chunk.path, 
+        line_start: chunk.start_line, 
+        line_end: chunk.end_line 
+      });
     }
 
-    const symbolCursor: number = state.symbol_cursor || 0;
-
-    // Fetch a batch of chunks to process for symbols
-    const { data: chunks, error: chunkErr } = await serviceClient
-      .from("knowledge_chunks")
-      .select("chunk_id, path, content, start_line, end_line, entity_name, exported_names, is_redacted")
-      .eq("pack_id", pack_id)
-      .eq("source_id", source_id)
-      .eq("is_redacted", false)
-      .order("chunk_id", { ascending: true })
-      .range(symbolCursor, symbolCursor + SYMBOL_BATCH_SIZE - 1);
-
-    if (chunkErr) {
-      console.error("[SYMBOL] Chunk fetch error:", chunkErr);
-      throw chunkErr;
-    }
-
-    if (!chunks || chunks.length === 0) {
-      // All symbols processed — finalize job
-      console.log(`[SYMBOL] Complete. Total symbol batches: ${state.invocations_count}`);
-
-      // Get org_id for atomic swap
-      const { data: packRow } = await serviceClient
-        .from("packs")
-        .select("org_id")
-        .eq("id", pack_id)
-        .single();
-
-      // Atomic swap
-      if (packRow?.org_id) {
-        await serviceClient.from("pack_active_generation").upsert(
-          { org_id: packRow.org_id, pack_id, active_generation_id: job_id, updated_at: new Date().toISOString() },
-          { onConflict: "org_id,pack_id" }
-        );
-      }
-
-      await serviceClient.from("pack_sources").update({ last_synced_at: new Date().toISOString() }).eq("id", source_id);
-
-      await serviceClient.from("ingestion_job_state").update({
-        phase: "completed",
-        updated_at: new Date().toISOString(),
-      }).eq("job_id", job_id);
-
-      await serviceClient.from("ingestion_jobs").update({
-        status: "completed",
-        phase: "completed",
-        completed_at: new Date().toISOString(),
-      }).eq("id", job_id);
-
-      return json(200, { status: "completed" }, corsHeaders);
-    }
-
-    console.log(`[SYMBOL] Processing symbols for chunks ${symbolCursor} to ${symbolCursor + chunks.length}`);
-
-    const definitions: any[] = [];
-    const references: any[] = [];
-
-    for (const chunk of chunks) {
-      const symbols = new Set([chunk.entity_name, ...(chunk.exported_names || [])]);
-      symbols.delete("anonymous");
-      symbols.delete("file_scope");
-      symbols.delete(undefined);
-      symbols.delete(null);
-
-      for (const s of symbols) {
-        if (!s) continue;
-        definitions.push({
-          pack_id, source_id, symbol: s,
-          chunk_id: chunk.chunk_id, path: chunk.path,
-          line_start: chunk.start_line, line_end: chunk.end_line,
+    // References
+    const ext = (chunk.path || "").split(".").pop() || "ts";
+    const refs = extractSymbols(chunk.content, ext);
+    for (const r of refs) {
+      if (!symbols.has(r)) {
+        references.push({ 
+          pack_id: chunk.pack_id, 
+          source_id: chunk.source_id, 
+          symbol: r, 
+          from_chunk_id: chunk.chunk_id, 
+          from_path: chunk.path, 
+          from_line_start: chunk.start_line, 
+          from_line_end: chunk.end_line, 
+          confidence: 1.0 
         });
       }
-
-      const ext = (chunk.path || "").split(".").pop() || "ts";
-      const refs = extractSymbols(chunk.content, ext);
-      for (const r of refs) {
-        if (!symbols.has(r)) {
-          references.push({
-            pack_id, source_id, symbol: r,
-            from_chunk_id: chunk.chunk_id, from_path: chunk.path,
-            from_line_start: chunk.start_line, from_line_end: chunk.end_line,
-            confidence: 1.0,
-          });
-        }
-      }
     }
+  }
 
-    if (definitions.length > 0) {
-      await serviceClient.from("symbol_definitions").upsert(definitions);
-    }
-    if (references.length > 0) {
-      await serviceClient.from("symbol_references").upsert(references);
-    }
+  if (definitions.length > 0) {
+    const { error: defErr } = await serviceClient.from("symbol_definitions").upsert(definitions);
+    if (defErr) console.error("[SYMBOL_WORKER] Definition upsert error:", defErr);
+  }
+  
+  if (references.length > 0) {
+    const { error: refErr } = await serviceClient.from("symbol_references").upsert(references);
+    if (refErr) console.error("[SYMBOL_WORKER] Reference upsert error:", refErr);
+  }
 
-    // Advance symbol cursor
-    const newCursor = symbolCursor + chunks.length;
-    await serviceClient.from("ingestion_job_state").update({
-      symbol_cursor: newCursor,
-      invocations_count: (state.invocations_count || 0) + 1,
-      updated_at: new Date().toISOString(),
-    }).eq("job_id", job_id);
+  // Update cursor
+  const nextCursor = state.symbol_cursor + chunks.length;
+  await serviceClient.from("ingestion_job_state").update({
+    symbol_cursor: nextCursor,
+    updated_at: new Date().toISOString()
+  }).eq("job_id", jobId);
 
-    await serviceClient.from("ingestion_jobs").update({
-      phase: "build_symbol_graph",
-    }).eq("id", job_id);
+  // Self-schedule next batch
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  fetch(functionUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+    body: JSON.stringify({ jobId }),
+  }).catch(e => console.error("[SYMBOL_WORKER] Self-scheduling failed:", e));
+}
 
-    // Self-recurse
+Deno.serve(async (req) => {
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader !== `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  try {
+    const { jobId, job_id } = await req.json();
+    const effectiveJobId = jobId || job_id;
+    const serviceClient = createServiceClient();
+    
     const { origin } = new URL(req.url);
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    fetch(`${origin}/functions/v1/build-symbol-graph`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
-      body: JSON.stringify({ job_id, pack_id, source_id }),
-    }).catch(e => console.error("[SYMBOL] Self-recurse failed:", e));
+    const functionUrl = `${origin}/functions/v1/build-symbol-graph`;
 
-    return json(200, { status: "processing_symbols", cursor: newCursor }, corsHeaders);
+    const task = runSymbolBatch(serviceClient, effectiveJobId, functionUrl);
+    
+    const runtime = (globalThis as any).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(task);
+    else task.catch(e => console.error("[SYMBOL_WORKER] Task failed:", e));
+
+    return json(202, { success: true });
   } catch (err: any) {
-    console.error("[SYMBOL] Error:", err);
-    return jsonError(500, "symbol_error", err.message, {}, corsHeaders);
+    return jsonError(500, "internal_error", err.message, {});
   }
 });

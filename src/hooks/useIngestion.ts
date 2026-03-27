@@ -127,12 +127,12 @@ export function useIngestion(sourceId?: string) {
   });
 
   const resetStuckJobs = useMutation({
-    mutationFn: async ({ sourceId }: { sourceId: string }) => {
+    mutationFn: async ({ sourceId }: { sourceId?: string }) => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
       const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-stuck-jobs`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-stuck-ingestions`,
         {
           method: "POST",
           headers: {
