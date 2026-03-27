@@ -8,14 +8,35 @@ import {
 
 export interface DetectiveMetrics {
   detective_enabled: boolean;
+  kg_enabled: boolean;
+  kg_added_spans: number;
+  kg_definition_hits: number;
+  kg_reference_hits: number;
+  kg_time_ms: number;
   hops_run: number;
   hop0_count: number;
   hop1_added: number;
   hop2_added: number;
   symbols_extracted: number;
+  rerank_skipped: boolean;
+  rerank_skip_reason: string | null;
   rerank_kept: number;
   time_ms: number;
 }
+
+// ─── KG CONFIGURATION (v2) ───
+const KG_RETRIEVAL_ENABLED = Deno.env.get("KG_RETRIEVAL_ENABLED") !== "false";
+const KG_EXPAND_LIMIT = Number(Deno.env.get("KG_EXPAND_LIMIT") || "12");
+const KG_MAX_SYMBOLS = Number(Deno.env.get("KG_MAX_SYMBOLS") || "20");
+const KG_MAX_TIME_MS = Number(Deno.env.get("KG_MAX_TIME_MS") || "1500");
+const KG_SKIP_RERANK_ENABLED =
+  Deno.env.get("KG_SKIP_RERANK_ENABLED") !== "false";
+const KG_SKIP_RERANK_MIN_DEFINITION_HITS = Number(
+  Deno.env.get("KG_SKIP_RERANK_MIN_DEFINITION_HITS") || "1",
+);
+const KG_SKIP_RERANK_MIN_REFERENCE_HITS = Number(
+  Deno.env.get("KG_SKIP_RERANK_MIN_REFERENCE_HITS") || "1",
+);
 
 /**
  * Orchestrates the Multi-Hop Detective Retrieval Loop.
@@ -68,6 +89,91 @@ export async function runDetectiveRetrieval(
   }
 
   const hop0Count = currentSpans.length;
+
+  // KG Metrics Tracking
+  let kgAddedCount = 0;
+  let kgDefHits = 0;
+  let kgRefHits = 0;
+  let kgTimeMs = 0;
+  let kgAttempted = false;
+  let rerankSkipped = false;
+  let rerankSkipReason: string | null = null;
+
+  // ─── KG EXPANSION (Step 2 Integration) ───
+  if (KG_RETRIEVAL_ENABLED && currentSpans.length > 0) {
+    // Note: kgTimeMs now specifically measures RPC latency per Option A
+    try {
+      const seedIds = currentSpans.map((s) => s.chunk_pk);
+      // Extract symbols using existing logic but cap specifically for KG
+      const symbols = await extractCandidateSymbols(
+        currentSpans.slice(0, 10), // Use top 10 as seeds for symbol extraction
+        supabase,
+        packId,
+        KG_MAX_SYMBOLS,
+      );
+      symbolsExtractedCount = symbols.length;
+
+      if (symbols.length > 0) {
+        // Budget Guard: Skip KG expansion if we have already exceeded the KG time limit
+        if (Date.now() - startTime > KG_MAX_TIME_MS) {
+          console.warn(
+            "[Detective] Skipping KG expansion due to elapsed time limit",
+          );
+        } else {
+          kgAttempted = true;
+          const rpcStart = Date.now();
+          const { data: kgSpans, error: kgError } = await supabase.rpc(
+            "kg_expand_v1",
+            {
+              p_org_id: orgId,
+              p_pack_id: packId,
+              p_seed_ids: seedIds,
+              p_symbols: symbols,
+              p_limit: KG_EXPAND_LIMIT,
+            },
+          );
+          kgTimeMs = Date.now() - rpcStart;
+
+          if (!kgError && kgSpans) {
+            const existingChunkPks = new Set(
+              currentSpans.map((s) => s.chunk_pk),
+            );
+            const newKgSpans = kgSpans
+              .filter((s: any) => !existingChunkPks.has(s.id))
+              .map((s: any) => ({
+                ...s,
+                span_id: "",
+                chunk_ref: s.chunk_id || s.id,
+                chunk_pk: s.id,
+                stable_chunk_id: s.chunk_id || null,
+                text: s.content,
+                relevance_score: s.score, // Use SQL score as initial relevance
+                metadata: {
+                  ...(s.metadata || {}),
+                  relation_type: s.relation_type,
+                  relation_symbol: s.relation_symbol,
+                },
+              }));
+
+            kgAddedCount = newKgSpans.length;
+            kgDefHits = newKgSpans.filter((s: any) =>
+              s.metadata?.relation_type === "definition"
+            ).length;
+            kgRefHits = newKgSpans.filter((s: any) =>
+              s.metadata?.relation_type === "reference"
+            ).length;
+
+            currentSpans = [...currentSpans, ...newKgSpans].slice(
+              0,
+              options.maxSpansTotal,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Detective] KG expansion failed:", e);
+    }
+  }
 
   // Hop 1 Loop (currently capped at 1 for v1)
   while (
@@ -176,8 +282,38 @@ export async function runDetectiveRetrieval(
     if (currentSpans.length >= options.maxSpansTotal) break;
   }
 
-  // Final Rerank of the expanded set
-  const finalSpans = await batchRerankWithLLM(queryText, currentSpans);
+  // ─── Rerank Skip Policy (Step 3 Integration) ───
+  // We skip the external LLM reranker if the Knowledge Graph expansion was
+  // successful and found both a definition and a reference, and the total span
+  // count is small enough to be highly relevant.
+  const shouldSkipRerank = KG_SKIP_RERANK_ENABLED &&
+    kgDefHits >= KG_SKIP_RERANK_MIN_DEFINITION_HITS &&
+    kgRefHits >= KG_SKIP_RERANK_MIN_REFERENCE_HITS &&
+    currentSpans.length <= 12;
+
+  let finalSpans: EvidenceSpan[];
+  if (shouldSkipRerank) {
+    rerankSkipped = true;
+    rerankSkipReason = "graph_confident";
+
+    // Relation weights for local sorting: definition > reference > neighbor
+    const relationWeights: Record<string, number> = {
+      "definition": 0.5, // Bonus for being a formal definition
+      "reference": 0.3,
+      "neighbor": 0.0,
+      "import_link": 0.1,
+    };
+
+    finalSpans = currentSpans.slice().sort((a: any, b: any) => {
+      const weightA = relationWeights[a.metadata?.relation_type || ""] || 0;
+      const weightB = relationWeights[b.metadata?.relation_type || ""] || 0;
+      const scoreA = (a.relevance_score || 0) + weightA;
+      const scoreB = (b.relevance_score || 0) + weightB;
+      return scoreB - scoreA;
+    });
+  } else {
+    finalSpans = await batchRerankWithLLM(queryText, currentSpans);
+  }
 
   // Renumber Spans S1..Sn
   const renumberedSpans = finalSpans.map((s, idx) => ({
@@ -191,11 +327,18 @@ export async function runDetectiveRetrieval(
     finalSpans: renumberedSpans,
     metrics: {
       detective_enabled: true,
+      kg_enabled: kgAttempted,
+      kg_added_spans: kgAddedCount,
+      kg_definition_hits: kgDefHits,
+      kg_reference_hits: kgRefHits,
+      kg_time_ms: kgTimeMs,
       hops_run: hopsRun,
       hop0_count: hop0Count,
       hop1_added: hop1AddedCount,
       hop2_added: hop2AddedCount,
       symbols_extracted: symbolsExtractedCount,
+      rerank_skipped: rerankSkipped,
+      rerank_skip_reason: rerankSkipReason,
       rerank_kept: renumberedSpans.length,
       time_ms: timeMs,
     },
