@@ -684,6 +684,7 @@ async function runIngestion(
     upsertSpan.end({ processed });
 
     // Populate Graph Tables
+    await updatePhase("build_symbol_graph");
     const graphSpan = trace.startSpan("populate_graph", {
       total_chunks: allChunks.length,
     });
