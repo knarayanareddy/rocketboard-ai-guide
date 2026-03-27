@@ -1181,10 +1181,7 @@ async function handleChat(
 
   if (retrieval.detective_mode) {
     const detectiveResult = await runDetectiveRetrieval(
-      createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      ),
+      createServiceClient(),
       envelope,
       evidenceSpans,
       lastUserMessage,
