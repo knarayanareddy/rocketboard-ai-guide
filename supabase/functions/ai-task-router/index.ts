@@ -298,7 +298,7 @@ async function quickVerifyCitations(
   content: string,
   spans: any[],
 ): Promise<{ verified: string; warnings: string[] }> {
-  const citations = content.match(/\[SOURCE: [^\]]+:[0-9?]+-[0-9?]+\]/g) || [];
+  const citations = content.match(/\[SOURCE: .+?:\d+-\d+\]/g) || [];
   const warnings: string[] = [];
   let verified = content;
 
