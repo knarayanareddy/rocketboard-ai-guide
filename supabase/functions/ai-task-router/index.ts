@@ -660,6 +660,53 @@ async function callAI(
           console.error("[FALLBACK] OpenAI also failed:", fallbackResp.status, ft);
         }
       }
+
+      // ── 402 FALLBACK #2: Try GOOGLE_AI_API_KEY directly ──
+      const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+      if (googleKey) {
+        console.log("[FALLBACK] Trying Google AI API directly");
+        const googleModel = "gemini-2.5-flash";
+        const googleBody = {
+          model: googleModel,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: false,
+        };
+        const googleResp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${googleKey}`,
+          },
+          body: JSON.stringify(googleBody),
+        });
+        if (googleResp.ok) {
+          const googleResult = await googleResp.json();
+          const googleContent = googleResult.choices?.[0]?.message?.content || "";
+          const googleLatency = Date.now() - startTime;
+          if (trace && googleResult.usage) {
+            const inp = googleResult.usage.prompt_tokens || 0;
+            const out = googleResult.usage.completion_tokens || 0;
+            trace.setGeneration({
+              model: googleModel,
+              inputTokens: inp,
+              outputTokens: out,
+              totalTokens: inp + out,
+              latencyMs: googleLatency,
+              costUsd: calculateCost(googleModel, inp, out),
+              input: [{ role: "system", content: "[redacted]" }, { role: "user", content: userPrompt.slice(0, 500) }],
+              output: googleContent.slice(0, 500),
+            });
+          }
+          llmSpan?.end();
+          return googleContent;
+        } else {
+          const gt = await googleResp.text();
+          console.error("[FALLBACK] Google AI also failed:", googleResp.status, gt);
+        }
+      }
     }
 
     // Fallback logic could be thrown here to be caught by the outer task handler
