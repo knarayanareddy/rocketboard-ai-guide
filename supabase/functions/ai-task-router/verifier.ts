@@ -70,7 +70,14 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
   let claims_total = 0;
   let claims_stripped = 0;
 
-  const verifiedParts = claimUnits.map((part) => {
+  // Debug: log span paths available for matching
+  console.log("[DEBUG verifyClaims] span count:", spans.length);
+  if (spans.length > 0) {
+    console.log("[DEBUG verifyClaims] span[0] keys:", Object.keys(spans[0]).join(","));
+    console.log("[DEBUG verifyClaims] span paths:", spans.map(s => `${s.path}:${s.start_line ?? s.line_start}-${s.end_line ?? s.line_end}`).join(" | "));
+  }
+
+  const verifiedParts = claimUnits.map((part, idx) => {
     // Skip delimiters and whitespace-only parts
     if (/^(\n- |\n\* |\n\d+\. |\s*)$/.test(part)) return part;
 
@@ -82,13 +89,25 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
     const isTechnical =
       /[a-zA-Z0-9_]{3,}\.[a-zA-Z0-9_]{3,}|function|class|const|var/.test(part);
 
+    console.log(`[DEBUG verifyClaims] claim[${idx}]: citations=${citations.length}, isTechnical=${isTechnical}, text=${part.substring(0, 80)}...`);
+    if (citations.length > 0) {
+      console.log(`[DEBUG verifyClaims] citation paths:`, citations.map(c => `${c.path}:${c.start}-${c.end}`).join(" | "));
+    }
+
     const validCitations = citations.filter((cit) => {
       const span = spans.find((s) => {
         const sPath = s.path === cit.path;
         const sStart = (s.start_line ?? s.line_start ?? 0) <= cit.start;
         const sEnd = (s.end_line ?? s.line_end ?? 0) >= cit.end;
+        if (!sPath && s.path && cit.path) {
+          // Log first mismatch for debugging
+          console.log(`[DEBUG verifyClaims] path mismatch: span="${s.path}" vs cit="${cit.path}"`);
+        }
         return sPath && sStart && sEnd;
       });
+      if (!span) {
+        console.log(`[DEBUG verifyClaims] NO span match for citation ${cit.path}:${cit.start}-${cit.end}`);
+      }
       return !!span;
     });
 
@@ -97,6 +116,7 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
       (citations.length > 0 && validCitations.length !== citations.length) ||
       (!citations.length && isTechnical)
     ) {
+      console.log(`[DEBUG verifyClaims] STRIPPING claim[${idx}]: citations=${citations.length}, valid=${validCitations.length}, isTechnical=${isTechnical}`);
       claims_stripped++;
       return null;
     }

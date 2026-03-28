@@ -613,6 +613,55 @@ async function callAI(
     console.error("AI provider error:", status, t);
     llmSpan?.error(`AI provider returned ${status}`);
 
+    // ── 402 FALLBACK: If Lovable gateway returns payment_required, try OPENAI_API_KEY directly ──
+    if (status === 402 && !activeConfig.isCustom) {
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      if (openaiKey) {
+        console.log("[FALLBACK] Lovable gateway 402 → trying OpenAI directly");
+        const fallbackModel = "gpt-4o-mini"; // cost-efficient fallback
+        const fallbackBody = {
+          model: fallbackModel,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: false,
+        };
+        const fallbackResp = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openaiKey}`,
+          },
+          body: JSON.stringify(fallbackBody),
+        });
+        if (fallbackResp.ok) {
+          const fallbackResult = await fallbackResp.json();
+          const fallbackContent = fallbackResult.choices?.[0]?.message?.content || "";
+          const fallbackLatency = Date.now() - startTime;
+          if (trace && fallbackResult.usage) {
+            const inp = fallbackResult.usage.prompt_tokens || 0;
+            const out = fallbackResult.usage.completion_tokens || 0;
+            trace.setGeneration({
+              model: fallbackModel,
+              inputTokens: inp,
+              outputTokens: out,
+              totalTokens: inp + out,
+              latencyMs: fallbackLatency,
+              costUsd: calculateCost(fallbackModel, inp, out),
+              input: [{ role: "system", content: "[redacted]" }, { role: "user", content: userPrompt.slice(0, 500) }],
+              output: fallbackContent.slice(0, 500),
+            });
+          }
+          llmSpan?.end();
+          return fallbackContent;
+        } else {
+          const ft = await fallbackResp.text();
+          console.error("[FALLBACK] OpenAI also failed:", fallbackResp.status, ft);
+        }
+      }
+    }
+
     // Fallback logic could be thrown here to be caught by the outer task handler
     throw {
       status,
