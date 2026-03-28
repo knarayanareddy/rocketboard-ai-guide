@@ -2563,9 +2563,20 @@ export type Database = {
       }
       rag_metrics: {
         Row: {
+          attempts: number | null
+          chunks_after_rerank: number | null
+          chunks_retrieved: number | null
+          citations_failed: number | null
+          citations_found: number | null
+          citations_verified: number | null
+          claims_stripped: number | null
+          claims_total: number | null
           created_at: string
           detective_enabled: boolean | null
           expanded_chunks_added: number | null
+          grounding_gate_passed: boolean | null
+          grounding_gate_reason: string | null
+          grounding_score: number | null
           hop0_count: number | null
           hop1_added: number | null
           hop2_added: number | null
@@ -2581,14 +2592,29 @@ export type Database = {
           rerank_kept: number | null
           rerank_skip_reason: string | null
           rerank_skipped: boolean | null
+          snippets_resolved: number | null
+          strip_rate: number | null
           symbols_extracted: number | null
+          task_type: string | null
           time_ms: number | null
           total_spans: number | null
+          unique_files_count: number | null
         }
         Insert: {
+          attempts?: number | null
+          chunks_after_rerank?: number | null
+          chunks_retrieved?: number | null
+          citations_failed?: number | null
+          citations_found?: number | null
+          citations_verified?: number | null
+          claims_stripped?: number | null
+          claims_total?: number | null
           created_at?: string
           detective_enabled?: boolean | null
           expanded_chunks_added?: number | null
+          grounding_gate_passed?: boolean | null
+          grounding_gate_reason?: string | null
+          grounding_score?: number | null
           hop0_count?: number | null
           hop1_added?: number | null
           hop2_added?: number | null
@@ -2604,14 +2630,29 @@ export type Database = {
           rerank_kept?: number | null
           rerank_skip_reason?: string | null
           rerank_skipped?: boolean | null
+          snippets_resolved?: number | null
+          strip_rate?: number | null
           symbols_extracted?: number | null
+          task_type?: string | null
           time_ms?: number | null
           total_spans?: number | null
+          unique_files_count?: number | null
         }
         Update: {
+          attempts?: number | null
+          chunks_after_rerank?: number | null
+          chunks_retrieved?: number | null
+          citations_failed?: number | null
+          citations_found?: number | null
+          citations_verified?: number | null
+          claims_stripped?: number | null
+          claims_total?: number | null
           created_at?: string
           detective_enabled?: boolean | null
           expanded_chunks_added?: number | null
+          grounding_gate_passed?: boolean | null
+          grounding_gate_reason?: string | null
+          grounding_score?: number | null
           hop0_count?: number | null
           hop1_added?: number | null
           hop2_added?: number | null
@@ -2627,9 +2668,13 @@ export type Database = {
           rerank_kept?: number | null
           rerank_skip_reason?: string | null
           rerank_skipped?: boolean | null
+          snippets_resolved?: number | null
+          strip_rate?: number | null
           symbols_extracted?: number | null
+          task_type?: string | null
           time_ms?: number | null
           total_spans?: number | null
+          unique_files_count?: number | null
         }
         Relationships: [
           {

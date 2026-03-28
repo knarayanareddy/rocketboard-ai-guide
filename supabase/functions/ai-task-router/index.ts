@@ -300,6 +300,7 @@ async function quickVerifyCitations(
 ): Promise<{ verified: string; warnings: string[] }> {
   // Use non-greedy (.+?) with a lookahead (?=:\d+-\d+\]) to stop at the LAST numeric boundary.
   // This allows multiple [SOURCE: ...] tags on a single line even if file paths contain colons (repo:...).
+  // A greedy (.+) would consume multiple citations into a single match on the same line.
   const citationGlobalRegex =
     /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/g;
   const citationSingleRegex =
@@ -619,6 +620,124 @@ async function callAI(
     console.error("AI provider error:", status, t);
     llmSpan?.error(`AI provider returned ${status}`);
 
+    // ── 402 FALLBACK: If Lovable gateway returns payment_required, try OPENAI_API_KEY directly ──
+    if (status === 402 && !activeConfig.isCustom) {
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      if (openaiKey) {
+        console.log("[FALLBACK] Lovable gateway 402 → trying OpenAI directly");
+        const fallbackModel = "gpt-4o-mini"; // cost-efficient fallback
+        const fallbackBody = {
+          model: fallbackModel,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: false,
+        };
+        const fallbackResp = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${openaiKey}`,
+            },
+            body: JSON.stringify(fallbackBody),
+          },
+        );
+        if (fallbackResp.ok) {
+          const fallbackResult = await fallbackResp.json();
+          const fallbackContent =
+            fallbackResult.choices?.[0]?.message?.content || "";
+          const fallbackLatency = Date.now() - startTime;
+          if (trace && fallbackResult.usage) {
+            const inp = fallbackResult.usage.prompt_tokens || 0;
+            const out = fallbackResult.usage.completion_tokens || 0;
+            trace.setGeneration({
+              model: fallbackModel,
+              inputTokens: inp,
+              outputTokens: out,
+              totalTokens: inp + out,
+              latencyMs: fallbackLatency,
+              costUsd: calculateCost(fallbackModel, inp, out),
+              input: [{ role: "system", content: "[redacted]" }, {
+                role: "user",
+                content: userPrompt.slice(0, 500),
+              }],
+              output: fallbackContent.slice(0, 500),
+            });
+          }
+          llmSpan?.end();
+          return fallbackContent;
+        } else {
+          const ft = await fallbackResp.text();
+          console.error(
+            "[FALLBACK] OpenAI also failed:",
+            fallbackResp.status,
+            ft,
+          );
+        }
+      }
+
+      // ── 402 FALLBACK #2: Try GOOGLE_AI_API_KEY directly ──
+      const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+      if (googleKey) {
+        console.log("[FALLBACK] Trying Google AI API directly");
+        const googleModel = "gemini-2.5-flash";
+        const googleBody = {
+          model: googleModel,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          stream: false,
+        };
+        const googleResp = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${googleKey}`,
+            },
+            body: JSON.stringify(googleBody),
+          },
+        );
+        if (googleResp.ok) {
+          const googleResult = await googleResp.json();
+          const googleContent = googleResult.choices?.[0]?.message?.content ||
+            "";
+          const googleLatency = Date.now() - startTime;
+          if (trace && googleResult.usage) {
+            const inp = googleResult.usage.prompt_tokens || 0;
+            const out = googleResult.usage.completion_tokens || 0;
+            trace.setGeneration({
+              model: googleModel,
+              inputTokens: inp,
+              outputTokens: out,
+              totalTokens: inp + out,
+              latencyMs: googleLatency,
+              costUsd: calculateCost(googleModel, inp, out),
+              input: [{ role: "system", content: "[redacted]" }, {
+                role: "user",
+                content: userPrompt.slice(0, 500),
+              }],
+              output: googleContent.slice(0, 500),
+            });
+          }
+          llmSpan?.end();
+          return googleContent;
+        } else {
+          const gt = await googleResp.text();
+          console.error(
+            "[FALLBACK] Google AI also failed:",
+            googleResp.status,
+            gt,
+          );
+        }
+      }
+    }
+
     // Fallback logic could be thrown here to be caught by the outer task handler
     throw {
       status,
@@ -775,7 +894,7 @@ async function callWithAgenticReview(
       groundingGatePassed: decision.ok,
       groundingGateReason: decision.reason_code,
       groundingPolicy: policy,
-      // Add detailed claims metrics for recordRagMetrics
+      // Part C: expose claims metrics so recordRagMetrics can store them even on refusal
       stripRate: m.strip_rate || 0,
       claimsTotal: m.claims_total || 0,
       claimsStripped: m.claims_stripped || 0,
@@ -1429,18 +1548,17 @@ CODE IN CHAT RESPONSES:
 
 RULES:
 - Be friendly, concise, and helpful.
+- ${envelope.context?.is_global_chat ? "OUTPUT FORMAT CONTRACT (STRICT):" : ""}
+  1. Each bullet point MUST be exactly one single sentence.
+  2. Each bullet MUST end with one or more citations in the exact format [SOURCE: filepath:start_line-end_line].
+  3. Do not include a second sentence in a bullet; if more detail is needed, split it into a new bullet point.
+  4. Do not use semicolons (;) to join sentences. Prefer commas (,) if internal punctuation is needed.
+  5. The response_markdown MUST consist ONLY of these cited bullet points. No introductory or concluding text.
 - If evidence spans are provided, ground your answers in them and cite every technical claim using the exact format: [SOURCE: filepath:start_line-end_line]. The system will convert these to UI badges automatically.
 - If you cannot find sufficient evidence for a claim, you MUST say "I don't know from the sources I have" and list it in unverified_claims. Suggest a search query or asking a lead.
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up questions.
-
-OUTPUT FORMAT CONTRACT (STRICT):
-1. Each bullet point MUST be exactly one single sentence.
-2. Each bullet MUST end with one or more citations in the exact format [SOURCE: filepath:start_line-end_line].
-3. Do not include a second sentence in a bullet; if more detail is needed, split it into a new bullet point.
-4. Do not use semicolons (;) to join sentences. Prefer commas (,) if internal punctuation is needed.
-5. The response_markdown MUST consist ONLY of these cited bullet points. No introductory or concluding text.
 
 UI ACTIONS (CONTROL THE PLATFORM):
 When the user asks to change a setting or navigate somewhere, you can include special [UI_ACTION: slug(label)] tags in your response. The UI will render these as clickable buttons.
@@ -1513,9 +1631,14 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       },
       async (parsed) => {
         const raw = parsed.response_markdown || "";
+        console.log("[DEBUG] raw response_markdown:", raw.substring(0, 500));
         const codeCleaned = enforceNoDirectCode(raw);
         const { verifiedText, claims_total, claims_stripped, strip_rate } =
           await verifyClaims(codeCleaned, evidenceSpans);
+        console.log(
+          `[DEBUG] verifyClaims: total=${claims_total} stripped=${claims_stripped} rate=${strip_rate}`,
+        );
+        console.log("[DEBUG] verifiedText:", verifiedText.substring(0, 300));
         const { finalMarkdown, snippets_resolved } = resolveSnippets(
           verifiedText,
           evidenceSpans,
@@ -3890,13 +4013,11 @@ Deno.serve(async (req: Request) => {
     console.error("ai-task-router error:", e);
     trace.setError(e.message || "Unknown error");
 
-    // NEW (PART C): Record grounding failure metrics even on 422 refusal path.
-    // This allows us to track why the grounding gate is refusing (e.g. strip rate too high).
+    // Part C: Record grounding failure metrics even on 422 refusal path so rag_metrics is never empty.
     if (e.status === 422 || e.error_code === "insufficient_evidence") {
       try {
-        // use any available envelope version
-        const targetEnvelope = (typeof safeEnvelope !== "undefined" &&
-          safeEnvelope) ||
+        const targetEnvelope =
+          (typeof safeEnvelope !== "undefined" && safeEnvelope) ||
           (typeof envelope !== "undefined" && envelope);
         if (targetEnvelope) {
           await recordRagMetrics(trace, targetEnvelope);
