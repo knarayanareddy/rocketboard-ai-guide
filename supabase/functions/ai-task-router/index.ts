@@ -303,7 +303,7 @@ async function quickVerifyCitations(
   let verified = content;
 
   for (const cit of citations) {
-    const parts = cit.match(/\[SOURCE: ([^:]+):([0-9?]+)-([0-9?]+)\]/);
+    const parts = cit.match(/\[SOURCE: (.+?):(\d+)-(\d+)\]/);
     if (!parts) continue;
     const [_, path, start, end] = parts;
     const exists = spans.some((s) =>
