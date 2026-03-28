@@ -55,7 +55,7 @@ Prioritize snippets that show definitions, implementations, or specific configur
   try {
     const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
       allowAnyHost: false,
-      allowedHostSuffixes: ["ai.gateway.lovable.dev"],
+      allowedHostSuffixes: ["ai.gateway.lovable.dev", "googleapis.com"],
       allowHttps: true,
       disallowPrivateIPs: true,
     });
