@@ -30,7 +30,7 @@ export function canonicalizeCitations(
   spans: any[] = [],
 ): CitationMappingResult {
   // Refined safe non-greedy regex
-  const citationRegex = /\[SOURCE:\s*([^\]:]+):\s*(\d+)-(\d+)\]/g;
+  const citationRegex = /\[SOURCE:\s*(.+):(\d+)-(\d+)\]/g;
   const sourceMap: SourceMapEntry[] = [];
   const map = new Map<string, string>();
   let badgeCounter = 1;
