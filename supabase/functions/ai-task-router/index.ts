@@ -298,12 +298,18 @@ async function quickVerifyCitations(
   content: string,
   spans: any[],
 ): Promise<{ verified: string; warnings: string[] }> {
-  const citations = content.match(/\[SOURCE: [^\]]+:[0-9?]+-[0-9?]+\]/g) || [];
+  // Use non-greedy (.+?) with a lookahead (?=:\d+-\d+\]) to stop at the LAST numeric boundary.
+  // This allows multiple [SOURCE: ...] tags on a single line even if file paths contain colons (repo:...).
+  const citationGlobalRegex =
+    /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/g;
+  const citationSingleRegex =
+    /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/;
+  const citations = content.match(citationGlobalRegex) || [];
   const warnings: string[] = [];
   let verified = content;
 
   for (const cit of citations) {
-    const parts = cit.match(/\[SOURCE: ([^:]+):([0-9?]+)-([0-9?]+)\]/);
+    const parts = cit.match(citationSingleRegex);
     if (!parts) continue;
     const [_, path, start, end] = parts;
     const exists = spans.some((s) =>
@@ -769,6 +775,10 @@ async function callWithAgenticReview(
       groundingGatePassed: decision.ok,
       groundingGateReason: decision.reason_code,
       groundingPolicy: policy,
+      // Add detailed claims metrics for recordRagMetrics
+      stripRate: m.strip_rate || 0,
+      claimsTotal: m.claims_total || 0,
+      claimsStripped: m.claims_stripped || 0,
     });
 
     trace?.score({ name: "grounding-score", value: score });
@@ -3879,8 +3889,26 @@ Deno.serve(async (req: Request) => {
 
     console.error("ai-task-router error:", e);
     trace.setError(e.message || "Unknown error");
+
+    // NEW (PART C): Record grounding failure metrics even on 422 refusal path.
+    // This allows us to track why the grounding gate is refusing (e.g. strip rate too high).
+    if (e.status === 422 || e.error_code === "insufficient_evidence") {
+      try {
+        // use any available envelope version
+        const targetEnvelope = (typeof safeEnvelope !== "undefined" &&
+          safeEnvelope) ||
+          (typeof envelope !== "undefined" && envelope);
+        if (targetEnvelope) {
+          await recordRagMetrics(trace, targetEnvelope);
+        }
+      } catch (metricsError) {
+        console.warn("[catch] Failed to record failure metrics:", metricsError);
+      }
+    }
+
     await trace.flush();
-    const requestId = "unknown";
+    const requestId = (typeof envelope !== "undefined" &&
+      (envelope.task?.request_id || envelope.task?.trace_id)) || "unknown";
     if (e.error_code) {
       return structuredError(
         requestId,

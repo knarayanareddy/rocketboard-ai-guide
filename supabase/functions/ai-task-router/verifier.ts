@@ -111,7 +111,10 @@ function cleanupDanglingListMarkers(md: string): string {
 function extractCitations(
   text: string,
 ): { path: string; start: number; end: number }[] {
-  const regex = /\[SOURCE:\s*([^\]:]+):\s*(\d+)-(\d+)\]/g;
+  // Use non-greedy (.+?) with a lookahead (?=:\d+-\d+\]) to stop at the LAST numeric boundary.
+  // This allows multiple [SOURCE: ...] tags on a single line even if file paths contain colons (repo:...).
+  // A greedy (.+) would consume multiple citations into a single match.
+  const regex = /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/g;
   const citations = [];
   let match;
   while ((match = regex.exec(text)) !== null) {
