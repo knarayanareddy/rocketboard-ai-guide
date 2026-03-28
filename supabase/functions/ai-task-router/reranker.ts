@@ -77,7 +77,46 @@ Prioritize snippets that show definitions, implementations, or specific configur
     });
 
     if (!res.ok) {
-      console.error("[RERANKER] API Error:", await res.text());
+      const errText = await res.text();
+      console.error("[RERANKER] API Error:", errText);
+
+      // If Lovable gateway 402, try Google AI key directly
+      if (res.status === 402 || res.status === 429) {
+        const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+        if (googleKey && !isGoogleDirect) {
+          console.log("[RERANKER] Falling back to Google AI API directly");
+          const googleEndpoint = parseAndValidateExternalUrl(
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            { allowAnyHost: false, allowedHostSuffixes: ["googleapis.com"], allowHttps: true, disallowPrivateIPs: true }
+          );
+          const gRes = await fetch(googleEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${googleKey}` },
+            body: JSON.stringify({
+              model: "gemini-2.5-flash",
+              messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+              response_format: { type: "json_object" },
+            }),
+          });
+          if (gRes.ok) {
+            const gData = await gRes.json();
+            const gContent = gData.choices[0].message.content;
+            const gScores: RerankedSpan[] = JSON.parse(gContent).scores || JSON.parse(gContent);
+            const gScoredSpans = spansToProcess.map((s) => {
+              const scoreData = gScores.find((rs) => rs.id === (s.span_id || s.chunk_id || s.id));
+              return { ...s, relevance_score: scoreData?.score || 0 };
+            });
+            const gFiltered = gScoredSpans.filter((s) => s.relevance_score >= 1).sort((a, b) => b.relevance_score - a.relevance_score);
+            const gFinal = (gFiltered.length === 0 && spansToProcess.length > 0)
+              ? gScoredSpans.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, 5) : gFiltered;
+            console.log(`[RERANKER-GOOGLE] Input: ${spans.length}, Output: ${gFinal.length}`);
+            return gFinal;
+          } else {
+            console.error("[RERANKER] Google fallback also failed:", gRes.status, await gRes.text());
+          }
+        }
+      }
+
       return spans; // Fallback to original order
     }
 
