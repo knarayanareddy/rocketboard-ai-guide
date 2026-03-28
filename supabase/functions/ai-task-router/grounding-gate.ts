@@ -159,6 +159,8 @@ export function getRetryDirective(
   } else if (reason === "high_strip_rate") {
     rules.push(
       "- Your previous response had too many hallucinated or unverified claims which were stripped.",
+      "- REWRITE using the One-Sentence-Per-Bullet contract: Each bullet must be exactly one sentence ending with its own citation [SOURCE: ...].",
+      "- Split multi-sentence thoughts into separate bullets to ensure every claim unit is cited.",
     );
   }
 
