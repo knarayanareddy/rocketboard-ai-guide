@@ -1502,9 +1502,12 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       },
       async (parsed) => {
         const raw = parsed.response_markdown || "";
+        console.log("[DEBUG] raw response_markdown:", raw.substring(0, 500));
         const codeCleaned = enforceNoDirectCode(raw);
         const { verifiedText, claims_total, claims_stripped, strip_rate } =
           await verifyClaims(codeCleaned, evidenceSpans);
+        console.log(`[DEBUG] verifyClaims: total=${claims_total} stripped=${claims_stripped} rate=${strip_rate}`);
+        console.log("[DEBUG] verifiedText:", verifiedText.substring(0, 300));
         const { finalMarkdown, snippets_resolved } = resolveSnippets(
           verifiedText,
           evidenceSpans,
