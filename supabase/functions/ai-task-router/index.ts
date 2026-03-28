@@ -298,12 +298,19 @@ async function quickVerifyCitations(
   content: string,
   spans: any[],
 ): Promise<{ verified: string; warnings: string[] }> {
-  const citations = content.match(/\[SOURCE: .+:\d+-\d+\]/g) || [];
+  // Use non-greedy (.+?) with a lookahead (?=:\d+-\d+\]) to stop at the LAST numeric boundary.
+  // This allows multiple [SOURCE: ...] tags on a single line even if file paths contain colons (repo:...).
+  // A greedy (.+) would consume multiple citations into a single match on the same line.
+  const citationGlobalRegex =
+    /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/g;
+  const citationSingleRegex =
+    /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/;
+  const citations = content.match(citationGlobalRegex) || [];
   const warnings: string[] = [];
   let verified = content;
 
   for (const cit of citations) {
-    const parts = cit.match(/\[SOURCE: (.+):(\d+)-(\d+)\]/);
+    const parts = cit.match(citationSingleRegex);
     if (!parts) continue;
     const [_, path, start, end] = parts;
     const exists = spans.some((s) =>
@@ -627,17 +634,21 @@ async function callAI(
           ],
           stream: false,
         };
-        const fallbackResp = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openaiKey}`,
+        const fallbackResp = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${openaiKey}`,
+            },
+            body: JSON.stringify(fallbackBody),
           },
-          body: JSON.stringify(fallbackBody),
-        });
+        );
         if (fallbackResp.ok) {
           const fallbackResult = await fallbackResp.json();
-          const fallbackContent = fallbackResult.choices?.[0]?.message?.content || "";
+          const fallbackContent =
+            fallbackResult.choices?.[0]?.message?.content || "";
           const fallbackLatency = Date.now() - startTime;
           if (trace && fallbackResult.usage) {
             const inp = fallbackResult.usage.prompt_tokens || 0;
@@ -649,7 +660,10 @@ async function callAI(
               totalTokens: inp + out,
               latencyMs: fallbackLatency,
               costUsd: calculateCost(fallbackModel, inp, out),
-              input: [{ role: "system", content: "[redacted]" }, { role: "user", content: userPrompt.slice(0, 500) }],
+              input: [{ role: "system", content: "[redacted]" }, {
+                role: "user",
+                content: userPrompt.slice(0, 500),
+              }],
               output: fallbackContent.slice(0, 500),
             });
           }
@@ -657,7 +671,11 @@ async function callAI(
           return fallbackContent;
         } else {
           const ft = await fallbackResp.text();
-          console.error("[FALLBACK] OpenAI also failed:", fallbackResp.status, ft);
+          console.error(
+            "[FALLBACK] OpenAI also failed:",
+            fallbackResp.status,
+            ft,
+          );
         }
       }
 
@@ -674,17 +692,21 @@ async function callAI(
           ],
           stream: false,
         };
-        const googleResp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${googleKey}`,
+        const googleResp = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${googleKey}`,
+            },
+            body: JSON.stringify(googleBody),
           },
-          body: JSON.stringify(googleBody),
-        });
+        );
         if (googleResp.ok) {
           const googleResult = await googleResp.json();
-          const googleContent = googleResult.choices?.[0]?.message?.content || "";
+          const googleContent = googleResult.choices?.[0]?.message?.content ||
+            "";
           const googleLatency = Date.now() - startTime;
           if (trace && googleResult.usage) {
             const inp = googleResult.usage.prompt_tokens || 0;
@@ -696,7 +718,10 @@ async function callAI(
               totalTokens: inp + out,
               latencyMs: googleLatency,
               costUsd: calculateCost(googleModel, inp, out),
-              input: [{ role: "system", content: "[redacted]" }, { role: "user", content: userPrompt.slice(0, 500) }],
+              input: [{ role: "system", content: "[redacted]" }, {
+                role: "user",
+                content: userPrompt.slice(0, 500),
+              }],
               output: googleContent.slice(0, 500),
             });
           }
@@ -704,7 +729,11 @@ async function callAI(
           return googleContent;
         } else {
           const gt = await googleResp.text();
-          console.error("[FALLBACK] Google AI also failed:", googleResp.status, gt);
+          console.error(
+            "[FALLBACK] Google AI also failed:",
+            googleResp.status,
+            gt,
+          );
         }
       }
     }
@@ -865,6 +894,10 @@ async function callWithAgenticReview(
       groundingGatePassed: decision.ok,
       groundingGateReason: decision.reason_code,
       groundingPolicy: policy,
+      // Part C: expose claims metrics so recordRagMetrics can store them even on refusal
+      stripRate: m.strip_rate || 0,
+      claimsTotal: m.claims_total || 0,
+      claimsStripped: m.claims_stripped || 0,
     });
 
     trace?.score({ name: "grounding-score", value: score });
@@ -1602,7 +1635,9 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
         const codeCleaned = enforceNoDirectCode(raw);
         const { verifiedText, claims_total, claims_stripped, strip_rate } =
           await verifyClaims(codeCleaned, evidenceSpans);
-        console.log(`[DEBUG] verifyClaims: total=${claims_total} stripped=${claims_stripped} rate=${strip_rate}`);
+        console.log(
+          `[DEBUG] verifyClaims: total=${claims_total} stripped=${claims_stripped} rate=${strip_rate}`,
+        );
         console.log("[DEBUG] verifiedText:", verifiedText.substring(0, 300));
         const { finalMarkdown, snippets_resolved } = resolveSnippets(
           verifiedText,
@@ -3977,8 +4012,24 @@ Deno.serve(async (req: Request) => {
 
     console.error("ai-task-router error:", e);
     trace.setError(e.message || "Unknown error");
+
+    // Part C: Record grounding failure metrics even on 422 refusal path so rag_metrics is never empty.
+    if (e.status === 422 || e.error_code === "insufficient_evidence") {
+      try {
+        const targetEnvelope =
+          (typeof safeEnvelope !== "undefined" && safeEnvelope) ||
+          (typeof envelope !== "undefined" && envelope);
+        if (targetEnvelope) {
+          await recordRagMetrics(trace, targetEnvelope);
+        }
+      } catch (metricsError) {
+        console.warn("[catch] Failed to record failure metrics:", metricsError);
+      }
+    }
+
     await trace.flush();
-    const requestId = "unknown";
+    const requestId = (typeof envelope !== "undefined" &&
+      (envelope.task?.request_id || envelope.task?.trace_id)) || "unknown";
     if (e.error_code) {
       return structuredError(
         requestId,

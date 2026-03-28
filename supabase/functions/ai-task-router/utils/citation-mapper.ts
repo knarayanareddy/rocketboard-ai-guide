@@ -29,8 +29,10 @@ export function canonicalizeCitations(
   originalText: string,
   spans: any[] = [],
 ): CitationMappingResult {
-  // Refined safe non-greedy regex
-  const citationRegex = /\[SOURCE:\s*(.+):(\d+)-(\d+)\]/g;
+  // Use non-greedy (.+?) with a lookahead (?=:\d+-\d+\]) to stop at the LAST numeric boundary.
+  // This allows multiple [SOURCE: ...] tags on a single line even if file paths contain colons (repo:...).
+  // A greedy (.+) would consume multiple citations into a single match on the same line.
+  const citationRegex = /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/g;
   const sourceMap: SourceMapEntry[] = [];
   const map = new Map<string, string>();
   let badgeCounter = 1;

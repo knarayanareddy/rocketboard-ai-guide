@@ -73,8 +73,16 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
   // Debug: log span paths available for matching
   console.log("[DEBUG verifyClaims] span count:", spans.length);
   if (spans.length > 0) {
-    console.log("[DEBUG verifyClaims] span[0] keys:", Object.keys(spans[0]).join(","));
-    console.log("[DEBUG verifyClaims] span paths:", spans.map(s => `${s.path}:${s.start_line ?? s.line_start}-${s.end_line ?? s.line_end}`).join(" | "));
+    console.log(
+      "[DEBUG verifyClaims] span[0] keys:",
+      Object.keys(spans[0]).join(","),
+    );
+    console.log(
+      "[DEBUG verifyClaims] span paths:",
+      spans.map((s) =>
+        `${s.path}:${s.start_line ?? s.line_start}-${s.end_line ?? s.line_end}`
+      ).join(" | "),
+    );
   }
 
   const verifiedParts = claimUnits.map((part, idx) => {
@@ -89,9 +97,16 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
     const isTechnical =
       /[a-zA-Z0-9_]{3,}\.[a-zA-Z0-9_]{3,}|function|class|const|var/.test(part);
 
-    console.log(`[DEBUG verifyClaims] claim[${idx}]: citations=${citations.length}, isTechnical=${isTechnical}, text=${part.substring(0, 80)}...`);
+    console.log(
+      `[DEBUG verifyClaims] claim[${idx}]: citations=${citations.length}, isTechnical=${isTechnical}, text=${
+        part.substring(0, 80)
+      }...`,
+    );
     if (citations.length > 0) {
-      console.log(`[DEBUG verifyClaims] citation paths:`, citations.map(c => `${c.path}:${c.start}-${c.end}`).join(" | "));
+      console.log(
+        `[DEBUG verifyClaims] citation paths:`,
+        citations.map((c) => `${c.path}:${c.start}-${c.end}`).join(" | "),
+      );
     }
 
     const validCitations = citations.filter((cit) => {
@@ -101,12 +116,16 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
         const sEnd = (s.end_line ?? s.line_end ?? 0) >= cit.end;
         if (!sPath && s.path && cit.path) {
           // Log first mismatch for debugging
-          console.log(`[DEBUG verifyClaims] path mismatch: span="${s.path}" vs cit="${cit.path}"`);
+          console.log(
+            `[DEBUG verifyClaims] path mismatch: span="${s.path}" vs cit="${cit.path}"`,
+          );
         }
         return sPath && sStart && sEnd;
       });
       if (!span) {
-        console.log(`[DEBUG verifyClaims] NO span match for citation ${cit.path}:${cit.start}-${cit.end}`);
+        console.log(
+          `[DEBUG verifyClaims] NO span match for citation ${cit.path}:${cit.start}-${cit.end}`,
+        );
       }
       return !!span;
     });
@@ -116,7 +135,9 @@ export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
       (citations.length > 0 && validCitations.length !== citations.length) ||
       (!citations.length && isTechnical)
     ) {
-      console.log(`[DEBUG verifyClaims] STRIPPING claim[${idx}]: citations=${citations.length}, valid=${validCitations.length}, isTechnical=${isTechnical}`);
+      console.log(
+        `[DEBUG verifyClaims] STRIPPING claim[${idx}]: citations=${citations.length}, valid=${validCitations.length}, isTechnical=${isTechnical}`,
+      );
       claims_stripped++;
       return null;
     }
@@ -142,9 +163,10 @@ function cleanupDanglingListMarkers(md: string): string {
 function extractCitations(
   text: string,
 ): { path: string; start: number; end: number }[] {
-  // Match [SOURCE: path:start-end] where path may contain colons (e.g. "repo:owner/file.ts")
-  // Strategy: match everything up to the LAST colon before digits-digits]
-  const regex = /\[SOURCE:\s*(.+):(\d+)-(\d+)\]/g;
+  // Use non-greedy (.+?) with a lookahead (?=:\d+-\d+\]) to stop at the LAST numeric boundary.
+  // This allows multiple [SOURCE: ...] tags on a single line even if file paths contain colons (repo:...).
+  // A greedy (.+) would consume multiple citations into a single match on the same line.
+  const regex = /\[SOURCE:\s*(.+?)(?=:\d+-\d+\])\s*:(\d+)-(\d+)\]/g;
   const citations = [];
   let match;
   while ((match = regex.exec(text)) !== null) {
