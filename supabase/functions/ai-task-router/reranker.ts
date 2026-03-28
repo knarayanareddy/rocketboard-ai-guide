@@ -47,14 +47,14 @@ Prioritize snippets that show definitions, implementations, or specific configur
     JSON.stringify(spansJson, null, 2)
   }`;
 
-  const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
-    allowAnyHost: false,
-    allowedHostSuffixes: ["ai.gateway.lovable.dev"],
-    allowHttps: true,
-    disallowPrivateIPs: true,
-  });
-
   try {
+    const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
+      allowAnyHost: false,
+      allowedHostSuffixes: ["ai.gateway.lovable.dev"],
+      allowHttps: true,
+      disallowPrivateIPs: true,
+    });
+
     const res = await fetch(validatedEndpoint, {
       method: "POST",
       headers: {
@@ -62,7 +62,7 @@ Prioritize snippets that show definitions, implementations, or specific configur
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-1.5-flash",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

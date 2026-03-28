@@ -149,8 +149,10 @@ export function parseAndValidateExternalUrl(
     if (!allowed && policy.allowedHostSuffixes) {
       for (const suffix of policy.allowedHostSuffixes) {
         const s = suffix.toLowerCase();
-        // and ensure it's a true domain suffix (boundary check)
-        if (hostname.endsWith(s.startsWith(".") ? s : "." + s)) {
+        // Exact match OR subdomain match with true domain suffix (boundary check)
+        if (
+          hostname === s || hostname.endsWith(s.startsWith(".") ? s : "." + s)
+        ) {
           allowed = true;
           break;
         }
