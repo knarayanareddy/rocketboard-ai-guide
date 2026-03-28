@@ -57,14 +57,25 @@ function isCodeGrounded(block: string, spans: EvidenceSpan[]): boolean {
 /**
  * Segments markdown into semantic claims and enforces citation validity.
  * metrics: claims_total, claims_stripped, strip_rate.
+ *
+ * Segmentation strategy: split on bullet/list-item boundaries so that
+ * each bullet point is ONE claim unit. A bullet ending with a valid
+ * [SOURCE: ...] citation covers the entire bullet, preventing
+ * sentence-level splitting from stripping multi-sentence bullets.
  */
 export async function verifyClaims(text: string, spans: EvidenceSpan[]) {
-  const claimUnits = text.split(/(\n- |\n\d+\. |(?<=[.!?])\s+)/);
+  // Split on bullet boundaries only — each bullet is one claim unit.
+  // The regex captures the delimiter so we can reconstruct the text.
+  const claimUnits = text.split(/(\n- |\n\* |\n\d+\. )/);
   let claims_total = 0;
   let claims_stripped = 0;
 
   const verifiedParts = claimUnits.map((part) => {
-    if (/^(\n- |\n\d+\. |\s+)$/.test(part)) return part;
+    // Skip delimiters and whitespace-only parts
+    if (/^(\n- |\n\* |\n\d+\. |\s*)$/.test(part)) return part;
+
+    // Skip very short non-technical fragments (headings, blank lines)
+    if (part.trim().length < 10) return part;
 
     claims_total++;
     const citations = extractCitations(part); // Regex: [SOURCE: ...]
