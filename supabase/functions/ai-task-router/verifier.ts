@@ -124,7 +124,7 @@ function extractCitations(
 ): { path: string; start: number; end: number }[] {
   // Match [SOURCE: path:start-end] where path may contain colons (e.g. "repo:owner/file.ts")
   // Strategy: match everything up to the LAST colon before digits-digits]
-  const regex = /\[SOURCE:\s*(.+?):(\d+)-(\d+)\]/g;
+  const regex = /\[SOURCE:\s*(.+):(\d+)-(\d+)\]/g;
   const citations = [];
   let match;
   while ((match = regex.exec(text)) !== null) {
