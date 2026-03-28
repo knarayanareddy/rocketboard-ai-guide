@@ -14,8 +14,13 @@ export async function batchRerankWithLLM(
 
   // Use platform key (LOVABLE_API_KEY) and Gemini Flash for cheap infra processing
   const apiKey = Deno.env.get("LOVABLE_API_KEY") ||
+    Deno.env.get("GOOGLE_AI_API_KEY") ||
     Deno.env.get("OPENAI_API_KEY") || "";
-  const endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
+  // If using Google AI key directly, use Google's OpenAI-compatible endpoint
+  const isGoogleDirect = !Deno.env.get("LOVABLE_API_KEY") && Deno.env.get("GOOGLE_AI_API_KEY");
+  const endpoint = isGoogleDirect
+    ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    : "https://ai.gateway.lovable.dev/v1/chat/completions";
 
   if (!apiKey) {
     console.warn("[RERANKER] No API key found for reranking, skipping...");
