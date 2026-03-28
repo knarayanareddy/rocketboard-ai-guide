@@ -122,7 +122,9 @@ function cleanupDanglingListMarkers(md: string): string {
 function extractCitations(
   text: string,
 ): { path: string; start: number; end: number }[] {
-  const regex = /\[SOURCE:\s*([^\]:]+):\s*(\d+)-(\d+)\]/g;
+  // Match [SOURCE: path:start-end] where path may contain colons (e.g. "repo:owner/file.ts")
+  // Strategy: match everything up to the LAST colon before digits-digits]
+  const regex = /\[SOURCE:\s*(.+?):(\d+)-(\d+)\]/g;
   const citations = [];
   let match;
   while ((match = regex.exec(text)) !== null) {
