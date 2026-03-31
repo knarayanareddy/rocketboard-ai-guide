@@ -14,6 +14,8 @@ export type GroundingAttemptMetrics = {
   citations_verified?: number; // count of valid unique badges
   snippets_resolved: number;
   evidence_count: number;
+  invalid_citations_found?: boolean;
+  invalid_citations_list?: string[];
   source_map?: any[];
   warnings?: string[];
 };
@@ -37,6 +39,7 @@ export type GroundingDecision = {
     | "no_citations"
     | "no_evidence"
     | "too_many_unverified"
+    | "invalid_citations"
     | "policy_refuse";
   user_message?: string; // only for refuse
 };
@@ -110,6 +113,11 @@ export function evaluateGroundingGate(
     failedReason = "high_strip_rate";
   }
 
+  // C2. Check for Hallucinated / Out-of-evidence citations (priority over strip rate to avoid score inflation)
+  if (metrics.invalid_citations_found) {
+    failedReason = "invalid_citations";
+  }
+
   // D. Check score
   const score = computeGroundingScore(metrics, policy);
   if (score < policy.min_score && !failedReason) {
@@ -161,6 +169,13 @@ export function getRetryDirective(
       "- Your previous response had too many hallucinated or unverified claims which were stripped.",
       "- REWRITE using the One-Sentence-Per-Bullet contract: Each bullet must be exactly one sentence ending with its own citation [SOURCE: ...].",
       "- Split multi-sentence thoughts into separate bullets to ensure every claim unit is cited.",
+    );
+  } else if (reason === "invalid_citations") {
+    rules.push(
+      "- You used citations (files or line ranges) that were not in the provided Evidence Spans.",
+      "- You must ONLY use the [SOURCE: ...] tokens from the 'ALLOWED SOURCE TOKENS' list provided in the prompt.",
+      "- Do NOT cite files that you assume exist but are not shown in Evidence Spans.",
+      "- If the evidence is insufficient to support a claim, respond with: 'Insufficient evidence in current sources.' instead of inventing citations.",
     );
   }
 
