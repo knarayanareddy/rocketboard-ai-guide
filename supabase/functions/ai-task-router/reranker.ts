@@ -17,7 +17,8 @@ export async function batchRerankWithLLM(
     Deno.env.get("GOOGLE_AI_API_KEY") ||
     Deno.env.get("OPENAI_API_KEY") || "";
   // If using Google AI key directly, use Google's OpenAI-compatible endpoint
-  const isGoogleDirect = !Deno.env.get("LOVABLE_API_KEY") && Deno.env.get("GOOGLE_AI_API_KEY");
+  const isGoogleDirect = !Deno.env.get("LOVABLE_API_KEY") &&
+    Deno.env.get("GOOGLE_AI_API_KEY");
   const endpoint = isGoogleDirect
     ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     : "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -87,32 +88,56 @@ Prioritize snippets that show definitions, implementations, or specific configur
           console.log("[RERANKER] Falling back to Google AI API directly");
           const googleEndpoint = parseAndValidateExternalUrl(
             "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-            { allowAnyHost: false, allowedHostSuffixes: ["googleapis.com"], allowHttps: true, disallowPrivateIPs: true }
+            {
+              allowAnyHost: false,
+              allowedHostSuffixes: ["googleapis.com"],
+              allowHttps: true,
+              disallowPrivateIPs: true,
+            },
           );
           const gRes = await fetch(googleEndpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${googleKey}` },
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${googleKey}`,
+            },
             body: JSON.stringify({
               model: "gemini-2.5-flash",
-              messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+              messages: [{ role: "system", content: systemPrompt }, {
+                role: "user",
+                content: userPrompt,
+              }],
               response_format: { type: "json_object" },
             }),
           });
           if (gRes.ok) {
             const gData = await gRes.json();
             const gContent = gData.choices[0].message.content;
-            const gScores: RerankedSpan[] = JSON.parse(gContent).scores || JSON.parse(gContent);
+            const gScores: RerankedSpan[] = JSON.parse(gContent).scores ||
+              JSON.parse(gContent);
             const gScoredSpans = spansToProcess.map((s) => {
-              const scoreData = gScores.find((rs) => rs.id === (s.span_id || s.chunk_id || s.id));
+              const scoreData = gScores.find((rs) =>
+                rs.id === (s.span_id || s.chunk_id || s.id)
+              );
               return { ...s, relevance_score: scoreData?.score || 0 };
             });
-            const gFiltered = gScoredSpans.filter((s) => s.relevance_score >= 1).sort((a, b) => b.relevance_score - a.relevance_score);
+            const gFiltered = gScoredSpans.filter((s) => s.relevance_score >= 1)
+              .sort((a, b) => b.relevance_score - a.relevance_score);
             const gFinal = (gFiltered.length === 0 && spansToProcess.length > 0)
-              ? gScoredSpans.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, 5) : gFiltered;
-            console.log(`[RERANKER-GOOGLE] Input: ${spans.length}, Output: ${gFinal.length}`);
+              ? gScoredSpans.sort((a, b) =>
+                b.relevance_score - a.relevance_score
+              ).slice(0, 5)
+              : gFiltered;
+            console.log(
+              `[RERANKER-GOOGLE] Input: ${spans.length}, Output: ${gFinal.length}`,
+            );
             return gFinal;
           } else {
-            console.error("[RERANKER] Google fallback also failed:", gRes.status, await gRes.text());
+            console.error(
+              "[RERANKER] Google fallback also failed:",
+              gRes.status,
+              await gRes.text(),
+            );
           }
         }
       }

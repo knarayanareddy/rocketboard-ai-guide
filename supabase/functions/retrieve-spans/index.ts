@@ -49,7 +49,8 @@ async function generateEmbeddingGoogle(
   if (!apiKey) return null;
   try {
     // Google Gemini text-embedding-004 via native API (not OpenAI-compatible)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
+    const url =
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
