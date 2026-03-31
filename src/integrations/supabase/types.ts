@@ -2564,6 +2564,7 @@ export type Database = {
       rag_metrics: {
         Row: {
           attempts: number | null
+          avg_relevance_score: number | null
           chunks_after_rerank: number | null
           chunks_retrieved: number | null
           citations_failed: number | null
@@ -2573,35 +2574,53 @@ export type Database = {
           claims_total: number | null
           created_at: string
           detective_enabled: boolean | null
+          detective_time_ms: number | null
           expanded_chunks_added: number | null
+          generation_latency_ms: number | null
+          grounding_gate_mode: string | null
           grounding_gate_passed: boolean | null
           grounding_gate_reason: string | null
           grounding_score: number | null
+          grounding_threshold_score: number | null
+          grounding_threshold_strip: number | null
           hop0_count: number | null
           hop1_added: number | null
           hop2_added: number | null
           id: string
+          input_tokens: number | null
           kg_added_spans: number | null
           kg_definition_hits: number | null
           kg_enabled: boolean | null
           kg_reference_hits: number | null
           kg_time_ms: number | null
+          model_used: string | null
+          org_id: string | null
+          output_tokens: number | null
           pack_id: string | null
+          provider_used: string | null
+          query: string | null
           query_text: string | null
           request_id: string | null
           rerank_kept: number | null
           rerank_skip_reason: string | null
           rerank_skipped: boolean | null
+          retrieval_hops: number | null
+          retrieval_latency_ms: number | null
+          retrieval_method: string | null
           snippets_resolved: number | null
           strip_rate: number | null
           symbols_extracted: number | null
           task_type: string | null
           time_ms: number | null
+          total_latency_ms: number | null
           total_spans: number | null
+          trace_id: string | null
           unique_files_count: number | null
+          user_id: string | null
         }
         Insert: {
           attempts?: number | null
+          avg_relevance_score?: number | null
           chunks_after_rerank?: number | null
           chunks_retrieved?: number | null
           citations_failed?: number | null
@@ -2611,35 +2630,53 @@ export type Database = {
           claims_total?: number | null
           created_at?: string
           detective_enabled?: boolean | null
+          detective_time_ms?: number | null
           expanded_chunks_added?: number | null
+          generation_latency_ms?: number | null
+          grounding_gate_mode?: string | null
           grounding_gate_passed?: boolean | null
           grounding_gate_reason?: string | null
           grounding_score?: number | null
+          grounding_threshold_score?: number | null
+          grounding_threshold_strip?: number | null
           hop0_count?: number | null
           hop1_added?: number | null
           hop2_added?: number | null
           id?: string
+          input_tokens?: number | null
           kg_added_spans?: number | null
           kg_definition_hits?: number | null
           kg_enabled?: boolean | null
           kg_reference_hits?: number | null
           kg_time_ms?: number | null
+          model_used?: string | null
+          org_id?: string | null
+          output_tokens?: number | null
           pack_id?: string | null
+          provider_used?: string | null
+          query?: string | null
           query_text?: string | null
           request_id?: string | null
           rerank_kept?: number | null
           rerank_skip_reason?: string | null
           rerank_skipped?: boolean | null
+          retrieval_hops?: number | null
+          retrieval_latency_ms?: number | null
+          retrieval_method?: string | null
           snippets_resolved?: number | null
           strip_rate?: number | null
           symbols_extracted?: number | null
           task_type?: string | null
           time_ms?: number | null
+          total_latency_ms?: number | null
           total_spans?: number | null
+          trace_id?: string | null
           unique_files_count?: number | null
+          user_id?: string | null
         }
         Update: {
           attempts?: number | null
+          avg_relevance_score?: number | null
           chunks_after_rerank?: number | null
           chunks_retrieved?: number | null
           citations_failed?: number | null
@@ -2649,32 +2686,49 @@ export type Database = {
           claims_total?: number | null
           created_at?: string
           detective_enabled?: boolean | null
+          detective_time_ms?: number | null
           expanded_chunks_added?: number | null
+          generation_latency_ms?: number | null
+          grounding_gate_mode?: string | null
           grounding_gate_passed?: boolean | null
           grounding_gate_reason?: string | null
           grounding_score?: number | null
+          grounding_threshold_score?: number | null
+          grounding_threshold_strip?: number | null
           hop0_count?: number | null
           hop1_added?: number | null
           hop2_added?: number | null
           id?: string
+          input_tokens?: number | null
           kg_added_spans?: number | null
           kg_definition_hits?: number | null
           kg_enabled?: boolean | null
           kg_reference_hits?: number | null
           kg_time_ms?: number | null
+          model_used?: string | null
+          org_id?: string | null
+          output_tokens?: number | null
           pack_id?: string | null
+          provider_used?: string | null
+          query?: string | null
           query_text?: string | null
           request_id?: string | null
           rerank_kept?: number | null
           rerank_skip_reason?: string | null
           rerank_skipped?: boolean | null
+          retrieval_hops?: number | null
+          retrieval_latency_ms?: number | null
+          retrieval_method?: string | null
           snippets_resolved?: number | null
           strip_rate?: number | null
           symbols_extracted?: number | null
           task_type?: string | null
           time_ms?: number | null
+          total_latency_ms?: number | null
           total_spans?: number | null
+          trace_id?: string | null
           unique_files_count?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {
