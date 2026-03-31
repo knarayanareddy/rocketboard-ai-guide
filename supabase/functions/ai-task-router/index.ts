@@ -10,6 +10,7 @@ import {
   evaluateGroundingGate,
   getRetryDirective,
 } from "./grounding-gate.ts";
+import { getInvalidCitations } from "./utils/citation-validator.ts";
 import type {
   GroundingAttemptMetrics,
   GroundingDecision,
@@ -232,7 +233,9 @@ GROUNDING RULES (STRICT NO-HALLUCINATION CONTRACT):
 3. Every [SNIPPET] must be preceded by its corresponding [SOURCE] citation within 300 characters above it.
 4. You may only use triple-backticks for high-level PSEUDOCODE or new suggestions. If so, the first line MUST be "// PSEUDOCODE".
 5. Every single claim and snippet MUST be cited using the exact format: [SOURCE: filepath:start_line-end_line].
-6. If the required information is not in the provided evidence, you MUST state "No evidence found" instead of fabricating.
+6. You may ONLY use citations from the ALLOWED SOURCE TOKENS list provided below.
+7. Do NOT invent citations to other files (even if you believe they exist).
+8. If the required information is not in the provided evidence, respond with: "Insufficient evidence in current sources." instead of fabricating.
 `;
 
 // ─── HELPERS ───
@@ -281,17 +284,33 @@ function unsupportedTask(
   );
 }
 
-function buildSpansBlock(spans: any[]): string {
-  if (!spans?.length) return "";
-  return `\n## Evidence Spans\nUse these evidence spans to ground your answers. YOU MUST CITE EVERY CLAIM using this exact format: [SOURCE: filepath:start_line-end_line]\n\n${
-    spans.map((s: any) => {
-      const start = s.start_line ?? s.line_start ?? "?";
-      const end = s.end_line ?? s.line_end ?? "?";
-      const text = s.text ?? s.content ?? "";
-      const lang = s.path?.split(".").pop() || "ts";
-      return `[SOURCE: ${s.path}:${start}-${end}]\n\`\`\`${lang}\n${text}\n\`\`\``;
-    }).join("\n\n")
-  }`;
+function buildSpansBlock(
+  spans: any[],
+): { markdown: string; allowedTokens: string[] } {
+  if (!spans?.length) return { markdown: "", allowedTokens: [] };
+
+  const tokensSet = new Set<string>();
+  const blocks = spans.map((s: any) => {
+    const start = s.start_line ?? s.line_start ?? "?";
+    const end = s.end_line ?? s.line_end ?? "?";
+    const text = s.text ?? s.content ?? "";
+    const lang = s.path?.split(".").pop() || "ts";
+    const token = `[SOURCE: ${s.path}:${start}-${end}]`;
+    tokensSet.add(token);
+    return `${token}\n\`\`\`${lang}\n${text}\n\`\`\``;
+  });
+
+  const allowedTokens = Array.from(tokensSet);
+  const allowlistBlock = `\n### ALLOWED SOURCE TOKENS (MUST COPY EXACTLY):\n${
+    allowedTokens.map((t) => `- ${t}`).join("\n")
+  }\n`;
+
+  const markdown =
+    `\n## Evidence Spans\nUse these evidence spans to ground your answers. YOU MUST CITE EVERY CLAIM using this exact format: [SOURCE: filepath:start_line-end_line]\n${allowlistBlock}\n${
+      blocks.join("\n\n")
+    }`;
+
+  return { markdown, allowedTokens };
 }
 
 async function quickVerifyCitations(
@@ -1333,7 +1352,9 @@ async function handleChat(
     );
   }
 
-  const spansBlock = buildSpansBlock(evidenceSpans);
+  const { markdown: spansBlock, allowedTokens } = buildSpansBlock(
+    evidenceSpans,
+  );
 
   // Fetch a lightweight section index for the current module (up to 30 entries)
   const sectionIndexBlock = pack.pack_id
@@ -1423,6 +1444,21 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       },
       async (parsed) => {
         const raw = parsed.response_markdown || "";
+
+        // Pre-check for hallucinations (out-of-evidence citations)
+        const invalidCitations = getInvalidCitations(raw, evidenceSpans);
+        if (invalidCitations.length > 0) {
+          return {
+            strip_rate: 0,
+            claims_total: 0,
+            claims_stripped: 0,
+            citations_found: 0,
+            invalid_citations_found: true,
+            invalid_citations_list: invalidCitations,
+            evidence_count: evidenceSpans.length,
+          };
+        }
+
         const codeCleaned = enforceNoDirectCode(raw);
         const { verifiedText, claims_total, claims_stripped, strip_rate } =
           await verifyClaims(codeCleaned, evidenceSpans);
@@ -1520,7 +1556,9 @@ async function handleGlobalChat(
     );
   }
 
-  const spansBlock = buildSpansBlock(evidenceSpans);
+  const { markdown: spansBlock, allowedTokens } = buildSpansBlock(
+    evidenceSpans,
+  );
   const packBlock = buildPackBlock(pack);
   const audienceBlock = audience.audience
     ? `\nAudience: ${audience.audience}, depth: ${audience.depth || "standard"}`
@@ -1631,6 +1669,21 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       },
       async (parsed) => {
         const raw = parsed.response_markdown || "";
+
+        // Pre-check for hallucinations (out-of-evidence citations)
+        const invalidCitations = getInvalidCitations(raw, evidenceSpans);
+        if (invalidCitations.length > 0) {
+          return {
+            strip_rate: 0,
+            claims_total: 0,
+            claims_stripped: 0,
+            citations_found: 0,
+            invalid_citations_found: true,
+            invalid_citations_list: invalidCitations,
+            evidence_count: evidenceSpans.length,
+          };
+        }
+
         console.log("[DEBUG] raw response_markdown:", raw.substring(0, 500));
         const codeCleaned = enforceNoDirectCode(raw);
         const { verifiedText, claims_total, claims_stripped, strip_rate } =
