@@ -9,7 +9,7 @@ import { requireUser } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 
-async function generateEmbedding(
+async function generateEmbeddingOpenAI(
   text: string,
   apiKey: string,
   useLovableGateway: boolean,
@@ -31,15 +31,72 @@ async function generateEmbedding(
       }),
     });
     if (!res.ok) {
-      console.error("Embedding error:", await res.text());
+      console.error("OpenAI Embedding error:", await res.text());
       return null;
     }
     const data = await res.json();
     return data.data[0].embedding;
   } catch (err) {
-    console.error("Embedding generation failed:", err);
+    console.error("OpenAI Embedding generation failed:", err);
     return null;
   }
+}
+
+async function generateEmbeddingGoogle(
+  text: string,
+  apiKey: string,
+): Promise<number[] | null> {
+  if (!apiKey) return null;
+  try {
+    // Google Gemini text-embedding-004 via native API (not OpenAI-compatible)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "models/text-embedding-004",
+        content: { parts: [{ text: text.replace(/\n/g, " ") }] },
+      }),
+    });
+    if (!res.ok) {
+      console.error("Google Embedding error:", await res.text());
+      return null;
+    }
+    const data = await res.json();
+    return data.embedding?.values || null;
+  } catch (err) {
+    console.error("Google Embedding generation failed:", err);
+    return null;
+  }
+}
+
+async function generateEmbedding(
+  text: string,
+): Promise<number[] | null> {
+  const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+  const googleApiKey = Deno.env.get("GOOGLE_AI_API_KEY") || "";
+
+  // Try OpenAI first
+  if (openAIApiKey) {
+    const result = await generateEmbeddingOpenAI(text, openAIApiKey, false);
+    if (result) return result;
+  }
+
+  // Then Lovable gateway
+  if (lovableApiKey) {
+    const result = await generateEmbeddingOpenAI(text, lovableApiKey, true);
+    if (result) return result;
+  }
+
+  // Finally Google Gemini
+  if (googleApiKey) {
+    console.log("[RETRIEVAL] Falling back to Google text-embedding-004");
+    const result = await generateEmbeddingGoogle(text, googleApiKey);
+    if (result) return result;
+  }
+
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -115,21 +172,11 @@ Deno.serve(async (req) => {
       return json(200, { spans: [] }, corsHeaders);
     }
 
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
-    const embeddingKey = openAIApiKey || lovableApiKey;
-    const useLovableGateway = !openAIApiKey && !!lovableApiKey;
     let embedding = null;
 
-    if (embeddingKey) {
-      const embedSpan = trace.startSpan("generate-embedding");
-      embedding = await generateEmbedding(
-        clampedQuery,
-        embeddingKey,
-        useLovableGateway,
-      );
-      embedSpan.end({ success: !!embedding });
-    }
+    const embedSpan = trace.startSpan("generate-embedding");
+    embedding = await generateEmbedding(clampedQuery);
+    embedSpan.end({ success: !!embedding });
 
     // Reliability: Fallback to keyword-only search if embedding fails
     if (!embedding) {

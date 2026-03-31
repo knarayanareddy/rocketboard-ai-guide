@@ -3128,14 +3128,14 @@ export type Database = {
           }
       hybrid_search_v2_impl: {
         Args: {
-          p_match_count: number
-          p_match_threshold: number
-          p_module_key: string
+          p_match_count?: number
+          p_match_threshold?: number
+          p_module_key?: string
           p_org_id: string
           p_pack_id: string
-          p_query_embedding: string
+          p_query_embedding?: string
           p_query_text: string
-          p_track_key: string
+          p_track_key?: string
         }
         Returns: {
           chunk_id: string
