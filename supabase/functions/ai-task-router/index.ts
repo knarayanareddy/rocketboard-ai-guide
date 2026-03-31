@@ -1592,8 +1592,13 @@ RULES:
   3. Do not include a second sentence in a bullet; if more detail is needed, split it into a new bullet point.
   4. Do not use semicolons (;) to join sentences. Prefer commas (,) if internal punctuation is needed.
   5. The response_markdown MUST consist ONLY of these cited bullet points. No introductory or concluding text.
+  6. Do not greet the user.
+  7. Do not say "I'm Mission Control".
+  8. Do not include pleasantries.
+  9. Start immediately with bullet 1.
+  10. Never output placeholders like <path> or <SOURCE>.
 - If evidence spans are provided, ground your answers in them and cite every technical claim using the exact format: [SOURCE: filepath:start_line-end_line]. The system will convert these to UI badges automatically.
-- If you cannot find sufficient evidence for a claim, you MUST say "I don't know from the sources I have" and list it in unverified_claims. Suggest a search query or asking a lead.
+- If you cannot find sufficient evidence for a claim, you MUST output exactly: "Insufficient evidence in current sources." and list it in unverified_claims. Suggest a search query or asking a lead.
 - Keep responses under ${limits.max_chat_words || 350} words.
 - Use markdown formatting.
 - Suggest relevant follow-up questions.
@@ -1616,6 +1621,14 @@ CONTRADICTION HANDLING: If you detect contradictions in the evidence while answe
 ${
       buildLanguageBlock(context, pack)
     }${packBlock}${audienceBlock}${sectionIndexBlock}${spansBlock}
+
+RESPONSE TEMPLATE (MUST FOLLOW EXACTLY):
+- <one sentence claim> [SOURCE: <copy one allowed token exactly>]
+- <one sentence claim> [SOURCE: <copy one allowed token exactly>]
+- <one sentence claim> [SOURCE: <copy one allowed token exactly>]
+- <one sentence claim> [SOURCE: <copy one allowed token exactly>]
+- <one sentence claim> [SOURCE: <copy one allowed token exactly>]
+(Replace the <...> content; keep brackets and spacing.)
 
 You MUST respond with VALID JSON matching this schema:
 {
@@ -1669,6 +1682,26 @@ Return ONLY the JSON object, no markdown fences, no extra text.`;
       },
       async (parsed) => {
         const raw = parsed.response_markdown || "";
+
+        // Tiny content check: Ban greetings / filler if 0 citations
+        const lowQualityGreeting =
+          /^(Hi|Hello|I'm Mission Control)/i.test(raw.trim()) ||
+          raw.trim().toLowerCase().startsWith("i am mission control");
+        const hasNoCitations = !raw.includes("[SOURCE:");
+
+        if (lowQualityGreeting && hasNoCitations) {
+          console.warn(
+            "[CHECK FAIL] Response is a greeting without citations.",
+          );
+          return {
+            strip_rate: 0,
+            claims_total: 0,
+            claims_stripped: 0,
+            citations_found: 0,
+            no_citations_found: true,
+            evidence_count: evidenceSpans.length,
+          };
+        }
 
         // Pre-check for hallucinations (out-of-evidence citations)
         const invalidCitations = getInvalidCitations(raw, evidenceSpans);

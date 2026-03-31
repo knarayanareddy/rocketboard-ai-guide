@@ -162,7 +162,24 @@ export function getRetryDirective(
 
   if (reason === "no_citations") {
     rules.push(
-      "- Your previous response lacked citations. You MUST provide at least 1-2 citations.",
+      "- Your previous response had 0 citations. You MUST output exactly 5 bullets using the template below.",
+    );
+    rules.push("- Each bullet MUST end with a copied ALLOWED SOURCE TOKEN.");
+    rules.push("\nRESPONSE TEMPLATE (MUST FOLLOW EXACTLY):");
+    rules.push(
+      "- <one sentence claim> [SOURCE: <copy one allowed token exactly>]",
+    );
+    rules.push(
+      "- <one sentence claim> [SOURCE: <copy one allowed token exactly>]",
+    );
+    rules.push(
+      "- <one sentence claim> [SOURCE: <copy one allowed token exactly>]",
+    );
+    rules.push(
+      "- <one sentence claim> [SOURCE: <copy one allowed token exactly>]",
+    );
+    rules.push(
+      "- <one sentence claim> [SOURCE: <copy one allowed token exactly>]",
     );
   } else if (reason === "high_strip_rate") {
     rules.push(
@@ -172,10 +189,7 @@ export function getRetryDirective(
     );
   } else if (reason === "invalid_citations") {
     rules.push(
-      "- You used citations (files or line ranges) that were not in the provided Evidence Spans.",
-      "- You must ONLY use the [SOURCE: ...] tokens from the 'ALLOWED SOURCE TOKENS' list provided in the prompt.",
-      "- Do NOT cite files that you assume exist but are not shown in Evidence Spans.",
-      "- If the evidence is insufficient to support a claim, respond with: 'Insufficient evidence in current sources.' instead of inventing citations.",
+      "- You cited a SOURCE not in the allowlist. Only copy tokens from the ALLOWED SOURCE TOKENS section.",
     );
   }
 
