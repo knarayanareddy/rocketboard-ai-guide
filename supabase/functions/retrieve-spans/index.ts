@@ -175,21 +175,11 @@ Deno.serve(async (req) => {
       return json(200, { spans: [] }, corsHeaders);
     }
 
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
-    const embeddingKey = openAIApiKey || lovableApiKey;
-    const useLovableGateway = !openAIApiKey && !!lovableApiKey;
     let embedding = null;
 
-    if (embeddingKey) {
-      const embedSpan = trace.startSpan("generate-embedding");
-      embedding = await generateEmbedding(
-        clampedQuery,
-        embeddingKey,
-        useLovableGateway,
-      );
-      embedSpan.end({ success: !!embedding });
-    }
+    const embedSpan = trace.startSpan("generate-embedding");
+    embedding = await generateEmbedding(clampedQuery);
+    embedSpan.end({ success: !!embedding });
 
     // Reliability: Fallback to keyword-only search if embedding fails
     if (!embedding) {
