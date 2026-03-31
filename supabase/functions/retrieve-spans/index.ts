@@ -48,17 +48,14 @@ async function generateEmbeddingGoogle(
 ): Promise<number[] | null> {
   if (!apiKey) return null;
   try {
-    // Google Gemini text-embedding-004 via OpenAI-compatible endpoint
-    const url = "https://generativelanguage.googleapis.com/v1beta/openai/embeddings";
+    // Google Gemini text-embedding-004 via native API (not OpenAI-compatible)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`;
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        input: text.replace(/\n/g, " "),
-        model: "text-embedding-004",
+        model: "models/text-embedding-004",
+        content: { parts: [{ text: text.replace(/\n/g, " ") }] },
       }),
     });
     if (!res.ok) {
@@ -66,7 +63,7 @@ async function generateEmbeddingGoogle(
       return null;
     }
     const data = await res.json();
-    return data.data[0].embedding;
+    return data.embedding?.values || null;
   } catch (err) {
     console.error("Google Embedding generation failed:", err);
     return null;
