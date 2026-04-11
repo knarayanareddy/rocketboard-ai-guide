@@ -32,11 +32,11 @@ export function useXP() {
     mutationFn: async (ruleKey: XPRuleKey) => {
       if (!user || !currentPackId) return;
       const rule = XP_RULES[ruleKey];
-      const { error } = await supabase.from("learner_xp").insert({
-        user_id: user.id,
-        pack_id: currentPackId,
-        amount: rule.amount,
-        reason: rule.reason,
+      const { error } = await supabase.rpc("award_xp_server", {
+        p_user_id: user.id,
+        p_pack_id: currentPackId,
+        p_amount: rule.amount,
+        p_reason: rule.reason,
       });
       if (error) throw error;
       return rule;
