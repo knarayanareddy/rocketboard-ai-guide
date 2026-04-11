@@ -31,13 +31,13 @@ export function useBadges() {
   const awardBadge = useMutation({
     mutationFn: async (badgeKey: string) => {
       if (!user || !currentPackId || earnedKeys.has(badgeKey)) return null;
-      const { error } = await supabase.from("learner_badges").insert({
-        user_id: user.id,
-        pack_id: currentPackId,
-        badge_key: badgeKey,
+      const { data, error } = await supabase.rpc("award_badge_server", {
+        p_user_id: user.id,
+        p_pack_id: currentPackId,
+        p_badge_key: badgeKey,
       });
       if (error) throw error;
-      return badgeKey;
+      return data ? badgeKey : null;
     },
     onSuccess: (key) => {
       queryClient.invalidateQueries({ queryKey: ["learner_badges", user?.id, currentPackId] });

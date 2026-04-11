@@ -3074,6 +3074,19 @@ export type Database = {
         Args: { _email: string; _user_id: string }
         Returns: number
       }
+      award_badge_server: {
+        Args: { p_badge_key: string; p_pack_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      award_xp_server: {
+        Args: {
+          p_amount: number
+          p_pack_id: string
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       clear_byok_provider: { Args: { _provider: string }; Returns: undefined }
       decrement_reply_upvote: { Args: { reply_id: string }; Returns: undefined }
       decrement_thread_upvote: {
