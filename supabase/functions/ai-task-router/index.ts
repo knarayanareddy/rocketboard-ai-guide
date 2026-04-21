@@ -639,8 +639,11 @@ async function callAI(
     console.error("AI provider error:", status, t);
     llmSpan?.error(`AI provider returned ${status}`);
 
-    // ── 402 FALLBACK: If Lovable gateway returns payment_required, try OPENAI_API_KEY directly ──
-    if (status === 402 && !activeConfig.isCustom) {
+    // ── COMMERCIAL FALLBACK: If Lovable gateway is unavailable (402/429/5xx), try direct API keys ──
+    if (
+      (status === 402 || status === 429 || status >= 500) &&
+      !activeConfig.isCustom
+    ) {
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
       if (openaiKey) {
         console.log("[FALLBACK] Lovable gateway 402 → trying OpenAI directly");
@@ -752,6 +755,100 @@ async function callAI(
             "[FALLBACK] Google AI also failed:",
             googleResp.status,
             gt,
+          );
+        }
+      }
+
+      // ── FALLBACK #3: Local Ollama (Hardened) ──
+      const ollamaEnabled = Deno.env.get("ENABLE_OLLAMA_FALLBACK") === "true";
+      const ollamaEndpoint = Deno.env.get("OLLAMA_ENDPOINT");
+      const isLocalMode = !Deno.env.get("DENO_REGION");
+
+      if (ollamaEnabled && ollamaEndpoint) {
+        const ollamaModel = Deno.env.get("OLLAMA_MODEL") || "llama3";
+        const allowPrivate = Deno.env.get("ALLOW_PRIVATE_OLLAMA") === "true";
+
+        try {
+          // Strict URL Validation based on environment mode
+          const ollamaPolicy = isLocalMode
+            ? {
+              allowHttp: true,
+              allowedHosts: ["localhost", "host.docker.internal"],
+              disallowPrivateIPs: !allowPrivate,
+              allowedPorts: [11434, 8080, 80, 443],
+            }
+            : {
+              allowHttp: false,
+              disallowPrivateIPs: true,
+              allowAnyHost: false, // Must be in an allowlist if cloud
+            };
+
+          const validatedOllamaUrl = parseAndValidateExternalUrl(
+            ollamaEndpoint,
+            ollamaPolicy,
+          );
+
+          console.log(
+            `[FALLBACK] Commercial APIs unavailable → attempting Ollama. endpoint=${validatedOllamaUrl}, local_mode=${isLocalMode}`,
+          );
+
+          const ollamaBody = {
+            model: ollamaModel,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            stream: false,
+          };
+
+          const ollamaResp = await fetch(validatedOllamaUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ollamaBody),
+          });
+
+          if (ollamaResp.ok) {
+            const ollamaResult = await ollamaResp.json();
+            const ollamaContent = ollamaResult.choices?.[0]?.message?.content ||
+              "";
+            const ollamaLatency = Date.now() - startTime;
+
+            if (trace) {
+              const inp = ollamaResult.usage?.prompt_tokens || 0;
+              const out = ollamaResult.usage?.completion_tokens || 0;
+              trace.setGeneration({
+                model: ollamaModel,
+                inputTokens: inp,
+                outputTokens: out,
+                totalTokens: inp + out,
+                latencyMs: ollamaLatency,
+                costUsd: 0,
+                input: [{ role: "system", content: "[redacted]" }, {
+                  role: "user",
+                  content: userPrompt.slice(0, 500),
+                }],
+                output: ollamaContent.slice(0, 500),
+              });
+            }
+            llmSpan?.end();
+            return ollamaContent;
+          } else {
+            const ot = await ollamaResp.text();
+            console.error(
+              "[FALLBACK] Ollama also failed:",
+              ollamaResp.status,
+              ot,
+            );
+          }
+        } catch (ollamaErr) {
+          console.warn(
+            `[FALLBACK] Ollama skipped or failed validation: ${ollamaErr.message}`,
+          );
+        }
+      } else {
+        if (!ollamaEnabled && ollamaEndpoint) {
+          console.log(
+            "[FALLBACK] Ollama endpoint configured but ENABLE_OLLAMA_FALLBACK is false. Skipping.",
           );
         }
       }
