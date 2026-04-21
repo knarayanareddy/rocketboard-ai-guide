@@ -9,7 +9,7 @@ This guide explains how to configure a local Ollama instance to serve as a high-
     ```bash
     ollama pull llama3
     ```
-3.  **Ensure Service is Running**: By default, Ollama runs on `127.0.0.1:11434`.
+3. **Ensure Service is Running**: By default, Ollama runs on `127.0.0.1:11434`.
 
 ---
 
