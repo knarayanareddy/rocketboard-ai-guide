@@ -177,6 +177,29 @@ RocketBoard enforces two canonical formats for stable chunk identifiers. All ing
 
 ---
 
+### 1.7 LLM Fallback Chain Invariants
+**Trigger Conditions (required):**
+- The fallback chain activates when the primary Lovable AI Gateway returns `402` (payment required), `429` (rate limited), or `>= 500` (server error), AND the user is NOT using a custom BYOK provider.
+- **Environment Gating**: Ollama fallback ONLY activates if `ENABLE_OLLAMA_FALLBACK="true"`.
+- BYOK users are never routed through the fallback chain; their errors surface directly.
+
+**Fallback Order (strict sequence):**
+1. **OpenAI Direct** (`OPENAI_API_KEY` env var) → model: `gpt-4o-mini`
+2. **Google AI Direct** (`GOOGLE_AI_API_KEY` env var) → model: `gemini-2.5-flash`
+3. **Local Ollama** (`OLLAMA_ENDPOINT` + optional `OLLAMA_MODEL` env vars) → default model: `llama3`
+
+**Ollama Security (Hardened):**
+- **Strict Validation**: The terminal `fetch()` to Ollama MUST use `parseAndValidateExternalUrl`. No unconditional bypasses allowed.
+- **Regional Access Control**: 
+  - **Local Mode** (detected via empty `DENO_REGION`): Allows access to `localhost` and `host.docker.internal` on ports `11434`, `8080`, `80`, `443`. Private IP literals are blocked unless `ALLOW_PRIVATE_OLLAMA="true"`.
+  - **Cloud Mode**: Strictly forbids private IPs, `localhost`, and HTTP. Requires HTTPS and public DNS.
+- The `OLLAMA_ENDPOINT` must point to the OpenAI-compatible completions path (e.g., `http://host.docker.internal:11434/v1/chat/completions`).
+
+**Observability (required):**
+- Each fallback attempt must be logged with a `[FALLBACK]` prefix including the status of enabling flags.
+- If Ollama succeeds, `costUsd` must be recorded as `0` in the trace generation.
+- The `model` field in `rag_metrics` must reflect the actual model used (e.g., `llama3`), not the originally requested model.
+
 ---
 
 ## 2) Where to change what (map of the codebase)
