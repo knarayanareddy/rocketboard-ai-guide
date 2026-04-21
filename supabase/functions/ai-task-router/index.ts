@@ -640,7 +640,10 @@ async function callAI(
     llmSpan?.error(`AI provider returned ${status}`);
 
     // ── COMMERCIAL FALLBACK: If Lovable gateway is unavailable (402/429/5xx), try direct API keys ──
-    if ((status === 402 || status === 429 || status >= 500) && !activeConfig.isCustom) {
+    if (
+      (status === 402 || status === 429 || status >= 500) &&
+      !activeConfig.isCustom
+    ) {
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
       if (openaiKey) {
         console.log("[FALLBACK] Lovable gateway 402 → trying OpenAI directly");
@@ -806,8 +809,8 @@ async function callAI(
 
           if (ollamaResp.ok) {
             const ollamaResult = await ollamaResp.json();
-            const ollamaContent =
-              ollamaResult.choices?.[0]?.message?.content || "";
+            const ollamaContent = ollamaResult.choices?.[0]?.message?.content ||
+              "";
             const ollamaLatency = Date.now() - startTime;
 
             if (trace) {
@@ -838,11 +841,15 @@ async function callAI(
             );
           }
         } catch (ollamaErr) {
-          console.warn(`[FALLBACK] Ollama skipped or failed validation: ${ollamaErr.message}`);
+          console.warn(
+            `[FALLBACK] Ollama skipped or failed validation: ${ollamaErr.message}`,
+          );
         }
       } else {
         if (!ollamaEnabled && ollamaEndpoint) {
-          console.log("[FALLBACK] Ollama endpoint configured but ENABLE_OLLAMA_FALLBACK is false. Skipping.");
+          console.log(
+            "[FALLBACK] Ollama endpoint configured but ENABLE_OLLAMA_FALLBACK is false. Skipping.",
+          );
         }
       }
     }

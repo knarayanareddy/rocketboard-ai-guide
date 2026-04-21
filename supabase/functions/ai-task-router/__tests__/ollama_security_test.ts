@@ -27,21 +27,33 @@ Deno.test("Ollama Security - Cloud Mode Restrictions", () => {
 
   // 1. Cloud mode must reject HTTP
   assertThrows(
-    () => parseAndValidateExternalUrl("http://ollama.mycorp.com/v1/chat/completions", ollamaPolicy),
+    () =>
+      parseAndValidateExternalUrl(
+        "http://ollama.mycorp.com/v1/chat/completions",
+        ollamaPolicy,
+      ),
     Error,
     "http not allowed",
   );
 
   // 2. Cloud mode must reject private IP literals
   assertThrows(
-    () => parseAndValidateExternalUrl("https://192.168.1.10:11434/v1/chat/completions", ollamaPolicy),
+    () =>
+      parseAndValidateExternalUrl(
+        "https://192.168.1.10:11434/v1/chat/completions",
+        ollamaPolicy,
+      ),
     Error,
     "raw IP literals are not allowed",
   );
 
   // 3. Cloud mode must reject localhost/internal hosts
   assertThrows(
-    () => parseAndValidateExternalUrl("https://localhost:11434/v1/chat/completions", ollamaPolicy),
+    () =>
+      parseAndValidateExternalUrl(
+        "https://localhost:11434/v1/chat/completions",
+        ollamaPolicy,
+      ),
     Error,
     "not in the allowlist",
   );
@@ -75,7 +87,11 @@ Deno.test("Ollama Security - Local Mode Flexibility", () => {
   // 3. Local mode blocks private IP literal if !allowPrivate
   const privateIp = "http://192.168.1.10:11434/v1/chat/completions";
   assertThrows(
-    () => parseAndValidateExternalUrl(privateIp, { ...ollamaPolicy, disallowPrivateIPs: true }),
+    () =>
+      parseAndValidateExternalUrl(privateIp, {
+        ...ollamaPolicy,
+        disallowPrivateIPs: true,
+      }),
     Error,
     "raw IP literals are not allowed",
   );
