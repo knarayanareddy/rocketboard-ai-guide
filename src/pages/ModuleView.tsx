@@ -1079,7 +1079,7 @@ export default function ModuleView() {
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Reflect on what you learned:</p>
                         <ol className="space-y-2 list-decimal list-inside">
                           {moduleData.endcap.reflection_prompts.map((p, i) => (
-                            <li key={i} className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">ðŸ’­ {p}</li>
+                            <li key={i} className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">ðŸ’ {p}</li>
                           ))}
                         </ol>
                       </div>
@@ -1308,7 +1308,7 @@ export default function ModuleView() {
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Reflect on what you learned:</p>
                       <ul className="space-y-2">
                         {staticMod.endcap.reflection_prompts.map((p, i) => (
-                          <li key={i} className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">ðŸ’­ {p}</li>
+                          <li key={i} className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">ðŸ’ {p}</li>
                         ))}
                       </ul>
                     </div>

@@ -909,7 +909,7 @@ At the bottom of each response, you'll see interactive source badges showing the
 If an answer seems incorrect or misleading, click the **🚩 Report** button. Your feedback is tagged with a trace ID and routed to pack authors for review.
 :::
 
-## 🧭 Mission Control (Global Chat)
+## � Mission Control (Global Chat)
 
 :::card[Platform Assistant]{🗺️}
 Mission Control is available on all pages (bottom-left). It answers questions about RocketBoard's features, settings, and navigation.
@@ -1131,7 +1131,7 @@ Cohort members can see each other's completion status, fostering a sense of shar
     tags: ["ask lead", "questions", "team lead"],
     summary: "Curated questions to ask your team lead.",
     lastUpdated: "2026-03-15",
-    content: `# Ask Your Lead 🧭
+    content: `# Ask Your Lead �
 
 RocketBoard helps you have better 1:1s with your manager by providing curated, high-impact questions based on your progress.
 

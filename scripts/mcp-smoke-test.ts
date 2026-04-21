@@ -379,7 +379,7 @@ async function runAll() {
   for (const r of results) {
     let icon = "✅";
     if (r.status === "FAIL") { icon = "❌"; hasFailed = true; }
-    if (r.status === "SKIP") { icon = "⏭️ "; }
+    if (r.status === "SKIP") { icon = "�️ "; }
     const time = r.latencyMs > 0 ? `${r.latencyMs}ms` : "-";
     console.log(`${icon} [${r.status}] ${r.name.padEnd(50)} | HTTP: ${String(r.httpStatus).padEnd(3)} | Time: ${time.padEnd(6)} | Info: ${r.details}`);
   }
