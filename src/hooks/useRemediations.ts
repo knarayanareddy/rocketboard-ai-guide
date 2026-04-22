@@ -68,8 +68,14 @@ export function useRemediations(packId: string | null) {
           }
         }
 
-        // 3. Unmark staleness in content_freshness
-        await supabase.from("content_freshness").update({ is_stale: false }).eq("pack_id", packId).eq("module_key", module_key).eq("section_id", section_id);
+        // 3. Record freshness snapshot to reset the baseline for this section
+        await supabase.functions.invoke("record-content-freshness", {
+          body: {
+            pack_id: packId,
+            module_key: module_key,
+            module_data: modData,
+          }
+        }).catch(err => console.error("Freshness recording after remediation failed:", err));
       }
     },
     onSuccess: () => {

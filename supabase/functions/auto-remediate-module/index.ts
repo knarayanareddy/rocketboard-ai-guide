@@ -5,7 +5,8 @@ import {
 } from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
-import { requireUser } from "../_shared/authz.ts";
+import { requireUserOrInternal } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 
 Deno.serve(async (req) => {
@@ -31,8 +32,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { userId } = await requireUser(req, corsHeaders);
+    const { mode, userId } = await requireUserOrInternal(req, corsHeaders);
     const serviceClient = createServiceClient();
+
+    // Pack Authorization: Ensure human users have 'author' access to this pack.
+    if (mode === "user") {
+      await requirePackRole(serviceClient, pack_id, userId!, "author", corsHeaders);
+    }
 
     // 1. Fetch the actual diff from GitHub
     // Assuming compare_url is something like https://github.com/owner/repo/compare/hash1...hash2
@@ -98,9 +104,26 @@ Deno.serve(async (req) => {
     }
 
     // 3. For each stale module section, contact LLM to draft an update
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY") ||
-      Deno.env.get("LOVABLE_API_KEY");
-    if (!openAIApiKey) throw new Error("Missing LLM API Key");
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+
+    // Provider Routing Logic
+    const useOpenAI = !!openAIApiKey;
+    const llmApiKey = openAIApiKey || lovableApiKey;
+    const llmEndpoint = useOpenAI
+      ? "https://api.openai.com/v1/chat/completions"
+      : "https://ai.gateway.lovable.dev/v1/chat/completions";
+    const llmModel = useOpenAI ? "gpt-4o" : "google/gemini-3-flash-preview";
+
+    if (!llmApiKey) {
+      throw new Error(
+        "Missing LLM API Key (OPENAI_API_KEY or LOVABLE_API_KEY)",
+      );
+    }
+
+    console.log(
+      `[REMEDIATION] drafting via ${useOpenAI ? "OpenAI" : "Lovable Gateway"} (${llmModel})`,
+    );
 
     for (const stale of staleModules) {
       // Fetch current module data
@@ -125,21 +148,18 @@ Deno.serve(async (req) => {
           diffText.substring(0, 4000)
         }\n\nHere is the original documentation section:\n\n${originalContent}\n\nPlease completely rewrite this documentation section so it is accurate based on the git diff. Return ONLY the new markdown content. Do NOT include any intro or conversational text.`;
 
-      const llmResp = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openAIApiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.2,
-          }),
+      const llmResp = await fetch(llmEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${llmApiKey}`,
         },
-      );
+        body: JSON.stringify({
+          model: llmModel,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2,
+        }),
+      });
 
       if (!llmResp.ok) {
         console.error("LLM Error:", await llmResp.text());
@@ -154,6 +174,7 @@ Deno.serve(async (req) => {
 
       // Save to module_remediations
       await serviceClient.from("module_remediations").insert({
+        pack_id: pack_id,
         module_key: stale.module_key,
         section_id: stale.section_id,
         original_content: originalContent,

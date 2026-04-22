@@ -115,14 +115,15 @@ Deno.serve(async (req) => {
     const changedFilesList = Array.from(changedFiles);
     const compareUrl = payload.compare;
 
-    // Trigger staleness check and remediation for each affected pack
-    for (const packId of packIds) {
+      const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
+
       // 1. Mark as stale
       await fetch(`${supabaseUrl}/functions/v1/check-staleness`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${serviceKey}`,
+          ...(internalSecret ? { "X-Rocketboard-Internal": internalSecret } : {}),
         },
         body: JSON.stringify({ pack_id: packId }),
       });
@@ -135,6 +136,7 @@ Deno.serve(async (req) => {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${serviceKey}`,
+            ...(internalSecret ? { "X-Rocketboard-Internal": internalSecret } : {}),
           },
           body: JSON.stringify({
             pack_id: packId,

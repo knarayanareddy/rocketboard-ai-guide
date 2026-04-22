@@ -1415,6 +1415,27 @@ export type Database = {
           },
         ]
       }
+      lifecycle_audit_events: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+        }
+        Relationships: []
+      }
       learner_milestone_progress: {
         Row: {
           completed_at: string | null
@@ -1781,36 +1802,39 @@ export type Database = {
       module_remediations: {
         Row: {
           created_at: string
-          diff_summary: string | null
+          diff_summary: string
           id: string
           module_key: string
           original_content: string
-          pack_id: string | null
+          pack_id: string
           proposed_content: string
           section_id: string
           status: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
-          diff_summary?: string | null
+          diff_summary: string
           id?: string
           module_key: string
           original_content: string
-          pack_id?: string | null
+          pack_id: string
           proposed_content: string
           section_id: string
           status?: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
-          diff_summary?: string | null
+          diff_summary?: string
           id?: string
           module_key?: string
           original_content?: string
-          pack_id?: string | null
+          pack_id?: string
           proposed_content?: string
           section_id?: string
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2180,6 +2204,38 @@ export type Database = {
           },
         ]
       }
+      pack_roles: {
+        Row: {
+          created_at: string
+          id: string
+          pack_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pack_id: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pack_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_roles_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pack_sources: {
         Row: {
           created_at: string
@@ -2262,6 +2318,7 @@ export type Database = {
           language_mode: string
           org_id: string
           pack_version: number
+          remediation_threshold: number | null
           title: string
           updated_at: string
         }
@@ -2273,6 +2330,7 @@ export type Database = {
           language_mode?: string
           org_id: string
           pack_version?: number
+          remediation_threshold?: number | null
           title: string
           updated_at?: string
         }
@@ -2284,6 +2342,7 @@ export type Database = {
           language_mode?: string
           org_id?: string
           pack_version?: number
+          remediation_threshold?: number | null
           title?: string
           updated_at?: string
         }
@@ -2293,6 +2352,56 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staleness_check_queue: {
+        Row: {
+          attempts: number
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          pack_id: string
+          processed_at: string | null
+          reason: string
+          requested_at: string
+          source_id: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          pack_id: string
+          processed_at?: string | null
+          reason?: string
+          requested_at?: string
+          source_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          pack_id?: string
+          processed_at?: string | null
+          reason?: string
+          requested_at?: string
+          source_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staleness_check_queue_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
             referencedColumns: ["id"]
           },
         ]
