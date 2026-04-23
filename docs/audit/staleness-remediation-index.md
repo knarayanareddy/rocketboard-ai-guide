@@ -53,3 +53,17 @@ Key migrations defining the schema and security policies for this subsystem:
 
 ---
 *Baseline Report Generated: 2026-04-22*
+
+## 🛡️ Security & Authorization Model
+The pipeline adheres to the principle of least privilege, ensuring multi-tenant isolation:
+
+| Component | Auth Mode | Role Requirement |
+| :--- | :--- | :--- |
+| `check-staleness` | Hybrid | **Author** (for `pack_id`) or Internal Secret |
+| `record-content-freshness` | Hybrid | **Author** (for `pack_id`) or Internal Secret |
+| `auto-remediate-module` | Hybrid | **Author** (for `pack_id`) or Internal Secret |
+| `process-staleness-queue` | **Internal-Only** | Mandatory `X-Rocketboard-Internal` |
+| `github-webhook` | Public/HMAC | Signed by GitHub; triggers Internal functions |
+
+> [!CAUTION]
+> **IDOR Protection**: The `record-content-freshness` writer uses a service client for high-privilege DB writes. It enforces a mandatory `requirePackRole` check for all human callers to prevent cross-organization ledger manipulation.

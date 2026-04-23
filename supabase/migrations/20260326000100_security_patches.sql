@@ -27,8 +27,19 @@ WHERE pack_id IS NULL;
 -- Remove any rows that still don't have a pack_id (or keep them but they will be inaccessible via RLS)
 -- DELETE FROM public.module_remediations WHERE pack_id IS NULL;
 
-ALTER TABLE public.module_remediations ALTER COLUMN pack_id SET NOT NULL;
+-- Ensure pack_id is indexed
 CREATE INDEX IF NOT EXISTS idx_module_remediations_pack_id ON public.module_remediations(pack_id);
+
+-- Only set NOT NULL if all rows are backfilled.
+-- Orphans are handled in the later 20260423 harden migration.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.module_remediations WHERE pack_id IS NULL) THEN
+    RAISE NOTICE 'module_remediations contains NULL pack_id; skipping NOT NULL constraint in this patch';
+  ELSE
+    ALTER TABLE public.module_remediations ALTER COLUMN pack_id SET NOT NULL;
+  END IF;
+END $$;
 
 -- 4. Create the restrictive policy
 -- Only users with 'author' level access or higher to the pack can manage remediations.

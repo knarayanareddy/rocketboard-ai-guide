@@ -9,27 +9,40 @@ BEGIN
     END IF;
 END $$;
 
--- 2. Backfill missing pack_id values from generated_modules
--- We join on module_key. While module_key is not globally unique, 
--- it is the only viable link for orphaned legacy rows.
+-- 2. Deterministic Backfill
+-- We use DISTINCT ON to pick exactly one pack_id per module_key (the most recently updated one)
+-- to avoid non-determinism if a key exists in multiple packs.
 UPDATE public.module_remediations mr
 SET pack_id = subquery.pack_id
 FROM (
-    SELECT module_key, pack_id
+    SELECT DISTINCT ON (module_key) module_key, pack_id
     FROM public.generated_modules
-    -- In case of duplicate keys across packs, we pick the most recently active pack
-    -- as it is the most likely parent of a pending remediation.
-    ORDER BY created_at DESC
+    ORDER BY module_key, updated_at DESC
 ) AS subquery
 WHERE mr.module_key = subquery.module_key
   AND mr.pack_id IS NULL;
 
--- 3. Enforce Data Integrity
--- After backfilling, all future remediation drafts must have a pack_id.
-ALTER TABLE public.module_remediations ALTER COLUMN pack_id SET NOT NULL;
+-- 3. Handle Orphans
+-- Instead of failing the migration, we mark records that can't be linked.
+-- This keeps them in the DB for audit/cleanup but prevents RLS failures on standard queries.
+UPDATE public.module_remediations
+SET status = 'orphaned'
+WHERE pack_id IS NULL
+  AND status != 'orphaned';
 
--- 4. Optimized Index
--- Re-verify performance index for RLS lookup.
+-- 4. Enforce Data Integrity (Conditional)
+-- We only set NOT NULL if we successfully backfilled everything.
+-- This prevents the migration from hard-failing in prod until orphans are manually cleaned/deleted.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.module_remediations WHERE pack_id IS NULL) THEN
+        RAISE NOTICE 'module_remediations contains orphaned rows (pack_id is NULL). Skipping NOT NULL constraint.';
+    ELSE
+        ALTER TABLE public.module_remediations ALTER COLUMN pack_id SET NOT NULL;
+    END IF;
+END $$;
+
+-- 5. Optimized Index
 CREATE INDEX IF NOT EXISTS idx_module_remediations_pack_id ON public.module_remediations(pack_id);
 
 

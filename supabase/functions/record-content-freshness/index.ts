@@ -6,6 +6,7 @@ import {
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { requireUserOrInternal } from "../_shared/authz.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
 /**
  * record-content-freshness
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Auth & Input Validation
-    const auth = await requireUserOrInternal(req, corsHeaders);
+    const { mode, userId } = await requireUserOrInternal(req, corsHeaders);
     const { pack_id, module_key, module_revision, module_data } = await readJson(req, corsHeaders);
 
     if (!pack_id || !module_key || !module_data) {
@@ -31,6 +32,11 @@ Deno.serve(async (req) => {
     }
 
     const serviceClient = createServiceClient();
+
+    // Pack Authorization: Ensure human users have 'author' access to this pack.
+    if (mode === "user") {
+      await requirePackRole(serviceClient, pack_id, userId!, "author", corsHeaders);
+    }
 
     // 2. Deterministic Extraction of Chunk IDs
     // We look into module_data.sections[].citations
