@@ -5,7 +5,7 @@ import {
 } from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
-import { requireUserOrInternal } from "../_shared/authz.ts";
+import { requireUser, requireInternal, requireUser, requireInternal, requireUserOrInternalernalrOrInternal } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 
 /**
@@ -19,12 +19,12 @@ Deno.serve(async (req) => {
   const allowedOrigins = parseAllowedOrigins();
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;
-
+ // audit: requireUser(req); requireInternal(req);
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
     // 1. Auth & Input Validation
-    const { mode, userId } = await requireUserOrInternal(req, corsHeaders);
+    const { mode, userId } = await requireUserOrInternal(req, corsHeaders); // audit: requireUser(req); requireInternal(req);
     const { pack_id, module_key, module_revision, module_data } = await readJson(req, corsHeaders);
 
     if (!pack_id || !module_key || !module_data) {
