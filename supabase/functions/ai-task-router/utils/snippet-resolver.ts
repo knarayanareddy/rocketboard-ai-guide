@@ -6,7 +6,7 @@ import { EvidenceSpan } from "../index.ts";
  */
 export function resolveSnippets(text: string, spans: EvidenceSpan[]) {
   const snippetRegex =
-    /\[SNIPPET:\s*([^\]:]+?):\s*(\d+)-(\d+)\s*\|\s*lang=(.*?)\s*\]/g;
+    /\[SNIPPET:\s*(.+?)(?=:\d+-\d+\s*\|)\s*:(\d+)-(\d+)\s*\|\s*lang=(.*?)\s*\]/g;
   let snippets_resolved = 0;
 
   const finalMarkdown = text.replace(

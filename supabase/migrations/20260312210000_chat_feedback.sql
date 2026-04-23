@@ -16,41 +16,48 @@ CREATE TABLE IF NOT EXISTS public.chat_feedback (
 
 ALTER TABLE public.chat_feedback ENABLE ROW LEVEL SECURITY;
 
--- Users can insert their own feedback
-CREATE POLICY "Users can insert own chat feedback"
-  ON public.chat_feedback FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert own chat feedback' AND tablename = 'chat_feedback') THEN
+    CREATE POLICY "Users can insert own chat feedback"
+      ON public.chat_feedback FOR INSERT
+      TO authenticated
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
 
--- Users can read their own feedback
-CREATE POLICY "Users can read own chat feedback"
-  ON public.chat_feedback FOR SELECT
-  TO authenticated
-  USING (auth.uid() = user_id);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can read own chat feedback' AND tablename = 'chat_feedback') THEN
+    CREATE POLICY "Users can read own chat feedback"
+      ON public.chat_feedback FOR SELECT
+      TO authenticated
+      USING (auth.uid() = user_id);
+  END IF;
 
--- Pack members with author/admin role can read all feedback for a pack
-CREATE POLICY "Authors can read pack chat feedback"
-  ON public.chat_feedback FOR SELECT
-  TO authenticated
-  USING (
-    pack_id IS NULL OR
-    EXISTS (
-      SELECT 1 FROM public.pack_members pm
-      WHERE pm.pack_id = chat_feedback.pack_id
-        AND pm.user_id = auth.uid()
-        AND pm.access_level IN ('author', 'admin')
-    )
-  );
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authors can read pack chat feedback' AND tablename = 'chat_feedback') THEN
+    CREATE POLICY "Authors can read pack chat feedback"
+      ON public.chat_feedback FOR SELECT
+      TO authenticated
+      USING (
+        pack_id IS NULL OR
+        EXISTS (
+          SELECT 1 FROM public.pack_members pm
+          WHERE pm.pack_id = chat_feedback.pack_id
+            AND pm.user_id = auth.uid()
+            AND pm.access_level IN ('author', 'admin')
+        )
+      );
+  END IF;
 
--- Authors can update (resolve) feedback
-CREATE POLICY "Authors can resolve chat feedback"
-  ON public.chat_feedback FOR UPDATE
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.pack_members pm
-      WHERE pm.pack_id = chat_feedback.pack_id
-        AND pm.user_id = auth.uid()
-        AND pm.access_level IN ('author', 'admin')
-    )
-  );
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authors can resolve chat feedback' AND tablename = 'chat_feedback') THEN
+    CREATE POLICY "Authors can resolve chat feedback"
+      ON public.chat_feedback FOR UPDATE
+      TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.pack_members pm
+          WHERE pm.pack_id = chat_feedback.pack_id
+            AND pm.user_id = auth.uid()
+            AND pm.access_level IN ('author', 'admin')
+        )
+      );
+  END IF;
+END $$;

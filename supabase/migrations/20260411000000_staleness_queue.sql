@@ -30,7 +30,7 @@ CREATE POLICY select_staleness_queue_for_authors
     ON staleness_check_queue 
     FOR SELECT 
     TO authenticated 
-    USING (has_pack_access(pack_id) >= 'author');
+    USING (public.has_pack_access(auth.uid(), pack_id, 'author'));
 
 -- Trigger to enqueue check on ingestion job completion
 CREATE OR REPLACE FUNCTION enqueue_staleness_check()

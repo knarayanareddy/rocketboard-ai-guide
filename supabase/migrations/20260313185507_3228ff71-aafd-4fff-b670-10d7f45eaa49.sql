@@ -26,16 +26,19 @@ CREATE TABLE IF NOT EXISTS public.module_remediations (
 
 ALTER TABLE public.module_remediations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read remediations" ON public.module_remediations;
 CREATE POLICY "Authenticated users can read remediations"
   ON public.module_remediations FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Service role can insert remediations" ON public.module_remediations;
 CREATE POLICY "Service role can insert remediations"
   ON public.module_remediations FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update remediations" ON public.module_remediations;
 CREATE POLICY "Authenticated users can update remediations"
   ON public.module_remediations FOR UPDATE
   TO authenticated

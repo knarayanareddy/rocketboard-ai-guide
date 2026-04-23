@@ -85,7 +85,7 @@ async function saveMessage(userId: string, moduleId: string, role: string, conte
     payload.metadata = metadata;
   }
 
-  const { error } = await (supabase.from("chat_messages") as any).insert(payload);
+  const { error } = await supabase.from("chat_messages").insert(payload);
   
   if (error) {
     console.error("[CHAT_PERSISTENCE_ERROR]", error);
@@ -297,8 +297,8 @@ export function ModuleChatPanel({
   useEffect(() => {
     if (!isOpen || !user || historyLoaded) return;
     (async () => {
-      const q = (supabase
-        .from("chat_messages") as any)
+      const q = supabase
+        .from("chat_messages")
         .select("role, content, metadata")
         .eq("user_id", user.id)
         .eq("module_id", moduleId)
@@ -333,7 +333,7 @@ export function ModuleChatPanel({
 
   const clearHistory = async () => {
     if (!user) return;
-    await (supabase.from("chat_messages") as any).delete().eq("user_id", user.id).eq("module_id", moduleId);
+    await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("module_id", moduleId);
     setMessages([]);
     setLastError(null);
     toast.success("Chat history cleared");

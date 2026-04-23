@@ -14,6 +14,7 @@ CREATE INDEX IF NOT EXISTS idx_kc_pack_source_path ON public.knowledge_chunks(pa
 
 -- 4. Update hybrid_search_v2 to return source_id
 -- We replace the function to add source_id to the RETURNS TABLE definition.
+DROP FUNCTION IF EXISTS public.hybrid_search_v2(uuid, uuid, text, vector, float, int, int, text, text);
 CREATE OR REPLACE FUNCTION public.hybrid_search_v2(
   p_org_id UUID,
   p_pack_id UUID,
@@ -134,7 +135,12 @@ BEGIN
 END;
 $$;
 
+-- Explicit grants to avoid ambiguity
+GRANT EXECUTE ON FUNCTION public.hybrid_search_v2(UUID, UUID, TEXT, VECTOR(1536), FLOAT, INT, INT, TEXT, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.definition_search_v1(UUID, UUID, TEXT[], INT, TEXT, TEXT) TO service_role;
+
 -- 5. Update definition_search_v1 to return source_id
+DROP FUNCTION IF EXISTS public.definition_search_v1(uuid, uuid, text[], int, text, text);
 CREATE OR REPLACE FUNCTION public.definition_search_v1(
   p_org_id UUID,
   p_pack_id UUID,
@@ -214,3 +220,4 @@ BEGIN
   LIMIT v_match_count;
 END;
 $$;
+GRANT EXECUTE ON FUNCTION public.definition_search_v1(UUID, UUID, TEXT[], INT, TEXT, TEXT) TO service_role;

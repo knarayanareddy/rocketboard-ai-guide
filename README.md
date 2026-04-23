@@ -290,6 +290,17 @@ npm install
 
 # Dev server
 npm run dev
+
+# 🛡️ Type Safety & Schema Synchronization
+This project uses a strict type-safety gate to prevent drift between database migrations and TypeScript types.
+
+| Command | Action | When to use |
+|---------|--------|-------------|
+| `npm run gen:types` | Regenerate `types.ts` from local DB | After running `supabase db reset` locally |
+| `npm run check:types` | Verify critical tables are typed | In CI or before PR submission |
+
+**Note**: Local type generation requires the Supabase CLI. If your local Docker environment is unstable, types can also be generated from a staging project using:
+`npx supabase gen types typescript --project-id <ref> --schema public > src/integrations/supabase/types.ts`
 ```
 
 ### Environment Variables

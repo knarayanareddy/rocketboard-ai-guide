@@ -5,6 +5,7 @@ import {
 } from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requireInternal } from "../_shared/authz.ts";
 
 // Local corsHeaders removed
 
@@ -16,20 +17,12 @@ Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    const expectedToken = Deno.env.get("CRON_AUTH_TOKEN");
-
-    // Auth Validation: Ensure CRON_AUTH_TOKEN is provided if it exists in env, OR verify Service Role fallback if caller is internal.
-    // Usually CRON pushes Bearer <TOKEN>.
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+    // Mandatory Auth Validation: Ensure caller is an authorized internal service.
+    // This utilizes the repository-standard ROCKETBOARD_INTERNAL_SECRET.
+    const internal = requireInternal(req, corsHeaders);
+    if (!internal.success) {
       console.warn("process-staleness-queue: Unauthorized access attempt");
-      return jsonError(
-        401,
-        "unauthorized",
-        "Invalid cron token",
-        {},
-        corsHeaders,
-      );
+      return internal.response;
     }
 
     const serviceClient = createServiceClient();
@@ -40,7 +33,7 @@ Deno.serve(async (req) => {
     // We only fetch the IDs first to lock them reliably.
     const { data: pendingRows, error: fetchErr } = await serviceClient
       .from("staleness_check_queue")
-      .select("id, pack_id")
+      .select("id, pack_id, attempts")
       .eq("status", "pending")
       .order("requested_at", { ascending: true })
       .limit(20);
@@ -61,9 +54,14 @@ Deno.serve(async (req) => {
     // 2. Iterate and process
     for (const row of pendingRows) {
       // Optimistic lock: attempt to transition from 'pending' to 'processing'
+      // We also increment 'attempts' and set 'started_at'
       const { data: updated, error: updateErr } = await serviceClient
         .from("staleness_check_queue")
-        .update({ status: "processing" })
+        .update({ 
+          status: "processing",
+          started_at: new Date().toISOString(),
+          attempts: (row as any).attempts ? (row as any).attempts + 1 : 1
+        })
         .eq("id", row.id)
         .eq("status", "pending")
         .select()
@@ -131,6 +129,7 @@ Deno.serve(async (req) => {
         status: finalStatus,
         error_message: errorMessage,
         processed_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
       }).eq("id", row.id);
 
       // Audit Record

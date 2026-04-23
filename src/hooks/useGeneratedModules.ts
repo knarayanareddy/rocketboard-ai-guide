@@ -220,6 +220,17 @@ export function useGeneratedModules() {
         .single();
 
       if (error) throw error;
+
+      // Record freshness snapshot
+      await supabase.functions.invoke("record-content-freshness", {
+        body: {
+          pack_id: currentPackId,
+          module_key: opts.moduleKey,
+          module_revision: 1,
+          module_data: moduleData,
+        }
+      }).catch(err => console.error("Freshness recording failed:", err));
+
       return data as unknown as GeneratedModuleRow;
     },
     onSuccess: () => {
@@ -292,6 +303,17 @@ export function useGeneratedModules() {
         .single();
 
       if (error) throw error;
+
+      // Record freshness snapshot
+      await supabase.functions.invoke("record-content-freshness", {
+        body: {
+          pack_id: currentPackId,
+          module_key: opts.moduleKey,
+          module_revision: newRevision,
+          module_data: moduleData,
+        }
+      }).catch(err => console.error("Freshness recording failed:", err));
+
       return { row: data as unknown as GeneratedModuleRow, changeLog };
     },
     onSuccess: (_, vars) => {
@@ -336,6 +358,17 @@ export function useGeneratedModules() {
         .single();
 
       if (error) throw error;
+
+      // Record freshness snapshot
+      await supabase.functions.invoke("record-content-freshness", {
+        body: {
+          pack_id: currentPackId,
+          module_key: opts.moduleKey,
+          module_revision: newRevision,
+          module_data: opts.moduleData,
+        }
+      }).catch(err => console.error("Freshness recording failed:", err));
+
       return { row: data as unknown as GeneratedModuleRow, changeLog };
     },
     onSuccess: (_, vars) => {

@@ -1,0 +1,24 @@
+name: Database Type Safety Check
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'supabase/migrations/**'
+      - 'src/integrations/supabase/types.ts'
+      - 'scripts/check_types_tables.ts'
+
+jobs:
+  check-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install
+      - uses: supabase/setup-cli@v1
+      - run: supabase start --ignore-health-check
+      - run: supabase db reset
+      - run: npm run check:types

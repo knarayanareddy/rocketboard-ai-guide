@@ -4,8 +4,9 @@ import {
   parseAllowedOrigins,
 } from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
-import { requireUser } from "../_shared/authz.ts";
+import { requireUserOrInternal } from "../_shared/authz.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { requirePackRole } from "../_shared/pack-access.ts";
 
 Deno.serve(async (req) => {
   const allowedOrigins = parseAllowedOrigins();
@@ -15,7 +16,7 @@ Deno.serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req, allowedOrigins);
 
   try {
-    const { userId } = await requireUser(req, corsHeaders);
+    const { mode, userId } = await requireUserOrInternal(req, corsHeaders);
     const { pack_id } = await readJson(req, corsHeaders);
 
     if (!pack_id) {
@@ -23,6 +24,11 @@ Deno.serve(async (req) => {
     }
 
     const serviceClient = createServiceClient();
+
+    // Pack Authorization: Ensure human users have 'author' access to this pack.
+    if (mode === "user") {
+      await requirePackRole(serviceClient, pack_id, userId!, "author", corsHeaders);
+    }
 
     // Get all content_freshness rows for this pack
     const { data: freshnessRows, error: fErr } = await serviceClient

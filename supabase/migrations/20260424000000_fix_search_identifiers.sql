@@ -2,6 +2,7 @@
 -- This ensures the UI receives stable identifiers (e.g. C00001) directly from SQL.
 
 -- 1. Update hybrid_search_v2
+DROP FUNCTION IF EXISTS public.hybrid_search_v2(uuid, uuid, text, vector, float, int, int, text, text);
 CREATE OR REPLACE FUNCTION public.hybrid_search_v2(
   p_org_id UUID,
   p_pack_id UUID,
@@ -124,6 +125,7 @@ END;
 $$;
 
 -- 2. Update definition_search_v1
+DROP FUNCTION IF EXISTS public.definition_search_v1(uuid, uuid, text[], int, text, text);
 CREATE OR REPLACE FUNCTION public.definition_search_v1(
   p_org_id UUID,
   p_pack_id UUID,
@@ -207,10 +209,9 @@ END;
 $$;
 
 -- 3. Grants
--- hybrid_search_v2 is used by the frontend (authenticated)
--- definition_search_v1 is used by the assistant (service_role)
-GRANT EXECUTE ON FUNCTION public.hybrid_search_v2 TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.definition_search_v1 TO service_role;
+-- Use explicit signatures or a loop to avoid ambiguity if overloads exist.
+GRANT EXECUTE ON FUNCTION public.hybrid_search_v2(UUID, UUID, TEXT, VECTOR(1536), FLOAT, INT, INT, TEXT, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.definition_search_v1(UUID, UUID, TEXT[], INT, TEXT, TEXT) TO service_role;
 
 -- 4. Verification Script (Run this in Supabase SQL Editor)
 /*

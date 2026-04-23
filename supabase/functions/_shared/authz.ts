@@ -47,7 +47,6 @@ export async function requireUser(
 
   return { userId: user.id };
 }
-
 export function requireInternal(
   req: Request,
   headers?: Record<string, string>,
@@ -80,4 +79,31 @@ export function requireInternal(
       headers,
     ),
   };
+}
+
+
+/**
+ * requireUserOrInternal
+ * Hybrid gate that allows either:
+ * 1. Internal secret verification (headers or Service Role)
+ * 2. User JWT session verification
+ */
+export async function requireUserOrInternal(
+  req: Request,
+  headers?: Record<string, string>,
+): Promise<{ mode: "internal" | "user"; userId?: string }> {
+  // 1. Try Internal Auth first
+  const internal = requireInternal(req, headers);
+  if (internal.success) {
+    return { mode: "internal" };
+  }
+
+  // 2. Try User Auth
+  try {
+    const { userId } = await requireUser(req, headers);
+    return { mode: "user", userId };
+  } catch (err) {
+    // If both fail, we surface the requireUser error (usually 401 response)
+    throw err;
+  }
 }

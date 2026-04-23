@@ -1,1 +1,0 @@
-ALTER TABLE public.ingestion_jobs ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMP WITH TIME ZONE;

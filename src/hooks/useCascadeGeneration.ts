@@ -160,6 +160,17 @@ export function useCascadeGeneration() {
           contradictions: (result.contradictions || []) as any,
           status: "draft",
         }, { onConflict: "pack_id,module_key,module_revision" });
+        if (error) throw error;
+        
+        // Record freshness snapshot
+        await supabase.functions.invoke("record-content-freshness", {
+          body: {
+            pack_id: currentPackId,
+            module_key: mod.module_key,
+            module_revision: 1,
+            module_data: moduleData,
+          }
+        }).catch(err => console.error("Freshness recording failed:", err));
 
         updateModuleStatus(mod.module_key, { moduleStatus: "completed" });
         await upsertJob("module", mod.module_key, "completed");

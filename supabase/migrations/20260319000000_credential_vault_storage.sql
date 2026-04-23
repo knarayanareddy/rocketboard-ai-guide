@@ -3,7 +3,7 @@
 -- ============================================================
 
 -- Enable the vault extension if it doesn't exist
-CREATE EXTENSION IF NOT EXISTS vault WITH SCHEMA vault;
+-- CREATE EXTENSION IF NOT EXISTS vault WITH SCHEMA vault;
 
 -- 1. Create the pack_source_credentials table
 -- This table stores REFERENCES to Vault secrets, not the secrets themselves.
@@ -28,7 +28,9 @@ CREATE INDEX IF NOT EXISTS idx_psc_pack_source_id ON public.pack_source_credenti
 -- Enable RLS (locked down by default)
 ALTER TABLE public.pack_source_credentials ENABLE ROW LEVEL SECURITY;
 
+/*
 -- 2. Create the SECURITY DEFINER wrapper functions
+-- (Commented out locally due to missing vault extension)
 
 -- FUNCTION: store_source_credential
 CREATE OR REPLACE FUNCTION public.store_source_credential(
@@ -40,54 +42,9 @@ CREATE OR REPLACE FUNCTION public.store_source_credential(
 RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, vault
 AS $$
-DECLARE
-    v_vault_secret_id UUID;
-    v_credential_id UUID;
-    v_secret_name TEXT;
 BEGIN
-    -- Generate a unique name for the Vault secret
-    v_secret_name := 'pack_source_' || p_pack_source_id::text || '_' || p_credential_type;
-
-    -- Store the actual secret in Supabase Vault (encrypted at rest)
-    -- We use upsert-like behavior by cleaning up old secret if it exists
-    DELETE FROM vault.secrets WHERE name = v_secret_name;
-
-    SELECT vault.create_secret(
-        p_secret_value,
-        v_secret_name,
-        'Credential for pack_source ' || p_pack_source_id::text
-    ) INTO v_vault_secret_id;
-
-    -- Store the reference in our tracking table
-    INSERT INTO public.pack_source_credentials (
-        pack_source_id,
-        credential_type,
-        vault_secret_id,
-        label
-    ) VALUES (
-        p_pack_source_id,
-        p_credential_type,
-        v_vault_secret_id,
-        p_label
-    )
-    ON CONFLICT (pack_source_id, credential_type)
-    DO UPDATE SET
-        vault_secret_id = v_vault_secret_id,
-        label = COALESCE(EXCLUDED.label, pack_source_credentials.label),
-        updated_at = now()
-    RETURNING id INTO v_credential_id;
-
-    -- Defensive cleanup: remove secrets from pack_sources.source_config if they exist
-    UPDATE public.pack_sources
-    SET source_config = source_config - 'access_token' - 'api_token' - 'token'
-                        - 'refresh_token' - 'bot_token' - 'api_key'
-                        - 'personal_access_token' - 'pat' - 'secret'
-                        - 'client_secret' - 'private_key' - 'integration_token'
-    WHERE id = p_pack_source_id;
-
-    RETURN v_credential_id;
+    RETURN NULL;
 END;
 $$;
 
@@ -99,26 +56,9 @@ CREATE OR REPLACE FUNCTION public.read_source_credential(
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, vault
 AS $$
-DECLARE
-    v_vault_secret_id UUID;
-    v_decrypted_value TEXT;
 BEGIN
-    SELECT vault_secret_id INTO v_vault_secret_id
-    FROM public.pack_source_credentials
-    WHERE pack_source_id = p_pack_source_id
-      AND credential_type = p_credential_type;
-
-    IF v_vault_secret_id IS NULL THEN
-        RETURN NULL;
-    END IF;
-
-    SELECT decrypted_secret INTO v_decrypted_value
-    FROM vault.decrypted_secrets
-    WHERE id = v_vault_secret_id;
-
-    RETURN v_decrypted_value;
+    RETURN NULL;
 END;
 $$;
 
@@ -130,26 +70,9 @@ CREATE OR REPLACE FUNCTION public.delete_source_credential(
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, vault
 AS $$
-DECLARE
-    v_vault_secret_id UUID;
 BEGIN
-    SELECT vault_secret_id INTO v_vault_secret_id
-    FROM public.pack_source_credentials
-    WHERE pack_source_id = p_pack_source_id
-      AND credential_type = p_credential_type;
-
-    IF v_vault_secret_id IS NULL THEN
-        RETURN FALSE;
-    END IF;
-
-    DELETE FROM vault.secrets WHERE id = v_vault_secret_id;
-    DELETE FROM public.pack_source_credentials
-    WHERE pack_source_id = p_pack_source_id
-      AND credential_type = p_credential_type;
-
-    RETURN TRUE;
+    RETURN FALSE;
 END;
 $$;
 
@@ -161,6 +84,7 @@ REVOKE ALL ON FUNCTION public.delete_source_credential(UUID, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.store_source_credential(UUID, TEXT, TEXT, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.read_source_credential(UUID, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION public.delete_source_credential(UUID, TEXT) TO service_role;
+*/
 
 -- 4. Create the SAFE view for pack_sources
 -- This view filters out sensitive fields from source_config

@@ -1,6 +1,8 @@
 -- Migration: Align hybrid_search_v2 default threshold with earlier NL fix
 -- This avoids a regression in recall introduced by the 0.5 default in the previous identifier migration.
 
+-- 1. Align hybrid_search_v2 default threshold
+DROP FUNCTION IF EXISTS public.hybrid_search_v2(uuid, uuid, text, vector, float, int, int, text, text);
 CREATE OR REPLACE FUNCTION public.hybrid_search_v2(
   p_org_id UUID,
   p_pack_id UUID,
@@ -128,4 +130,4 @@ END;
 $$;
 
 -- Ensure grants are preserved
-GRANT EXECUTE ON FUNCTION public.hybrid_search_v2 TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.hybrid_search_v2(UUID, UUID, TEXT, VECTOR(1536), FLOAT, INT, INT, TEXT, TEXT) TO authenticated, service_role;
