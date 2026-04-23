@@ -17,6 +17,7 @@
     "test:staleness": "tsx scripts/smoke_staleness_pipeline.ts",
     "typecheck": "tsc --noEmit",
     "gen:types:local": "supabase gen types typescript --local --schema public > src/integrations/supabase/types.ts",
+    "gen:types": "npm run gen:types:local",
     "check:types": "node scripts/check_types_tables.ts"
   },
   "dependencies": {

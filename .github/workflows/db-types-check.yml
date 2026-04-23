@@ -32,10 +32,18 @@ jobs:
         run: npm install -g supabase@2.93.1
 
       - name: Start Supabase (Local Mode)
-        # We use a retry logic because local DB start can sometimes be flaky in CI runners
-        run: |
-          supabase start --ignore-health-check
-          supabase db reset
+        # We use --ignore-health-check because auxiliary services (like vector) 
+        # may fail to mount the docker socket in some CI environments, including 
+        # local Colima setups. However, we explicitly assert that the DB is 
+        # reachable in the next step.
+        run: supabase start --ignore-health-check
+
+      - name: Assert Database Readiness
+        # Ensure the core PostgreSQL engine is responsive despite --ignore-health-check
+        run: supabase db query "select 1 as health_check_ok;"
+
+      - name: Run Migrations
+        run: supabase db reset
 
       - name: Generate Fresh Types
         run: supabase gen types typescript --local --schema public > /tmp/fresh_types.ts
