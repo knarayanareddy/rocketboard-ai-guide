@@ -11,16 +11,15 @@ on:
                                   runs-on: ubuntu-latest
                                       steps:
                                             - uses: actions/checkout@v4
-                                                  - name: Setup Node.js
-                                                          uses: actions/setup-node@v4
-                                                                  with:
-                                                                            node-version: '20'
-                                                                                      cache: 'npm'
-                                                                                            - name: Install dependencies
-                                                                                                    run: npm ci
-                                                                                                          - uses: supabase/setup-cli@v1
-                                                                                                                - run: supabase start --ignore-health-check
-                                                                                                                      - run: npx supabase db query --sql "select 1 as ok;"
-                                                                                                                            - run: supabase db reset
-                                                                                                                                  - run: npm run check:types
-                                                                                                                                  
+                                                  - uses: actions/setup-node@v4
+                                                          with:
+                                                                    node-version: '20'
+                                                                              cache: 'npm'
+                                                                                    - name: Install dependencies
+                                                                                            run: npm ci
+                                                                                                  - uses: supabase/setup-cli@v1
+                                                                                                        - run: supabase start --ignore-health-check
+                                                                                                              - run: npx supabase db query --sql "select 1 as ok;"
+                                                                                                                    - run: supabase db reset
+                                                                                                                          - run: npm run check:types
+                                                                                                                          
