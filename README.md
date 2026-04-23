@@ -296,7 +296,7 @@ This project uses a strict type-safety gate to prevent drift between database mi
 
 | Command | Action | When to use |
 |---------|--------|-------------|
-| `npm run gen:types:local` | Regenerate `types.ts` from local DB | After running `supabase db reset` locally |
+| `npm run gen:types` | Regenerate `types.ts` from local DB | After running `supabase db reset` locally |
 | `npm run check:types` | Verify critical tables are typed | In CI or before PR submission |
 
 **Note**: Local type generation requires the Supabase CLI. If your local Docker environment is unstable, types can also be generated from a staging project using:
