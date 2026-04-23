@@ -56,8 +56,8 @@ export function useRoadmap() {
   const assignments = useQuery({
     queryKey: ["roadmap_assignments", user?.id, currentPackId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from("playlist_assignments" as any)
+      const { data, error } = await supabase
+        .from("playlist_assignments")
         .select(`
           *,
           playlist:playlists(
@@ -66,7 +66,7 @@ export function useRoadmap() {
           )
         `)
         .eq("learner_user_id", user?.id)
-        .eq("pack_id", currentPackId) as any);
+        .eq("pack_id", currentPackId);
 
       if (error) throw error;
       return data;
@@ -78,10 +78,10 @@ export function useRoadmap() {
   const progress = useQuery({
     queryKey: ["roadmap_progress", user?.id, currentPackId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from("playlist_item_progress" as any)
+      const { data, error } = await supabase
+        .from("playlist_item_progress")
         .select("*")
-        .eq("learner_user_id", user?.id) as any);
+        .eq("learner_user_id", user?.id);
       if (error) throw error;
       return data;
     },
@@ -116,8 +116,8 @@ export function useRoadmap() {
       if (existing?.status === status) return existing;
 
       // 2. Perform upsert
-      const { data, error } = await (supabase
-        .from("playlist_item_progress" as any)
+      const { data, error } = await supabase
+        .from("playlist_item_progress")
         .upsert({
           assignment_id: assignmentId,
           item_id: itemId,
@@ -128,9 +128,9 @@ export function useRoadmap() {
           completed_at: status === 'done' ? new Date().toISOString() : null
         }, { 
           onConflict: 'assignment_id,item_id' 
-        } as any)
+        })
         .select()
-        .single() as any);
+        .single();
 
       if (error) throw error;
       return data;

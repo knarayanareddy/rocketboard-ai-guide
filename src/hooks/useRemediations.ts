@@ -28,12 +28,12 @@ export function useRemediations(packId: string | null) {
       const keys = (modules || []).map(m => m.module_key);
       if (keys.length === 0) return [];
 
-      const { data, error } = await (supabase
-        .from("module_remediations" as any)
+      const { data, error } = await supabase
+        .from("module_remediations")
         .select("*")
         .in("module_key", keys)
         .eq("status", "pending")
-        .order("created_at", { ascending: false }) as any);
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       return (data || []) as RemediationRow[];
@@ -44,10 +44,10 @@ export function useRemediations(packId: string | null) {
   const resolveRemediation = useMutation({
     mutationFn: async ({ id, status, updated_content, module_key, section_id }: { id: string, status: "accepted" | "rejected", module_key: string, section_id: string, updated_content?: string }) => {
       // 1. Mark remediation as resolved
-      const { error: rrErr } = await (supabase
-        .from("module_remediations" as any)
-        .update({ status } as any)
-        .eq("id", id) as any);
+      const { error: rrErr } = await supabase
+        .from("module_remediations")
+        .update({ status })
+        .eq("id", id);
       
       if (rrErr) throw rrErr;
 

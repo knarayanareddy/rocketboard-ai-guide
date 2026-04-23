@@ -45,7 +45,7 @@ const emptyTrustSummary: TrustSummary = {
 
 export async function fetchTrustSummary(packId: string, days: number = 7, useRaw: boolean = false): Promise<TrustSummary> {
   if (!useRaw) {
-    const { data: rollups, error } = await (supabase as any)
+    const { data: rollups, error } = await supabase
       .from("pack_quality_daily")
       .select("*")
       .eq("pack_id", packId)
@@ -74,7 +74,7 @@ export async function fetchTrustSummary(packId: string, days: number = 7, useRaw
   }
 
   // Fallback to raw metrics
-  const { data, error: rawError } = await (supabase as any)
+  const { data, error: rawError } = await supabase
     .from("rag_metrics")
     .select("*")
     .eq("pack_id", packId)
@@ -111,7 +111,7 @@ export async function fetchTrustSummary(packId: string, days: number = 7, useRaw
 
 export async function fetchTrustTimeSeries(packId: string, days: number = 7, useRaw: boolean = false) {
   if (!useRaw) {
-    const { data: rollups, error } = await (supabase as any)
+    const { data: rollups, error } = await supabase
       .from("pack_quality_daily")
       .select("*")
       .eq("pack_id", packId)
@@ -131,7 +131,7 @@ export async function fetchTrustTimeSeries(packId: string, days: number = 7, use
     }
   }
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("rag_metrics")
     .select("created_at, grounding_gate_passed, strip_rate, total_latency_ms, expanded_chunks_added, detective_enabled")
     .eq("pack_id", packId)
@@ -143,7 +143,7 @@ export async function fetchTrustTimeSeries(packId: string, days: number = 7, use
 }
 
 export async function fetchLatestRequests(packId: string, limit: number = 50, offset: number = 0) {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("rag_metrics")
     .select("*")
     .eq("pack_id", packId)
@@ -155,7 +155,7 @@ export async function fetchLatestRequests(packId: string, limit: number = 50, of
 }
 
 export async function fetchRequestDetail(requestId: string) {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("rag_metrics")
     .select("*")
     .eq("request_id", requestId)
@@ -189,7 +189,7 @@ export async function fetchIngestionSummary(packId: string) {
 }
 
 export async function fetchFreshnessQueueSummary(packId: string) {
-  const { count: pendingCount, error: pendingErr } = await (supabase as any)
+  const { count: pendingCount, error: pendingErr } = await supabase
     .from("staleness_check_queue")
     .select("*", { count: 'exact', head: true })
     .eq("pack_id", packId)
@@ -197,7 +197,7 @@ export async function fetchFreshnessQueueSummary(packId: string) {
 
   if (pendingErr) throw pendingErr;
 
-  const { data: lastProcessed, error: procErr } = await (supabase as any)
+  const { data: lastProcessed, error: procErr } = await supabase
     .from("staleness_check_queue")
     .select("processed_at, status")
     .eq("pack_id", packId)
@@ -208,7 +208,7 @@ export async function fetchFreshnessQueueSummary(packId: string) {
 
   if (procErr) throw procErr;
 
-  const { count: failCount, error: failErr } = await (supabase as any)
+  const { count: failCount, error: failErr } = await supabase
     .from("staleness_check_queue")
     .select("*", { count: 'exact', head: true })
     .eq("pack_id", packId)

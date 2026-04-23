@@ -1,15 +1,25 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * scripts/check_types_tables.ts
+ * 
+ * Verifies that the Supabase types.ts file includes definitions for critical tables.
+ * This prevents "silent drift" where migrations add tables but the frontend types
+ * remain outdated, leading to 'as any' casts or runtime errors.
+ */
+
 const typesPath = path.resolve(process.cwd(), 'src/integrations/supabase/types.ts');
 
 if (!fs.existsSync(typesPath)) {
   console.error(`❌ Types file not found: ${typesPath}`);
+  console.error('Run: npx supabase gen types typescript --local --schema public > src/integrations/supabase/types.ts');
   process.exit(1);
 }
 
 const content = fs.readFileSync(typesPath, 'utf8');
 
+// The following tables are mandatory for the staleness/remediation subsystem
 const requiredTables = [
   'module_remediations',
   'staleness_check_queue',
@@ -19,16 +29,30 @@ const requiredTables = [
 
 let missing = false;
 for (const table of requiredTables) {
-  if (!content.includes(`${table}: {`)) {
-    console.error(`❌ Missing table in types.ts: ${table}`);
+  // We check for the table key and a nested Row definition to avoid false positives
+  const hasTableEntry = content.includes(`${table}: {`);
+  
+  if (!hasTableEntry) {
+    console.error(`❌ Missing table definition in types.ts: ${table}`);
     missing = true;
+  } else {
+    // Basic verification of the definition shape
+    const tableSection = content.split(`${table}: {`)[1].split('}')[0];
+    if (!tableSection.includes('Row: {')) {
+        console.error(`❌ Incomplete table definition in types.ts: ${table} (Missing 'Row' type)`);
+        missing = true;
+    }
   }
 }
 
 if (missing) {
-  console.error('⚠️ Types are stale or migrations failed. Run: supabase gen types typescript --local');
+  console.error('\n⚠️ DATABASE DRIFT DETECTED!');
+  console.error('The supabase/migrations/ directory contains tables that are not reflected in src/integrations/supabase/types.ts.');
+  console.log('\nTo resolve this, regenerate the types:');
+  console.log('  Local:  npx supabase gen types typescript --local --schema public > src/integrations/supabase/types.ts');
+  console.log('  Remote: npx supabase gen types typescript --project-id <ref> --schema public > src/integrations/supabase/types.ts');
   process.exit(1);
 }
 
-console.log('✅ types.ts contains all required hardened tables.');
+console.log('✅ types.ts is synchronized with all required hardened tables.');
 process.exit(0);
