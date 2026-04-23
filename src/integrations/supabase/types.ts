@@ -7,13 +7,88 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
-  }
   public: {
     Tables: {
+      ai_audit_events: {
+        Row: {
+          attempts: number
+          citations_found: number | null
+          created_at: string
+          evidence_manifest: Json
+          grounding_gate_passed: boolean
+          grounding_gate_reason: string
+          id: string
+          model_used: string | null
+          org_id: string | null
+          pack_id: string
+          prompt_hash: string | null
+          prompt_preview: string | null
+          provider_used: string | null
+          request_id: string
+          response_hash: string | null
+          response_preview: string | null
+          strip_rate: number | null
+          task_type: string
+          trace_id: string | null
+          unique_files_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          citations_found?: number | null
+          created_at?: string
+          evidence_manifest?: Json
+          grounding_gate_passed: boolean
+          grounding_gate_reason?: string
+          id?: string
+          model_used?: string | null
+          org_id?: string | null
+          pack_id: string
+          prompt_hash?: string | null
+          prompt_preview?: string | null
+          provider_used?: string | null
+          request_id: string
+          response_hash?: string | null
+          response_preview?: string | null
+          strip_rate?: number | null
+          task_type: string
+          trace_id?: string | null
+          unique_files_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          citations_found?: number | null
+          created_at?: string
+          evidence_manifest?: Json
+          grounding_gate_passed?: boolean
+          grounding_gate_reason?: string
+          id?: string
+          model_used?: string | null
+          org_id?: string | null
+          pack_id?: string
+          prompt_hash?: string | null
+          prompt_preview?: string | null
+          provider_used?: string | null
+          request_id?: string
+          response_hash?: string | null
+          response_preview?: string | null
+          strip_rate?: number | null
+          task_type?: string
+          trace_id?: string | null
+          unique_files_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_audit_events_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ask_lead_progress: {
         Row: {
           asked_at: string | null
@@ -117,6 +192,33 @@ export type Database = {
           },
         ]
       }
+      author_profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          slack_handle: string | null
+          teams_handle: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          slack_handle?: string | null
+          teams_handle?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          slack_handle?: string | null
+          teams_handle?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bookmark_collections: {
         Row: {
           created_at: string | null
@@ -215,6 +317,85 @@ export type Database = {
           },
         ]
       }
+      change_proposals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          files: Json
+          id: string
+          pack_id: string
+          patch_unified: string
+          pr_url: string | null
+          proposal_type: string
+          source_id: string
+          status: string
+          target_base_branch: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          files?: Json
+          id?: string
+          pack_id: string
+          patch_unified: string
+          pr_url?: string | null
+          proposal_type: string
+          source_id: string
+          status?: string
+          target_base_branch?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          files?: Json
+          id?: string
+          pack_id?: string
+          patch_unified?: string
+          pr_url?: string | null
+          proposal_type?: string
+          source_id?: string
+          status?: string
+          target_base_branch?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_proposals_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "change_proposals_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "change_proposals_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_feedback: {
         Row: {
           comment: string | null
@@ -228,6 +409,7 @@ export type Database = {
           reason: string
           resolved_at: string | null
           resolved_by: string | null
+          trace_id: string | null
           user_id: string
         }
         Insert: {
@@ -242,6 +424,7 @@ export type Database = {
           reason: string
           resolved_at?: string | null
           resolved_by?: string | null
+          trace_id?: string | null
           user_id: string
         }
         Update: {
@@ -256,6 +439,7 @@ export type Database = {
           reason?: string
           resolved_at?: string | null
           resolved_by?: string | null
+          trace_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -273,7 +457,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
-          metadata: Json
+          metadata: Json | null
           module_id: string
           pack_id: string | null
           role: string
@@ -283,7 +467,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
-          metadata?: Json
+          metadata?: Json | null
           module_id: string
           pack_id?: string | null
           role: string
@@ -293,7 +477,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
-          metadata?: Json
+          metadata?: Json | null
           module_id?: string
           pack_id?: string | null
           role?: string
@@ -789,6 +973,107 @@ export type Database = {
           },
         ]
       }
+      faq_entries: {
+        Row: {
+          answer_markdown: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          pack_id: string
+          question: string
+          related_module_key: string | null
+          related_section_id: string | null
+          source: string
+          status: string | null
+          tags: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          answer_markdown: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          pack_id: string
+          question: string
+          related_module_key?: string | null
+          related_section_id?: string | null
+          source?: string
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          answer_markdown?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          pack_id?: string
+          question?: string
+          related_module_key?: string | null
+          related_section_id?: string | null
+          source?: string
+          status?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faq_entries_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faq_suggestions: {
+        Row: {
+          canonical_question: string
+          converted_to_faq_id: string | null
+          count: number | null
+          example_questions: string[] | null
+          id: string
+          last_seen_at: string | null
+          pack_id: string
+          status: string | null
+        }
+        Insert: {
+          canonical_question: string
+          converted_to_faq_id?: string | null
+          count?: number | null
+          example_questions?: string[] | null
+          id?: string
+          last_seen_at?: string | null
+          pack_id: string
+          status?: string | null
+        }
+        Update: {
+          canonical_question?: string
+          converted_to_faq_id?: string | null
+          count?: number | null
+          example_questions?: string[] | null
+          id?: string
+          last_seen_at?: string | null
+          pack_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faq_suggestions_converted_to_faq_id_fkey"
+            columns: ["converted_to_faq_id"]
+            isOneToOne: false
+            referencedRelation: "faq_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faq_suggestions_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_ask_lead: {
         Row: {
           created_at: string
@@ -1148,7 +1433,10 @@ export type Database = {
           elapsed_ms: number | null
           error_message: string | null
           id: string
+          last_error_at: string | null
+          last_error_message: string | null
           last_heartbeat_at: string | null
+          metadata: Json | null
           pack_id: string
           phase: string | null
           processed_chunks: number | null
@@ -1166,7 +1454,10 @@ export type Database = {
           elapsed_ms?: number | null
           error_message?: string | null
           id?: string
+          last_error_at?: string | null
+          last_error_message?: string | null
           last_heartbeat_at?: string | null
+          metadata?: Json | null
           pack_id: string
           phase?: string | null
           processed_chunks?: number | null
@@ -1184,7 +1475,10 @@ export type Database = {
           elapsed_ms?: number | null
           error_message?: string | null
           id?: string
+          last_error_at?: string | null
+          last_error_message?: string | null
           last_heartbeat_at?: string | null
+          metadata?: Json | null
           pack_id?: string
           phase?: string | null
           processed_chunks?: number | null
@@ -1207,6 +1501,13 @@ export type Database = {
             columns: ["source_id"]
             isOneToOne: false
             referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingestion_jobs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1301,6 +1602,7 @@ export type Database = {
           chunk_id: string
           content: string
           content_hash: string
+          contextualized_content: string | null
           created_at: string
           embedding: string | null
           end_line: number
@@ -1311,19 +1613,26 @@ export type Database = {
           generation_id: string | null
           id: string
           imports: string[] | null
+          ingestion_job_id: string | null
           is_redacted: boolean | null
+          line_end: number | null
+          line_start: number | null
           metadata: Json | null
+          module_key: string | null
           org_id: string | null
           pack_id: string
+          parent_id: string | null
           path: string
           signature: string | null
           source_id: string
           start_line: number
+          track_key: string | null
         }
         Insert: {
           chunk_id: string
           content: string
           content_hash: string
+          contextualized_content?: string | null
           created_at?: string
           embedding?: string | null
           end_line: number
@@ -1334,19 +1643,26 @@ export type Database = {
           generation_id?: string | null
           id?: string
           imports?: string[] | null
+          ingestion_job_id?: string | null
           is_redacted?: boolean | null
+          line_end?: number | null
+          line_start?: number | null
           metadata?: Json | null
+          module_key?: string | null
           org_id?: string | null
           pack_id: string
+          parent_id?: string | null
           path: string
           signature?: string | null
           source_id: string
           start_line: number
+          track_key?: string | null
         }
         Update: {
           chunk_id?: string
           content?: string
           content_hash?: string
+          contextualized_content?: string | null
           created_at?: string
           embedding?: string | null
           end_line?: number
@@ -1357,21 +1673,48 @@ export type Database = {
           generation_id?: string | null
           id?: string
           imports?: string[] | null
+          ingestion_job_id?: string | null
           is_redacted?: boolean | null
+          line_end?: number | null
+          line_start?: number | null
           metadata?: Json | null
+          module_key?: string | null
           org_id?: string | null
           pack_id?: string
+          parent_id?: string | null
           path?: string
           signature?: string | null
           source_id?: string
           start_line?: number
+          track_key?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_ingestion_job_id_fkey"
+            columns: ["ingestion_job_id"]
+            isOneToOne: false
+            referencedRelation: "ingestion_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "knowledge_chunks_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_chunks"
             referencedColumns: ["id"]
           },
           {
@@ -1381,58 +1724,75 @@ export type Database = {
             referencedRelation: "pack_sources"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      learner_badges: {
-        Row: {
-          badge_key: string
-          earned_at: string
-          id: string
-          pack_id: string | null
-          user_id: string
-        }
-        Insert: {
-          badge_key: string
-          earned_at?: string
-          id?: string
-          pack_id?: string | null
-          user_id: string
-        }
-        Update: {
-          badge_key?: string
-          earned_at?: string
-          id?: string
-          pack_id?: string | null
-          user_id?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "learner_badges_pack_id_fkey"
-            columns: ["pack_id"]
+            foreignKeyName: "knowledge_chunks_source_id_fkey"
+            columns: ["source_id"]
             isOneToOne: false
-            referencedRelation: "packs"
+            referencedRelation: "pack_sources_safe"
             referencedColumns: ["id"]
           },
         ]
       }
-      lifecycle_audit_events: {
+      knowledge_owners: {
         Row: {
-          action: string
           created_at: string
-          details: Json | null
           id: string
+          last_synced_at: string | null
+          ownership_score: number
+          source_id: string
+          updated_at: string
+          user_email: string
         }
         Insert: {
-          action: string
           created_at?: string
-          details?: Json | null
           id?: string
+          last_synced_at?: string | null
+          ownership_score?: number
+          source_id: string
+          updated_at?: string
+          user_email: string
         }
         Update: {
-          action?: string
           created_at?: string
-          details?: Json | null
           id?: string
+          last_synced_at?: string | null
+          ownership_score?: number
+          source_id?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_owners_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_owners_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learner_badges: {
+        Row: {
+          id: string
+          pack_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          pack_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          pack_id?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1554,37 +1914,67 @@ export type Database = {
           },
         ]
       }
-      learner_streaks: {
+      learner_xp: {
         Row: {
-          current_streak: number
           id: string
-          last_activity_date: string | null
-          longest_streak: number
           pack_id: string | null
-          updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
-          current_streak?: number
           id?: string
-          last_activity_date?: string | null
-          longest_streak?: number
           pack_id?: string | null
-          updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
-          current_streak?: number
           id?: string
-          last_activity_date?: string | null
-          longest_streak?: number
           pack_id?: string | null
-          updated_at?: string
-          user_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      lifecycle_audit_events: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          pack_id: string
+          parameters: Json
+          rows_deleted: Json
+          status: string
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          pack_id: string
+          parameters?: Json
+          rows_deleted?: Json
+          status?: string
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          pack_id?: string
+          parameters?: Json
+          rows_deleted?: Json
+          status?: string
+          target_id?: string | null
+          target_type?: string
         }
         Relationships: [
           {
-            foreignKeyName: "learner_streaks_pack_id_fkey"
+            foreignKeyName: "lifecycle_audit_events_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -1592,34 +1982,87 @@ export type Database = {
           },
         ]
       }
-      learner_xp: {
+      manual_glossary_terms: {
         Row: {
-          amount: number
-          earned_at: string
+          context: string | null
+          created_at: string | null
+          created_by: string | null
+          definition: string
           id: string
-          pack_id: string | null
-          reason: string
-          user_id: string
+          pack_id: string
+          source: string | null
+          term: string
         }
         Insert: {
-          amount?: number
-          earned_at?: string
+          context?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          definition: string
           id?: string
-          pack_id?: string | null
-          reason: string
-          user_id: string
+          pack_id: string
+          source?: string | null
+          term: string
         }
         Update: {
-          amount?: number
-          earned_at?: string
+          context?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          definition?: string
           id?: string
-          pack_id?: string | null
-          reason?: string
-          user_id?: string
+          pack_id?: string
+          source?: string | null
+          term?: string
         }
         Relationships: [
           {
-            foreignKeyName: "learner_xp_pack_id_fkey"
+            foreignKeyName: "manual_glossary_terms_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mcp_audit_events: {
+        Row: {
+          args_hash: string
+          created_at: string
+          error_code: string | null
+          id: string
+          pack_id: string | null
+          request_id: string
+          result_summary: Json
+          status: string
+          tool_name: string
+          user_id: string | null
+        }
+        Insert: {
+          args_hash: string
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          pack_id?: string | null
+          request_id: string
+          result_summary?: Json
+          status: string
+          tool_name: string
+          user_id?: string | null
+        }
+        Update: {
+          args_hash?: string
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          pack_id?: string | null
+          request_id?: string
+          result_summary?: Json
+          status?: string
+          tool_name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_audit_events_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -1802,11 +2245,11 @@ export type Database = {
       module_remediations: {
         Row: {
           created_at: string
-          diff_summary: string
+          diff_summary: string | null
           id: string
           module_key: string
           original_content: string
-          pack_id: string
+          pack_id: string | null
           proposed_content: string
           section_id: string
           status: string
@@ -1814,11 +2257,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          diff_summary: string
+          diff_summary?: string | null
           id?: string
           module_key: string
           original_content: string
-          pack_id: string
+          pack_id?: string | null
           proposed_content: string
           section_id: string
           status?: string
@@ -1826,11 +2269,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          diff_summary?: string
+          diff_summary?: string | null
           id?: string
           module_key?: string
           original_content?: string
-          pack_id?: string
+          pack_id?: string | null
           proposed_content?: string
           section_id?: string
           status?: string
@@ -1839,6 +2282,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "module_remediations_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_telemetry: {
+        Row: {
+          created_at: string
+          help_requested: boolean
+          id: string
+          module_key: string
+          pack_id: string
+          scroll_depth_percent: number
+          section_id: string | null
+          time_spent_seconds: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          help_requested?: boolean
+          id?: string
+          module_key: string
+          pack_id: string
+          scroll_depth_percent?: number
+          section_id?: string | null
+          time_spent_seconds?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          help_requested?: boolean
+          id?: string
+          module_key?: string
+          pack_id?: string
+          scroll_depth_percent?: number
+          section_id?: string | null
+          time_spent_seconds?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_telemetry_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -1890,80 +2377,18 @@ export type Database = {
           },
         ]
       }
-      notification_preferences: {
-        Row: {
-          created_at: string
-          email_invites: boolean
-          email_milestones: boolean
-          email_module_published: boolean
-          email_weekly_digest: boolean
-          id: string
-          pack_id: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          email_invites?: boolean
-          email_milestones?: boolean
-          email_module_published?: boolean
-          email_weekly_digest?: boolean
-          id?: string
-          pack_id?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          email_invites?: boolean
-          email_milestones?: boolean
-          email_module_published?: boolean
-          email_weekly_digest?: boolean
-          id?: string
-          pack_id?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_preferences_pack_id_fkey"
-            columns: ["pack_id"]
-            isOneToOne: false
-            referencedRelation: "packs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       notifications: {
         Row: {
-          created_at: string
           id: string
-          is_read: boolean
-          link: string | null
-          message: string | null
-          title: string
-          type: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
-          created_at?: string
           id?: string
-          is_read?: boolean
-          link?: string | null
-          message?: string | null
-          title: string
-          type?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
-          created_at?: string
           id?: string
-          is_read?: boolean
-          link?: string | null
-          message?: string | null
-          title?: string
-          type?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -2105,28 +2530,210 @@ export type Database = {
       pack_active_generation: {
         Row: {
           active_generation_id: string
-          id: string
           org_id: string
           pack_id: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           active_generation_id: string
-          id?: string
           org_id: string
           pack_id: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           active_generation_id?: string
-          id?: string
           org_id?: string
           pack_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      pack_doc_blocks: {
+        Row: {
+          block_order: number
+          block_type: string
+          created_at: string
+          doc_id: string
+          id: string
+          payload: Json
+          updated_at: string
+        }
+        Insert: {
+          block_order: number
+          block_type: string
+          created_at?: string
+          doc_id: string
+          id?: string
+          payload?: Json
+          updated_at?: string
+        }
+        Update: {
+          block_order?: number
+          block_type?: string
+          created_at?: string
+          doc_id?: string
+          id?: string
+          payload?: Json
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "pack_active_generation_pack_id_fkey"
+            foreignKeyName: "pack_doc_blocks_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "pack_docs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pack_doc_edges: {
+        Row: {
+          edge_type: string
+          from_doc_id: string
+          to_doc_id: string
+        }
+        Insert: {
+          edge_type?: string
+          from_doc_id: string
+          to_doc_id: string
+        }
+        Update: {
+          edge_type?: string
+          from_doc_id?: string
+          to_doc_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_doc_edges_from_doc_id_fkey"
+            columns: ["from_doc_id"]
+            isOneToOne: false
+            referencedRelation: "pack_docs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pack_doc_edges_to_doc_id_fkey"
+            columns: ["to_doc_id"]
+            isOneToOne: false
+            referencedRelation: "pack_docs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pack_doc_progress: {
+        Row: {
+          checklist_state: Json
+          completed_at: string | null
+          doc_id: string
+          id: string
+          last_viewed_at: string | null
+          notes: string | null
+          pack_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          checklist_state?: Json
+          completed_at?: string | null
+          doc_id: string
+          id?: string
+          last_viewed_at?: string | null
+          notes?: string | null
+          pack_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          checklist_state?: Json
+          completed_at?: string | null
+          doc_id?: string
+          id?: string
+          last_viewed_at?: string | null
+          notes?: string | null
+          pack_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_doc_progress_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "pack_docs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pack_doc_progress_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pack_docs: {
+        Row: {
+          category: string | null
+          content_plain: string
+          content_render: string | null
+          created_at: string
+          created_by: string
+          format: string
+          id: string
+          owner_user_id: string | null
+          pack_id: string
+          slug: string
+          source_path: string | null
+          source_type: string
+          status: string
+          summary: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          category?: string | null
+          content_plain: string
+          content_render?: string | null
+          created_at?: string
+          created_by: string
+          format?: string
+          id?: string
+          owner_user_id?: string | null
+          pack_id: string
+          slug: string
+          source_path?: string | null
+          source_type?: string
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          category?: string | null
+          content_plain?: string
+          content_render?: string | null
+          created_at?: string
+          created_by?: string
+          format?: string
+          id?: string
+          owner_user_id?: string | null
+          pack_id?: string
+          slug?: string
+          source_path?: string | null
+          source_type?: string
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_docs_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -2172,6 +2779,44 @@ export type Database = {
           },
         ]
       }
+      pack_lifecycle_policies: {
+        Row: {
+          legal_hold: boolean
+          pack_id: string
+          retention_audit_days: number
+          retention_ingestion_jobs_days: number
+          retention_rag_metrics_days: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          legal_hold?: boolean
+          pack_id: string
+          retention_audit_days?: number
+          retention_ingestion_jobs_days?: number
+          retention_rag_metrics_days?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          legal_hold?: boolean
+          pack_id?: string
+          retention_audit_days?: number
+          retention_ingestion_jobs_days?: number
+          retention_rag_metrics_days?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_lifecycle_policies_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: true
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pack_members: {
         Row: {
           access_level: string
@@ -2204,34 +2849,103 @@ export type Database = {
           },
         ]
       }
-      pack_roles: {
+      pack_quality_daily: {
         Row: {
+          avg_attempts: number
+          avg_citations_found: number
+          avg_strip_rate: number
+          avg_total_latency_ms: number
           created_at: string
-          id: string
+          day: string
+          gate_passed: number
+          gate_refused: number
+          p95_total_latency_ms: number | null
           pack_id: string
-          role: string
-          user_id: string
+          retry_requests: number
+          total_requests: number
+          updated_at: string
         }
         Insert: {
+          avg_attempts?: number
+          avg_citations_found?: number
+          avg_strip_rate?: number
+          avg_total_latency_ms?: number
           created_at?: string
-          id?: string
+          day: string
+          gate_passed?: number
+          gate_refused?: number
+          p95_total_latency_ms?: number | null
           pack_id: string
-          role: string
-          user_id: string
+          retry_requests?: number
+          total_requests?: number
+          updated_at?: string
         }
         Update: {
+          avg_attempts?: number
+          avg_citations_found?: number
+          avg_strip_rate?: number
+          avg_total_latency_ms?: number
           created_at?: string
-          id?: string
+          day?: string
+          gate_passed?: number
+          gate_refused?: number
+          p95_total_latency_ms?: number | null
           pack_id?: string
-          role?: string
-          user_id?: string
+          retry_requests?: number
+          total_requests?: number
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "pack_roles_pack_id_fkey"
+            foreignKeyName: "pack_quality_daily_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pack_source_credentials: {
+        Row: {
+          created_at: string
+          credential_type: string
+          id: string
+          label: string | null
+          pack_source_id: string
+          updated_at: string
+          vault_secret_id: string
+        }
+        Insert: {
+          created_at?: string
+          credential_type?: string
+          id?: string
+          label?: string | null
+          pack_source_id: string
+          updated_at?: string
+          vault_secret_id: string
+        }
+        Update: {
+          created_at?: string
+          credential_type?: string
+          id?: string
+          label?: string | null
+          pack_source_id?: string
+          updated_at?: string
+          vault_secret_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_source_credentials_pack_source_id_fkey"
+            columns: ["pack_source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pack_source_credentials_pack_source_id_fkey"
+            columns: ["pack_source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -2243,9 +2957,11 @@ export type Database = {
           label: string | null
           last_synced_at: string | null
           pack_id: string
+          short_slug: string | null
           source_config: Json | null
           source_type: string
           source_uri: string
+          weight: number
         }
         Insert: {
           created_at?: string
@@ -2253,9 +2969,11 @@ export type Database = {
           label?: string | null
           last_synced_at?: string | null
           pack_id: string
+          short_slug?: string | null
           source_config?: Json | null
           source_type: string
           source_uri: string
+          weight?: number
         }
         Update: {
           created_at?: string
@@ -2263,9 +2981,11 @@ export type Database = {
           label?: string | null
           last_synced_at?: string | null
           pack_id?: string
+          short_slug?: string | null
           source_config?: Json | null
           source_type?: string
           source_uri?: string
+          weight?: number
         }
         Relationships: [
           {
@@ -2318,7 +3038,7 @@ export type Database = {
           language_mode: string
           org_id: string
           pack_version: number
-          remediation_threshold: number | null
+          roadmap_enabled: boolean | null
           title: string
           updated_at: string
         }
@@ -2330,7 +3050,7 @@ export type Database = {
           language_mode?: string
           org_id: string
           pack_version?: number
-          remediation_threshold?: number | null
+          roadmap_enabled?: boolean | null
           title: string
           updated_at?: string
         }
@@ -2342,7 +3062,7 @@ export type Database = {
           language_mode?: string
           org_id?: string
           pack_version?: number
-          remediation_threshold?: number | null
+          roadmap_enabled?: boolean | null
           title?: string
           updated_at?: string
         }
@@ -2352,56 +3072,6 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      staleness_check_queue: {
-        Row: {
-          attempts: number
-          error_message: string | null
-          finished_at: string | null
-          id: string
-          pack_id: string
-          processed_at: string | null
-          reason: string
-          requested_at: string
-          source_id: string | null
-          started_at: string | null
-          status: string
-        }
-        Insert: {
-          attempts?: number
-          error_message?: string | null
-          finished_at?: string | null
-          id?: string
-          pack_id: string
-          processed_at?: string | null
-          reason?: string
-          requested_at?: string
-          source_id?: string | null
-          started_at?: string | null
-          status?: string
-        }
-        Update: {
-          attempts?: number
-          error_message?: string | null
-          finished_at?: string | null
-          id?: string
-          pack_id?: string
-          processed_at?: string | null
-          reason?: string
-          requested_at?: string
-          source_id?: string | null
-          started_at?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staleness_check_queue_pack_id_fkey"
-            columns: ["pack_id"]
-            isOneToOne: false
-            referencedRelation: "packs"
             referencedColumns: ["id"]
           },
         ]
@@ -2510,6 +3180,267 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pending_invites_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlist_assignments: {
+        Row: {
+          assigned_by: string
+          created_at: string
+          id: string
+          learner_user_id: string
+          owner_user_id: string | null
+          pack_id: string
+          playlist_id: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string
+          id?: string
+          learner_user_id: string
+          owner_user_id?: string | null
+          pack_id: string
+          playlist_id: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string
+          id?: string
+          learner_user_id?: string
+          owner_user_id?: string | null
+          pack_id?: string
+          playlist_id?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_assignments_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_assignments_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlist_item_dependencies: {
+        Row: {
+          depends_on_item_id: string
+          item_id: string
+        }
+        Insert: {
+          depends_on_item_id: string
+          item_id: string
+        }
+        Update: {
+          depends_on_item_id?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_item_dependencies_depends_on_item_id_fkey"
+            columns: ["depends_on_item_id"]
+            isOneToOne: false
+            referencedRelation: "playlist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_item_dependencies_depends_on_item_id_fkey"
+            columns: ["depends_on_item_id"]
+            isOneToOne: false
+            referencedRelation: "view_playlist_item_state"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "playlist_item_dependencies_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "playlist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_item_dependencies_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "view_playlist_item_state"
+            referencedColumns: ["item_id"]
+          },
+        ]
+      }
+      playlist_item_progress: {
+        Row: {
+          assignment_id: string
+          completed_at: string | null
+          id: string
+          item_id: string
+          last_event_at: string
+          learner_user_id: string
+          note: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          assignment_id: string
+          completed_at?: string | null
+          id?: string
+          item_id: string
+          last_event_at?: string
+          learner_user_id: string
+          note?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          assignment_id?: string
+          completed_at?: string | null
+          id?: string
+          item_id?: string
+          last_event_at?: string
+          learner_user_id?: string
+          note?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_item_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "playlist_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_item_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "view_playlist_item_state"
+            referencedColumns: ["assignment_id"]
+          },
+          {
+            foreignKeyName: "playlist_item_progress_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "playlist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_item_progress_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "view_playlist_item_state"
+            referencedColumns: ["item_id"]
+          },
+        ]
+      }
+      playlist_items: {
+        Row: {
+          description: string | null
+          due_offset_days: number | null
+          id: string
+          item_type: string | null
+          module_id: string | null
+          pack_id: string | null
+          playlist_id: string | null
+          required: boolean | null
+          section_id: string | null
+          sort_order: number | null
+          title: string | null
+          unlock_offset_days: number | null
+        }
+        Insert: {
+          description?: string | null
+          due_offset_days?: number | null
+          id?: string
+          item_type?: string | null
+          module_id?: string | null
+          pack_id?: string | null
+          playlist_id?: string | null
+          required?: boolean | null
+          section_id?: string | null
+          sort_order?: number | null
+          title?: string | null
+          unlock_offset_days?: number | null
+        }
+        Update: {
+          description?: string | null
+          due_offset_days?: number | null
+          id?: string
+          item_type?: string | null
+          module_id?: string | null
+          pack_id?: string | null
+          playlist_id?: string | null
+          required?: boolean | null
+          section_id?: string | null
+          sort_order?: number | null
+          title?: string | null
+          unlock_offset_days?: number | null
+        }
+        Relationships: []
+      }
+      playlists: {
+        Row: {
+          created_at: string
+          created_by: string
+          default_start_offset_days: number
+          description: string | null
+          id: string
+          owner_display_name: string | null
+          owner_user_id: string | null
+          pack_id: string
+          phase: string
+          required: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          default_start_offset_days?: number
+          description?: string | null
+          id?: string
+          owner_display_name?: string | null
+          owner_user_id?: string | null
+          pack_id: string
+          phase: string
+          required?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          default_start_offset_days?: number
+          description?: string | null
+          id?: string
+          owner_display_name?: string | null
+          owner_user_id?: string | null
+          pack_id?: string
+          phase?: string
+          required?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlists_pack_id_fkey"
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
@@ -2672,6 +3603,7 @@ export type Database = {
       }
       rag_metrics: {
         Row: {
+          agent_confidence: string | null
           attempts: number | null
           avg_relevance_score: number | null
           chunks_after_rerank: number | null
@@ -2681,7 +3613,7 @@ export type Database = {
           citations_verified: number | null
           claims_stripped: number | null
           claims_total: number | null
-          created_at: string
+          created_at: string | null
           detective_enabled: boolean | null
           detective_time_ms: number | null
           expanded_chunks_added: number | null
@@ -2692,9 +3624,6 @@ export type Database = {
           grounding_score: number | null
           grounding_threshold_score: number | null
           grounding_threshold_strip: number | null
-          hop0_count: number | null
-          hop1_added: number | null
-          hop2_added: number | null
           id: string
           input_tokens: number | null
           kg_added_spans: number | null
@@ -2703,14 +3632,12 @@ export type Database = {
           kg_reference_hits: number | null
           kg_time_ms: number | null
           model_used: string | null
-          org_id: string | null
+          org_id: string
           output_tokens: number | null
           pack_id: string | null
           provider_used: string | null
-          query: string | null
-          query_text: string | null
+          query: string
           request_id: string | null
-          rerank_kept: number | null
           rerank_skip_reason: string | null
           rerank_skipped: boolean | null
           retrieval_hops: number | null
@@ -2720,14 +3647,14 @@ export type Database = {
           strip_rate: number | null
           symbols_extracted: number | null
           task_type: string | null
-          time_ms: number | null
           total_latency_ms: number | null
-          total_spans: number | null
           trace_id: string | null
           unique_files_count: number | null
-          user_id: string | null
+          user_id: string
+          verification_score: number | null
         }
         Insert: {
+          agent_confidence?: string | null
           attempts?: number | null
           avg_relevance_score?: number | null
           chunks_after_rerank?: number | null
@@ -2737,7 +3664,7 @@ export type Database = {
           citations_verified?: number | null
           claims_stripped?: number | null
           claims_total?: number | null
-          created_at?: string
+          created_at?: string | null
           detective_enabled?: boolean | null
           detective_time_ms?: number | null
           expanded_chunks_added?: number | null
@@ -2748,9 +3675,6 @@ export type Database = {
           grounding_score?: number | null
           grounding_threshold_score?: number | null
           grounding_threshold_strip?: number | null
-          hop0_count?: number | null
-          hop1_added?: number | null
-          hop2_added?: number | null
           id?: string
           input_tokens?: number | null
           kg_added_spans?: number | null
@@ -2759,14 +3683,12 @@ export type Database = {
           kg_reference_hits?: number | null
           kg_time_ms?: number | null
           model_used?: string | null
-          org_id?: string | null
+          org_id: string
           output_tokens?: number | null
           pack_id?: string | null
           provider_used?: string | null
-          query?: string | null
-          query_text?: string | null
+          query: string
           request_id?: string | null
-          rerank_kept?: number | null
           rerank_skip_reason?: string | null
           rerank_skipped?: boolean | null
           retrieval_hops?: number | null
@@ -2776,14 +3698,14 @@ export type Database = {
           strip_rate?: number | null
           symbols_extracted?: number | null
           task_type?: string | null
-          time_ms?: number | null
           total_latency_ms?: number | null
-          total_spans?: number | null
           trace_id?: string | null
           unique_files_count?: number | null
-          user_id?: string | null
+          user_id: string
+          verification_score?: number | null
         }
         Update: {
+          agent_confidence?: string | null
           attempts?: number | null
           avg_relevance_score?: number | null
           chunks_after_rerank?: number | null
@@ -2793,7 +3715,7 @@ export type Database = {
           citations_verified?: number | null
           claims_stripped?: number | null
           claims_total?: number | null
-          created_at?: string
+          created_at?: string | null
           detective_enabled?: boolean | null
           detective_time_ms?: number | null
           expanded_chunks_added?: number | null
@@ -2804,9 +3726,6 @@ export type Database = {
           grounding_score?: number | null
           grounding_threshold_score?: number | null
           grounding_threshold_strip?: number | null
-          hop0_count?: number | null
-          hop1_added?: number | null
-          hop2_added?: number | null
           id?: string
           input_tokens?: number | null
           kg_added_spans?: number | null
@@ -2815,14 +3734,12 @@ export type Database = {
           kg_reference_hits?: number | null
           kg_time_ms?: number | null
           model_used?: string | null
-          org_id?: string | null
+          org_id?: string
           output_tokens?: number | null
           pack_id?: string | null
           provider_used?: string | null
-          query?: string | null
-          query_text?: string | null
+          query?: string
           request_id?: string | null
-          rerank_kept?: number | null
           rerank_skip_reason?: string | null
           rerank_skipped?: boolean | null
           retrieval_hops?: number | null
@@ -2832,12 +3749,11 @@ export type Database = {
           strip_rate?: number | null
           symbols_extracted?: number | null
           task_type?: string | null
-          time_ms?: number | null
           total_latency_ms?: number | null
-          total_spans?: number | null
           trace_id?: string | null
           unique_files_count?: number | null
-          user_id?: string | null
+          user_id?: string
+          verification_score?: number | null
         }
         Relationships: [
           {
@@ -2845,6 +3761,53 @@ export type Database = {
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reindex_progress: {
+        Row: {
+          chunks_processed: number | null
+          chunks_total: number | null
+          completed_at: string | null
+          error: string | null
+          error_message: string | null
+          metadata: Json | null
+          org_id: string
+          pack_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          chunks_processed?: number | null
+          chunks_total?: number | null
+          completed_at?: string | null
+          error?: string | null
+          error_message?: string | null
+          metadata?: Json | null
+          org_id: string
+          pack_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          chunks_processed?: number | null
+          chunks_total?: number | null
+          completed_at?: string | null
+          error?: string | null
+          error_message?: string | null
+          metadata?: Json | null
+          org_id?: string
+          pack_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reindex_progress_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2887,48 +3850,51 @@ export type Database = {
           },
         ]
       }
-      slack_integrations: {
+      staleness_check_queue: {
         Row: {
-          channel_name: string | null
-          created_at: string
-          created_by: string | null
+          attempts: number
+          error_message: string | null
+          finished_at: string | null
           id: string
-          notify_on_invite: boolean
-          notify_on_module_complete: boolean
-          notify_on_new_source: boolean
           pack_id: string
-          updated_at: string
-          webhook_url: string
+          processed_at: string | null
+          reason: string
+          requested_at: string
+          source_id: string | null
+          started_at: string | null
+          status: string
         }
         Insert: {
-          channel_name?: string | null
-          created_at?: string
-          created_by?: string | null
+          attempts?: number
+          error_message?: string | null
+          finished_at?: string | null
           id?: string
-          notify_on_invite?: boolean
-          notify_on_module_complete?: boolean
-          notify_on_new_source?: boolean
           pack_id: string
-          updated_at?: string
-          webhook_url: string
+          processed_at?: string | null
+          reason?: string
+          requested_at?: string
+          source_id?: string | null
+          started_at?: string | null
+          status?: string
         }
         Update: {
-          channel_name?: string | null
-          created_at?: string
-          created_by?: string | null
+          attempts?: number
+          error_message?: string | null
+          finished_at?: string | null
           id?: string
-          notify_on_invite?: boolean
-          notify_on_module_complete?: boolean
-          notify_on_new_source?: boolean
           pack_id?: string
-          updated_at?: string
-          webhook_url?: string
+          processed_at?: string | null
+          reason?: string
+          requested_at?: string
+          source_id?: string | null
+          started_at?: string | null
+          status?: string
         }
         Relationships: [
           {
-            foreignKeyName: "slack_integrations_pack_id_fkey"
+            foreignKeyName: "staleness_check_queue_pack_id_fkey"
             columns: ["pack_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "packs"
             referencedColumns: ["id"]
           },
@@ -2980,6 +3946,13 @@ export type Database = {
             referencedRelation: "pack_sources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "symbol_definitions_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       symbol_references: {
@@ -3029,6 +4002,13 @@ export type Database = {
             columns: ["source_id"]
             isOneToOne: false
             referencedRelation: "pack_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "symbol_references_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "pack_sources_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -3093,21 +4073,18 @@ export type Database = {
         Row: {
           byok_config: Json
           created_at: string
-          id: string
           updated_at: string
           user_id: string
         }
         Insert: {
           byok_config?: Json
           created_at?: string
-          id?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           byok_config?: Json
           created_at?: string
-          id?: string
           updated_at?: string
           user_id?: string
         }
@@ -3153,27 +4130,82 @@ export type Database = {
       }
     }
     Views: {
+      pack_sources_safe: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          label: string | null
+          last_synced_at: string | null
+          pack_id: string | null
+          source_config: Json | null
+          source_type: string | null
+          source_uri: string | null
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          label?: string | null
+          last_synced_at?: string | null
+          pack_id?: string | null
+          source_config?: never
+          source_type?: string | null
+          source_uri?: string | null
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          label?: string | null
+          last_synced_at?: string | null
+          pack_id?: string | null
+          source_config?: never
+          source_type?: string | null
+          source_uri?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pack_sources_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_ai_settings_masked: {
         Row: {
           byok_config: Json | null
-          created_at: string | null
-          id: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
-          byok_config?: Json | null
-          created_at?: string | null
-          id?: string | null
+          byok_config?: never
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
-          byok_config?: Json | null
-          created_at?: string | null
-          id?: string | null
+          byok_config?: never
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      view_playlist_item_state: {
+        Row: {
+          assignment_id: string | null
+          computed_due_date: string | null
+          computed_unlock_date: string | null
+          current_status: string | null
+          is_blocked_by_dependency: boolean | null
+          item_id: string | null
+          item_type: string | null
+          learner_user_id: string | null
+          module_id: string | null
+          playlist_id: string | null
+          section_id: string | null
+          title: string | null
         }
         Relationships: []
       }
@@ -3197,17 +4229,102 @@ export type Database = {
         Returns: undefined
       }
       clear_byok_provider: { Args: { _provider: string }; Returns: undefined }
-      decrement_reply_upvote: { Args: { reply_id: string }; Returns: undefined }
-      decrement_thread_upvote: {
-        Args: { thread_id: string }
-        Returns: undefined
+      definition_search_v1:
+        | {
+            Args: {
+              p_match_count?: number
+              p_org_id: string
+              p_pack_id: string
+              p_symbols: string[]
+            }
+            Returns: {
+              chunk_id: string
+              content: string
+              entity_name: string
+              entity_type: string
+              id: string
+              line_end: number
+              line_start: number
+              path: string
+              score: number
+              signature: string
+              source_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_match_count?: number
+              p_module_key?: string
+              p_org_id: string
+              p_pack_id: string
+              p_symbols: string[]
+              p_track_key?: string
+            }
+            Returns: {
+              chunk_id: string
+              content: string
+              entity_name: string
+              entity_type: string
+              id: string
+              line_end: number
+              line_start: number
+              path: string
+              score: number
+              signature: string
+              source_id: string
+            }[]
+          }
+      find_definitions_v1: {
+        Args: { p_limit?: number; p_pack_id: string; p_symbols: string[] }
+        Returns: {
+          chunk_id: string
+          is_redacted: boolean
+          line_end: number
+          line_start: number
+          path: string
+          symbol: string
+        }[]
       }
-      definition_search_v1: {
+      find_references_v1: {
+        Args: { p_limit?: number; p_pack_id: string; p_symbol: string }
+        Returns: {
+          chunk_id: string
+          confidence: number
+          is_redacted: boolean
+          line_end: number
+          line_start: number
+          path: string
+        }[]
+      }
+      get_cohort_pack_id: { Args: { _cohort_id: string }; Returns: string }
+      get_decrypted_byok_key: {
+        Args: { _provider: string; _user_id: string }
+        Returns: string
+      }
+      get_org_role: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: string
+      }
+      get_pack_access_level: {
+        Args: { _pack_id: string; _user_id: string }
+        Returns: string
+      }
+      get_thread_pack_id: { Args: { _thread_id: string }; Returns: string }
+      has_pack_access: {
+        Args: { _min_level: string; _pack_id: string; _user_id: string }
+        Returns: boolean
+      }
+      hybrid_search_v2: {
         Args: {
           p_match_count?: number
+          p_match_threshold?: number
+          p_module_key?: string
           p_org_id: string
           p_pack_id: string
-          p_symbols: string[]
+          p_query_embedding: string
+          p_query_text: string
+          p_rrf_k?: number
+          p_track_key?: string
         }
         Returns: {
           chunk_id: string
@@ -3223,85 +4340,6 @@ export type Database = {
           source_id: string
         }[]
       }
-      find_references_v1: {
-        Args: { p_limit?: number; p_pack_id: string; p_symbol: string }
-        Returns: {
-          chunk_id: string
-          content: string
-          entity_name: string
-          entity_type: string
-          id: string
-          line_end: number
-          line_start: number
-          path: string
-          score: number
-          source_id: string
-        }[]
-      }
-      get_cohort_pack_id: { Args: { _cohort_id: string }; Returns: string }
-      get_org_role: {
-        Args: { _org_id: string; _user_id: string }
-        Returns: string
-      }
-      get_pack_access_level: {
-        Args: { _pack_id: string; _user_id: string }
-        Returns: string
-      }
-      get_thread_pack_id: { Args: { _thread_id: string }; Returns: string }
-      has_pack_access: {
-        Args: { _min_level: string; _pack_id: string; _user_id: string }
-        Returns: boolean
-      }
-      hybrid_search_v2:
-        | {
-            Args: {
-              p_match_count: number
-              p_match_threshold: number
-              p_module_key: string
-              p_org_id: string
-              p_pack_id: string
-              p_query_embedding: string
-              p_query_text: string
-              p_track_key: string
-            }
-            Returns: {
-              chunk_id: string
-              content: string
-              entity_name: string
-              entity_type: string
-              id: string
-              line_end: number
-              line_start: number
-              path: string
-              score: number
-              signature: string
-              source_id: string
-            }[]
-          }
-        | {
-            Args: {
-              p_match_count: number
-              p_module_key: string
-              p_org_id: string
-              p_pack_id: string
-              p_query_embedding: string
-              p_query_text: string
-              p_track_key: string
-            }
-            Returns: {
-              chunk_id: string
-              content: string
-              entity_name: string
-              entity_type: string
-              id: string
-              line_end: number
-              line_start: number
-              path: string
-              score: number
-              signature: string
-              source_id: string
-            }[]
-          }
       hybrid_search_v2_impl: {
         Args: {
           p_match_count?: number
@@ -3326,15 +4364,6 @@ export type Database = {
           signature: string
           source_id: string
         }[]
-      }
-      increment_reply_upvote: { Args: { reply_id: string }; Returns: undefined }
-      increment_thread_reply_count: {
-        Args: { thread_id: string }
-        Returns: undefined
-      }
-      increment_thread_upvote: {
-        Args: { thread_id: string }
-        Returns: undefined
       }
       is_cohort_member: {
         Args: { _cohort_id: string; _user_id: string }
@@ -3381,25 +4410,62 @@ export type Database = {
           user_id: string
         }[]
       }
-      match_chunks_hybrid: {
+      match_chunks_hybrid:
+        | {
+            Args: {
+              match_count: number
+              path_filter?: string
+              query_embedding: string
+              query_text: string
+              target_pack_id: string
+            }
+            Returns: {
+              chunk_id: string
+              content: string
+              end_line: number
+              id: string
+              metadata: Json
+              path: string
+              rrf_score: number
+              source_id: string
+              start_line: number
+            }[]
+          }
+        | {
+            Args: {
+              keyword_weight?: number
+              match_count: number
+              path_filter?: string
+              query_embedding: string
+              query_text: string
+              target_pack_id: string
+              vector_weight?: number
+            }
+            Returns: {
+              chunk_id: string
+              content: string
+              end_line: number
+              id: string
+              metadata: Json
+              path: string
+              rrf_score: number
+              source_id: string
+              start_line: number
+            }[]
+          }
+      purge_source_v1: {
         Args: {
-          match_count?: number
-          path_filter?: string
-          query_embedding: string
-          query_text: string
-          target_pack_id?: string
+          p_actor_user_id?: string
+          p_pack_id: string
+          p_source_id: string
         }
-        Returns: {
-          chunk_id: string
-          content: string
-          end_line: number
-          fts_rank: number
-          path: string
-          rrf_score: number
-          similarity: number
-          start_line: number
-        }[]
+        Returns: Json
       }
+      rollup_pack_quality_aggregates: {
+        Args: { p_day_from: string; p_day_to: string }
+        Returns: undefined
+      }
+      run_analyze: { Args: { table_name: string }; Returns: undefined }
       save_byok_key: {
         Args: {
           _api_key: string
@@ -3411,6 +4477,12 @@ export type Database = {
       }
       set_active_byok_provider: {
         Args: { _model: string; _provider: string }
+        Returns: undefined
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      upsert_faq_suggestion: {
+        Args: { p_pack_id: string; p_question: string }
         Returns: undefined
       }
     }
@@ -3545,3 +4617,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
