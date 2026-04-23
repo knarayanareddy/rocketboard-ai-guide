@@ -57,10 +57,10 @@ Deno.serve(async (req) => {
       // We also increment 'attempts' and set 'started_at'
       const { data: updated, error: updateErr } = await serviceClient
         .from("staleness_check_queue")
-        .update({ 
+        .update({
           status: "processing",
           started_at: new Date().toISOString(),
-          attempts: (row as any).attempts ? (row as any).attempts + 1 : 1
+          attempts: (row as any).attempts ? (row as any).attempts + 1 : 1,
         })
         .eq("id", row.id)
         .eq("status", "pending")

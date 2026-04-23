@@ -67,13 +67,18 @@ Deno.test("Part B: Regression Test - Malicious host-like path", () => {
 
 Deno.test("Part B: Regression Test - Snippet with colons in path", () => {
   // Hardened regex from snippet-resolver.ts
-  const SNIPPET_REGEX = /\[SNIPPET:\s*(.+?)(?=:\d+-\d+\s*\|)\s*:(\d+)-(\d+)\s*\|\s*lang=(.*?)\s*\]/g;
-  const input = "[SNIPPET: repo:owner/repo:supabase/functions/index.ts:10-20 | lang=typescript]";
-  
+  const SNIPPET_REGEX =
+    /\[SNIPPET:\s*(.+?)(?=:\d+-\d+\s*\|)\s*:(\d+)-(\d+)\s*\|\s*lang=(.*?)\s*\]/g;
+  const input =
+    "[SNIPPET: repo:owner/repo:supabase/functions/index.ts:10-20 | lang=typescript]";
+
   const match = SNIPPET_REGEX.exec(input);
   assertEquals(!!match, true, "Should match the complex snippet tag");
   if (match) {
-    assertEquals(match[1].trim(), "repo:owner/repo:supabase/functions/index.ts");
+    assertEquals(
+      match[1].trim(),
+      "repo:owner/repo:supabase/functions/index.ts",
+    );
     assertEquals(match[2], "10");
     assertEquals(match[3], "20");
     assertEquals(match[4].trim(), "typescript");

@@ -1,5 +1,8 @@
 import { requireUserOrInternal } from "../_shared/authz.ts";
-import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertRejects,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 /**
  * Integration Test: Verification of Hybrid Auth Gate (Internal OR User).
@@ -16,27 +19,33 @@ Deno.test("requireUserOrInternal should succeed for all valid paths", async (t) 
   Deno.env.set("SUPABASE_URL", dummyUrl);
   Deno.env.set("SUPABASE_ANON_KEY", dummyAnonKey);
 
-  await t.step("should succeed with X-Rocketboard-Internal header", async () => {
-    const req = new Request("http://localhost/check", {
-      headers: {
-        "X-Rocketboard-Internal": dummyInternalSecret,
-      },
-    });
-    const result = await requireUserOrInternal(req);
-    assertEquals(result.mode, "internal");
-    console.log("Verified: Proprietary Internal Header success.");
-  });
+  await t.step(
+    "should succeed with X-Rocketboard-Internal header",
+    async () => {
+      const req = new Request("http://localhost/check", {
+        headers: {
+          "X-Rocketboard-Internal": dummyInternalSecret,
+        },
+      });
+      const result = await requireUserOrInternal(req);
+      assertEquals(result.mode, "internal");
+      console.log("Verified: Proprietary Internal Header success.");
+    },
+  );
 
-  await t.step("should succeed with Service Role Bearer token (deprecated fallback)", async () => {
-    const req = new Request("http://localhost/check", {
-      headers: {
-        "Authorization": `Bearer ${dummyServiceKey}`,
-      },
-    });
-    const result = await requireUserOrInternal(req);
-    assertEquals(result.mode, "internal");
-    console.log("Verified: Service Role Bearer fallback success.");
-  });
+  await t.step(
+    "should succeed with Service Role Bearer token (deprecated fallback)",
+    async () => {
+      const req = new Request("http://localhost/check", {
+        headers: {
+          "Authorization": `Bearer ${dummyServiceKey}`,
+        },
+      });
+      const result = await requireUserOrInternal(req);
+      assertEquals(result.mode, "internal");
+      console.log("Verified: Service Role Bearer fallback success.");
+    },
+  );
 
   // Note: We cannot easily test the 'user' path here without a real Supabase Auth server,
   // but we have verified that the gate attempts the user path if internal fails.
@@ -46,8 +55,8 @@ Deno.test("requireUserOrInternal should succeed for all valid paths", async (t) 
         "Authorization": "Bearer some-invalid-user-token",
       },
     });
-    
-    // In this test, it will fail because auth.getUser() hits a dummy URL, 
+
+    // In this test, it will fail because auth.getUser() hits a dummy URL,
     // but the failure confirms it PASSED the internal check and reached the user check.
     try {
       await requireUserOrInternal(req);
