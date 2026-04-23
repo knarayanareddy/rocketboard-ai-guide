@@ -18,14 +18,9 @@ on:
                                                                                       cache: 'npm'
                                                                                             - name: Install dependencies
                                                                                                     run: npm ci
-                                                                                                          - name: Setup Supabase CLI
-                                                                                                                  uses: supabase/setup-cli@v1
-                                                                                                                        - name: Start Supabase
-                                                                                                                                run: supabase start --ignore-health-check
-                                                                                                                                      - name: Assert DB Readiness
-                                                                                                                                              run: npx supabase db query --sql "select 1 as ok;"
-                                                                                                                                                    - name: Reset Database and Check Types
-                                                                                                                                                            run: |
-                                                                                                                                                                      supabase db reset
-                                                                                                                                                                                npm run check:types
-                                                                                                                                                                                
+                                                                                                          - uses: supabase/setup-cli@v1
+                                                                                                                - run: supabase start --ignore-health-check
+                                                                                                                      - run: npx supabase db query --sql "select 1 as ok;"
+                                                                                                                            - run: supabase db reset
+                                                                                                                                  - run: npm run check:types
+                                                                                                                                  
