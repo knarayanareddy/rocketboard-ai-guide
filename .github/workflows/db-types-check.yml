@@ -20,6 +20,5 @@ jobs:
         run: npm ci
       - uses: supabase/setup-cli@v1
       - run: supabase start --ignore-health-check
-      - run: supabase db query "select 1 as ok;"
       - run: supabase db reset
       - run: npm run check:types
