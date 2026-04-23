@@ -2,65 +2,50 @@ name: Database Type Safety Check
 
 on:
   pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'supabase/migrations/**'
-      - 'src/integrations/supabase/types.ts'
-      - 'scripts/check_types_tables.ts'
+      branches: [ main, develop ]
+          paths:
+                - 'supabase/migrations/**'
+                      - 'src/integrations/supabase/types.ts'
+                            - 'scripts/check_types_tables.ts'
 
-jobs:
-  check-types:
-    runs-on: ubuntu-latest
-    
-    services:
-      # Optional: could use a postgres container if needed, 
-      # but supabase start manages its own via Docker-in-Docker
-      
-    steps:
-      - uses: actions/checkout@v4
+                            jobs:
+                              check-types:
+                                  runs-on: ubuntu-latest
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+                                      steps:
+                                            - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: npm ci
+                                                  - name: Setup Node.js
+                                                          uses: actions/setup-node@v4
+                                                                  with:
+                                                                            node-version: '20'
+                                                                                      cache: 'npm'
 
-      - name: Setup Supabase CLI
-        run: npm install -g supabase@2.93.1
-
-      - name: Start Supabase (Local Mode)
-        # We use --ignore-health-check because auxiliary services (like vector) 
-        # may fail to mount the docker socket in some CI environments, including 
-        # local Colima setups. However, we explicitly assert that the DB is 
-        # reachable in the next step.
-        run: supabase start --ignore-health-check
-
-      - name: Assert Database Readiness
-        # Ensure the core PostgreSQL engine is responsive despite --ignore-health-check
-        run: supabase db query "select 1 as health_check_ok;"
-
-      - name: Run Migrations
-        run: supabase db reset
-
-      - name: Generate Fresh Types
-        run: supabase gen types typescript --local --schema public > /tmp/fresh_types.ts
-
-      - name: Verify Types Match Committed Version
-        run: |
-          if ! diff -u src/integrations/supabase/types.ts /tmp/fresh_types.ts; then
-            echo "❌ Types drift detected!"
-            echo "The schema in supabase/migrations/ has changed but types.ts was not updated."
-            echo "Please run: npm run gen:types and commit the changes."
-            exit 1
-          fi
-          echo "✅ Committed types match database schema."
-
-      - name: Run Hardened Table Check
-        run: node scripts/check_types_tables.ts
-
-      - name: Stop Supabase
-        if: always()
-        run: supabase stop --no-backup
+                                                                                            - name: Install dependencies
+                                                                                                    run: npm ci
+                                                                                                    
+                                                                                                          - name: Setup Supabase CLI
+                                                                                                                  uses: supabase/setup-cli@v1
+                                                                                                                          with:
+                                                                                                                                    version: latest
+                                                                                                                                    
+                                                                                                                                          - name: Start Supabase (Local DB)
+                                                                                                                                                  run: |
+                                                                                                                                                            # Use --ignore-health-check because of vector/Colima issues in CI
+                                                                                                                                                                      supabase start --ignore-health-check
+                                                                                                                                                                                # Assert DB is actually reachable
+                                                                                                                                                                                          npx supabase db query --sql "select 1 as ok;"
+                                                                                                                                                                                          
+                                                                                                                                                                                                - name: Reset DB and Regenerate Types (Dry Run)
+                                                                                                                                                                                                        run: |
+                                                                                                                                                                                                                  supabase db reset
+                                                                                                                                                                                                                            npm run gen:types
+                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                            - name: Check for Type Drift
+                                                                                                                                                                                                                                                    run: |
+                                                                                                                                                                                                                                                              # This will fail if there is any drift between DB and local types.ts
+                                                                                                                                                                                                                                                                        npm run check:types
+                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                        - name: Cleanup
+                                                                                                                                                                                                                                                                                                if: always()
+                                                                                                                                                                                                                                                                                                        run: supabase stop
