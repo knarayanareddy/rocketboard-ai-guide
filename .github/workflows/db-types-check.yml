@@ -6,6 +6,8 @@ on:
       - 'supabase/migrations/**'
       - 'src/integrations/supabase/types.ts'
       - 'scripts/check_types_tables.ts'
+      - '.github/workflows/db-types-check.yml'
+  workflow_dispatch:
 
 jobs:
   check-types:
@@ -18,6 +20,9 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+      # Using npm install (not npm ci) because package-lock.json is generated
+      # on macOS and CI runs on Linux; optional deps like esbuild/tsx have
+      # platform-specific binaries that npm ci refuses to resolve cross-platform.
       - name: Install dependencies
         run: npm install
       - uses: supabase/setup-cli@v1
