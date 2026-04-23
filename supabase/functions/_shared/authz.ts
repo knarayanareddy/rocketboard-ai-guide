@@ -81,7 +81,6 @@ export function requireInternal(
   };
 }
 
-
 /**
  * requireUserOrInternal
  * Hybrid gate that allows either:

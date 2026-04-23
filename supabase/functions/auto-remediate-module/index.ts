@@ -37,7 +37,13 @@ Deno.serve(async (req) => {
 
     // Pack Authorization: Ensure human users have 'author' access to this pack.
     if (mode === "user") {
-      await requirePackRole(serviceClient, pack_id, userId!, "author", corsHeaders);
+      await requirePackRole(
+        serviceClient,
+        pack_id,
+        userId!,
+        "author",
+        corsHeaders,
+      );
     }
 
     // 1. Fetch the actual diff from GitHub
@@ -122,7 +128,9 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `[REMEDIATION] drafting via ${useOpenAI ? "OpenAI" : "Lovable Gateway"} (${llmModel})`,
+      `[REMEDIATION] drafting via ${
+        useOpenAI ? "OpenAI" : "Lovable Gateway"
+      } (${llmModel})`,
     );
 
     for (const stale of staleModules) {

@@ -2,7 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 /**
  * Staleness Pipeline E2E Integration Test.
- * 
+ *
  * Flow:
  * 1. Seed knowledge_chunks with a specific hash.
  * 2. Record content_freshness for a mock module citing those chunks.
@@ -12,9 +12,10 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
  * 6. Observe is_stale flipping to true.
  */
 Deno.test("Staleness Pipeline E2E Integration Test", async (t) => {
-  const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET") || "test_secret";
+  const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET") ||
+    "test_secret";
   const baseUrl = "http://localhost:54321/functions/v1";
-  
+
   const testPackId = "00000000-0000-0000-0000-000000000001";
   const testChunkId = "11111111-1111-1111-1111-111111111111";
   const initialHash = "hash_v1";
@@ -31,7 +32,7 @@ Deno.test("Staleness Pipeline E2E Integration Test", async (t) => {
       method: "POST",
       headers: {
         "X-Rocketboard-Internal": internalSecret,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         pack_id: testPackId,
@@ -40,11 +41,11 @@ Deno.test("Staleness Pipeline E2E Integration Test", async (t) => {
           sections: [
             {
               section_id: "sec_1",
-              citations: [{ chunk_id: testChunkId }]
-            }
-          ]
-        }
-      })
+              citations: [{ chunk_id: testChunkId }],
+            },
+          ],
+        },
+      }),
     });
 
     assertEquals(res.status, 200, "Ledger recording should succeed");
@@ -67,9 +68,9 @@ Deno.test("Staleness Pipeline E2E Integration Test", async (t) => {
       method: "POST",
       headers: {
         "X-Rocketboard-Internal": internalSecret,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ pack_id: testPackId })
+      body: JSON.stringify({ pack_id: testPackId }),
     });
 
     assertEquals(res.status, 200, "Audit should succeed");

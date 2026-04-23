@@ -27,7 +27,13 @@ Deno.serve(async (req) => {
 
     // Pack Authorization: Ensure human users have 'author' access to this pack.
     if (mode === "user") {
-      await requirePackRole(serviceClient, pack_id, userId!, "author", corsHeaders);
+      await requirePackRole(
+        serviceClient,
+        pack_id,
+        userId!,
+        "author",
+        corsHeaders,
+      );
     }
 
     // Get all content_freshness rows for this pack
