@@ -7,10 +7,8 @@ import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 import {
   requireInternal,
-  requireInternal,
   requireUser,
-  requireUser,
-  requireUserOrInternalernalrOrInternal,
+  requireUserOrInternal,
 } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 
