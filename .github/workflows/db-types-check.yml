@@ -28,6 +28,6 @@ jobs:
       - uses: supabase/setup-cli@v1
       - run: supabase start --ignore-health-check
       - name: Assert DB is reachable
-        run: npx supabase db query --sql "select 1 as ok;"
+        run: supabase db query "select 1 as ok;"
       - run: supabase db reset
       - run: npm run check:types
