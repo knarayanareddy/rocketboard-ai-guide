@@ -41,6 +41,7 @@ CREATE TABLE public.ingestion_jobs (
   error_message text,
   started_at timestamptz,
   completed_at timestamptz,
+  last_heartbeat_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.ingestion_jobs ENABLE ROW LEVEL SECURITY;

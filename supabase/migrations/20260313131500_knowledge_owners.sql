@@ -38,10 +38,10 @@ create policy "Enable write for authors" on "public"."knowledge_owners"
         exists (
             select 1 from public.pack_sources s
             join public.packs p on p.id = s.pack_id
-            join public.pack_roles r on r.pack_id = p.id
+            join public.pack_members r on r.pack_id = p.id
             where s.id = knowledge_owners.source_id
             and r.user_id = auth.uid()
-            and r.role = 'author'
+            and r.access_level = 'author'
         )
     );
 

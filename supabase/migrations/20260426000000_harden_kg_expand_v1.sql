@@ -6,6 +6,8 @@
 -- 3. COALESCE ensures scoring logic remains functional when p_symbols is NULL.
 -- 4. Cleaned up redundant seed exclusion logic for better readability.
 
+-- 1. Harden kg_expand_v1
+DROP FUNCTION IF EXISTS public.kg_expand_v1(uuid, uuid, uuid[], text[], int, int);
 CREATE OR REPLACE FUNCTION public.kg_expand_v1(
   p_org_id uuid,
   p_pack_id uuid,

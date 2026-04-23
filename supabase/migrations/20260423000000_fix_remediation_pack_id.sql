@@ -32,7 +32,4 @@ ALTER TABLE public.module_remediations ALTER COLUMN pack_id SET NOT NULL;
 -- Re-verify performance index for RLS lookup.
 CREATE INDEX IF NOT EXISTS idx_module_remediations_pack_id ON public.module_remediations(pack_id);
 
--- 5. Audit Event
--- Record the remediation stabilization in the lifecycle log.
-INSERT INTO public.lifecycle_audit_events (action, details)
-VALUES ('module_remediations_harden_complete', '{"reason": "Enforced NOT NULL pack_id for RLS consistency"}');
+

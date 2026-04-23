@@ -5,6 +5,7 @@
 CREATE INDEX IF NOT EXISTS knowledge_chunks_imports_gin ON public.knowledge_chunks USING gin (imports);
 
 -- 2. Implement kg_expand_v1
+DROP FUNCTION IF EXISTS public.kg_expand_v1(uuid, uuid, uuid[], text[], int, int);
 CREATE OR REPLACE FUNCTION public.kg_expand_v1(
   p_org_id uuid,
   p_pack_id uuid,

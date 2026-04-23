@@ -40,12 +40,15 @@ CREATE POLICY "Enable full access for authors to remediations" ON "public"."modu
         exists (
             select 1 from public.generated_modules gm
             join public.packs p on p.id = gm.pack_id
-            join public.pack_roles pr on pr.pack_id = p.id
+            join public.pack_members pr on pr.pack_id = p.id
             where gm.module_key = module_remediations.module_key
             and pr.user_id = auth.uid()
-            and pr.role = 'author'
+            and pr.access_level = 'author'
         )
     );
+
+-- Drop existing function if return type has changed (to avoid OVERLOAD conflicts or signature mismatch)
+DROP FUNCTION IF EXISTS public.match_chunks_hybrid(vector, text, int, uuid, text);
 
 -- Hybrid Search Function (Vector Similarity + Full-Text Search + Source Weighting)
 -- Concept: Reciprocal Rank Fusion (RRF)

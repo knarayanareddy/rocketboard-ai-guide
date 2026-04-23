@@ -17,6 +17,4 @@ CREATE POLICY service_role_manage_queue
     USING (true)
     WITH CHECK (true);
 
--- 3. Audit Event
-INSERT INTO public.lifecycle_audit_events (action, details)
-VALUES ('staleness_queue_hardened', '{"details": "Added started_at, finished_at, and attempts columns"}');
+

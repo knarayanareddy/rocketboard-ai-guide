@@ -22,10 +22,10 @@ create policy "Enable insert for authenticated users" on "public"."module_teleme
 create policy "Enable read for pack admins and authors" on "public"."module_telemetry"
     for select using (
         exists (
-            select 1 from public.pack_roles r
+            select 1 from public.pack_members r
             where r.pack_id = module_telemetry.pack_id
             and r.user_id = auth.uid()
-            and r.role in ('admin', 'author')
+            and r.access_level in ('admin', 'author')
         )
     );
 

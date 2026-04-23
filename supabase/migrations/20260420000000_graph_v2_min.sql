@@ -40,47 +40,59 @@ CREATE INDEX IF NOT EXISTS idx_symbol_references_pack_source ON public.symbol_re
 ALTER TABLE public.symbol_definitions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.symbol_references ENABLE ROW LEVEL SECURITY;
 
--- Read allowed for pack members (learner+)
-CREATE POLICY "Allow members to read definitions"
-ON public.symbol_definitions
-FOR SELECT
-USING (
-    EXISTS (
-        SELECT 1 FROM public.pack_members
-        WHERE pack_id = symbol_definitions.pack_id
-        AND user_id = auth.uid()
-    )
-    OR auth.role() = 'service_role'
-);
+DO $$ 
+BEGIN
+    -- Read allowed for pack members (learner+)
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'symbol_definitions' AND policyname = 'Allow members to read definitions') THEN
+        CREATE POLICY "Allow members to read definitions"
+        ON public.symbol_definitions
+        FOR SELECT
+        USING (
+            EXISTS (
+                SELECT 1 FROM public.pack_members
+                WHERE pack_id = symbol_definitions.pack_id
+                AND user_id = auth.uid()
+            )
+            OR auth.role() = 'service_role'
+        );
+    END IF;
 
-CREATE POLICY "Allow members to read references"
-ON public.symbol_references
-FOR SELECT
-USING (
-    EXISTS (
-        SELECT 1 FROM public.pack_members
-        WHERE pack_id = symbol_references.pack_id
-        AND user_id = auth.uid()
-    )
-    OR auth.role() = 'service_role'
-);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'symbol_references' AND policyname = 'Allow members to read references') THEN
+        CREATE POLICY "Allow members to read references"
+        ON public.symbol_references
+        FOR SELECT
+        USING (
+            EXISTS (
+                SELECT 1 FROM public.pack_members
+                WHERE pack_id = symbol_references.pack_id
+                AND user_id = auth.uid()
+            )
+            OR auth.role() = 'service_role'
+        );
+    END IF;
 
--- Write allowed for service_role only
-CREATE POLICY "Allow service_role to manage definitions"
-ON public.symbol_definitions
-FOR ALL
-USING (auth.role() = 'service_role')
-WITH CHECK (auth.role() = 'service_role');
+    -- Write allowed for service_role only
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'symbol_definitions' AND policyname = 'Allow service_role to manage definitions') THEN
+        CREATE POLICY "Allow service_role to manage definitions"
+        ON public.symbol_definitions
+        FOR ALL
+        USING (auth.role() = 'service_role')
+        WITH CHECK (auth.role() = 'service_role');
+    END IF;
 
-CREATE POLICY "Allow service_role to manage references"
-ON public.symbol_references
-FOR ALL
-USING (auth.role() = 'service_role')
-WITH CHECK (auth.role() = 'service_role');
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'symbol_references' AND policyname = 'Allow service_role to manage references') THEN
+        CREATE POLICY "Allow service_role to manage references"
+        ON public.symbol_references
+        FOR ALL
+        USING (auth.role() = 'service_role')
+        WITH CHECK (auth.role() = 'service_role');
+    END IF;
+END $$;
 
 -- 4. RPCs
 
 -- find_definitions_v1
+DROP FUNCTION IF EXISTS public.find_definitions_v1(UUID, TEXT[], INT);
 CREATE OR REPLACE FUNCTION public.find_definitions_v1(
     p_pack_id UUID,
     p_symbols TEXT[],
@@ -123,6 +135,7 @@ END;
 $$;
 
 -- find_references_v1
+DROP FUNCTION IF EXISTS public.find_references_v1(UUID, TEXT, INT);
 CREATE OR REPLACE FUNCTION public.find_references_v1(
     p_pack_id UUID,
     p_symbol TEXT,
