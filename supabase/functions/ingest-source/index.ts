@@ -174,17 +174,31 @@ async function initializeIngestion(
       const workerUrl = `${Deno.env.get(
         "SUPABASE_URL",
       )!}/functions/v1/ingest-source-worker`;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+      const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
+      if (!internalSecret) {
+        console.warn(
+          "[CONTROLLER WARNING] Missing ROCKETBOARD_INTERNAL_SECRET, falling back to Service Role Bearer token for internal calls.",
+        );
+      }
+      const internalHeaders = internalSecret
+        ? {
+          "Content-Type": "application/json",
+          "X-Rocketboard-Internal": internalSecret,
+        }
+        : {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+          }`,
+        };
 
       console.log(
         `[CONTROLLER] Initialized state for job ${jobId}. Triggering worker...`,
       );
       const resp = await fetch(workerUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceKey}`,
-        },
+        headers: internalHeaders,
         body: JSON.stringify({ jobId }),
       });
       if (!resp.ok) throw new Error(`Failed to trigger worker: ${resp.status}`);
@@ -217,7 +231,6 @@ async function initializeIngestion(
       const symbolGraphUrl = `${Deno.env.get(
         "SUPABASE_URL",
       )!}/functions/v1/build-symbol-graph`;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
       // Initialize an empty state row so symbol worker can find it (though it won't use files_json)
       await serviceClient.from("ingestion_job_state").insert({
@@ -229,12 +242,27 @@ async function initializeIngestion(
         chunk_idx: docChunks.length,
       });
 
+      const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
+      if (!internalSecret) {
+        console.warn(
+          "[CONTROLLER WARNING] Missing ROCKETBOARD_INTERNAL_SECRET, falling back to Service Role Bearer token for internal calls.",
+        );
+      }
+      const internalHeaders = internalSecret
+        ? {
+          "Content-Type": "application/json",
+          "X-Rocketboard-Internal": internalSecret,
+        }
+        : {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+          }`,
+        };
+
       const resp = await fetch(symbolGraphUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceKey}`,
-        },
+        headers: internalHeaders,
         body: JSON.stringify({ jobId }),
       });
       if (!resp.ok) {

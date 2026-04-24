@@ -241,15 +241,27 @@ async function runBatch(
     processed_chunks: nextCursor,
   }).eq("id", jobId);
 
+  const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
+  if (!internalSecret) {
+    console.warn(
+      "[WORKER WARNING] Missing ROCKETBOARD_INTERNAL_SECRET, falling back to Service Role Bearer token for internal calls.",
+    );
+  }
+  const internalHeaders = internalSecret
+    ? {
+      "Content-Type": "application/json",
+      "X-Rocketboard-Internal": internalSecret,
+    }
+    : {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    };
+
   if (!isLastBatch) {
     // Schedule next batch
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     fetch(functionUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-      },
+      headers: internalHeaders,
       body: JSON.stringify({ jobId }),
     }).catch((e) => console.error("[WORKER] Self-scheduling failed:", e));
   } else {
@@ -257,16 +269,12 @@ async function runBatch(
     console.log(
       `[WORKER] Ingestion complete for job ${jobId}. Triggering symbol graph builder.`,
     );
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const symbolGraphUrl = `${supabaseUrl}/functions/v1/build-symbol-graph`;
 
     fetch(symbolGraphUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-      },
+      headers: internalHeaders,
       body: JSON.stringify({ jobId }),
     }).catch((e) =>
       console.error("[WORKER] Failed to trigger symbol graph builder:", e)

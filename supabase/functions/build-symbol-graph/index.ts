@@ -165,13 +165,25 @@ async function runSymbolBatch(
   }).eq("job_id", jobId);
 
   // Self-schedule next batch
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
+  if (!internalSecret) {
+    console.warn(
+      "[SYMBOL_WORKER WARNING] Missing ROCKETBOARD_INTERNAL_SECRET, falling back to Service Role Bearer token for internal calls.",
+    );
+  }
+  const internalHeaders = internalSecret
+    ? {
+      "Content-Type": "application/json",
+      "X-Rocketboard-Internal": internalSecret,
+    }
+    : {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    };
+
   fetch(functionUrl, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${serviceKey}`,
-    },
+    headers: internalHeaders,
     body: JSON.stringify({ jobId }),
   }).catch((e) => console.error("[SYMBOL_WORKER] Self-scheduling failed:", e));
 }
