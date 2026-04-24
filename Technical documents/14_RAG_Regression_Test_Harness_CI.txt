@@ -4,7 +4,7 @@ File: 14_RAG_Regression_Test_Harness_CI.txt
 Purpose: RAG regression testing system including test suites, runner,
          CI integration, thresholds, and how to add new tests.
 Audience: Engineers, QA
-Last Updated: 2026-03-19
+Last Updated: 2026-04-24
 Related Code Paths:
   - rag-eval/ directory
   - .github/workflows/
@@ -83,6 +83,24 @@ retrieval + grounding pipeline meets minimum scores.
   - Tests require a pre-ingested test pack with known content (not a mock)
   - Dynamic test expectations (e.g., checking snippet content) are not yet supported
   - Runner does not test detective mode expansion (Hop 1) in isolation
+
+8. GENERAL CI STATIC CHECKS & LINTING
+---------------------------------------
+  Beyond RAG regression, the repository includes safety-critical CI linters 
+  and scheduled pipelines to prevent architectural drift and security flaws:
+
+  Scheduled Workflows:
+    - db-types-check.yml runs weekly (cron: "0 9 * * 1") to detect schema
+      drift. It executes `supabase gen types` against the live schema and 
+      fails the CI pipeline if `src/integrations/supabase/types.ts` is outdated.
+      (Guarded by `github.repository` checks to prevent unnecessary fork runs).
+
+  NPM Lint Guards (Enforced on PRs):
+    - `npm run check:types` : Blocks PRs if new DB tables are missing from `types.ts`.
+    - `npm run check:credentials` : Prevents Edge Functions from attempting 
+      bare reads of `pack_source_credentials.credential_value` instead of Vault.
+    - `npm run check:internal-auth` : Static analyzer preventing bare Service Role
+      `fetch()` tokens without proper `X-Rocketboard-Internal` fallback logic.
 
 VERIFICATION NOTE: The rag-eval/ directory structure should be verified in
 the repository. If the directory exists but is empty or contains only a README,
