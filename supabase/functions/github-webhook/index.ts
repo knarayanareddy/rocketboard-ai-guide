@@ -5,6 +5,7 @@ import {
 } from "../_shared/cors.ts";
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
+import { warnIfMissingEnv } from "../_shared/env-warnings.ts";
 
 function hexToUint8Array(hex: string): Uint8Array {
   const view = new Uint8Array(hex.length / 2);
@@ -15,6 +16,11 @@ function hexToUint8Array(hex: string): Uint8Array {
 }
 
 Deno.serve(async (req) => {
+  warnIfMissingEnv("GITHUB_WEBHOOK_SECRET", "github-webhook HMAC verification");
+  warnIfMissingEnv(
+    "ROCKETBOARD_INTERNAL_SECRET",
+    "github-webhook internal service calls",
+  );
   const allowedOrigins = parseAllowedOrigins();
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;

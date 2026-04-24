@@ -6,10 +6,15 @@ import {
 import { json, jsonError, readJson } from "../_shared/http.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { requireInternal } from "../_shared/authz.ts";
+import { warnIfMissingEnv } from "../_shared/env-warnings.ts";
 
 // Local corsHeaders removed
 
 Deno.serve(async (req) => {
+  warnIfMissingEnv(
+    "ROCKETBOARD_INTERNAL_SECRET",
+    "process-staleness-queue auth gate",
+  );
   const allowedOrigins = parseAllowedOrigins();
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;

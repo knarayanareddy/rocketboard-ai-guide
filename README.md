@@ -278,6 +278,16 @@ supabase/
 
 ---
 
+## Ops
+
+| Doc | Path |
+|-----|------|
+| **Required Secrets** | [`docs/ops/required-secrets.md`](docs/ops/required-secrets.md) |
+
+Edge Functions emit structured, rate-limited `console.warn` messages when critical secrets are missing at runtime. See `supabase/functions/_shared/env-warnings.ts`.
+
+---
+
 ## Getting Started
 
 ```bash
