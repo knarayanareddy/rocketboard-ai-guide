@@ -5,7 +5,7 @@ Purpose: Step-by-step operational runbooks for common tasks including deploying
          a new pack, debugging grounding failures, recovering from ingestion
          outages, and running lifecycle cleanup.
 Audience: Engineers, DevOps, SRE
-Last Updated: 2026-03-19
+Last Updated: 2026-04-24
 ================================================================================
 
 RUNBOOK 01: DEPLOYING A NEW PACK (End-to-End)
@@ -215,6 +215,21 @@ Goal: Ensure `find_references` works for a specific symbol.
 2. Check references Table: `SELECT * FROM symbol_references WHERE symbol='foo' AND pack_id=?`.
 3. If empty, verify `symbol-extractor.ts` regex isn't blocking the name in shared lib.
 4. Manually trigger `find_references_v1` RPC to verify BLEND logic.
+
+RUNBOOK 09: RESOLVING MISSING SECRETS & ENV WARNINGS
+------------------------------------------------------
+Goal: Address production log warnings concerning missing required secrets.
+1. Identify the warning in Supabase Edge Function logs. 
+   Warnings are generated safely via `warnIfMissingEnv()` which rate-limits 
+   its output (max 1 log per minute) and NEVER logs key values or partial keys.
+   Format: `[ENV WARNING] Missing required environment variable: GITHUB_WEBHOOK_SECRET`
+2. Consult `docs/ops/required-secrets.md` for the exact implications of the missing key.
+3. Determine if the missing key impacts the current workflow:
+   - `ROCKETBOARD_INTERNAL_SECRET`: Internal routing will fallback to the overly 
+     permissive `SUPABASE_SERVICE_ROLE_KEY`.
+   - `GITHUB_WEBHOOK_SECRET`: If `ENVIRONMENT="production"`, webhooks will fail with 401.
+4. Set the missing variable in the Supabase Dashboard (Settings -> Edge Functions -> Secrets)
+   or local `.env.local` depending on the environment.
 
 ================================================================================
 END OF 18_Operational_Runbooks.txt
