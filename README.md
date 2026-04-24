@@ -110,8 +110,8 @@ Connect your knowledge sources and RocketBoard ingests, chunks, and embeds them 
 | Feature | Description |
 |-----------|-------------|
 | **Smart Structural Chunker** | Heading-aware splitting (H1-H6) ensures semantic context is preserved, avoiding arbitrary data breaks. |
-| **Deterministic Chunk IDs** | Stable IDs based on document path, lines, and **SHA256 content hash** enable seamless `UPSERT` and citation stability. |
-| **Integrity-Verified Sync** | Every ingestion job includes an **Automated Technical Documentation Audit** (scripts/verify-technical-docs.py) to ensure source-to-knowledge parity. |
+| **Deterministic Chunk IDs** | Stable IDs based on document path, lines, and **parallelized true SHA256 content hashes (`Promise.all()`)** enable seamless `UPSERT` and citation stability. |
+| **Integrity-Verified Sync** | Every ingestion job includes an **Automated Technical Documentation Audit** (scripts/verify-technical-docs.py) to ensure source-to-parity. API properties are **Vault-Secured via Edge RPCs** (replacing unencrypted DB references). |
 | **Ingestion Safeguards** | **Cooldowns** (1-hour) and **Concurrent Lease Locks** prevent API abuse and race conditions. |
 | **Automatic Recovery** | Failed ingestion jobs automatically purge partial data to ensure a clean state for retries. |
 
@@ -146,9 +146,9 @@ Full telemetry tracing for every AI task and ingestion job using our **Unified T
 - **Local RAG Metrics** — Performance data stored in PostgreSQL `rag_metrics` for out-of-the-box SQL reporting.
 
 ### 🔄 Content Health & Auto-Remediation
-- **GitHub Webhook** detects pushes that affect cited source files
+- **Hardened Production Webhook** detects pushes that affect cited source files, strictly enforcing `GITHUB_WEBHOOK_SECRET` cryptography (with `401 Unauthorized` responses for unverified traffic).
 - **Staleness scoring** per module based on changed chunks
-- **AI Agent** reads raw git diffs and drafts precise content updates
+- **AI Agent** reads raw git diffs and drafts precise content updates via securely routed internal traffic (dynamic `X-Rocketboard-Internal` header fallback system).
 - Authors review side-by-side diffs and accept with one click
 
 ### 📚 Learning Experience
@@ -172,6 +172,9 @@ Full telemetry tracing for every AI task and ingestion job using our **Unified T
 - **Team Directory** — knowledge owners, meeting checklists, expertise areas
 - **Discussions** — async threaded conversations scoped to modules/packs
 - **Graduation Modal** — ticket syndication when learners complete onboarding
+
+### 🛡️ Weekly CI Drift Pipelines
+- The build is safeguarded by statically scheduled pipelines and NPM lint guards (including `db-types-check`) running weekly to detect back/front architectural drifts and flag bare edge credential dependencies.
 
 ---
 

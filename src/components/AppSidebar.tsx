@@ -419,6 +419,7 @@ function HelpMenu({ collapsed }: { collapsed: boolean }) {
             <h3 className="text-base font-semibold text-foreground mb-4">⌨️ Keyboard Shortcuts</h3>
             <div className="space-y-2 text-sm">
               {[
+                ["Cmd/Ctrl + S", "Trigger Platform Content Sync"],
                 ["Cmd/Ctrl + K", "Search"],
                 ["Cmd/Ctrl + D", "Bookmark current content"],
                 ["Escape", "Close overlay/modal"],

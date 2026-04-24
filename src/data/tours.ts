@@ -55,7 +55,7 @@ export const ALL_TOURS: Tour[] = [
       {
         target: "[data-tour='source-list']",
         title: "Source Management",
-        content: "After adding a source, click 'Sync' to ingest. Vetted by our **Titanium SSRF Guard** and **Multi-Stage Security Audit**, ensuring 100% integrity before any chunk is written.",
+        content: "After adding a source, click 'Sync' to ingest. Vetted by our **Titanium SSRF Guard** and **Multi-Stage Security Audit**, ensuring true SHA-256 chunk hashing and Vault-secured API keys before any chunk is authored.",
       },
     ],
   },
@@ -667,6 +667,11 @@ export const ALL_TOURS: Tour[] = [
         target: "[data-tour='docs-sync-button']",
         title: "Trigger Sync",
         content: "Click this button to ingest documents from your repository's /Technical documents folder. The engine performs an **Integrity-Verified Audit** against the repository baseline, redacting secrets automatically and assigning a SHA256 script hash to the sync run.",
+      },
+      {
+        target: "[data-tour='docs-sync-button']",
+        title: "Webhook Automation",
+        content: "In production, incoming continuous-integration traffic must be cryptographically signed, or the engine will drop the request immediately (401 Unauthorized), ensuring fail-secure synchronization.",
       },
     ],
   },
