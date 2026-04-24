@@ -1,6 +1,52 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+const typesPath = path.resolve(process.cwd(), 'src/integrations/supabase/types.ts');
+
+if (!fs.existsSync(typesPath)) {
+   console.error('Types file not found: ' + typesPath);
+   console.error('Run: npx supabase gen types typescript --local --schema public > src/integrations/supabase/types.ts');
+   process.exit(1);
+}
+
+const content = fs.readFileSync(typesPath, 'utf8');
+
+const requiredTables = [
+   'module_remediations',
+   'staleness_check_queue',
+   'content_freshness',
+   'pack_active_generation'
+ ];
+
+let missing = false;
+for (const table of requiredTables) {
+   const hasUnquoted = content.includes(table + ': {');
+   const hasQuoted = content.includes('"' + table + '": {');
+   const hasTableEntry = hasUnquoted || hasQuoted;
+   const splitPattern = hasUnquoted ? table + ': {' : '"' + table + '": {';
+ 
+   if (!hasTableEntry) {
+        console.error('Missing table definition in types.ts: ' + table);
+        missing = true;
+   } else {
+        const tableSection = content.split(splitPattern)[1].split('}')[0];
+        if (!tableSection.includes('Row: {')) {
+               console.error('Incomplete table definition in types.ts: ' + table);
+               missing = true;
+        }
+   }
+}
+
+if (missing) {
+   console.error('DATABASE DRIFT DETECTED!');
+   process.exit(1);
+}
+
+console.log('OK - types.ts is synchronized with all required hardened tables.');
+process.exit(0);
+import * as fs from 'fs';
+import * as path from 'path';
+
 /**
  * scripts/check_types_tables.ts
  * 
