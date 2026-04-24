@@ -8,8 +8,11 @@ import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { requireUserOrInternal } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
+import { warnIfMissingEnv } from "../_shared/env-warnings.ts";
 
 Deno.serve(async (req) => {
+  warnIfMissingEnv("OPENAI_API_KEY", "auto-remediate-module LLM calls");
+  warnIfMissingEnv("LOVABLE_API_KEY", "auto-remediate-module LLM fallback");
   const allowedOrigins = parseAllowedOrigins();
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;
