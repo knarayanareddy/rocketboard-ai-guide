@@ -8,9 +8,12 @@ on:
       - 'scripts/check_types_tables.ts'
       - '.github/workflows/db-types-check.yml'
   workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 09:00 UTC
 
 jobs:
   check-types:
+    if: github.repository == 'knarayanareddy/rocketboard-ai-guide'
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
