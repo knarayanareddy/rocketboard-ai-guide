@@ -6,7 +6,8 @@ import * as path from 'path';
  * 
  * Verifies that the Supabase types.ts file includes definitions for critical tables.
  * This prevents "silent drift" where migrations add tables but the frontend types
- * remain outdated, leading to 'as any' casts or runtime errors.
+ * r// Robust check
+ emain outdated, leading to 'as any' casts or runtime errors.
  */
 
 const typesPath = path.resolve(process.cwd(), 'src/integrations/supabase/types.ts');
@@ -30,18 +31,23 @@ const requiredTables = [
 let missing = false;
 for (const table of requiredTables) {
   // We check for the table key and a nested Row definition to avoid false positives
-  const hasTableEntry = content.includes(`${table}: {`);
-  
+    const hasUnquoted = content.includes(`${table}: {`);
+  const hasQuoted = content.includes(`"${table}": {`);
+  const hasTableEntry = hasUnquoted || hasQuoted;
+  const splitPattern = hasUnquoted ? `${table}: {` : `"${table}": {`;
+
   if (!hasTableEntry) {
-    console.error(`❌ Missing table definition in types.ts: ${table}`);
-    missing = true;
-  } else {
-    // Basic verification of the definition shape
-    const tableSection = content.split(`${table}: {`)[1].split('}')[0];
-    if (!tableSection.includes('Row: {')) {
-        console.error(`❌ Incomplete table definition in types.ts: ${table} (Missing 'Row' type)`);
+        console.error('Missing table definition in types.ts: ' + table);
         missing = true;
-    }
+  } else {
+        const tableSection = content.split(splitPattern)[1].split('}')[0];
+        if (!tableSection.includes('Row: {')) {
+                console.error('Incomplete table definition in types.ts: ' + table);
+                missing = true;
+        }
+  }
+  
+  }
   }
 }
 
