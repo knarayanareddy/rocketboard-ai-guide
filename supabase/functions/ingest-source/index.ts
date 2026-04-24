@@ -12,6 +12,7 @@ import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { requireUser } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
+import { computeContentHash } from "../_shared/hash-utils.ts";
 
 const ALLOWED_ORIGINS = parseAllowedOrigins();
 
@@ -201,8 +202,9 @@ async function initializeIngestion(
     } else if (source_type === "document") {
       await updateHeartbeat(serviceClient, jobId, { phase: "chunking" });
       const chunks = chunkWords(document_content || "");
-      const docChunks = chunks.map((c, i) => {
+      const docChunks = await Promise.all(chunks.map(async (c, i) => {
         const assessment = assessChunkRedaction(c.text);
+        const hash = await computeContentHash(assessment.contentToStore);
         return {
           pack_id,
           source_id,
@@ -213,11 +215,11 @@ async function initializeIngestion(
           start_line: c.start,
           end_line: c.end,
           content: assessment.contentToStore,
-          content_hash: "hash_placeholder",
+          content_hash: hash,
           is_redacted: assessment.isRedacted,
           metadata: { ingestion_job_id: jobId, generation_id: jobId },
         };
-      });
+      }));
       const { error: upsertErr } = await serviceClient.from("knowledge_chunks")
         .upsert(docChunks);
       if (upsertErr) throw upsertErr;
