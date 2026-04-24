@@ -121,19 +121,28 @@ Deno.serve(async (req) => {
     const changedFilesList = Array.from(changedFiles);
     const compareUrl = payload.compare;
 
-    for (const packId of packIds) {
-      const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
+    const internalSecret = Deno.env.get("ROCKETBOARD_INTERNAL_SECRET");
+    if (!internalSecret) {
+      console.warn(
+        "[WEBHOOK WARNING] Missing ROCKETBOARD_INTERNAL_SECRET, falling back to Service Role Bearer token for internal calls.",
+      );
+    }
 
+    const internalHeaders = internalSecret
+      ? {
+        "Content-Type": "application/json",
+        "X-Rocketboard-Internal": internalSecret,
+      }
+      : {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+      };
+
+    for (const packId of packIds) {
       // 1. Mark as stale
       await fetch(`${supabaseUrl}/functions/v1/check-staleness`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceKey}`,
-          ...(internalSecret
-            ? { "X-Rocketboard-Internal": internalSecret }
-            : {}),
-        },
+        headers: internalHeaders,
         body: JSON.stringify({ pack_id: packId }),
       });
       console.log(`[WEBHOOK] Triggered staleness check for pack ${packId}`);
@@ -142,13 +151,7 @@ Deno.serve(async (req) => {
       if (changedFilesList.length > 0 && compareUrl) {
         await fetch(`${supabaseUrl}/functions/v1/auto-remediate-module`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${serviceKey}`,
-            ...(internalSecret
-              ? { "X-Rocketboard-Internal": internalSecret }
-              : {}),
-          },
+          headers: internalHeaders,
           body: JSON.stringify({
             pack_id: packId,
             changed_files: changedFilesList,
