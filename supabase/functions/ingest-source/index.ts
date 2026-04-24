@@ -13,6 +13,7 @@ import { requireUser } from "../_shared/authz.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { computeContentHash } from "../_shared/hash-utils.ts";
+import { getSourceCredential } from "../_shared/credentials.ts";
 
 const ALLOWED_ORIGINS = parseAllowedOrigins();
 
@@ -119,19 +120,7 @@ async function fetchGitHubTree(
   ).map((item: any) => item.path);
 }
 
-async function getSourceCredential(
-  serviceClient: any,
-  sourceId: string,
-  key: string,
-): Promise<string | null> {
-  const { data } = await serviceClient
-    .from("pack_source_credentials")
-    .select("credential_value")
-    .eq("source_id", sourceId)
-    .eq("credential_key", key)
-    .single();
-  return data?.credential_value || null;
-}
+// Local getSourceCredential removed — use _shared/credentials.ts (Vault-backed RPC)
 
 async function initializeIngestion(
   serviceClient: any,
@@ -159,7 +148,7 @@ async function initializeIngestion(
 
       const githubToken =
         await getSourceCredential(serviceClient, source_id, "api_token") ||
-        Deno.env.get("GITHUB_TOKEN");
+        Deno.env.get("GITHUB_TOKEN") || null;
 
       await updateHeartbeat(serviceClient, jobId, { phase: "fetch_tree" });
       const files = await fetchGitHubTree(owner, repoName, githubToken);
