@@ -15,6 +15,8 @@ function hexToUint8Array(hex: string): Uint8Array {
   return view;
 }
 
+import { enforceSignaturePolicy } from "./signature-policy.ts";
+
 Deno.serve(async (req) => {
   warnIfMissingEnv("GITHUB_WEBHOOK_SECRET", "github-webhook HMAC verification");
   warnIfMissingEnv(
@@ -42,10 +44,23 @@ Deno.serve(async (req) => {
 
     // 1. Verify Signature
     const webhookSecret = Deno.env.get("GITHUB_WEBHOOK_SECRET");
-    if (!webhookSecret) {
-      console.warn(
-        "[WEBHOOK WARNING] GITHUB_WEBHOOK_SECRET not set, bypassing signature check (INSECURE)",
+    const environment = Deno.env.get("ENVIRONMENT") || "production";
+
+    const policy = enforceSignaturePolicy(webhookSecret, environment);
+
+    if (!policy.allowed) {
+      console.error(`[WEBHOOK ERROR] ${policy.errorMsg}`);
+      return jsonError(
+        401,
+        "unauthorized",
+        policy.errorMsg || "Missing signature secret",
+        {},
+        corsHeaders,
       );
+    }
+
+    if (policy.warnMsg) {
+      console.warn(`[WEBHOOK WARNING] ${policy.warnMsg}`);
     } else if (!signature) {
       console.error("[WEBHOOK ERROR] Missing x-hub-signature-256 header");
       return jsonError(
@@ -128,7 +143,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const internalHeaders = internalSecret
+    const internalHeaders: Record<string, string> = internalSecret
       ? {
         "Content-Type": "application/json",
         "X-Rocketboard-Internal": internalSecret,
