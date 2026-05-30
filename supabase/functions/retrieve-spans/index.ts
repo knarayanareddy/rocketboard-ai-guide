@@ -27,7 +27,7 @@ async function generateEmbeddingOpenAI(
       },
       body: JSON.stringify({
         input: text.replace(/\n/g, " "),
-        model: "text-embedding-3-small",
+        model: Deno.env.get("EMBEDDING_MODEL") || "text-embedding-3-small",
       }),
     });
     if (!res.ok) {
@@ -74,11 +74,21 @@ async function generateEmbeddingGoogle(
 async function generateEmbedding(
   text: string,
 ): Promise<number[] | null> {
-  const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
-  const localApiKey = Deno.env.get("LOCAL_LLM_API_KEY") || "";
-  const googleApiKey = Deno.env.get("GOOGLE_AI_API_KEY") || "";
+  // EMBEDDING_PROVIDER selects the embedding backend. It MUST match the provider used
+  // to embed the stored chunks (same model + vector dimension) or hybrid search breaks.
+  const provider = (Deno.env.get("EMBEDDING_PROVIDER") || "openai").toLowerCase();
+  const forceLocal = provider === "local" || provider === "ollama" || provider === "llamacpp";
+  const openAIApiKey = forceLocal ? "" : (Deno.env.get("OPENAI_API_KEY") || "");
+  const localApiKey = Deno.env.get("LOCAL_LLM_API_KEY") || (forceLocal ? "ollama" : "");
+  const googleApiKey = forceLocal ? "" : (Deno.env.get("GOOGLE_AI_API_KEY") || "");
 
-  // Try OpenAI first
+  // Local-first when forced (keeps query embeddings consistent with locally-embedded chunks)
+  if (forceLocal && localApiKey) {
+    const result = await generateEmbeddingOpenAI(text, localApiKey, true);
+    if (result) return result;
+  }
+
+  // Try OpenAI first (default)
   if (openAIApiKey) {
     const result = await generateEmbeddingOpenAI(text, openAIApiKey, false);
     if (result) return result;
@@ -342,7 +352,7 @@ Deno.serve(async (req) => {
       top1_score: top1Score,
       avg_score: avgScore,
       unique_files_count: uniqueFiles,
-      embedding_model: "text-embedding-3-small", // Default if using our wrapper
+      embedding_model: Deno.env.get("EMBEDDING_MODEL") || "text-embedding-3-small",
     });
 
     await trace.flush();

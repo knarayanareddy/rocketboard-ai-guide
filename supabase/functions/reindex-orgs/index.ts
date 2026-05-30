@@ -3,7 +3,7 @@ import { getSourceCredential } from "../_shared/credentials.ts";
 import { assessChunkRedaction } from "../_shared/secret-patterns.ts";
 import { parseAndValidateExternalUrl } from "../_shared/external-url-policy.ts";
 import { computeContentHash } from "../_shared/hash-utils.ts";
-import { getPreviousGenerationEmbeddings } from "../_shared/embedding-reuse.ts";
+import { generateEmbedding, getPreviousGenerationEmbeddings } from "../_shared/embedding-reuse.ts";
 import { createTrace, shouldTrace } from "../_shared/telemetry.ts";
 
 import {
@@ -16,31 +16,7 @@ import { requireUser } from "../_shared/authz.ts";
 import { createServiceClient } from "../_shared/supabase-clients.ts";
 import { requirePackRole } from "../_shared/pack-access.ts";
 
-// Reuse helpers from ingest-source (ideally these move to _shared later)
-async function generateEmbedding(
-  text: string,
-  apiKey: string,
-): Promise<number[] | null> {
-  if (!apiKey) return null;
-  try {
-    const res = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        input: text.replace(/\n/g, " "),
-        model: "text-embedding-3-small",
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.data[0].embedding;
-  } catch (err) {
-    return null;
-  }
-}
+// Embedding generation is centralized in _shared/embedding-reuse.ts (configurable provider/model/dim).
 
 async function fetchGitHubTree(
   owner: string,
