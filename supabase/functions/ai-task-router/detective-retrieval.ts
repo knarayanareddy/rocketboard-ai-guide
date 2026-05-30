@@ -1,4 +1,4 @@
-import { EvidenceSpan } from "./index.ts";
+import type { EvidenceSpan } from "./types.ts";
 import { batchRerankWithLLM } from "./reranker.ts";
 import {
   extractQualifiedSymbolsFromText,
