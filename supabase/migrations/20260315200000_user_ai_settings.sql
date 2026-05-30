@@ -67,6 +67,7 @@ CREATE OR REPLACE FUNCTION public.save_byok_key(
 )
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
   _passphrase text;
@@ -75,10 +76,12 @@ DECLARE
 BEGIN
   -- pgcrypto passphrase stored in Supabase secrets as BYOK_ENCRYPTION_PASSPHRASE
   -- Falls back to a static salt if not configured (dev/CI only)
-  _passphrase := coalesce(
-    current_setting('app.byok_encryption_passphrase', true),
-    'dev-fallback-passphrase-change-in-prod'
-  );
+  -- SECURITY (P0): fail closed. No insecure fallback passphrase.
+  _passphrase := current_setting('app.byok_encryption_passphrase', true);
+  IF _passphrase IS NULL OR length(_passphrase) < 16 THEN
+    RAISE EXCEPTION 'BYOK encryption passphrase not configured (app.byok_encryption_passphrase); refusing insecure operation'
+      USING ERRCODE = '28000';
+  END IF;
 
   _encrypted := encode(pgp_sym_encrypt(_api_key, _passphrase), 'base64');
 
@@ -109,6 +112,7 @@ CREATE OR REPLACE FUNCTION public.set_active_byok_provider(
 )
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
 AS $$
 BEGIN
   INSERT INTO public.user_ai_settings (user_id, byok_config)
@@ -123,6 +127,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.clear_byok_provider(_provider text)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
 AS $$
 BEGIN
   UPDATE public.user_ai_settings
@@ -141,15 +146,18 @@ CREATE OR REPLACE FUNCTION public.get_decrypted_byok_key(
 )
 RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
 AS $$
 DECLARE
   _passphrase text;
   _encrypted  text;
 BEGIN
-  _passphrase := coalesce(
-    current_setting('app.byok_encryption_passphrase', true),
-    'dev-fallback-passphrase-change-in-prod'
-  );
+  -- SECURITY (P0): fail closed. No insecure fallback passphrase.
+  _passphrase := current_setting('app.byok_encryption_passphrase', true);
+  IF _passphrase IS NULL OR length(_passphrase) < 16 THEN
+    RAISE EXCEPTION 'BYOK encryption passphrase not configured (app.byok_encryption_passphrase); refusing insecure operation'
+      USING ERRCODE = '28000';
+  END IF;
 
   SELECT byok_config->'providers'->_provider->>'api_key_encrypted'
   INTO _encrypted
@@ -202,3 +210,38 @@ FROM public.user_ai_settings;
 
 -- RLS applies through the underlying table
 GRANT SELECT ON public.user_ai_settings_masked TO authenticated;
+
+
+-- ─── P0 SECURITY: passphrase rotation ────────────────────────────────────────
+-- Re-encrypts all stored BYOK keys from _old_passphrase to _new_passphrase.
+-- Run by an operator (service role) during key rotation. Returns count re-encrypted.
+CREATE OR REPLACE FUNCTION public.rotate_byok_passphrase(_old_passphrase text, _new_passphrase text)
+RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
+AS $$
+DECLARE
+  _row record; _prov text; _val jsonb; _enc text; _plain text; _count int := 0; _cfg jsonb;
+BEGIN
+  IF _new_passphrase IS NULL OR length(_new_passphrase) < 16 THEN
+    RAISE EXCEPTION 'New passphrase too short (min 16 chars)';
+  END IF;
+  FOR _row IN SELECT user_id, byok_config FROM public.user_ai_settings LOOP
+    _cfg := _row.byok_config;
+    FOR _prov, _val IN
+      SELECT key, value FROM jsonb_each(coalesce(_row.byok_config->'providers', '{}'::jsonb))
+    LOOP
+      _enc := _val->>'api_key_encrypted';
+      IF _enc IS NOT NULL THEN
+        _plain := convert_from(pgp_sym_decrypt(decode(_enc, 'base64'), _old_passphrase), 'utf8');
+        _cfg := jsonb_set(_cfg, ARRAY['providers', _prov, 'api_key_encrypted'],
+                 to_jsonb(encode(pgp_sym_encrypt(_plain, _new_passphrase), 'base64')));
+        _count := _count + 1;
+      END IF;
+    END LOOP;
+    UPDATE public.user_ai_settings SET byok_config = _cfg WHERE user_id = _row.user_id;
+  END LOOP;
+  RETURN _count;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.rotate_byok_passphrase(text, text) FROM PUBLIC;

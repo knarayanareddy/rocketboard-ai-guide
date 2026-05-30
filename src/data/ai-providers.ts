@@ -27,10 +27,10 @@ export interface AIProvider {
 
 // ─── PLATFORM DEFAULT ─────────────────────────────────────────────────────────
 export const PLATFORM_DEFAULT = {
-  provider: "google" as const,
-  model: "gemini-3-flash" as const,
-  label: "Gemini 3 Flash (Platform Default)",
-  note: "Platform-provided. No user key required.",
+  provider: "local" as const,
+  model: "llama3" as const,
+  label: "Local LLM (Ollama / llama.cpp)",
+  note: "Self-hosted OpenAI-compatible endpoint. No external key or vendor required.",
 };
 
 // ─── PROVIDER CATALOGUE ───────────────────────────────────────────────────────
@@ -356,5 +356,8 @@ export const PROVIDER_ENDPOINTS: Record<string, string> = {
   together:  "https://api.together.xyz/v1/chat/completions",
   sambanova: "https://api.sambanova.ai/v1/chat/completions",
   cerebras:  "https://api.cerebras.ai/v1/chat/completions",
-  default:   "https://ai.gateway.lovable.dev/v1/chat/completions",
+  ollama:    "http://localhost:11434/v1/chat/completions",
+  local:     "http://localhost:11434/v1/chat/completions",
+  // De-Lovable: default routes to the self-hosted local LLM (configure via env in the edge runtime).
+  default:   "http://localhost:11434/v1/chat/completions",
 };

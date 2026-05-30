@@ -12,12 +12,12 @@ import { createServiceClient } from "../_shared/supabase-clients.ts";
 async function generateEmbeddingOpenAI(
   text: string,
   apiKey: string,
-  useLovableGateway: boolean,
+  useLocalEndpoint: boolean,
 ): Promise<number[] | null> {
   if (!apiKey) return null;
   try {
-    const url = useLovableGateway
-      ? "https://ai.gateway.lovable.dev/v1/embeddings"
+    const url = useLocalEndpoint
+      ? ((Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/embeddings")
       : "https://api.openai.com/v1/embeddings";
     const res = await fetch(url, {
       method: "POST",
@@ -75,7 +75,7 @@ async function generateEmbedding(
   text: string,
 ): Promise<number[] | null> {
   const openAIApiKey = Deno.env.get("OPENAI_API_KEY") || "";
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY") || "";
+  const localApiKey = Deno.env.get("LOCAL_LLM_API_KEY") || "";
   const googleApiKey = Deno.env.get("GOOGLE_AI_API_KEY") || "";
 
   // Try OpenAI first
@@ -84,9 +84,9 @@ async function generateEmbedding(
     if (result) return result;
   }
 
-  // Then Lovable gateway
-  if (lovableApiKey) {
-    const result = await generateEmbeddingOpenAI(text, lovableApiKey, true);
+  // Then local LLM endpoint
+  if (localApiKey) {
+    const result = await generateEmbeddingOpenAI(text, localApiKey, true);
     if (result) return result;
   }
 

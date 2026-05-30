@@ -485,12 +485,22 @@ const PROVIDER_ENDPOINTS: Record<
   together: { url: "https://api.together.xyz/v1/chat/completions" },
   sambanova: { url: "https://api.sambanova.ai/v1/chat/completions" },
   cerebras: { url: "https://api.cerebras.ai/v1/chat/completions" },
-  default: { url: "https://ai.gateway.lovable.dev/v1/chat/completions" },
+  ollama: { url: (Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/chat/completions" },
+  local: { url: (Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/chat/completions" },
+  // De-Lovable: default is now the configured self-hosted/local OpenAI-compatible endpoint.
+  default: {
+    url: Deno.env.get("DEFAULT_LLM_ENDPOINT") ||
+      (Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/chat/completions",
+  },
 };
 
 async function resolveAIConfig(userId: string): Promise<AIConfig> {
-  const defaultModel = "google/gemini-3-flash-preview";
-  const defaultKey = Deno.env.get("LOVABLE_API_KEY") || "";
+  const defaultModel = Deno.env.get("DEFAULT_LLM_MODEL") ||
+    Deno.env.get("OLLAMA_MODEL") || "llama3";
+  // Local OpenAI-compatible servers ignore the key, but the client requires a
+  // non-empty bearer; "ollama" is the conventional placeholder.
+  const defaultKey = Deno.env.get("LOCAL_LLM_API_KEY") ||
+    Deno.env.get("OLLAMA_API_KEY") || "ollama";
   const defaultConfig: AIConfig = {
     provider: "default",
     model: defaultModel,
@@ -536,7 +546,7 @@ async function resolveAIConfig(userId: string): Promise<AIConfig> {
 
 // ─── AI CALL ABSTRACTION ───
 // Default if not passed in via config
-const AI_MODEL = "google/gemini-3-flash-preview";
+const AI_MODEL = Deno.env.get("DEFAULT_LLM_MODEL") || Deno.env.get("OLLAMA_MODEL") || "llama3";
 
 async function callAI(
   systemPrompt: string,
@@ -547,8 +557,9 @@ async function callAI(
   const activeConfig = config || {
     provider: "default",
     model: AI_MODEL,
-    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    apiKey: Deno.env.get("LOVABLE_API_KEY") || "",
+    endpoint: PROVIDER_ENDPOINTS.default.url,
+    apiKey: Deno.env.get("LOCAL_LLM_API_KEY") ||
+      Deno.env.get("OLLAMA_API_KEY") || "ollama",
     isCustom: false,
   };
 
@@ -598,6 +609,7 @@ async function callAI(
       };
     }
 
+    const localLlmHost = Deno.env.get("LOCAL_LLM_HOST") || "ollama";
     const llmPolicy = {
       allowedHostSuffixes: [
         "openai.com",
@@ -606,10 +618,17 @@ async function callAI(
         "googleapis.com", // For Google Vertex/Gemini
         "mistral.ai",
         "cohere.ai",
+        "x.ai",
+        "deepseek.com",
         "groq.com",
+        "fireworks.ai",
+        "together.xyz",
+        "sambanova.ai",
+        "cerebras.ai",
         "perplexity.ai",
-        "ai.gateway.lovable.dev",
       ],
+      // Permit the configured self-hosted local LLM (private host + http handled by guard).
+      allowPrivateHosts: [localLlmHost, "localhost", "127.0.0.1", "host.docker.internal"],
       disallowPrivateIPs: true,
       allowHttps: true,
     };
@@ -639,14 +658,14 @@ async function callAI(
     console.error("AI provider error:", status, t);
     llmSpan?.error(`AI provider returned ${status}`);
 
-    // ── COMMERCIAL FALLBACK: If Lovable gateway is unavailable (402/429/5xx), try direct API keys ──
+    // ── COMMERCIAL FALLBACK: If local LLM endpoint is unavailable (402/429/5xx), try direct API keys ──
     if (
       (status === 402 || status === 429 || status >= 500) &&
       !activeConfig.isCustom
     ) {
       const openaiKey = Deno.env.get("OPENAI_API_KEY");
       if (openaiKey) {
-        console.log("[FALLBACK] Lovable gateway 402 → trying OpenAI directly");
+        console.log("[FALLBACK] local LLM endpoint 402 → trying OpenAI directly");
         const fallbackModel = "gpt-4o-mini"; // cost-efficient fallback
         const fallbackBody = {
           model: fallbackModel,

@@ -4,7 +4,7 @@ export const EmailTemplates = {
       <h2>You've been invited to ${packTitle}!</h2>
       <p>Hello ${email},</p>
       <p>You have been invited to join the <strong>${packTitle}</strong> pack on RocketBoard.</p>
-      <a href="https://rocketboardv1.lovable.app" style="display: inline-block; background: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Accept Invite</a>
+      <a href="https://rocketboard.example.com" style="display: inline-block; background: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Accept Invite</a>
     </div>
   `,
   moduleComplete: (userName: string, moduleTitle: string) => `
