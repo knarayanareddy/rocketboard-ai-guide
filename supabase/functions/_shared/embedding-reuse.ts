@@ -109,7 +109,7 @@ async function callEmbeddingApi(
     },
     body: JSON.stringify({
       input: text.replace(/\n/g, " "),
-      model: "text-embedding-3-small",
+      model: Deno.env.get("EMBEDDING_MODEL") || "text-embedding-3-small",
     }),
   });
 
@@ -134,8 +134,10 @@ export async function generateEmbedding(
   text: string,
   _apiKey?: string,
 ): Promise<number[] | null> {
-  const openAIKey = Deno.env.get("OPENAI_API_KEY");
-  const localKey = Deno.env.get("LOCAL_LLM_API_KEY");
+  const provider = (Deno.env.get("EMBEDDING_PROVIDER") || "openai").toLowerCase();
+  const forceLocal = provider === "local" || provider === "ollama" || provider === "llamacpp";
+  const openAIKey = forceLocal ? undefined : Deno.env.get("OPENAI_API_KEY");
+  const localKey = Deno.env.get("LOCAL_LLM_API_KEY") || (forceLocal ? "ollama" : undefined);
 
   if (!openAIKey && !localKey) {
     console.error(

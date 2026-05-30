@@ -36,6 +36,21 @@ export const PLATFORM_DEFAULT = {
 // ─── PROVIDER CATALOGUE ───────────────────────────────────────────────────────
 export const AI_PROVIDERS: Record<string, AIProvider> = {
 
+  // ── TIER 0: LOCAL / SELF-HOSTED (no key; OpenAI-compatible Ollama / llama.cpp) ──
+  local: {
+    label: "Local (Ollama / llama.cpp)",
+    keyUrl: "https://ollama.com",
+    docsUrl: "https://docs.ollama.com/api/openai-compatibility",
+    compatibility: "native_openai",
+    keyPlaceholder: "(no key needed \u2014 endpoint configured server-side)",
+    models: [
+      { id: "llama3",      label: "Llama 3 (local)",     context: 8_192,  tier: "balanced" },
+      { id: "qwen2.5",     label: "Qwen 2.5 (local)",    context: 32_768, tier: "balanced" },
+      { id: "mistral",     label: "Mistral (local)",     context: 32_768, tier: "fast" },
+      { id: "deepseek-r1", label: "DeepSeek R1 (local)", context: 65_536, tier: "reasoning" },
+    ],
+  },
+
   // ── TIER 1: PROPRIETARY FRONTIER ──────────────────────────────────────────
 
   openai: {
@@ -323,6 +338,10 @@ export const AI_PROVIDERS: Record<string, AIProvider> = {
 
 // ─── TIER GROUPING FOR UI ─────────────────────────────────────────────────────
 export const PROVIDER_TIERS: { label: string; keys: string[] }[] = [
+  {
+    label: "Tier 0 \u2014 Local / Self-hosted",
+    keys: ["local"],
+  },
   {
     label: "Tier 1 — Proprietary Frontier",
     keys: ["openai", "anthropic", "google", "mistral"],
