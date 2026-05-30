@@ -3,6 +3,7 @@ import { calculateCost, createTrace } from "../_shared/telemetry.ts";
 import type { TraceBuilder } from "../_shared/telemetry.ts";
 import { batchRerankWithLLM } from "./reranker.ts";
 import { verifyClaims, verifyGroundedness } from "./verifier.ts";
+import type { EvidenceSpan } from "./types.ts";
 import { canonicalizeCitations } from "./utils/citation-mapper.ts";
 import { resolveSnippets } from "./utils/snippet-resolver.ts";
 import {
@@ -52,20 +53,8 @@ function enforceNoDirectCode(text: string): string {
   return text;
 }
 
-export interface EvidenceSpan {
-  span_id: string;
-  chunk_ref: string;
-  chunk_pk: string;
-  stable_chunk_id: string | null;
-  chunk_id?: string; // Legacy
-  path: string;
-  text: string;
-  start_line?: number;
-  end_line?: number;
-  line_start?: number; // Aliases for robustness
-  line_end?: number;
-  content?: string;
-}
+// EvidenceSpan moved to ./types.ts (breaks the verifier/faithfulness -> index.ts import cycle).
+export type { EvidenceSpan };
 
 // TODO: Replace in-memory rate limiting with a shared durable store (Redis/PostgreSQL) for cross-instance quotas.
 // ─── RATE LIMITING ───

@@ -1,4 +1,4 @@
-import { EvidenceSpan } from "./index.ts";
+import type { EvidenceSpan } from "./types.ts";
 
 /**
  * Advanced grounding verification for RAG responses.
