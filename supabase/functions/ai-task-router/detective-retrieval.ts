@@ -38,6 +38,14 @@ const KG_SKIP_RERANK_MIN_REFERENCE_HITS = Number(
   Deno.env.get("KG_SKIP_RERANK_MIN_REFERENCE_HITS") || "1",
 );
 
+// ─── KG engine selection (Phase 7) ───────────────────────────────────────────
+// "native" (default) keeps the array-overlap symbol RPCs. "age" resolves the
+// traversal RPCs to their *_age variants (Apache AGE graph; see
+// scripts/enable-age-graph.sql). Same signatures + return shape => interaction
+// schema preserved; this only changes which SQL function backs the traversal.
+const KG_ENGINE = (Deno.env.get("KG_ENGINE") || "native").toLowerCase();
+const kgFn = (name: string): string => (KG_ENGINE === "age" ? `${name}_age` : name);
+
 /**
  * Orchestrates the Multi-Hop Detective Retrieval Loop.
  */
@@ -123,7 +131,7 @@ export async function runDetectiveRetrieval(
           kgAttempted = true;
           const rpcStart = Date.now();
           const { data: kgSpans, error: kgError } = await supabase.rpc(
-            "kg_expand_v1",
+            kgFn("kg_expand_v1"),
             {
               p_org_id: orgId,
               p_pack_id: packId,
@@ -198,7 +206,7 @@ export async function runDetectiveRetrieval(
 
     // 3. Hop 1 Retrieval (Definitions)
     const { data: hop1Spans, error: hop1Error } = await supabase.rpc(
-      "definition_search_v1",
+      kgFn("definition_search_v1"),
       {
         p_org_id: orgId,
         p_pack_id: packId,
@@ -242,7 +250,7 @@ export async function runDetectiveRetrieval(
       const topSymbolsForRefs = symbols.slice(0, 2);
       for (const sym of topSymbolsForRefs) {
         const { data: refSpans, error: refError } = await supabase.rpc(
-          "find_references_v1",
+          kgFn("find_references_v1"),
           {
             p_pack_id: packId,
             p_symbol: sym,
