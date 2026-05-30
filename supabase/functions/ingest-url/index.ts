@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
 
     const serviceClient = createServiceClient();
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY") ||
-      Deno.env.get("LOVABLE_API_KEY") || "";
+      Deno.env.get("LOCAL_LLM_API_KEY") || "";
 
     const guard = await validateIngestion(serviceClient, pack_id, source_id);
     if (!guard.success) {

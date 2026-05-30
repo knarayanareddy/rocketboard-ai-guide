@@ -12,7 +12,7 @@ import { warnIfMissingEnv } from "../_shared/env-warnings.ts";
 
 Deno.serve(async (req) => {
   warnIfMissingEnv("OPENAI_API_KEY", "auto-remediate-module LLM calls");
-  warnIfMissingEnv("LOVABLE_API_KEY", "auto-remediate-module LLM fallback");
+  warnIfMissingEnv("LOCAL_LLM_API_KEY", "auto-remediate-module LLM fallback");
   const allowedOrigins = parseAllowedOrigins();
   const corsResponse = handleCorsPreflight(req, allowedOrigins);
   if (corsResponse) return corsResponse;
@@ -114,25 +114,25 @@ Deno.serve(async (req) => {
 
     // 3. For each stale module section, contact LLM to draft an update
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const localApiKey = Deno.env.get("LOCAL_LLM_API_KEY");
 
     // Provider Routing Logic
     const useOpenAI = !!openAIApiKey;
-    const llmApiKey = openAIApiKey || lovableApiKey;
+    const llmApiKey = openAIApiKey || localApiKey;
     const llmEndpoint = useOpenAI
       ? "https://api.openai.com/v1/chat/completions"
-      : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      : ((Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/chat/completions");
     const llmModel = useOpenAI ? "gpt-4o" : "google/gemini-3-flash-preview";
 
     if (!llmApiKey) {
       throw new Error(
-        "Missing LLM API Key (OPENAI_API_KEY or LOVABLE_API_KEY)",
+        "Missing LLM API Key (OPENAI_API_KEY or LOCAL_LLM_API_KEY)",
       );
     }
 
     console.log(
       `[REMEDIATION] drafting via ${
-        useOpenAI ? "OpenAI" : "Lovable Gateway"
+        useOpenAI ? "OpenAI" : "local LLM endpoint"
       } (${llmModel})`,
     );
 

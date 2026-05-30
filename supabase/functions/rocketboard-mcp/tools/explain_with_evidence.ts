@@ -74,7 +74,7 @@ export interface ExplainResult {
 
 async function generateEmbedding(text: string): Promise<number[] | null> {
   const apiKey = Deno.env.get("OPENAI_API_KEY") ||
-    Deno.env.get("LOVABLE_API_KEY") || "";
+    Deno.env.get("LOCAL_LLM_API_KEY") || "";
   if (!apiKey) return null;
   try {
     const res = await fetch("https://api.openai.com/v1/embeddings", {

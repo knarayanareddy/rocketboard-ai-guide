@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { authClient } from "@/integrations/auth";
 import { motion } from "framer-motion";
 import { Rocket, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,8 @@ export default function AuthPage() {
   const handleGoogleSignIn = async () => {
     setOauthLoading("google");
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+      const result = await authClient.signInWithOAuth("google", {
+        redirectTo: window.location.origin,
       });
       if (result?.error) throw result.error;
     } catch (err: any) {

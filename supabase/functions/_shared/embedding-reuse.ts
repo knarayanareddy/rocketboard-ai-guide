@@ -128,16 +128,16 @@ async function callEmbeddingApi(
 
 /**
  * Generates an embedding for the given text.
- * Prioritizes OpenAI; falls back to Lovable Gateway on quota/billing errors.
+ * Prioritizes OpenAI; falls back to local LLM endpoint on quota/billing errors.
  */
 export async function generateEmbedding(
   text: string,
   _apiKey?: string,
 ): Promise<number[] | null> {
   const openAIKey = Deno.env.get("OPENAI_API_KEY");
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const localKey = Deno.env.get("LOCAL_LLM_API_KEY");
 
-  if (!openAIKey && !lovableKey) {
+  if (!openAIKey && !localKey) {
     console.error(
       "[EMBEDDING] No API keys available for embedding generation.",
     );
@@ -153,11 +153,11 @@ export async function generateEmbedding(
         text,
       );
     } catch (err: any) {
-      if (err.message?.startsWith("QUOTA:") && lovableKey) {
+      if (err.message?.startsWith("QUOTA:") && localKey) {
         console.warn(
-          `[EMBEDDING] OpenAI quota exceeded, falling back to Lovable Gateway.`,
+          `[EMBEDDING] OpenAI quota exceeded, falling back to local LLM endpoint.`,
         );
-        // fall through to Lovable Gateway below
+        // fall through to local LLM endpoint below
       } else {
         console.error("[EMBEDDING] OpenAI error:", err.message);
         return null;
@@ -165,15 +165,15 @@ export async function generateEmbedding(
     }
   }
 
-  // Lovable Gateway (primary if no OpenAI key, or fallback on quota error)
+  // local LLM endpoint (primary if no OpenAI key, or fallback on quota error)
   try {
     return await callEmbeddingApi(
-      "https://ai.gateway.lovable.dev/v1/embeddings",
-      lovableKey!,
+      ((Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/embeddings"),
+      localKey!,
       text,
     );
   } catch (err: any) {
-    console.error("[EMBEDDING] Lovable Gateway error:", err.message);
+    console.error("[EMBEDDING] local LLM endpoint error:", err.message);
     return null;
   }
 }

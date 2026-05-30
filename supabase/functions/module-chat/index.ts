@@ -40,8 +40,8 @@ Deno.serve(async (req) => {
       corsHeaders,
     );
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const LOCAL_LLM_API_KEY = Deno.env.get("LOCAL_LLM_API_KEY");
+    if (!LOCAL_LLM_API_KEY) throw new Error("LOCAL_LLM_API_KEY is not configured");
 
     const systemPrompt =
       `You are a helpful onboarding assistant for the "${moduleContext.title}" module. Answer questions clearly and concisely based ONLY on the module content provided below. If a question is outside the module scope, say so politely.
@@ -62,11 +62,11 @@ ${
 Keep answers concise, use markdown formatting, and reference specific sections when relevant.`;
 
     const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      ((Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/chat/completions"),
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${LOCAL_LLM_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

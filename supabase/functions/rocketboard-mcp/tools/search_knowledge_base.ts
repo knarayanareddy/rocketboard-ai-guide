@@ -58,13 +58,13 @@ export interface EvidenceSpanPreview {
 
 async function generateEmbedding(text: string): Promise<number[] | null> {
   const openAIKey = Deno.env.get("OPENAI_API_KEY") || "";
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
-  const apiKey = openAIKey || lovableKey;
+  const localKey = Deno.env.get("LOCAL_LLM_API_KEY") || "";
+  const apiKey = openAIKey || localKey;
   if (!apiKey) return null;
 
-  const useLovableGateway = !openAIKey && !!lovableKey;
-  const url = useLovableGateway
-    ? "https://ai.gateway.lovable.dev/v1/embeddings"
+  const useLocalEndpoint = !openAIKey && !!localKey;
+  const url = useLocalEndpoint
+    ? ((Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/embeddings")
     : "https://api.openai.com/v1/embeddings";
 
   try {

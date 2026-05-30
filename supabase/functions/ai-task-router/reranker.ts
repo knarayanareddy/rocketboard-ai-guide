@@ -12,16 +12,16 @@ export async function batchRerankWithLLM(
 ): Promise<any[]> {
   if (!spans || spans.length === 0) return [];
 
-  // Use platform key (LOVABLE_API_KEY) and Gemini Flash for cheap infra processing
-  const apiKey = Deno.env.get("LOVABLE_API_KEY") ||
+  // Use platform key (LOCAL_LLM_API_KEY) and Gemini Flash for cheap infra processing
+  const apiKey = Deno.env.get("LOCAL_LLM_API_KEY") ||
     Deno.env.get("GOOGLE_AI_API_KEY") ||
     Deno.env.get("OPENAI_API_KEY") || "";
   // If using Google AI key directly, use Google's OpenAI-compatible endpoint
-  const isGoogleDirect = !Deno.env.get("LOVABLE_API_KEY") &&
+  const isGoogleDirect = !Deno.env.get("LOCAL_LLM_API_KEY") &&
     Deno.env.get("GOOGLE_AI_API_KEY");
   const endpoint = isGoogleDirect
     ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-    : "https://ai.gateway.lovable.dev/v1/chat/completions";
+    : ((Deno.env.get("LOCAL_LLM_BASE_URL") || "http://ollama:11434/v1") + "/chat/completions");
 
   if (!apiKey) {
     console.warn("[RERANKER] No API key found for reranking, skipping...");
@@ -56,7 +56,7 @@ Prioritize snippets that show definitions, implementations, or specific configur
   try {
     const validatedEndpoint = parseAndValidateExternalUrl(endpoint, {
       allowAnyHost: false,
-      allowedHostSuffixes: ["ai.gateway.lovable.dev", "googleapis.com"],
+      allowedHostSuffixes: ["googleapis.com"],
       allowHttps: true,
       disallowPrivateIPs: true,
     });
@@ -81,7 +81,7 @@ Prioritize snippets that show definitions, implementations, or specific configur
       const errText = await res.text();
       console.error("[RERANKER] API Error:", errText);
 
-      // If Lovable gateway 402, try Google AI key directly
+      // If local LLM endpoint 402, try Google AI key directly
       if (res.status === 402 || res.status === 429) {
         const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
         if (googleKey && !isGoogleDirect) {

@@ -1350,7 +1350,7 @@ Click the flag icon on any section to notify a Pack Author that the content need
 RocketBoard relies on strict security policies to protect your knowledge pipeline.
 
 ## Vault-Backed Credentials
-For integrations like GitHub, Lovable, or Google OAuth, all API credentials are **cryptographically vaulted** on the Edge using AES-256 RPC calls. At no point can custom Edge Functions or untrusted scripts read an API key maliciously in plaintext.
+For integrations like GitHub or Google OAuth, all API credentials are **cryptographically vaulted** on the Edge using AES-256 RPC calls. At no point can custom Edge Functions or untrusted scripts read an API key maliciously in plaintext.
 
 ## Environment & Webhook Protections
 If \`ENVIRONMENT="production"\`, traffic sent to the GitHub webhook must be cryptographically signed via \`GITHUB_WEBHOOK_SECRET\`. If missing or invalid, the platform forcibly drops the connection with \`401 Unauthorized\`. 
