@@ -16,6 +16,7 @@
     "audit:edge": "node scripts/audit-edge-functions.mjs",
     "test:staleness": "tsx scripts/smoke_staleness_pipeline.ts",
     "typecheck": "tsc --noEmit",
+    "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",
     "gen:types:local": "supabase gen types typescript --local --schema public > src/integrations/supabase/types.ts",
     "gen:types": "npm run gen:types:local",
     "check:types": "tsx scripts/check_types_tables.ts",
