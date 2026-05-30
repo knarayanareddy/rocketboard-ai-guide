@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -14,47 +15,56 @@ import { usePacks } from "@/hooks/usePacks";
 import { useAcceptInvites } from "@/hooks/useAcceptInvites";
 import { useTour } from "@/hooks/useTour";
 import { TourOverlay } from "@/components/TourOverlay";
-import Index from "./pages/Index";
-import Modules from "./pages/Modules";
-import ModuleView from "./pages/ModuleView";
-import SettingsPage from "./pages/SettingsPage";
-import AuthPage from "./pages/AuthPage";
-import GlossaryPage from "./pages/GlossaryPage";
-import PathsPage from "./pages/PathsPage";
-import AskLeadPage from "./pages/AskLeadPage";
-import PacksPage from "./pages/PacksPage";
-import CreatePackPage from "./pages/CreatePackPage";
-import PackMembersPage from "./pages/PackMembersPage";
-import SourcesPage from "./pages/SourcesPage";
-import PlanPage from "./pages/PlanPage";
-import TemplatesPage from "./pages/TemplatesPage";
-import TemplateDetailPage from "./pages/TemplateDetailPage";
-import OnboardingWizard from "./pages/OnboardingWizard";
-import ReviewPage from "./pages/ReviewPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import FeedbackPage from "./pages/FeedbackPage";
-import TeamPage from "./pages/TeamPage";
-import BookmarksPage from "./pages/BookmarksPage";
-import TimelinePage from "./pages/TimelinePage";
-import ContentHealthPage from "./pages/ContentHealthPage";
-import QuizAnalyticsPage from "./pages/QuizAnalyticsPage";
-import DiscussionsPage from "./pages/DiscussionsPage";
-import NotFound from "./pages/NotFound";
-import HelpPage from "./pages/HelpPage";
-import SandboxModulePage from "./pages/SandboxModulePage";
-import FaqPage from "./pages/FaqPage";
-import FaqSuggestionsPage from "./pages/FaqSuggestionsPage";
-import RoadmapPage from "./pages/RoadmapPage";
-import RoadmapBuilder from "./pages/RoadmapBuilder";
-import TrustDashboard from "./pages/TrustDashboard";
-import LifecycleSettings from "./pages/LifecycleSettings";
-import RequestDrilldown from "./pages/RequestDrilldown";
-import DocsLibraryPage from "./pages/DocsLibraryPage";
-import DocDetailPage from "./pages/DocDetailPage";
-import DocsAdminPage from "./pages/DocsAdminPage";
-import ProposalsPage from "./pages/admin/ProposalsPage";
+const Index = lazy(() => import("./pages/Index"));
+const Modules = lazy(() => import("./pages/Modules"));
+const ModuleView = lazy(() => import("./pages/ModuleView"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const GlossaryPage = lazy(() => import("./pages/GlossaryPage"));
+const PathsPage = lazy(() => import("./pages/PathsPage"));
+const AskLeadPage = lazy(() => import("./pages/AskLeadPage"));
+const PacksPage = lazy(() => import("./pages/PacksPage"));
+const CreatePackPage = lazy(() => import("./pages/CreatePackPage"));
+const PackMembersPage = lazy(() => import("./pages/PackMembersPage"));
+const SourcesPage = lazy(() => import("./pages/SourcesPage"));
+const PlanPage = lazy(() => import("./pages/PlanPage"));
+const TemplatesPage = lazy(() => import("./pages/TemplatesPage"));
+const TemplateDetailPage = lazy(() => import("./pages/TemplateDetailPage"));
+const OnboardingWizard = lazy(() => import("./pages/OnboardingWizard"));
+const ReviewPage = lazy(() => import("./pages/ReviewPage"));
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
+const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
+const TeamPage = lazy(() => import("./pages/TeamPage"));
+const BookmarksPage = lazy(() => import("./pages/BookmarksPage"));
+const TimelinePage = lazy(() => import("./pages/TimelinePage"));
+const ContentHealthPage = lazy(() => import("./pages/ContentHealthPage"));
+const QuizAnalyticsPage = lazy(() => import("./pages/QuizAnalyticsPage"));
+const DiscussionsPage = lazy(() => import("./pages/DiscussionsPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const HelpPage = lazy(() => import("./pages/HelpPage"));
+const SandboxModulePage = lazy(() => import("./pages/SandboxModulePage"));
+const FaqPage = lazy(() => import("./pages/FaqPage"));
+const FaqSuggestionsPage = lazy(() => import("./pages/FaqSuggestionsPage"));
+const RoadmapPage = lazy(() => import("./pages/RoadmapPage"));
+const RoadmapBuilder = lazy(() => import("./pages/RoadmapBuilder"));
+const TrustDashboard = lazy(() => import("./pages/TrustDashboard"));
+const LifecycleSettings = lazy(() => import("./pages/LifecycleSettings"));
+const RequestDrilldown = lazy(() => import("./pages/RequestDrilldown"));
+const DocsLibraryPage = lazy(() => import("./pages/DocsLibraryPage"));
+const DocDetailPage = lazy(() => import("./pages/DocDetailPage"));
+const DocsAdminPage = lazy(() => import("./pages/DocsAdminPage"));
+const ProposalsPage = lazy(() => import("./pages/admin/ProposalsPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,        // was 0 -> refetch churn on every navigation
+      gcTime: 5 * 60_000,
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -139,6 +149,7 @@ function TourManager() {
 }
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <PackProvider>
@@ -150,6 +161,7 @@ const App = () => (
           <BrowserRouter>
             <GlobalSearchShortcut />
             <TourManager />
+            <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background dark"><div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" /></div>}>
             <Routes>
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><InviteAcceptor><OnboardingWizard /></InviteAcceptor></ProtectedRoute>} />
@@ -214,12 +226,14 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
         </TooltipProvider>
         </ThemeProvider>
       </PackProvider>
     </AuthProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 /** Redirect old flat routes to pack-scoped equivalents */
